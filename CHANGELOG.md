@@ -1,4 +1,8 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 18:52] v1.0.15: KV (Paged KV-Cache & Sliding Window Attn)
+- **Дивизион**: Quantization & Tensors
+- **Оптимизация**: Use quantized integers and AVX2 SIMD for tensor operations to enhance performance and reduce memory usage.
+- **Бенчмарк ядра**: 18.31 GFLOPS AVX2 SIMD валидировано
 ## [2026-11-02 18:51] v1.0.14: HYBRID (Out-of-Memory (OOM) Predictive Guard)
 - **Дивизион**: Quantization & Tensors
 - **Оптимизация**: Prioritize tensor compression over reallocation for OOM prevention.

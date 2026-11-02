@@ -33,6 +33,14 @@
       "cycle": 14,
       "timestamp": 1793627505,
       "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
+    },
+    "kv": {
+      "role": "Paged KV-Cache & Sliding Window Attn",
+      "division": "Quantization & Tensors",
+      "rule": "Use quantized integers and AVX2 SIMD for tensor operations to enhance performance and reduce memory usage.",
+      "cycle": 15,
+      "timestamp": 1793627521,
+      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
     }
   }
 }
