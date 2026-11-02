@@ -5,3 +5,6 @@ __pycache__/
 .vscode/
 .idea/
 *.egg-info/
+social_config.json
+*.secret
+*.token
