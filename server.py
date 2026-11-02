@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from engine import engine_instance
-from hardware import get_hardware_profile
+from hardware import get_hardware_profile, evaluate_compatibility
 from hf_hub import browse_models, fetch_model_metadata, fetch_model_card
 app = FastAPI(title="Shard Local Model Engine and Server", version="1.0.0")
 app.add_middleware(
@@ -72,6 +72,107 @@ async def api_load_model(req: Request):
 @app.post("/api/models/unload")
 def api_unload_model():
     return engine_instance.unload_model()
+@app.get("/api/models/downloaded")
+def api_get_downloaded_models():
+    hub_dir = os.path.join(os.environ.get("HF_HOME", "/data/models"), "hub")
+    hw = get_hardware_profile()
+    models = []
+    total_bytes = 0
+    if os.path.exists(hub_dir):
+        try:
+            from huggingface_hub import scan_cache_dir
+            cache = scan_cache_dir(hub_dir)
+            active_id = (engine_instance.active_model_id or "").lower()
+            current_id = (engine_instance.current_loaded_id or "").lower()
+            for repo in cache.repos:
+                total_bytes += repo.size_on_disk
+                sz_mb = round(repo.size_on_disk / (1024 * 1024), 1)
+                sz_str = f"{round(sz_mb / 1024, 2)} ГБ" if sz_mb >= 1024 else f"{sz_mb} МБ"
+                author = repo.repo_id.split("/")[0] if "/" in repo.repo_id else "Community"
+                name = repo.repo_id.split("/")[-1]
+                comp = evaluate_compatibility(repo.repo_id, hw)
+                is_act = (repo.repo_id.lower() == active_id or repo.repo_id.lower() == current_id)
+                models.append({
+                    "id": repo.repo_id,
+                    "author": author,
+                    "name": name,
+                    "size_bytes": repo.size_on_disk,
+                    "size_mb": sz_mb,
+                    "size_str": sz_str,
+                    "is_active": is_act,
+                    "last_modified": repo.last_modified,
+                    "compatibility": comp
+                })
+        except Exception:
+            for item in os.listdir(hub_dir):
+                if item.startswith("models--"):
+                    clean_id = item.replace("models--", "").replace("--", "/")
+                    full_p = os.path.join(hub_dir, item)
+                    sz = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(full_p) for f in fs if os.path.exists(os.path.join(r, f)))
+                    sz_mb = round(sz / (1024 * 1024), 1)
+                    sz_str = f"{round(sz_mb / 1024, 2)} ГБ" if sz_mb >= 1024 else f"{sz_mb} МБ"
+                    total_bytes += sz
+                    models.append({
+                        "id": clean_id,
+                        "author": clean_id.split("/")[0] if "/" in clean_id else "Community",
+                        "name": clean_id.split("/")[-1],
+                        "size_bytes": sz,
+                        "size_mb": sz_mb,
+                        "size_str": sz_str,
+                        "is_active": (clean_id.lower() == (engine_instance.active_model_id or "").lower()),
+                        "last_modified": int(os.path.getmtime(full_p)),
+                        "compatibility": evaluate_compatibility(clean_id, hw)
+                    })
+    models.sort(key=lambda x: x["size_bytes"], reverse=True)
+    return {
+        "models": models,
+        "total_models": len(models),
+        "total_size_gb": round(total_bytes / (1024**3), 2),
+        "disk_free_gb": hw.get("disk_free_gb", 0)
+    }
+@app.delete("/api/models/downloaded")
+@app.post("/api/models/delete")
+async def api_delete_downloaded_model(req: Request):
+    model_id = ""
+    try:
+        data = await req.json()
+        model_id = data.get("model_id", "").strip()
+    except Exception:
+        pass
+    if not model_id:
+        model_id = req.query_params.get("model_id", "").strip()
+    if not model_id:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "model_id required"})
+    if engine_instance.active_model_id == model_id or engine_instance.current_loaded_id == model_id:
+        engine_instance.unload_model()
+    hub_dir = os.path.join(os.environ.get("HF_HOME", "/data/models"), "hub")
+    freed_bytes = 0
+    try:
+        from huggingface_hub import scan_cache_dir
+        cache = scan_cache_dir(hub_dir)
+        target_repo = None
+        for r in cache.repos:
+            if r.repo_id.lower() == model_id.lower() or r.repo_id.split("/")[-1].lower() == model_id.lower():
+                target_repo = r
+                break
+        if target_repo:
+            freed_bytes = target_repo.size_on_disk
+            rev_hashes = [rev.commit_hash for rev in target_repo.revisions]
+            if rev_hashes:
+                strategy = cache.delete_revisions(*rev_hashes)
+                strategy.execute()
+    except Exception:
+        pass
+    norm_name = "models--" + model_id.replace("/", "--")
+    folder_path = os.path.join(hub_dir, norm_name)
+    if os.path.exists(folder_path):
+        import shutil
+        if freed_bytes == 0:
+            freed_bytes = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(folder_path) for f in fs if os.path.exists(os.path.join(r, f)))
+        shutil.rmtree(folder_path, ignore_errors=True)
+    sz_mb = round(freed_bytes / (1024 * 1024), 1)
+    freed_str = f"{round(sz_mb / 1024, 2)} ГБ" if sz_mb >= 1024 else f"{sz_mb} МБ"
+    return {"status": "ok", "deleted": model_id, "freed_str": freed_str, "freed_bytes": freed_bytes}
 @app.get("/api/keys")
 def api_get_keys():
     return {"keys": API_KEYS}
