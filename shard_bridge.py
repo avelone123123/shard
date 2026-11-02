@@ -1,6 +1,9 @@
 import ctypes
 import os
-DLL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shard_core.dll")
+import sys
+_base = os.path.dirname(os.path.abspath(__file__))
+_lib_name = "shard_core.dll" if sys.platform == "win32" else "shard_core.so"
+DLL_PATH = os.path.join(_base, _lib_name)
 class ShardNativeBridge:
     def __init__(self):
         self.dll = None

@@ -1311,7 +1311,7 @@ async function sendChat() {
                                 fullReasoning += choice.delta.reasoning_content;
                                 tokensCount++;
                             }
-                            if (choice.delta.content) {
+                            if (choice.delta.content !== undefined && choice.delta.content !== null) {
                                 if (!hasThoughtEnded) {
                                     hasThoughtEnded = true;
                                     clearInterval(thinkTimer);
@@ -1320,7 +1320,8 @@ async function sendChat() {
                                     if (thinkBody.innerText.trim().length > 0) {
                                         thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
                                     } else {
-                                        document.getElementById('think-panel-' + msgId).style.display = 'none';
+                                        const tp = document.getElementById('think-panel-' + msgId);
+                                        if (tp) tp.style.display = 'none';
                                     }
                                 }
                                 contentBox.innerText += choice.delta.content;

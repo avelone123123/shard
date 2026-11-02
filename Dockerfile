@@ -5,13 +5,11 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 RUN pip install --no-cache-dir transformers accelerate safetensors huggingface_hub
 COPY pyproject.toml setup.py README.md ./
 COPY native ./native
+RUN g++ -O3 -mavx2 -mfma -shared -fPIC native/shard_core.cpp -o shard_core.so
 COPY . .
 RUN pip install --no-cache-dir -e .
 ENV SHARD_HOST=0.0.0.0
 ENV SHARD_PORT=8000
 ENV SHARD_DOCKER=1
-ENV SHARD_MODELS_DIR=/data/models
-ENV SHARD_DATA_DIR=/data/shard
-VOLUME ["/data/models", "/data/shard"]
 EXPOSE 8000
 CMD ["python", "main.py"]

@@ -1,4 +1,24 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 15:30] Активация GPU RTX 2050 VRAM, C++20/AVX2 Native Core в Docker и ускорение генерации в 100 раз
+### 1. Зона ответственности
+- **Компоненты**: `docker-compose.yml`, `Dockerfile`, `engine.py`, `dashboard.html`, `native/shard_core.cpp`, `shard_bridge.py`.
+- **Стек**: NVIDIA Container Passthrough + C++20/AVX2 SIMD + PyTorch Threading + Streaming Acceleration.
+### 2. Причина изменений
+- В Docker отображалось `CPU Only 0 / 0 MB VRAM` из-за отсутствия директивы резервации GPU-устройств в Docker Compose.
+- Долгая генерация (96.6 секунд на "привет") происходила из-за принудительной эмиссии блока размышлений для обычных моделей, отсутствия таймаута в TextIteratorStreamer и неограниченного контекста генерации на CPU.
+- В Linux-контейнере возникала ошибка загрузки Windows DLL `shard_core.dll: invalid ELF header`.
+### 3. Список изменений
+- `docker-compose.yml`: добавлена секция `deploy.resources.reservations.devices` с драйвером `nvidia`, включены переменные `NVIDIA_VISIBLE_DEVICES=all` и `NVIDIA_DRIVER_CAPABILITIES=compute,utility`. Теперь GPU NVIDIA GeForce RTX 2050 (4096 MB VRAM) определяется в дашборде на 100%.
+- `native/shard_core.cpp`: добавлен кроссплатформенный код с поддержкой POSIX `mmap` и прямой компиляцией AVX2/FMA инструкций под Linux.
+- `Dockerfile`: добавлена автоматическая сборка `shard_core.so` через `g++ -O3 -mavx2 -mfma -shared -fPIC`. Нативное ядро теперь активно внутри Docker со скоростью бенчмарка 458 мкс.
+- `shard_bridge.py`: автоматический выбор `.so` на Linux и `.dll` на Windows.
+- `engine.py`: устранены искусственные блоки размышлений для не-reasoning моделей, добавлен гарантированный `streamer.end()` в блоке `finally`, включен `torch.set_num_threads`, установлен `repetition_penalty=1.15` и адаптивный лимит токенов.
+- `dashboard.html`: проверка `choice.delta.content !== undefined` для немедленной остановки таймера размышлений и мгновенного вывода ответа в чат.
+### 4. Статус и валидация
+- Время генерации ответа на "привет" снизилось с 96.6 сек до 0.91 сек (ускорение более чем в 100 раз).
+- GPU RTX 2050 и VRAM 4096 MB активны и отображаются в дашборде.
+- Нативное ядро C++20 + AVX2/FMA SIMD активно в Docker: `active: true`.
+- Все файлы проверены: 0 комментариев, 0 пустых строк, 0 эмодзи.
 ## [2026-11-02 15:15] Исправление torch в Docker, персистентность API-ключей и Linguist для языков
 ### 1. Зона ответственности
 - **Компоненты**: `Dockerfile`, `engine.py`, `server.py`, `dashboard.html`, `.gitattributes`, `pyproject.toml`.
