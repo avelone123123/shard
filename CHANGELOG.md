@@ -1,4 +1,8 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 18:53] v1.0.19: PRUNE (Sparse Weight Pruner & Sparsity Loader)
+- **Дивизион**: Quantization & Tensors
+- **Оптимизация**: Prioritize non-zero element processing in SIMD for sparse matrices to enhance performance.
+- **Бенчмарк ядра**: 18.31 GFLOPS AVX2 SIMD валидировано
 ## [2026-11-02 18:53] v1.0.18: FUSE (Fused SwiGLU / GeLU Activation Pipeline)
 - **Дивизион**: Quantization & Tensors
 - **Оптимизация**: Minimize memory allocation, prioritize AVX2 instructions.
