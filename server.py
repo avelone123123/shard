@@ -235,11 +235,11 @@ def installer_script(tool: str = "claude", os: str = "linux", key: str = ""):
                      '        apiKey = $k\n' + \
                      '      }\n' + \
                      '      models = @{\n' + \
-                     '        "Qwen/Qwen2.5-Coder-7B-Instruct" = @{ name = "Qwen2.5 Coder 7B"; modalities = @("text"); limit = @{ context = 128000; output = 8192 } }\n' + \
-                     '        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" = @{ name = "DeepSeek R1 Distill 7B"; modalities = @("text"); limit = @{ context = 128000; output = 8192 } }\n' + \
-                     '        "google/gemma-2-9b-it" = @{ name = "Gemma 2 9B"; modalities = @("text"); limit = @{ context = 128000; output = 8192 } }\n' + \
-                     '        "meta-llama/Llama-3.2-3B-Instruct" = @{ name = "Llama 3.2 3B"; modalities = @("text"); limit = @{ context = 128000; output = 8192 } }\n' + \
-                     '        "mistralai/Mistral-7B-Instruct-v0.3" = @{ name = "Mistral 7B v0.3"; modalities = @("text"); limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "Qwen/Qwen2.5-Coder-7B-Instruct" = @{ name = "Qwen2.5 Coder 7B"; modalities = @{ input = @("text"); output = @("text") }; limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" = @{ name = "DeepSeek R1 Distill 7B"; modalities = @{ input = @("text"); output = @("text") }; limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "google/gemma-2-9b-it" = @{ name = "Gemma 2 9B"; modalities = @{ input = @("text"); output = @("text") }; limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "meta-llama/Llama-3.2-3B-Instruct" = @{ name = "Llama 3.2 3B"; modalities = @{ input = @("text"); output = @("text") }; limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "mistralai/Mistral-7B-Instruct-v0.3" = @{ name = "Mistral 7B v0.3"; modalities = @{ input = @("text"); output = @("text") }; limit = @{ context = 128000; output = 8192 } }\n' + \
                      '      }\n' + \
                      '    }\n' + \
                      '  }\n' + \

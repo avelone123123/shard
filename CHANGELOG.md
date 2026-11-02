@@ -1,4 +1,18 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 13:50] Фикс схемы OpenCode (modalities object schema)
+### 1. Зона ответственности
+- **Компоненты**: `server.py`, `dashboard.html`.
+- **Стек**: PowerShell Automation + OpenCode Zod Schema Validation.
+### 2. Причина изменений
+- OpenCode v1.17.18 валидирует поле `modalities` моделей строго как объект `{ input: string[], output: string[] }`.
+- В предыдущей версии PowerShell-скрипт передавал массив строк `@("text")`, что приводило к ошибке валидации: `Expected object | undefined, got ["text"] provider.shard.models...modalities`.
+### 3. Список изменений
+- `server.py`: в генераторе скрипта PowerShell для OpenCode заменено `@("text")` на `@{ input = @("text"); output = @("text") }`. При сериализации `ConvertTo-Json -Depth 6` генерируется корректный JSON-объект.
+- `dashboard.html`: в блоке ручной конфигурации OpenCode обновлена структура `modalities` на `{"input": ["text"], "output": ["text"]}`.
+### 4. Статус и валидация
+- Скрипт `powershell -ExecutionPolicy Bypass -Command "irm 'http://localhost:8000/i?os=windows&tool=opencode&key=sk-shard-e7b54014d2fd4ad0' | iex"` выполнен успешно.
+- Команда `opencode models` выполнена со статусом 0, все 5 моделей Shard (`shard/Qwen/...`, `shard/deepseek-ai/...`, `shard/google/...`, `shard/meta-llama/...`, `shard/mistralai/...`) распознаны без ошибок валидации.
+- Все файлы соответствуют правилам: 0 комментариев, 0 пустых строк, 0 эмодзи.
 ## [2026-11-02 13:40] Карточки моделей с Hugging Face, .gitattributes для языков GitHub, Docker и agent.md
 ### 1. Зона ответственности
 - **Компоненты**: `hf_hub.py`, `server.py`, `dashboard.html`, `.gitattributes`, `Dockerfile`, `docker-compose.yml`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `.github/`, `agent.md`, `skill.md`, `README.md`.
