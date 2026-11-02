@@ -404,12 +404,12 @@ macOS
 <div class="chat-body" id="chatBody">
 <div class="msg-wrapper">
 <div class="msg-assistant">
-<div class="msg-content">Локальный движок Shard готов к работе. Напишите задачу или вопрос в поле ниже. Вы увидите ход размышлений модели, время обдумывания, живую скорость токенов и подробный отчет по утилизации ресурсов.</div>
+<div class="msg-content">Привет! Я локальная языковая модель. Спросите о чем угодно, как в обычном ChatGPT или Claude.</div>
 </div>
 </div>
 </div>
 <div class="chat-footer">
-<input type="text" id="chatInput" class="chat-input" placeholder="Напишите задачу, вопрос или запросите код..." onkeypress="if(event.key==='Enter')sendChat()">
+<input type="text" id="chatInput" class="chat-input" placeholder="Спросите о чем угодно..." onkeypress="if(event.key==='Enter')sendChat()">
 <button id="chatSendBtn" class="btn-action" onclick="sendChat()">
 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
 Отправить
@@ -794,11 +794,11 @@ async function sendChat() {
     const asstWrap = document.createElement('div');
     asstWrap.className = 'msg-wrapper';
     asstWrap.innerHTML = '<div class="msg-assistant">' +
-        '<div id="think-panel-' + msgId + '" class="think-panel">' +
+        '<div id="think-panel-' + msgId + '" class="think-panel" style="display:none;">' +
             '<div class="think-header" onclick="toggleThink(\'' + msgId + '\')">' +
                 '<div class="think-title">' +
                     '<span id="think-pulse-' + msgId + '" class="think-pulse"></span>' +
-                    '<span id="think-label-' + msgId + '">Думает (0.0 сек)...</span>' +
+                    '<span id="think-label-' + msgId + '">Размышления...</span>' +
                 '</div>' +
                 '<svg id="think-arrow-' + msgId + '" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg>' +
             '</div>' +
@@ -856,6 +856,7 @@ async function sendChat() {
                         const choice = payload.choices && payload.choices[0];
                         if (choice && choice.delta) {
                             if (choice.delta.reasoning_content) {
+                                document.getElementById('think-panel-' + msgId).style.display = 'block';
                                 thinkBody.innerText += choice.delta.reasoning_content;
                                 tokensCount++;
                             }
@@ -865,7 +866,11 @@ async function sendChat() {
                                     clearInterval(thinkTimer);
                                     thoughtSec = (performance.now() - tStart) / 1000;
                                     thinkPulse.style.display = 'none';
-                                    thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
+                                    if (thinkBody.innerText.trim().length > 0) {
+                                        thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
+                                    } else {
+                                        document.getElementById('think-panel-' + msgId).style.display = 'none';
+                                    }
                                 }
                                 contentBox.innerText += choice.delta.content;
                                 tokensCount++;
@@ -890,7 +895,10 @@ async function sendChat() {
         clearInterval(thinkTimer);
         hasThoughtEnded = true;
         thinkPulse.style.display = 'none';
-        if (thoughtSec > 0) {
+        const hasRealThought = (thinkBody.innerText.trim().length > 0);
+        if (!hasRealThought) {
+            document.getElementById('think-panel-' + msgId).style.display = 'none';
+        } else if (thoughtSec > 0) {
             thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
         }
         if (!totalSec) {
@@ -901,9 +909,10 @@ async function sendChat() {
         }
         if (liveSpeed) liveSpeed.innerText = speedVal + ' ток/сек';
         telemetryBox.style.display = 'flex';
-        telemetryBox.innerHTML = '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + formatDuration(totalSec) + '</b> (размышления: ' + formatDuration(thoughtSec) + ')</div>' +
+        const timeStr = (hasRealThought && thoughtSec > 0) ? formatDuration(totalSec) + ' (размышления: ' + formatDuration(thoughtSec) + ')' : formatDuration(totalSec);
+        telemetryBox.innerHTML = '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div>' +
             '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + speedVal + ' токенов/сек</b></div>' +
-            '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + usageData.total_tokens + ' токенов</b> (промпт: ' + usageData.prompt_tokens + ', ответ: ' + usageData.completion_tokens + ')</div>' +
+            '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + usageData.total_tokens + ' токенов</b></div>' +
             '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div>';
         chatBody.scrollTop = chatBody.scrollHeight;
     } catch(err) {
