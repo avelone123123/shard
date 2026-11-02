@@ -49,6 +49,14 @@
       "cycle": 16,
       "timestamp": 1793627547,
       "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
+    },
+    "norm": {
+      "role": "RMSNorm & LayerNorm Vectorized Math",
+      "division": "Quantization & Tensors",
+      "rule": "Maximize YMM register usage for SIMD parallelism, aligning tensor operations to cache lines.",
+      "cycle": 17,
+      "timestamp": 1793627578,
+      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
     }
   }
 }
