@@ -149,7 +149,7 @@ API Ключи
 <div class="search-bar">
 <div class="search-wrapper">
 <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-<input type="text" id="searchInput" class="search-input" placeholder="Поиск модели на Hugging Face (например: gemma, qwen, deepseek, mistral)..." onkeyup="handleSearch(event)">
+<input type="text" id="searchInput" class="search-input" placeholder="Поиск модели на Hugging Face (например: gemma, qwen, deepseek, mistral)..." oninput="handleSearchDebounced()" onkeyup="handleSearch(event)">
 </div>
 <div class="filter-tabs">
 <button class="filter-btn active" onclick="setCategory('all', this)">Все</button>
@@ -159,6 +159,7 @@ API Ключи
 <button class="filter-btn" onclick="setCategory('general', this)">Универсальные</button>
 </div>
 </div>
+<div id="modelsCountBadge" style="font-size:12px;color:var(--text-muted);margin:8px 0 12px 2px;">Загрузка каталога Hugging Face...</div>
 <div class="models-grid" id="modelsGrid"></div>
 </div>
 <div id="tab-connect" class="section">
@@ -481,8 +482,18 @@ function setCategory(cat, btn) {
     btn.classList.add('active');
     loadModels();
 }
+let searchDebounceTimer = null;
+function handleSearchDebounced() {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        loadModels();
+    }, 320);
+}
 function handleSearch(e) {
-    if (e.key === 'Enter') loadModels();
+    if (e.key === 'Enter') {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        loadModels();
+    }
 }
 function selectTool(tool, el) {
     currentTool = tool;
@@ -658,10 +669,19 @@ async function fetchHardware() {
 async function loadModels() {
     const q = document.getElementById('searchInput').value.trim();
     const grid = document.getElementById('modelsGrid');
+    const badgeEl = document.getElementById('modelsCountBadge');
+    if (badgeEl) badgeEl.innerText = 'Загрузка моделей с Hugging Face Hub...';
     try {
         const res = await fetch('/api/hf/models?category=' + currentCategory + (q ? '&query=' + encodeURIComponent(q) : ''));
         const models = await res.json();
         grid.innerHTML = '';
+        if (badgeEl) {
+            badgeEl.innerText = 'Доступно моделей на Hugging Face Hub: ' + models.length + (q ? ' (поиск: "' + q + '")' : '');
+        }
+        if (!models || models.length === 0) {
+            grid.innerHTML = '<div style="color:var(--text-muted);padding:24px;font-size:13px;grid-column:1/-1;">Модели не найдены. Попробуйте другой запрос (например: qwen, deepseek, llama, gemma, mistral, phi).</div>';
+            return;
+        }
         models.forEach(m => {
             const card = document.createElement('div');
             card.className = 'model-card';

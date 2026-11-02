@@ -24,7 +24,7 @@ def api_hardware():
     engine_st = engine_instance.get_status()
     return {"hardware": hw, "engine": engine_st}
 @app.get("/api/hf/models")
-def api_hf_models(query: str = None, category: str = "all", limit: int = 20):
+def api_hf_models(query: str = None, category: str = "all", limit: int = 50):
     return browse_models(query=query, category=category, limit=limit)
 @app.post("/api/models/load")
 async def api_load_model(req: Request):

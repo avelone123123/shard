@@ -2,14 +2,36 @@ import requests
 from hardware import evaluate_compatibility, get_hardware_profile
 CURATED_MODELS = [
     {"id": "Qwen/Qwen2.5-Coder-7B-Instruct", "category": "coding", "desc": "Лидер в кодинге для Cursor и OpenCode. Контекст 128k токенов."},
-    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", "category": "reasoning", "desc": "Флагманская модель рассуждений с логикой DeepSeek-R1."},
-    {"id": "google/gemma-2-9b-it", "category": "general", "desc": "Высокая эрудиция и стиль рассуждений от Google DeepMind."},
     {"id": "Qwen/Qwen2.5-Coder-1.5B-Instruct", "category": "coding", "desc": "Сверхлегкий кодер. Мгновенный отклик для автокомплита строк кода."},
+    {"id": "Qwen/Qwen2.5-Coder-14B-Instruct", "category": "coding", "desc": "Продвинутый кодер среднего размера с глубоким пониманием репозиториев."},
+    {"id": "Qwen/Qwen2.5-Coder-32B-Instruct", "category": "coding", "desc": "Флагманский кодер уровня GPT-4o для сложных архитектурных систем."},
+    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", "category": "reasoning", "desc": "Флагманская модель рассуждений с логикой DeepSeek-R1."},
     {"id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B", "category": "reasoning", "desc": "DeepSeek R1 рассуждения на базе архитектуры Llama-3.1."},
+    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", "category": "reasoning", "desc": "Компактная reasoning модель для моментального логического вывода."},
+    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B", "category": "reasoning", "desc": "Мощная дистилляция DeepSeek R1 с математической строгостью."},
+    {"id": "deepseek-ai/DeepSeek-V3", "category": "reasoning", "desc": "Универсальный MoE флагман мирового уровня от DeepSeek AI."},
+    {"id": "google/gemma-2-9b-it", "category": "general", "desc": "Высокая эрудиция и стиль рассуждений от Google DeepMind."},
+    {"id": "google/gemma-2-2b-it", "category": "compact", "desc": "Ультракомпактная модель Google. Занимает минимум памяти VRAM."},
+    {"id": "google/gemma-2-27b-it", "category": "general", "desc": "Большая языковая модель Google с глубоким анализом контекста."},
     {"id": "meta-llama/Llama-3.2-3B-Instruct", "category": "compact", "desc": "Компактная быстрая Llama от Meta. 100% помещается в VRAM ноута."},
+    {"id": "meta-llama/Llama-3.2-1B-Instruct", "category": "compact", "desc": "Легковесная версия Llama 3.2 с околонулевой задержкой генерации."},
+    {"id": "meta-llama/Llama-3.1-8B-Instruct", "category": "general", "desc": "Основной индустриальный стандарт открытых LLM от Meta."},
+    {"id": "meta-llama/Llama-3.3-70B-Instruct", "category": "general", "desc": "Флагман Llama 3.3 с качеством на уровне топовых коммерческих моделей."},
     {"id": "microsoft/Phi-3.5-mini-instruct", "category": "compact", "desc": "Мини-модель Microsoft 3.8B параметров с качеством больших моделей."},
+    {"id": "microsoft/phi-4", "category": "reasoning", "desc": "Передовая модель Microsoft 14B с сильным уклоном в математику и логику."},
     {"id": "HuggingFaceTB/SmolLM2-1.7B-Instruct", "category": "compact", "desc": "Сверхбыстрая компактная модель Hugging Face для слабых ПК."},
-    {"id": "mistralai/Mistral-7B-Instruct-v0.3", "category": "general", "desc": "Классический надежный универсал Mistral с поддержкой вызова функций."}
+    {"id": "HuggingFaceTB/SmolLM2-360M-Instruct", "category": "compact", "desc": "Микро-модель 360M параметров с мгновенным откликом."},
+    {"id": "mistralai/Mistral-7B-Instruct-v0.3", "category": "general", "desc": "Классический надежный универсал Mistral с поддержкой вызова функций."},
+    {"id": "mistralai/Mistral-Nemo-Instruct-2407", "category": "general", "desc": "Модель Mistral 12B, разработанная совместно с NVIDIA. 128k контекст."},
+    {"id": "mistralai/Codestral-22B-v0.1", "category": "coding", "desc": "Специализированная кодовая модель Mistral для 80+ языков программирования."},
+    {"id": "bigcode/starcoder2-7b", "category": "coding", "desc": "Индустриальная модель генерации кода от BigCode и Hugging Face."},
+    {"id": "bigcode/starcoder2-3b", "category": "coding", "desc": "Компактный StarCoder для автодополнения строк кода на лету."},
+    {"id": "01-ai/Yi-1.5-9B-Chat", "category": "general", "desc": "Модель от 01.AI с сильным балансом кодинга, математики и логики."},
+    {"id": "01-ai/Yi-1.5-6B-Chat", "category": "compact", "desc": "Облегченная Yi 6B с быстрым временем первого токена."},
+    {"id": "tiiuae/Falcon3-7B-Instruct", "category": "general", "desc": "Свежее поколение открытых моделей Falcon от Института TII."},
+    {"id": "tiiuae/Falcon3-3B-Instruct", "category": "compact", "desc": "Высокоэффективный Falcon 3B для работы на потребительских GPU."},
+    {"id": "THUDM/glm-4-9b-chat", "category": "general", "desc": "Мощная открытая мультиязычная модель от исследователей Tsinghua."},
+    {"id": "cohereforai/c4ai-command-r-v01", "category": "general", "desc": "Модель Cohere для RAG-архитектур и корпоративных агентов."}
 ]
 def fetch_model_metadata(model_id, hw=None):
     if hw is None:
@@ -21,8 +43,8 @@ def fetch_model_metadata(model_id, hw=None):
         "id": model_id,
         "author": author,
         "name": name,
-        "desc": f"Модель {name} от {author}.",
-        "description": f"Модель {name} от {author}.",
+        "desc": f"Открытая модель {name} от {author}.",
+        "description": f"Открытая модель {name} от {author}.",
         "compat_badge": comp["tier_label"],
         "speed_tier": comp["speed_est"],
         "memory_slot": comp["mode"],
@@ -30,51 +52,70 @@ def fetch_model_metadata(model_id, hw=None):
         "likes": 4200,
         "compatibility": comp
     }
-def browse_models(query=None, category=None, limit=20, hw=None):
+def browse_models(query=None, category=None, limit=36, hw=None):
     if hw is None:
         hw = get_hardware_profile()
-    if query:
-        url = f"https://huggingface.co/api/models?search={query}&filter=text-generation&sort=downloads&direction=-1&limit={limit}"
-        try:
-            r = requests.get(url, timeout=6)
-            if r.status_code == 200:
-                data = r.json()
-                results = []
-                for item in data:
-                    mid = item.get("id")
-                    if not mid:
-                        continue
-                    author = mid.split("/")[0] if "/" in mid else "Community"
-                    name = mid.split("/")[-1] if "/" in mid else mid
-                    comp = evaluate_compatibility(mid, hw)
-                    d_count = item.get("downloads", 0)
-                    results.append({
-                        "id": mid,
-                        "author": author,
-                        "name": name,
-                        "category": "search",
-                        "desc": f"Hugging Face открытая модель. Скачиваний: {d_count:,}",
-                        "description": f"Hugging Face открытая модель. Скачиваний: {d_count:,}",
-                        "compat_badge": comp["tier_label"],
-                        "speed_tier": comp["speed_est"],
-                        "memory_slot": comp["mode"],
-                        "downloads": d_count,
-                        "likes": item.get("likes", 0),
-                        "compatibility": comp
-                    })
-                if results:
-                    return results
-        except Exception:
-            pass
-    results = []
+    query_clean = (query or "").strip()
+    category_clean = (category or "all").strip().lower()
+    hf_url = "https://huggingface.co/api/models?filter=text-generation&sort=downloads&direction=-1"
+    if query_clean:
+        hf_url += f"&search={query_clean}&limit={limit}"
+    elif category_clean == "coding":
+        hf_url += f"&search=coder&limit={limit}"
+    elif category_clean == "reasoning":
+        hf_url += f"&search=r1&limit={limit}"
+    elif category_clean == "compact":
+        hf_url += f"&search=mini&limit={limit}"
+    elif category_clean == "general":
+        hf_url += f"&search=instruct&limit={limit}"
+    else:
+        hf_url += f"&limit={limit}"
+    live_results = []
+    try:
+        r = requests.get(hf_url, timeout=4)
+        if r.status_code == 200:
+            data = r.json()
+            seen_ids = set()
+            for item in data:
+                mid = item.get("id")
+                if not mid or mid in seen_ids:
+                    continue
+                seen_ids.add(mid)
+                author = mid.split("/")[0] if "/" in mid else "Community"
+                name = mid.split("/")[-1] if "/" in mid else mid
+                comp = evaluate_compatibility(mid, hw)
+                d_count = item.get("downloads", 0)
+                likes_count = item.get("likes", 0)
+                desc = f"Hugging Face открытая модель. Скачиваний: {d_count:,}"
+                live_results.append({
+                    "id": mid,
+                    "author": author,
+                    "name": name,
+                    "category": category_clean if category_clean != "all" else "general",
+                    "desc": desc,
+                    "description": desc,
+                    "compat_badge": comp["tier_label"],
+                    "speed_tier": comp["speed_est"],
+                    "memory_slot": comp["mode"],
+                    "downloads": d_count,
+                    "likes": likes_count,
+                    "compatibility": comp
+                })
+    except Exception:
+        pass
+    if live_results:
+        return live_results
+    fallback_results = []
     for item in CURATED_MODELS:
-        if category and category != "all" and item.get("category") != category:
+        if category_clean != "all" and item.get("category") != category_clean:
             continue
         mid = item["id"]
+        if query_clean and query_clean.lower() not in mid.lower():
+            continue
         author = mid.split("/")[0] if "/" in mid else "Community"
         name = mid.split("/")[-1] if "/" in mid else mid
         comp = evaluate_compatibility(mid, hw)
-        results.append({
+        fallback_results.append({
             "id": mid,
             "author": author,
             "name": name,
@@ -88,4 +129,4 @@ def browse_models(query=None, category=None, limit=20, hw=None):
             "likes": 12400,
             "compatibility": comp
         })
-    return results
+    return fallback_results

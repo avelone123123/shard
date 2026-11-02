@@ -40,36 +40,42 @@ def get_hardware_profile():
     }
 def estimate_model_params(model_id):
     mid = model_id.lower()
+    for token in ["405b"]:
+        if token in mid:
+            return 405.0
     for token in ["70b", "72b", "67b"]:
         if token in mid:
             return 70.0
-    for token in ["32b", "34b"]:
+    for token in ["30b", "32b", "34b"]:
         if token in mid:
             return 32.0
     for token in ["27b"]:
         if token in mid:
             return 27.0
-    for token in ["14b", "13b"]:
+    for token in ["22b"]:
+        if token in mid:
+            return 22.0
+    for token in ["14b", "13b", "12b", "11b"]:
         if token in mid:
             return 14.0
-    for token in ["9b"]:
-        if token in mid:
-            return 9.0
-    for token in ["8b", "7b"]:
+    for token in ["9b", "8b", "7b"]:
         if token in mid:
             return 8.0
-    for token in ["3b", "3.5b"]:
+    for token in ["6b"]:
+        if token in mid:
+            return 6.0
+    for token in ["4b", "3.8b", "3.5b", "3b"]:
         if token in mid:
             return 3.5
-    for token in ["2b", "2.5b"]:
+    for token in ["2.5b", "2b"]:
         if token in mid:
             return 2.0
-    for token in ["1.5b", "1b"]:
+    for token in ["1.7b", "1.5b", "1b", "0.6b", "0.5b"]:
         if token in mid:
             return 1.5
-    for token in ["0.5b"]:
+    for token in ["360m", "135m"]:
         if token in mid:
-            return 0.5
+            return 0.35
     return 7.0
 def evaluate_compatibility(model_id, hw=None):
     if hw is None:
