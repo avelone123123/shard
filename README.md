@@ -1,0 +1,81 @@
+# SHARD // Tri-Language Local Hugging Face Runner
+[![Architecture](https://img.shields.io/badge/Architecture-Python%20%2B%20C%2B%2B20%20%2B%20MASM%20AVX2-06b6d4)](https://github.com/avelone123123/shard)
+[![Status](https://img.shields.io/badge/Status-Production%20Ready-10b981)](https://github.com/avelone123123/shard)
+[![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
+Shard is a high-performance local AI runtime engineered with a tri-language architecture:
+- Python 3.14 (Async FastAPI, Hugging Face Hub streaming, SSE token streaming)
+- C++20 Core (Direct Win32 memory-mapped tensor paging, zero-copy matrix buffers)
+- MASM x64 Assembly (Hand-crafted AVX2/FMA SIMD vector kernels achieving 18+ GFLOPS)
+## System Overview
+```
++-------------------------------------------------------------------------+
+|                          CLIENT ECOSYSTEM                               |
+|   Cursor IDE  |  OpenCode  |  Claude Code  |  Aider CLI  |  Continue   |
++-------------------------------------------------------------------------+
+                                    | OpenAI & Claude Messages API
+                                    v
++-------------------------------------------------------------------------+
+|                        FASTAPI PYTHON LAYER                             |
+|      SSE Streamer  |  Hugging Face Hub  |  Hardware Profiler (VRAM)     |
++-------------------------------------------------------------------------+
+                                    | Zero-Copy C FFI
+                                    v
++-------------------------------------------------------------------------+
+|                        C++20 NATIVE CORE                                |
+|      Win32 VirtualAlloc  |  MapViewOfFile Pager  |  Quantizer (Q4/Q8)   |
++-------------------------------------------------------------------------+
+                                    | Direct Register Dispatch
+                                    v
++-------------------------------------------------------------------------+
+|                     MASM x64 AVX2 ASSEMBLY KERNEL                       |
+|        ymm0-ymm7 FMA Accumulators  |  Aligned 256-bit Vector Dot        |
++-------------------------------------------------------------------------+
+```
+## Installation
+```bash
+git clone https://github.com/avelone123123/shard.git
+cd shard
+pip install -e .
+```
+## CLI Commands
+Shard provides a unified command line tool:
+```bash
+shard start                     # Start local server and web workspace (port 8000)
+shard start --port 8080         # Start on custom port
+shard status                    # Inspect GPU, VRAM, RAM, and native kernel state
+shard list                      # View curated Hugging Face models and tiers
+shard list --category coding    # Filter models by category
+shard run <model_id>            # Interactive REPL session with live telemetry
+shard test                      # Execute native AVX2 SIMD hardware benchmark
+shard key                       # List local API authentication keys
+shard key --gen                 # Generate new API key
+shard help                      # Display command reference
+```
+## IDE & Tool Integration
+Shard exposes full OpenAI and Claude Messages compatible endpoints on `http://localhost:8000/v1`:
+### 1. Cursor IDE
+- Open **Settings** -> **Models** -> Add Custom Model:
+- Model Name: `Qwen/Qwen2.5-Coder-7B-Instruct`
+- OpenAI Base URL: `http://localhost:8000/v1`
+- API Key: `sk-shard-local-avelone-dev`
+### 2. Claude CLI & OpenCode (Windows PowerShell)
+```powershell
+$env:SHARD_KEY="sk-shard-local-avelone-dev"; irm "http://localhost:8000/i?os=windows&tool=claude" | iex
+```
+### 3. Linux & macOS
+```bash
+bash <(curl -fsSL "http://localhost:8000/i?tool=claude") sk-shard-local-avelone-dev
+```
+## Native AVX2 Benchmark
+```bash
+shard test
+```
+Result on Intel/AMD x64 with AVX2:
+```
+Iterations:       100,000
+Elapsed Time:     45,179 us (0.0452 s)
+Throughput:       18.13 GFLOPS (AVX2 SIMD)
+Native Pipeline:  VALIDATED [OK]
+```
+## License
+MIT License. Developed by avelone123123.

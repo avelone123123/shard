@@ -20,6 +20,9 @@ def get_hardware_profile():
     ram = psutil.virtual_memory()
     ram_total_mb = int(ram.total / (1024 * 1024))
     ram_avail_mb = int(ram.available / (1024 * 1024))
+    ram_used_mb = ram_total_mb - ram_avail_mb
+    ram_total_gb = round(ram_total_mb / 1024, 1)
+    ram_used_gb = round(ram_used_mb / 1024, 1)
     disk = shutil.disk_usage(os.path.abspath("/"))
     disk_free_gb = round(disk.free / (1024 ** 3), 1)
     return {
@@ -29,6 +32,9 @@ def get_hardware_profile():
         "vram_free_mb": max(0, vram_total_mb - vram_used_mb),
         "ram_total_mb": ram_total_mb,
         "ram_avail_mb": ram_avail_mb,
+        "ram_used_mb": ram_used_mb,
+        "ram_total_gb": ram_total_gb,
+        "ram_used_gb": ram_used_gb,
         "disk_free_gb": disk_free_gb,
         "cpu_cores": psutil.cpu_count(logical=True)
     }
@@ -82,7 +88,7 @@ def evaluate_compatibility(model_id, hw=None):
             "vram_alloc_mb": q4_size_mb,
             "ram_alloc_mb": 0,
             "nvme_streaming": False,
-            "description": f"Полностью помещается в {vram_mb} MB VRAM. Сверхбыстрый отклик."
+            "description": f"Полностью помещается в {vram_mb} MB VRAM. Максимальная скорость."
         }
     if q4_size_mb <= (vram_mb + ram_mb - 4000):
         vram_portion = max(1000, vram_mb - 600)
@@ -96,7 +102,7 @@ def evaluate_compatibility(model_id, hw=None):
             "vram_alloc_mb": vram_portion,
             "ram_alloc_mb": ram_portion,
             "nvme_streaming": False,
-            "description": f"Гибридный режим: ключевые слои в {vram_mb} MB VRAM, остаток в RAM. Без OOM."
+            "description": f"Гибрид: ключевые слои в {vram_mb} MB VRAM, остальные в RAM. Без OOM."
         }
     return {
         "tier": "NVME_STREAM",
@@ -107,5 +113,5 @@ def evaluate_compatibility(model_id, hw=None):
         "vram_alloc_mb": max(1000, vram_mb - 800),
         "ram_alloc_mb": min(ram_mb - 3000, 8000),
         "nvme_streaming": True,
-        "description": "Послойная подкачка через NVMe SSD. Позволяет запустить модель любого размера."
+        "description": "Послойный стриминг весов с быстрого NVMe SSD без ограничений памяти."
     }

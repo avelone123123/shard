@@ -641,9 +641,11 @@ async function fetchHardware() {
         const data = await res.json();
         const hw = data.hardware;
         const eng = data.engine;
-        document.getElementById('hwGpu').innerText = hw.gpu_name.replace(' Laptop GPU', '').replace('NVIDIA GeForce ', '');
-        document.getElementById('hwVram').innerText = hw.vram_used_mb + ' / ' + hw.vram_total_mb + ' MB';
-        document.getElementById('hwRam').innerText = hw.ram_used_gb + ' / ' + hw.ram_total_gb + ' GB';
+        document.getElementById('hwGpu').innerText = (hw.gpu_name || 'GPU').replace(' Laptop GPU', '').replace('NVIDIA GeForce ', '');
+        document.getElementById('hwVram').innerText = (hw.vram_used_mb || 0) + ' / ' + (hw.vram_total_mb || 0) + ' MB';
+        const ramUsed = (hw.ram_used_gb !== undefined) ? hw.ram_used_gb : ((hw.ram_total_mb - hw.ram_avail_mb) / 1024).toFixed(1);
+        const ramTotal = (hw.ram_total_gb !== undefined) ? hw.ram_total_gb : (hw.ram_total_mb / 1024).toFixed(1);
+        document.getElementById('hwRam').innerText = ramUsed + ' / ' + ramTotal + ' GB';
         if (eng.active_model) {
             activeModelId = eng.active_model;
             const shortName = eng.active_model.split('/').pop();
@@ -663,18 +665,23 @@ async function loadModels() {
         models.forEach(m => {
             const card = document.createElement('div');
             card.className = 'model-card';
+            let badge = (m.compat_badge || (m.compatibility && m.compatibility.tier_label) || 'РЕКОМЕНДУЕТСЯ (VRAM+RAM)');
             let badgeBg = 'var(--amber-bg)';
             let badgeColor = 'var(--amber)';
             let badgeBorder = 'rgba(245,158,11,0.25)';
-            if (m.compat_badge.includes('VRAM)')) {
+            if (badge.indexOf('VRAM)') !== -1) {
                 badgeBg = 'var(--emerald-bg)';
                 badgeColor = 'var(--emerald)';
                 badgeBorder = 'rgba(16,185,129,0.25)';
-            } else if (m.compat_badge.includes('SSD')) {
+            } else if (badge.indexOf('SSD') !== -1) {
                 badgeBg = 'var(--purple-bg)';
                 badgeColor = 'var(--purple)';
                 badgeBorder = 'rgba(139,92,246,0.25)';
             }
+            const desc = m.description || m.desc || '';
+            const speed = m.speed_tier || (m.compatibility && m.compatibility.speed_est) || '18-32 ток/сек';
+            const mem = m.memory_slot || (m.compatibility && m.compatibility.mode) || 'VRAM + RAM Hybrid';
+            const dCount = (typeof m.downloads === 'number') ? m.downloads.toLocaleString('ru-RU') : m.downloads;
             const isActive = (m.id === activeModelId);
             const btnClass = isActive ? 'btn-action active' : 'btn-action';
             const btnText = isActive ? 'АКТИВНА' : 'Запустить';
@@ -683,15 +690,15 @@ async function loadModels() {
                     '<div class="model-title">' + m.name + '</div>' +
                     '<div class="model-author">' + m.author + '</div>' +
                 '</div>' +
-                '<div class="compat-badge" style="background:' + badgeBg + ';color:' + badgeColor + ';border-color:' + badgeBorder + ';">' + m.compat_badge + '</div>' +
+                '<div class="compat-badge" style="background:' + badgeBg + ';color:' + badgeColor + ';border-color:' + badgeBorder + ';">' + badge + '</div>' +
             '</div>' +
-            '<div class="card-desc">' + m.description + '</div>' +
+            '<div class="card-desc">' + desc + '</div>' +
             '<div class="card-specs">' +
-                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: ' + m.speed_tier + '</div>' +
-                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> ' + m.memory_slot + '</div>' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: ' + speed + '</div>' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> ' + mem + '</div>' +
             '</div>' +
             '<div class="card-bottom">' +
-                '<span style="font-size:11px;color:var(--text-muted);">' + m.downloads + ' загрузок</span>' +
+                '<span style="font-size:11px;color:var(--text-muted);">' + dCount + ' загрузок</span>' +
                 '<button id="btn-' + m.id.replace(/[^a-zA-Z0-9]/g, '_') + '" class="' + btnClass + '" onclick="loadModel(\'' + m.id + '\')">' + btnText + '</button>' +
             '</div>';
             grid.appendChild(card);
