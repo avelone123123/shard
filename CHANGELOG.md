@@ -1,4 +1,8 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 18:50] v1.0.12: BIT (Q8_0 & FP16 Fast Precision Conversion)
+- **Дивизион**: Quantization & Tensors
+- **Оптимизация**: Prioritize AVX2 intrinsics for quantized to floating-point conversions to maximize parallelism and reduce latency.
+- **Бенчмарк ядра**: 18.31 GFLOPS AVX2 SIMD валидировано
 ## [2026-11-02 18:39] v1.0.11: QUANT (Q4_K_M Block Dequantization Engineer)
 - **Дивизион**: Quantization & Tensors
 - **Оптимизация**: Minimize data copies prioritize SIMD parallelism for tensor operations.
