@@ -5,7 +5,7 @@ setup(
     version="1.0.0",
     description="Tri-language local Hugging Face runner (Python + C++20 + MASM AVX2 Assembly)",
     author="avelone123123",
-    author_email="avelone.dev@gmail.com",
+    author_email="ermekeraly16@gmail.com",
     url="https://github.com/avelone123123/shard",
     py_modules=["cli", "main", "server", "engine", "hardware", "hf_hub", "shard_bridge"],
     packages=find_packages(),

@@ -88,9 +88,8 @@ Elapsed Time:     45,179 us (0.0452 s)
 Throughput:       18.13 GFLOPS (AVX2 SIMD)
 Native Pipeline:  VALIDATED [OK]
 ```
-## Community & Directives
+## Author & Community
 - Author & Maintainer: avelone123123
-- Autonomous Agent Directives: [agent.md](agent.md) | [skill.md](skill.md)
 - Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 ## License
 MIT License. Developed by avelone123123.

@@ -5,8 +5,11 @@ COPY pyproject.toml setup.py README.md ./
 COPY native ./native
 COPY . .
 RUN pip install --no-cache-dir -e .
+ENV SHARD_HOST=0.0.0.0
+ENV SHARD_PORT=8000
+ENV SHARD_DOCKER=1
 ENV SHARD_MODELS_DIR=/data/models
 ENV SHARD_DATA_DIR=/data/shard
 VOLUME ["/data/models", "/data/shard"]
 EXPOSE 8000
-CMD ["python", "main.py", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "main.py"]

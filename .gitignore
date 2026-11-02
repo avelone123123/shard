@@ -9,3 +9,6 @@ social_config.json
 keys_db.json
 *.secret
 *.token
+agent.md
+skill.md
+*.exp

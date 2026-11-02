@@ -1,3 +1,4 @@
+import os
 import sys
 import threading
 import time
@@ -11,12 +12,8 @@ def _open_browser():
     except Exception:
         pass
 if __name__ == "__main__":
-    print("=" * 60)
-    print("  SHARD // LOCAL HUGGING FACE RUNNER & OPENAI SERVER")
-    print("=" * 60)
-    print("  Dashboard:        http://localhost:8000")
-    print("  OpenAI Base URL:  http://localhost:8000/v1")
-    print("  Default API Key:  sk-shard-local-avelone-dev")
-    print("=" * 60)
-    threading.Thread(target=_open_browser, daemon=True).start()
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+    host = os.environ.get("SHARD_HOST", "0.0.0.0")
+    port = int(os.environ.get("SHARD_PORT", "8000"))
+    if not os.environ.get("SHARD_DOCKER"):
+        threading.Thread(target=_open_browser, daemon=True).start()
+    uvicorn.run(app, host=host, port=port, log_level="info")
