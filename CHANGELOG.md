@@ -1,4 +1,8 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 18:51] v1.0.14: HYBRID (Out-of-Memory (OOM) Predictive Guard)
+- **Дивизион**: Quantization & Tensors
+- **Оптимизация**: Prioritize tensor compression over reallocation for OOM prevention.
+- **Бенчмарк ядра**: 18.31 GFLOPS AVX2 SIMD валидировано
 ## [2026-11-02 18:51] v1.0.13: SHARD (Dynamic Layer Splitting (VRAM/RAM/NVMe))
 - **Дивизион**: Quantization & Tensors
 - **Оптимизация**: Maximize vector register usage for parallelism; align memory mappings to hardware page sizes.

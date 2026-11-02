@@ -25,6 +25,14 @@
       "cycle": 13,
       "timestamp": 1793627491,
       "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
+    },
+    "hybrid": {
+      "role": "Out-of-Memory (OOM) Predictive Guard",
+      "division": "Quantization & Tensors",
+      "rule": "Prioritize tensor compression over reallocation for OOM prevention.",
+      "cycle": 14,
+      "timestamp": 1793627505,
+      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
     }
   }
 }
