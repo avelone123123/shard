@@ -667,8 +667,7 @@ async function loadDownloadedModels() {
     }
 }
 async function deleteDownloadedModel(id, name, sizeStr) {
-    if (!confirm('Удалить веса модели ' + name + ' (' + sizeStr + ') с SSD диска?
-Это освободит дисковое пространство.')) {
+    if (!confirm('Удалить веса модели ' + name + ' (' + sizeStr + ') с SSD диска?')) {
         return;
     }
     showToast('Удаление модели ' + name + ' с SSD...');
