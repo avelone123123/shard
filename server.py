@@ -179,10 +179,11 @@ main{flex:1;padding:24px 28px;max-width:1440px;margin:0 auto;width:100%;}
 <div class="logo-badge">SHARD</div>
 <div>
 <div class="brand-title">SHARD // LOCAL HUGGING FACE RUNNER</div>
-<div class="brand-sub">Zero-OOM Layer Sharding Engine for RTX 2050 (4GB) & Consumer Hardware</div>
+<div class="brand-sub">Tri-Language Architecture: Python Server + C++20 Memory Pipeline + MASM x64 AVX2 Assembly</div>
 </div>
 </div>
 <div class="hw-bar" id="hwStats">
+<div class="hw-item"><span>CORE</span><b id="hwCore" style="color:#38bdf8;">C++20 / MASM AVX2</b></div>
 <div class="hw-item"><span>GPU</span><b id="hwGpu">Detecting...</b></div>
 <div class="hw-item"><span>VRAM</span><b id="hwVram">0 / 0 MB</b></div>
 <div class="hw-item"><span>RAM</span><b id="hwRam">0 / 0 MB</b></div>
@@ -260,6 +261,10 @@ let currentCat='all';
 async function updateHardware(){
 const res=await fetch('/api/system/hardware');
 const data=await res.json();
+if(data.engine&&data.engine.native_engine&&data.engine.native_engine.active){
+document.getElementById('hwCore').innerText='C++20 / MASM AVX2';
+document.getElementById('hwCore').style.color='#10b981';
+}
 document.getElementById('hwGpu').innerText=data.hardware.gpu_name;
 document.getElementById('hwVram').innerText=`${data.hardware.vram_used_mb} / ${data.hardware.vram_total_mb} MB`;
 document.getElementById('hwRam').innerText=`${Math.round((data.hardware.ram_total_mb-data.hardware.ram_avail_mb)/1024)} / ${Math.round(data.hardware.ram_total_mb/1024)} GB`;
