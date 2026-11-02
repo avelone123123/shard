@@ -41,7 +41,7 @@ def api_hardware():
     engine_st = engine_instance.get_status()
     return {"hardware": hw, "engine": engine_st}
 @app.get("/api/hf/models")
-def api_hf_models(query: str = None, category: str = "all", limit: int = 50):
+def api_hf_models(query: str = None, category: str = "all", limit: int = 100):
     return browse_models(query=query, category=category, limit=limit)
 @app.get("/api/hf/model/{model_id:path}")
 def api_hf_model_card(model_id: str):

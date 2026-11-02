@@ -201,7 +201,7 @@ API Ключи
 <div class="search-bar">
 <div class="search-wrapper">
 <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-<input type="text" id="searchInput" class="search-input" placeholder="Поиск модели на Hugging Face (например: gemma, qwen, deepseek, mistral)..." oninput="handleSearchDebounced()" onkeyup="handleSearch(event)">
+<input type="text" id="searchInput" class="search-input" placeholder="Поиск среди 3 000 000+ моделей Hugging Face Hub (или вставьте точный ID: owner/model)..." oninput="handleSearchDebounced()" onkeyup="handleSearch(event)">
 </div>
 <div class="filter-tabs">
 <button class="filter-btn active" onclick="setCategory('all', this)">Все</button>
@@ -754,7 +754,7 @@ async function loadModels() {
         const models = await res.json();
         grid.innerHTML = '';
         if (badgeEl) {
-            badgeEl.innerText = 'Доступно моделей на Hugging Face Hub: ' + models.length + (q ? ' (поиск: "' + q + '")' : '');
+            badgeEl.innerHTML = '<span style="color:#38bdf8;font-weight:600;">Каталог Hugging Face Hub (3 000 000+ открытых моделей)</span> &bull; Показано: ' + models.length + (q ? ' (по запросу: "' + escapeHtml(q) + '")' : ' популярных сборок');
         }
         if (!models || models.length === 0) {
             grid.innerHTML = '<div style="color:var(--text-muted);padding:24px;font-size:13px;grid-column:1/-1;">Модели не найдены. Попробуйте другой запрос (например: qwen, deepseek, llama, gemma, mistral, phi).</div>';

@@ -44,3 +44,10 @@
 - 2. Поддерживать .gitattributes с правилом linguist-vendored для HTML, чтобы GitHub отображал проект как C++, Assembly и Python.
 - 3. Синхронизировать README.md, CHANGELOG.md, CONTRIBUTING.md и CODE_OF_CONDUCT.md при каждом изменении архитектуры.
 - 4. Фиксировать выявленные ошибки в GitHub Issues и разрешать их через структурированные Pull Requests.
+## SKILL 7: AIRLLM_LAYER_STREAMING_AND_TOKEN_SEPARATION (ПОСЛОЙНЫЙ СТРИМИНГ И РАЗДЕЛЕНИЕ ТОКЕНОВ)
+- Описание: запуск моделей (1.5B-70B) на потребительских GPU с 4GB VRAM через послойную подгрузку слоев из RAM/SSD без накладных расходов памяти и строгое разделение назначения токенов.
+- Инструменты: AirLLM (C:\Users\avelo\Desktop\airllm), PyTorch meta-device, memory-mapped I/O, SafeTensors, OpenRouter API.
+- Протокол действий:
+- 1. В рантайме Shard (C:\Users\avelo\Desktop\shard): 100% ЛОКАЛЬНЫЙ инференс. Никаких вызовов OpenRouter. Все вычисления производятся на локальном железе (RTX 2050 4GB + 16GB RAM) по схеме послойного проецирования весов из RAM/NVMe на GPU.
+- 2. Токены OpenRouter и подписка Gemini Flash 3.8: направляются ИСКЛЮЧИТЕЛЬНО в Shard Triad (C:\Users\avelo\Desktop\shard-triad), где 50 AI-агентов работают 24/7 над кодом, тестами, поиском в сети и репозиторием в отсутствие создателя avelone123123.
+- 3. Каталог Hugging Face Hub: охватывает всю базу из 3 000 000+ открытых моделей. Поддерживает поиск по любым тегам (GGUF, safetensors, audio, code) и мгновенный резолвинг любого прямого идентификатора repo_id (owner/model).

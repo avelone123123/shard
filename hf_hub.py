@@ -53,30 +53,59 @@ def fetch_model_metadata(model_id, hw=None):
         "likes": 4200,
         "compatibility": comp
     }
-def browse_models(query=None, category=None, limit=36, hw=None):
+def browse_models(query=None, category=None, limit=100, hw=None):
     if hw is None:
         hw = get_hardware_profile()
     query_clean = (query or "").strip()
     category_clean = (category or "all").strip().lower()
-    hf_url = "https://huggingface.co/api/models?filter=text-generation&sort=downloads&direction=-1"
-    if query_clean:
-        hf_url += f"&search={query_clean}&limit={limit}"
-    elif category_clean == "coding":
-        hf_url += f"&search=coder&limit={limit}"
-    elif category_clean == "reasoning":
-        hf_url += f"&search=r1&limit={limit}"
-    elif category_clean == "compact":
-        hf_url += f"&search=mini&limit={limit}"
-    elif category_clean == "general":
-        hf_url += f"&search=instruct&limit={limit}"
-    else:
-        hf_url += f"&limit={limit}"
     live_results = []
+    seen_ids = set()
+    if query_clean and "/" in query_clean:
+        try:
+            r_single = requests.get(f"https://huggingface.co/api/models/{query_clean}", timeout=4)
+            if r_single.status_code == 200:
+                item = r_single.json()
+                mid = item.get("id", query_clean)
+                seen_ids.add(mid)
+                author = mid.split("/")[0] if "/" in mid else "Community"
+                name = mid.split("/")[-1] if "/" in mid else mid
+                comp = evaluate_compatibility(mid, hw)
+                d_count = item.get("downloads", 0)
+                likes_count = item.get("likes", 0)
+                desc = f"Hugging Face открытая модель. Скачиваний: {d_count:,}"
+                live_results.append({
+                    "id": mid,
+                    "author": author,
+                    "name": name,
+                    "category": "all",
+                    "desc": desc,
+                    "description": desc,
+                    "compat_badge": comp["tier_label"],
+                    "speed_tier": comp["speed_est"],
+                    "memory_slot": comp["mode"],
+                    "downloads": d_count,
+                    "likes": likes_count,
+                    "compatibility": comp
+                })
+        except Exception:
+            pass
+    hf_url = f"https://huggingface.co/api/models?sort=downloads&direction=-1&limit={limit}"
+    if query_clean:
+        hf_url += f"&search={query_clean}"
+    elif category_clean == "coding":
+        hf_url += "&search=coder&filter=text-generation"
+    elif category_clean == "reasoning":
+        hf_url += "&search=r1&filter=text-generation"
+    elif category_clean == "compact":
+        hf_url += "&search=mini&filter=text-generation"
+    elif category_clean == "general":
+        hf_url += "&search=instruct&filter=text-generation"
+    else:
+        hf_url += "&filter=text-generation"
     try:
-        r = requests.get(hf_url, timeout=4)
+        r = requests.get(hf_url, timeout=5)
         if r.status_code == 200:
             data = r.json()
-            seen_ids = set()
             for item in data:
                 mid = item.get("id")
                 if not mid or mid in seen_ids:
