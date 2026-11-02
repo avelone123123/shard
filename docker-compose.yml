@@ -5,6 +5,8 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - HF_HOME=/data/models
+      - TRANSFORMERS_CACHE=/data/models
       - SHARD_MODELS_DIR=/data/models
       - SHARD_DATA_DIR=/data/shard
       - NVIDIA_VISIBLE_DEVICES=all

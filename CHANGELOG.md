@@ -1,4 +1,17 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 17:05] Персистентное хранилище моделей HF_HOME в томе /data/models и синхронизация кэша
+### 1. Зона ответственности
+- **Компоненты**: `docker-compose.yml`, `engine.py`.
+- **Стек**: Docker Volumes + Hugging Face Hub Cache + PyTorch Safetensors Persistence.
+### 2. Причина изменений
+- По умолчанию Hugging Face скачивал файлы в `/root/.cache/huggingface`, из-за чего кэш находился в эфемерном слое контейнера вместо тома `/data/models`.
+### 3. Список изменений
+- `docker-compose.yml`: добавлены переменные `HF_HOME=/data/models` и `TRANSFORMERS_CACHE=/data/models` для автоматического сохранения всех моделей в постоянный том `shard_models_volume`.
+- `engine.py`: добавлена автоматическая инициализация путей кэша `HF_HOME` перед импортом `transformers` (в Docker `/data/models`, на хосте `~/.shard/models`).
+- Выполнена синхронизация и перенос ранее скачанных моделей из `/root/.cache` в `/data/models/hub`.
+### 4. Статус и валидация
+- Проверено содержимое `/data/models/hub`: модели `gpt2`, `Qwen3-0.6B`, `Qwen3-4B` сохранены в персистентном томе.
+- Все файлы проверены: 0 комментариев, 0 пустых строк, 0 эмодзи.
 ## [2026-11-02 16:15] Индикация прогресса загрузки моделей в реальном времени (проценты, скорость, ETA), валидация OpenCode и Linguist
 ### 1. Зона ответственности
 - **Компоненты**: `dashboard.html`, `engine.py`, `.gitattributes`, `server.py`.

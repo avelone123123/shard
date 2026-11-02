@@ -2,6 +2,15 @@ import os
 import sys
 import time
 import threading
+if "HF_HOME" not in os.environ:
+    if os.path.exists("/data/models") or os.environ.get("SHARD_MODELS_DIR"):
+        os.environ["HF_HOME"] = os.environ.get("SHARD_MODELS_DIR", "/data/models")
+        os.environ["TRANSFORMERS_CACHE"] = os.environ["HF_HOME"]
+    else:
+        h_dir = os.path.join(os.path.expanduser("~"), ".shard", "models")
+        os.makedirs(h_dir, exist_ok=True)
+        os.environ["HF_HOME"] = h_dir
+        os.environ["TRANSFORMERS_CACHE"] = h_dir
 try:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
