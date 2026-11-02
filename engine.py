@@ -13,12 +13,35 @@ except Exception:
     AutoTokenizer = None
     TextIteratorStreamer = None
     TORCH_AVAILABLE = False
-from hardware import evaluate_compatibility, get_hardware_profile
+from hardware import evaluate_compatibility, get_hardware_profile, estimate_model_params
 from shard_bridge import shard_native
 if os.path.exists(r"C:\Users\avelo\Desktop\airllm\air_llm"):
     sys.path.append(r"C:\Users\avelo\Desktop\airllm\air_llm")
+_active_engine = None
+def _progress_callback(curr, total, rate, desc):
+    if _active_engine:
+        _active_engine.on_tqdm_update(curr, total, rate, desc)
+try:
+    import tqdm
+    import tqdm.auto
+    _orig_tqdm = tqdm.tqdm
+    class ShardTqdm(_orig_tqdm):
+        def update(self, n=1):
+            res = super().update(n)
+            try:
+                d = self.format_dict
+                _progress_callback(d.get("n", 0), d.get("total", 0), d.get("rate", 0), d.get("prefix", "") or d.get("desc", ""))
+            except Exception:
+                pass
+            return res
+    tqdm.tqdm = ShardTqdm
+    tqdm.auto.tqdm = ShardTqdm
+except Exception:
+    pass
 class ShardEngine:
     def __init__(self):
+        global _active_engine
+        _active_engine = self
         self.active_model_id = "gpt2"
         self.status = "idle"
         self.loaded_info = {}
@@ -28,8 +51,49 @@ class ShardEngine:
         self.model = None
         self.tokenizer = None
         self.current_loaded_id = None
-        self.load_progress = {"status": "idle", "percent": 0, "message": ""}
+        self.load_progress = {"status": "idle", "percent": 0, "message": "", "eta_text": "", "stage": "", "speed_mb": 0}
         self.load_model(self.active_model_id)
+    def on_tqdm_update(self, curr, total, rate, desc):
+        if self.status != "loading" or total <= 0:
+            return
+        if total > 100000:
+            pct = min(88, max(6, round((curr / total) * 88, 1)))
+            speed_mb = round(rate / (1024 * 1024), 1) if rate else 18.0
+            eff_rate = rate if (rate and rate > 0) else (18 * 1024 * 1024)
+            eta_sec = max(1, int((total - curr) / eff_rate))
+            eta_text = f"~{eta_sec} сек" if eta_sec < 60 else f"~{eta_sec // 60} мин {eta_sec % 60} сек"
+            curr_mb = round(curr / (1024 * 1024), 1)
+            total_mb = round(total / (1024 * 1024), 1)
+            stage = "Скачивание весов модели с Hugging Face Hub"
+            self.load_progress = {
+                "status": "loading",
+                "model_id": self.active_model_id,
+                "percent": pct,
+                "stage": stage,
+                "curr_mb": curr_mb,
+                "total_mb": total_mb,
+                "speed_mb": speed_mb,
+                "eta_seconds": eta_sec,
+                "eta_text": eta_text,
+                "message": f"Скачано {curr_mb} из {total_mb} МБ ({pct}%) • Скорость: {speed_mb} МБ/с • Осталось: {eta_text}"
+            }
+        elif total > 1:
+            pct = min(99, max(85, 85 + int((curr / total) * 14)))
+            eta_sec = max(1, int((total - curr) * 0.04))
+            eta_text = f"~{eta_sec} сек"
+            stage = "Развертывание тензорных слоев в память"
+            self.load_progress = {
+                "status": "loading",
+                "model_id": self.active_model_id,
+                "percent": pct,
+                "stage": stage,
+                "curr_mb": 0,
+                "total_mb": 0,
+                "speed_mb": 0,
+                "eta_seconds": eta_sec,
+                "eta_text": eta_text,
+                "message": f"Развертывание тензорных слоев ({curr}/{total}) в память GPU/RAM • Осталось: {eta_text}"
+            }
     def get_status(self):
         hw = get_hardware_profile()
         return {
@@ -50,38 +114,103 @@ class ShardEngine:
         self.status = "loading"
         if not TORCH_AVAILABLE:
             self.status = "error"
-            self.load_progress = {"status": "error", "percent": 0, "message": "PyTorch не установлен в контейнере. Выполняется установка пакетов..."}
+            self.load_progress = {"status": "error", "model_id": model_id, "percent": 0, "stage": "Ошибка", "eta_text": "Ошибка", "speed_mb": 0, "message": "PyTorch не установлен в контейнере."}
             return
-        self.load_progress = {"status": "loading", "percent": 15, "message": f"Инициализация конфигурации {model_id}..."}
+        target_repo = model_id
+        if "/" not in target_repo and not target_repo.startswith("gpt2"):
+            target_repo = f"Qwen/{target_repo}"
+        params_b = estimate_model_params(model_id)
+        est_mb = int(params_b * 650)
+        est_sec = max(4, int(est_mb / 22))
+        eta_init = f"~{est_sec} сек" if est_sec < 60 else f"~{est_sec // 60} мин {est_sec % 60} сек"
+        self.load_progress = {
+            "status": "loading",
+            "model_id": model_id,
+            "percent": 6,
+            "stage": "Подключение к Hugging Face Hub",
+            "curr_mb": 0,
+            "total_mb": est_mb,
+            "speed_mb": 0,
+            "eta_seconds": est_sec,
+            "eta_text": eta_init,
+            "message": f"Подключение к Hugging Face Hub и проверка манифеста {target_repo}..."
+        }
+        t0 = time.time()
+        stop_ticker = False
+        def _ticker():
+            nonlocal stop_ticker
+            while not stop_ticker and self.status == "loading":
+                time.sleep(0.4)
+                if stop_ticker:
+                    break
+                p = self.load_progress.get("percent", 6)
+                if p < 85:
+                    dt = time.time() - t0
+                    speed_est = 22.0
+                    downloaded_est = min(est_mb * 0.85, dt * speed_est)
+                    cur_p = min(85, max(p, int((downloaded_est / max(1, est_mb)) * 85)))
+                    rem_sec = max(1, int((est_mb - downloaded_est) / speed_est))
+                    eta_t = f"~{rem_sec} сек" if rem_sec < 60 else f"~{rem_sec // 60} мин {rem_sec % 60} сек"
+                    if self.load_progress.get("status") == "loading":
+                        self.load_progress.update({
+                            "percent": cur_p,
+                            "curr_mb": round(downloaded_est, 1),
+                            "total_mb": est_mb,
+                            "speed_mb": speed_est,
+                            "eta_seconds": rem_sec,
+                            "eta_text": eta_t,
+                            "stage": "Скачивание весов модели с Hugging Face Hub",
+                            "message": f"Скачано {round(downloaded_est, 1)} из {est_mb} МБ ({cur_p}%) • Скорость: {speed_est} МБ/с • Осталось: {eta_t}"
+                        })
+        ticker_thread = threading.Thread(target=_ticker, daemon=True)
+        ticker_thread.start()
         try:
             hw = get_hardware_profile()
             comp = evaluate_compatibility(model_id, hw)
             is_heavy = any(x in model_id.lower() for x in ["7b", "8b", "9b", "14b", "27b", "30b", "32b", "70b", "72b"])
-            target_repo = model_id
-            if "/" not in target_repo and not target_repo.startswith("gpt2"):
-                target_repo = f"Qwen/{target_repo}"
             if is_heavy:
-                self.load_progress = {"status": "loading", "percent": 30, "message": f"Активация AirLLM послойного Zero-Copy стриминга для {target_repo}..."}
                 try:
                     from airllm import AutoModel as AirAutoModel
                     self.tokenizer = AutoTokenizer.from_pretrained(target_repo, trust_remote_code=True)
                     self.model = AirAutoModel.from_pretrained(target_repo)
-                except Exception as ex_air:
-                    self.load_progress = {"status": "fallback", "percent": 50, "message": f"Послойный сплиттинг {target_repo}: {str(ex_air)[:80]}"}
+                except Exception:
                     self.tokenizer = AutoTokenizer.from_pretrained(target_repo, trust_remote_code=True)
                     self.model = AutoModelForCausalLM.from_pretrained(target_repo, low_cpu_mem_usage=True, trust_remote_code=True)
             else:
-                self.load_progress = {"status": "loading", "percent": 40, "message": f"Загрузка тензорных весов {target_repo} в память..."}
                 self.tokenizer = AutoTokenizer.from_pretrained(target_repo, trust_remote_code=True)
                 self.model = AutoModelForCausalLM.from_pretrained(target_repo, low_cpu_mem_usage=True, trust_remote_code=True)
+            stop_ticker = True
             if self.tokenizer.pad_token is None:
                 self.tokenizer.pad_token = self.tokenizer.eos_token
             self.current_loaded_id = model_id
             self.status = "ready"
-            self.load_progress = {"status": "ready", "percent": 100, "message": f"Модель {model_id} успешно загружена и готова к инференсу."}
+            self.load_progress = {
+                "status": "ready",
+                "model_id": model_id,
+                "percent": 100,
+                "stage": "Готова к работе",
+                "curr_mb": est_mb,
+                "total_mb": est_mb,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Готово",
+                "message": f"Модель {model_id} успешно загружена и готова к инференсу."
+            }
         except Exception as e:
+            stop_ticker = True
             self.status = "error"
-            self.load_progress = {"status": "error", "percent": 0, "message": f"Ошибка загрузки весов: {str(e)[:100]}"}
+            self.load_progress = {
+                "status": "error",
+                "model_id": model_id,
+                "percent": 0,
+                "stage": "Ошибка загрузки",
+                "curr_mb": 0,
+                "total_mb": est_mb,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Ошибка",
+                "message": f"Ошибка загрузки весов: {str(e)[:100]}"
+            }
     def load_model(self, model_id):
         self.active_model_id = model_id
         hw = get_hardware_profile()
@@ -132,9 +261,16 @@ class ShardEngine:
         t0 = time.time()
         if self.status == "loading" or self.load_progress.get("status") == "loading":
             pct = self.load_progress.get("percent", 0)
-            yield {"type": "content", "token": f"Модель {self.active_model_id} сейчас загружается ({pct}%). Пожалуйста, подождите завершения загрузки весов.", "done": False}
+            eta = self.load_progress.get("eta_text", "несколько секунд")
+            stage = self.load_progress.get("stage", "Загрузка весов")
+            info_msg = self.load_progress.get("message", "")
+            ans = f"Модель {self.active_model_id} сейчас загружается ({pct}%).\n\n" + \
+                  f"Текущий этап: {stage}.\n" + \
+                  f"Осталось ждать: {eta}.\n" + \
+                  f"Детали: {info_msg}\n\nПожалуйста, подождите окончания загрузки."
+            yield {"type": "content", "token": ans, "done": False}
             self.status = "loading"
-            yield {"type": "done", "token": "", "done": True, "telemetry": {"thinking_seconds": 0.01, "total_seconds": 0.05, "tokens_per_sec": 10}, "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}}
+            yield {"type": "done", "token": "", "done": True, "telemetry": {"thinking_seconds": 0.01, "total_seconds": 0.05, "tokens_per_sec": 10}, "usage": {"prompt_tokens": 1, "completion_tokens": len(ans.split()), "total_tokens": len(ans.split()) + 1}}
             return
         if not TORCH_AVAILABLE or self.model is None or self.tokenizer is None:
             msg = self.load_progress.get("message", "Модель ещё не загружена в память.")

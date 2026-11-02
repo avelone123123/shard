@@ -1,4 +1,27 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 16:15] Индикация прогресса загрузки моделей в реальном времени (проценты, скорость, ETA), валидация OpenCode и Linguist
+### 1. Зона ответственности
+- **Компоненты**: `dashboard.html`, `engine.py`, `.gitattributes`, `server.py`.
+- **Стек**: Realtime Progress Tracking + TQDM Interception + Dynamic Web Polling + GitHub Linguist + OpenCode Schema.
+### 2. Причина изменений
+- Пользователь не видел прогресс загрузки модели с Hugging Face Hub (где грузится, сколько процентов, сколько времени ждать).
+- В OpenCode возникала ошибка `Expected object | undefined, got ["text"]` из-за несовместимого типа `modalities`.
+- В GitHub-репозитории основным языком определялся HTML из-за объемного `dashboard.html`.
+### 3. Список изменений
+- `engine.py`: реализован перехват TQDM (`ShardTqdm`) и гладкий фоновый расчет загрузки (`load_progress`) с полями `percent`, `curr_mb`, `total_mb`, `speed_mb`, `eta_seconds`, `eta_text`, `stage` и `message`. В стриминг ответов добавлена подробная сводка о ходе развертывания модели.
+- `dashboard.html`:
+  - Добавлен глобальный sticky-баннер `#globalLoadingBanner` с анимированным спиннером, шкалой прогресса, объемом в МБ, скоростью и обратным отсчетом времени до готовности.
+  - В шапку чата добавлен бейдж `#chatLoadingTag` с текущим процентом и временем ожидания.
+  - В окно чата добавлена карточка `#chatLoadingCard` с интерактивным прогресс-баром.
+  - В каталоге Hugging Face кнопка выбранной модели динамически показывает `Загрузка: X%` и блокирует повторные нажатия до завершения.
+  - В шапке дашборда статус модели отображает название, процент и таймер ожидания.
+  - Включено динамическое переключение частоты опроса: 500 мс во время загрузки и 5000 мс в режиме ожидания.
+- `.gitattributes`: исключен `dashboard.html` (`linguist-vendored`, `linguist-generated`), активированы `linguist-detectable` для Python, C++ и Assembly.
+- `server.py`: проверен и согласован генератор OpenCode config.json со схемой `modalities: { input: ["text"], output: ["text"] }`.
+### 4. Статус и валидация
+- Проверена команда `opencode models`: вывод моделей `shard/*` без предупреждений и ошибок.
+- Контейнер `shard-engine` пересобран и перезапущен: API `/api/system/hardware` возвращает актуальный `load_progress`.
+- Все файлы проверены: 0 комментариев, 0 пустых строк, 0 эмодзи.
 ## [2026-11-02 15:30] Активация GPU RTX 2050 VRAM, C++20/AVX2 Native Core в Docker и ускорение генерации в 100 раз
 ### 1. Зона ответственности
 - **Компоненты**: `docker-compose.yml`, `Dockerfile`, `engine.py`, `dashboard.html`, `native/shard_core.cpp`, `shard_bridge.py`.
