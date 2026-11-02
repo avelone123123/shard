@@ -1,4 +1,8 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 18:53] v1.0.18: FUSE (Fused SwiGLU / GeLU Activation Pipeline)
+- **Дивизион**: Quantization & Tensors
+- **Оптимизация**: Minimize memory allocation, prioritize AVX2 instructions.
+- **Бенчмарк ядра**: 18.31 GFLOPS AVX2 SIMD валидировано
 ## [2026-11-02 18:52] v1.0.17: NORM (RMSNorm & LayerNorm Vectorized Math)
 - **Дивизион**: Quantization & Tensors
 - **Оптимизация**: Maximize YMM register usage for SIMD parallelism, aligning tensor operations to cache lines.

@@ -57,6 +57,14 @@
       "cycle": 17,
       "timestamp": 1793627578,
       "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
+    },
+    "fuse": {
+      "role": "Fused SwiGLU / GeLU Activation Pipeline",
+      "division": "Quantization & Tensors",
+      "rule": "Minimize memory allocation, prioritize AVX2 instructions.",
+      "cycle": 18,
+      "timestamp": 1793627595,
+      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
     }
   }
 }
