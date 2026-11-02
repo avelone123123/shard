@@ -315,6 +315,7 @@ macOS
 <button id="modeBtnScript" class="mode-btn active" onclick="setGuideMode('script')">Скрипт (в 1 клик)</button>
 <button id="modeBtnManual" class="mode-btn" onclick="setGuideMode('manual')">Вручную (конфиг)</button>
 </div>
+<div id="guideKeyNotice"></div>
 <div id="guideScriptSection">
 <div class="script-box" id="guideScriptCode"></div>
 <button class="btn-primary-action" onclick="copyCurrentScript()">
@@ -599,6 +600,14 @@ function updateGuide() {
         'sdk': 'API / SDK'
     };
     const osNames = {'windows': 'Windows', 'linux': 'Linux', 'macos': 'macOS', 'manual': 'Ручной config'};
+    const keyNoticeEl = document.getElementById('guideKeyNotice');
+    if (keyNoticeEl) {
+        if (activeApiKey) {
+            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#34d399;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Используется ваш API-ключ: <strong style="color:#fff;font-family:Consolas,monospace;background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">' + activeApiKey + '</strong></span></div>';
+        } else {
+            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#fca5a5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>У вас пока нет активного ключа. <a href="javascript:void(0)" onclick="switchTab(\'keys\', document.querySelectorAll(\'.nav-btn\')[3])" style="color:#38bdf8;text-decoration:underline;font-weight:600;">Создайте ключ</a> во вкладке «API Ключи», чтобы он автоматически подставился в команды.</span></div>';
+        }
+    }
     document.getElementById('guideTitle').innerText = 'Инструкция: ' + (toolNames[currentTool] || currentTool) + ' + ' + (osNames[currentOS] || currentOS);
     const scriptBox = document.getElementById('guideScriptCode');
     const stepsList = document.getElementById('guideScriptSteps');
@@ -687,6 +696,67 @@ function updateGuide() {
         '</div>';
         const pre = document.getElementById('codeOpenCodeManual');
         if (pre) pre.innerText = JSON.stringify(opencodeCfg, null, 2);
+    } else if (currentTool === 'continue') {
+        const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.continue\\config.json' : '~/.continue/config.json';
+        const continueCfg = {
+            "models": [
+                {
+                    "title": "Shard Local (" + activeModelId.split('/').pop() + ")",
+                    "provider": "openai",
+                    "model": activeModelId,
+                    "apiBase": "http://localhost:8000/v1",
+                    "apiKey": keyFallback
+                }
+            ],
+            "tabAutocompleteModel": {
+                "title": "Shard Autocomplete",
+                "provider": "openai",
+                "model": activeModelId,
+                "apiBase": "http://localhost:8000/v1",
+                "apiKey": keyFallback
+            }
+        };
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации Continue:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте Shard в секцию models в config.json:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeContinueManual"></pre><button class="btn-copy" onclick="copyText(\'codeContinueManual\', \'Конфиг Continue скопирован\')">Скопировать</button></div>' +
+        '</div>';
+        const pre = document.getElementById('codeContinueManual');
+        if (pre) pre.innerText = JSON.stringify(continueCfg, null, 2);
+    } else if (currentTool === 'aider') {
+        const cmd = 'aider --openai-api-base http://localhost:8000/v1 --openai-api-key ' + keyFallback + ' --model openai/' + activeModelId;
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Запуск Aider с подключением к Shard:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeAiderManual"></pre><button class="btn-copy" onclick="copyText(\'codeAiderManual\', \'Команда Aider скопирована\')">Скопировать</button></div>' +
+        '</div>';
+        const pre = document.getElementById('codeAiderManual');
+        if (pre) pre.innerText = cmd;
+    } else if (currentTool === 'zed') {
+        const filePath = (currentOS === 'windows') ? '%APPDATA%\\Zed\\settings.json' : '~/.config/zed/settings.json';
+        const zedCfg = {
+            "language_models": {
+                "openai": {
+                    "version": "1",
+                    "api_url": "http://localhost:8000/v1",
+                    "available_models": [
+                        {
+                            "name": activeModelId,
+                            "display_name": "Shard " + activeModelId.split('/').pop(),
+                            "max_tokens": 8192
+                        }
+                    ]
+                }
+            }
+        };
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к настройкам Zed:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте провайдер OpenAI с локальным URL в settings.json:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeZedManual"></pre><button class="btn-copy" onclick="copyText(\'codeZedManual\', \'Конфиг Zed скопирован\')">Скопировать</button></div>' +
+        '</div>';
+        const pre = document.getElementById('codeZedManual');
+        if (pre) pre.innerText = JSON.stringify(zedCfg, null, 2);
     } else {
         manualBox.innerHTML = '<div class="guide-steps">' +
             '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Переменные окружения (Environment Variables):</div>' +
@@ -695,7 +765,9 @@ function updateGuide() {
         '</div>';
         const pre = document.getElementById('codeEnvManual');
         if (pre) {
-            pre.innerText = 'export OPENAI_API_BASE="http://localhost:8000/v1"\nexport OPENAI_API_KEY="' + keyFallback + '"';
+            pre.innerText = (currentOS === 'windows') ?
+                '$env:OPENAI_API_BASE="http://localhost:8000/v1"\n$env:OPENAI_API_KEY="' + keyFallback + '"' :
+                'export OPENAI_API_BASE="http://localhost:8000/v1"\nexport OPENAI_API_KEY="' + keyFallback + '"';
         }
     }
 }

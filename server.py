@@ -16,7 +16,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
-KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys_db.json")
+DATA_DIR = os.getenv("SHARD_DATA_DIR") or os.path.join(os.path.expanduser("~"), ".shard")
+os.makedirs(DATA_DIR, exist_ok=True)
+KEYS_FILE = os.path.join(DATA_DIR, "keys_db.json")
 def load_keys():
     if os.path.exists(KEYS_FILE):
         try:
@@ -26,10 +28,25 @@ def load_keys():
                     return d
         except Exception:
             pass
+    legacy_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys_db.json")
+    if os.path.exists(legacy_file):
+        try:
+            with open(legacy_file, "r", encoding="utf-8") as f:
+                d = json.load(f)
+                if isinstance(d, list):
+                    return d
+        except Exception:
+            pass
     return []
 def save_keys(keys):
     try:
         with open(KEYS_FILE, "w", encoding="utf-8") as f:
+            json.dump(keys, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
+    try:
+        legacy_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys_db.json")
+        with open(legacy_file, "w", encoding="utf-8") as f:
             json.dump(keys, f, indent=2, ensure_ascii=False)
     except Exception:
         pass
@@ -64,6 +81,7 @@ def api_gen_key():
     API_KEYS.append(new_key)
     save_keys(API_KEYS)
     return {"key": new_key, "keys": API_KEYS}
+@app.delete("/api/keys")
 @app.post("/api/keys/delete")
 async def api_del_key(req: Request):
     target = ""

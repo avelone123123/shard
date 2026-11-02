@@ -1,4 +1,23 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 15:15] Исправление torch в Docker, персистентность API-ключей и Linguist для языков
+### 1. Зона ответственности
+- **Компоненты**: `Dockerfile`, `engine.py`, `server.py`, `dashboard.html`, `.gitattributes`, `pyproject.toml`.
+- **Стек**: Docker + PyTorch + FastAPI Persistence + GitHub Linguist + WebUI.
+### 2. Причина изменений
+- Устранена ошибка `ModuleNotFoundError: No module named 'torch'` в Docker Desktop за счет установки легковесного PyTorch CPU и ML-зависимостей.
+- Реализовано персистентное дисковое хранилище API-ключей в томе Docker `/data/shard/keys_db.json` и на хосте `~/.shard/keys_db.json`. Удалены захардкоженные дефолтные ключи, добавлено интерактивное удаление ключей и автоматическая подстановка созданного пользователем ключа во все скрипты и ручные конфиги (Cursor, OpenCode, Claude, Continue, Aider, Zed).
+- Обновлен `.gitattributes` (`linguist-detectable=false`, `linguist-vendored=true`) для полного исключения HTML из статистики языка GitHub и выдвижения на первый план C++, Assembly и Python.
+### 3. Список изменений
+- `Dockerfile`: добавлены `pip install torch --index-url https://download.pytorch.org/whl/cpu` и `transformers accelerate safetensors huggingface_hub`.
+- `engine.py`: добавлены безопасные guards для импортов ML-библиотек (`TORCH_AVAILABLE`).
+- `server.py`: персистентность ключей через `SHARD_DATA_DIR` / `~/.shard/keys_db.json`, поддержка методов DELETE и POST для `/api/keys/delete`.
+- `dashboard.html`: удаление ключей, динамический баннер активного ключа, индивидуальные ручные конфигурации для всех поддерживаемых инструментов (OpenCode, Cursor, Claude, Continue, Aider, Zed, JetBrains).
+- `.gitattributes`: исключение HTML файлов из языкового детектора Linguist.
+### 4. Статус и валидация
+- Контейнер `shard-engine` пересобран и работает в Docker Desktop: `Up`, HTTP 200 на всех маршрутах.
+- Создание и удаление API-ключей протестировано через curl и UI, ключи сохраняются в томе Docker.
+- Тест валидации конфига `opencode models shard` завершен со статусом 0, синтаксических ошибок нет.
+- Все файлы соответствуют требованиям гигиены кода: 0 комментариев, 0 пустых строк, 0 эмодзи.
 ## [2026-11-02 14:45] Физический запуск реальных весов Hugging Face (Zero-Copy AirLLM + TextIteratorStreamer)
 ### 1. Зона ответственности
 - **Компоненты**: `engine.py`.

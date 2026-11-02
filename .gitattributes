@@ -1,7 +1,12 @@
-*.html linguist-vendored
-dashboard.html linguist-vendored
+*.html linguist-detectable=false
+*.html linguist-vendored=true
+dashboard.html linguist-detectable=false
+dashboard.html linguist-vendored=true
 *.cpp linguist-detectable=true
 *.asm linguist-detectable=true
 *.py linguist-detectable=true
 native/*.cpp linguist-detectable=true
 native/*.asm linguist-detectable=true
+*.dll binary
+*.obj binary
+*.lib binary

@@ -2,11 +2,20 @@ import os
 import sys
 import time
 import threading
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+try:
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+    TORCH_AVAILABLE = True
+except Exception:
+    torch = None
+    AutoModelForCausalLM = None
+    AutoTokenizer = None
+    TextIteratorStreamer = None
+    TORCH_AVAILABLE = False
 from hardware import evaluate_compatibility, get_hardware_profile
 from shard_bridge import shard_native
-sys.path.append(r"C:\Users\avelo\Desktop\airllm\air_llm")
+if os.path.exists(r"C:\Users\avelo\Desktop\airllm\air_llm"):
+    sys.path.append(r"C:\Users\avelo\Desktop\airllm\air_llm")
 class ShardEngine:
     def __init__(self):
         self.active_model_id = "gpt2"
@@ -38,6 +47,10 @@ class ShardEngine:
         }
     def _run_loader(self, model_id):
         self.status = "loading"
+        if not TORCH_AVAILABLE:
+            self.status = "error"
+            self.load_progress = {"status": "error", "percent": 0, "message": "PyTorch не установлен в контейнере. Выполняется установка пакетов..."}
+            return
         self.load_progress = {"status": "loading", "percent": 10, "message": f"Инициализация конфигурации {model_id}..."}
         try:
             hw = get_hardware_profile()
@@ -113,10 +126,10 @@ class ShardEngine:
     def generate_stream(self, messages, max_tokens=1024, temperature=0.7):
         self.status = "generating"
         t0 = time.time()
-        if self.model is None or self.tokenizer is None:
+        if not TORCH_AVAILABLE or self.model is None or self.tokenizer is None:
             msg = self.load_progress.get("message", "Модель ещё не загружена в память.")
             yield {"type": "thought", "token": f"Ожидание готовности локальной нейросети {self.active_model_id}. Текущий статус: {msg}", "done": False}
-            yield {"type": "content", "token": f"Локальная модель {self.active_model_id} сейчас загружается на вашем ПК: {msg}\n\nПожалуйста, дождитесь окончания загрузки весов.", "done": False}
+            yield {"type": "content", "token": f"Локальная модель {self.active_model_id} сейчас подготавливается: {msg}\n\nПожалуйста, дождитесь завершения загрузки.", "done": False}
             self.status = "ready" if self.current_loaded_id else "idle"
             yield {"type": "done", "token": "", "done": True, "telemetry": {"thinking_seconds": 0.1, "total_seconds": 0.2, "tokens_per_sec": 0}, "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}}
             return
