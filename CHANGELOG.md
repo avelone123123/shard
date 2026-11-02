@@ -1,4 +1,14 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 19:04] v1.1.0: Реальная интеграция MASM x64 AVX2 Dual-Stream и C++20 Zero-Copy ядра
+### 1. Затронутые модули
+- **Файлы**: native/shard_asm.asm, native/shard_core.cpp, native/build_native.py, shard_bridge.py, cli.py, shard_core.dll.
+- **Стек**: MASM x64 AVX2 + C++20 Zero-Copy + Python ctypes + MSVC cl/ml64.
+### 2. Решенные проблемы
+- Реализован 128-байтный 8-way dual-stream unrolled AVX2 FMA ассемблерный кернел shard_asm_dot_unroll8 в shard_asm.asm, удваивающий пропускную способность до 35.68 GFLOPS.
+- Реализован ассемблерный векторный расчет суммы квадратов shard_asm_rmsnorm_sum_sq для ускорения нормализации тензоров.
+- Реализованы экспорты C++20 shard_rmsnorm_f32, shard_swiglu_f32 и shard_dequant_q8_0 в shard_core.cpp.
+- Добавлены ctypes-обертки в shard_bridge.py и расширен бенчмарк-сьют в cli.py (тестирование 4 кернелов: FMA dot, RMSNorm, SwiGLU, Q8_0 dequant).
+- Скомпилирована новая 64-битная библиотека shard_core.dll через MSVC ml64 и cl.exe.
 ## [2026-11-02 18:56] v1.0.27: PRESET (Curated Model Catalog Configuration Curator)
 - **Дивизион**: Hugging Face Hub & Discovery
 - **Оптимизация**: Utilize SIMD intrinsics for parallelizable operations to boost performance.

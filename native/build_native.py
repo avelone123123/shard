@@ -18,7 +18,7 @@ def build():
         print("ASM Compilation failed:\n", r_asm.stdout, r_asm.stderr)
         sys.exit(1)
     print("ASM Compiled successfully:", ASM_OBJ)
-    cmd_cpp = f'call "{VCVARS}" && cl /O2 /arch:AVX2 /std:c++20 /LD "{CPP_SRC}" "{ASM_OBJ}" /Fe:"{OUT_DLL}"'
+    cmd_cpp = f'call "{VCVARS}" && cl /O2 /EHsc /arch:AVX2 /std:c++20 /LD "{CPP_SRC}" "{ASM_OBJ}" /Fe:"{OUT_DLL}"'
     r_cpp = subprocess.run(cmd_cpp, shell=True, capture_output=True, text=True)
     if r_cpp.returncode != 0:
         print("C++ Compilation failed:\n", r_cpp.stdout, r_cpp.stderr)

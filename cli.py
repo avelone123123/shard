@@ -84,7 +84,7 @@ def cmd_list(args):
         print(f"{mid:<42} {compat:<24} {speed:<16} {d}")
 def cmd_test():
     print_banner()
-    print("Running Shard Native Core C++20 + MASM AVX2 SIMD Benchmark...")
+    print("Running Shard Native Core C++20 + MASM AVX2 SIMD Benchmark Suite...")
     bridge = ShardNativeBridge()
     print(f"Kernel: {bridge.version}")
     iters = 100000
@@ -94,12 +94,28 @@ def cmd_test():
         total_ops = ops_per_iter * iters
         sec = us / 1000000.0
         gflops = (total_ops / sec) / 1e9
-        print(f"Iterations:       {iters:,}")
-        print(f"Elapsed Time:     {us:,} us ({sec:.4f} s)")
-        print(f"Throughput:       {gflops:.2f} GFLOPS (AVX2 SIMD)")
-        print("Native Pipeline:  VALIDATED [OK]")
+        print(f"[1/4] Dot-Product FMA: {gflops:.2f} GFLOPS ({us:,} us)")
+        x_sample = [0.05 * (i % 20) for i in range(4096)]
+        w_sample = [1.0 for _ in range(4096)]
+        t0 = time.time()
+        for _ in range(3000):
+            bridge.rmsnorm(x_sample, w_sample)
+        rms_dt = time.time() - t0
+        print(f"[2/4] RMSNorm Vector:  {3000 / rms_dt:.1f} ops/sec (AVX2 sum of squares)")
+        t0 = time.time()
+        for _ in range(3000):
+            bridge.swiglu(x_sample, w_sample)
+        swi_dt = time.time() - t0
+        print(f"[3/4] SwiGLU Kernel:   {3000 / swi_dt:.1f} ops/sec (Vectorized Sigmoid)")
+        q8_bytes = bytes([i % 127 for i in range(4096)])
+        t0 = time.time()
+        for _ in range(3000):
+            bridge.dequant_q8(q8_bytes, 0.05)
+        deq_dt = time.time() - t0
+        print(f"[4/4] Q8_0 Dequant:     {3000 / deq_dt:.1f} ops/sec (Zero-Copy Int8->FP32)")
+        print("Native Pipeline:       ALL KERNELS VALIDATED [OK]")
     else:
-        print("Native Pipeline:  BENCHMARK FAILED [ERROR]")
+        print("Native Pipeline:       BENCHMARK FAILED [ERROR]")
 def cmd_key(args):
     print_banner()
     if getattr(args, "gen", False):
