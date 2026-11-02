@@ -1,0 +1,7 @@
+*.html linguist-vendored
+dashboard.html linguist-vendored
+*.cpp linguist-detectable=true
+*.asm linguist-detectable=true
+*.py linguist-detectable=true
+native/*.cpp linguist-detectable=true
+native/*.asm linguist-detectable=true

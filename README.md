@@ -57,15 +57,26 @@ Shard exposes full OpenAI and Claude Messages compatible endpoints on `http://lo
 - Open **Settings** -> **Models** -> Add Custom Model:
 - Model Name: `Qwen/Qwen2.5-Coder-7B-Instruct`
 - OpenAI Base URL: `http://localhost:8000/v1`
-- API Key: `sk-shard-local-avelone-dev`
-### 2. Claude CLI & OpenCode (Windows PowerShell)
-```powershell
-$env:SHARD_KEY="sk-shard-local-avelone-dev"; irm "http://localhost:8000/i?os=windows&tool=claude" | iex
+- API Key: `sk-shard-...` (generate via `shard key --gen` or in Web Dashboard)
+### 2. Universal Windows Installer (CMD / PowerShell / Terminal)
+```cmd
+powershell -ExecutionPolicy Bypass -Command "irm 'http://localhost:8000/i?os=windows&tool=opencode&key=YOUR_KEY' | iex"
 ```
 ### 3. Linux & macOS
 ```bash
-bash <(curl -fsSL "http://localhost:8000/i?tool=claude") sk-shard-local-avelone-dev
+bash <(curl -fsSL "http://localhost:8000/i?tool=opencode&key=YOUR_KEY")
 ```
+## Docker & Persistent Model Storage
+Run Shard in an isolated container with persistent model caching and automatic volume mounts:
+```bash
+docker compose up -d
+```
+All downloaded weights are preserved in `shard_models_volume` (`/data/models`) across container restarts.
+## Hugging Face Model Card Browser
+The built-in web dashboard on `http://localhost:8000` provides real-time access to the entire Hugging Face Hub, featuring:
+- Full Model Card rendering (tables, architecture charts, specs, and resolved CDN images).
+- Zero-copy tensor memory mapping straight to C++20 and MASM AVX2 vector registers.
+- Multi-session chat sandbox with persistent multi-turn conversational memory.
 ## Native AVX2 Benchmark
 ```bash
 shard test
@@ -77,5 +88,9 @@ Elapsed Time:     45,179 us (0.0452 s)
 Throughput:       18.13 GFLOPS (AVX2 SIMD)
 Native Pipeline:  VALIDATED [OK]
 ```
+## Community & Directives
+- Author & Maintainer: avelone123123
+- Autonomous Agent Directives: [agent.md](agent.md) | [skill.md](skill.md)
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 ## License
 MIT License. Developed by avelone123123.

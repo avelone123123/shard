@@ -1,4 +1,24 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 13:40] Карточки моделей с Hugging Face, .gitattributes для языков GitHub, Docker и agent.md
+### 1. Зона ответственности
+- **Компоненты**: `hf_hub.py`, `server.py`, `dashboard.html`, `.gitattributes`, `Dockerfile`, `docker-compose.yml`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `.github/`, `agent.md`, `skill.md`, `README.md`.
+- **Стек**: Python + FastAPI + C++20 + MASM x64 + Docker Compose + Hugging Face Hub API.
+### 2. Причина изменений
+- Отображение полного описания и Model Card из Hugging Face Hub со всеми изображениями, таблицами и архитектурой по клику на модель.
+- Исправление языковой статистики репозитория на GitHub (скрытие HTML через linguist-vendored, чтобы отображались C++, Assembly и Python).
+- Персистентное хранение весов моделей через Docker volumes (`shard_models_volume`).
+- Формирование строгих директив для 50 AI-агентов студии `shard-triad` (`agent.md` и `skill.md`): полный запрет на хардкод, приоритет системного кода над версткой, поддержка issues/PRs, автор `avelone123123`.
+### 3. Список изменений
+- `hf_hub.py`: добавлена функция `fetch_model_card()` с парсингом raw README.md и авторезолвингом относительных URL изображений в CDN Hugging Face (`resolve/main/`).
+- `server.py`: зарегистрирован эндпоинт `GET /api/hf/model/{model_id:path}`.
+- `dashboard.html`: встроен модальный просмотрщик Model Card с парсером Markdown (таблицы, код, изображения, списки, бейджи), кнопкой быстрого запуска и ссылкой на HF.
+- `.gitattributes`: HTML файлы помечены как `linguist-vendored`, принудительно включено обнаружение C++ (`*.cpp`) и Assembly (`*.asm`).
+- `Dockerfile` и `docker-compose.yml`: развернута контейнеризация с томами `/data/models` и `/data/shard`.
+- `agent.md` и `skill.md`: созданы в `shard-triad` и продублированы в `shard`.
+- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `.github/ISSUE_TEMPLATE/`: подготовлены стандарты сообщества с автором `avelone123123`.
+### 4. Статус и валидация
+- Тест эндпоинта модели `nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B`: README 130KB успешно получен, изображения отрезолвлены.
+- Все файлы проверены: 0 пустых строк, 0 комментариев, 0 эмодзи.
 ## [2026-11-02 13:25] Локальная база API ключей, удаление ключей, фикс OpenCode и CMD
 ### 1. Зона ответственности
 - **Компоненты**: `server.py`, `dashboard.html`, `keys_db.json`, `.gitignore`.

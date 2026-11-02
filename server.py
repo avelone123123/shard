@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from engine import engine_instance
 from hardware import get_hardware_profile
-from hf_hub import browse_models, fetch_model_metadata
+from hf_hub import browse_models, fetch_model_metadata, fetch_model_card
 app = FastAPI(title="Shard Local Model Engine and Server", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
@@ -43,6 +43,9 @@ def api_hardware():
 @app.get("/api/hf/models")
 def api_hf_models(query: str = None, category: str = "all", limit: int = 50):
     return browse_models(query=query, category=category, limit=limit)
+@app.get("/api/hf/model/{model_id:path}")
+def api_hf_model_card(model_id: str):
+    return fetch_model_card(model_id)
 @app.post("/api/models/load")
 async def api_load_model(req: Request):
     data = await req.json()

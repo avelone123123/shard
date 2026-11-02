@@ -1,3 +1,4 @@
+import re
 import requests
 from hardware import evaluate_compatibility, get_hardware_profile
 CURATED_MODELS = [
@@ -130,3 +131,60 @@ def browse_models(query=None, category=None, limit=36, hw=None):
             "compatibility": comp
         })
     return fallback_results
+def fetch_model_card(model_id, hw=None):
+    if hw is None:
+        hw = get_hardware_profile()
+    comp = evaluate_compatibility(model_id, hw)
+    author = model_id.split("/")[0] if "/" in model_id else "Community"
+    name = model_id.split("/")[-1] if "/" in model_id else model_id
+    meta_url = f"https://huggingface.co/api/models/{model_id}"
+    raw_url = f"https://huggingface.co/{model_id}/raw/main/README.md"
+    d_count = 0
+    likes_count = 0
+    pipeline_tag = "text-generation"
+    tags = []
+    card_data = {}
+    try:
+        r_meta = requests.get(meta_url, timeout=4)
+        if r_meta.status_code == 200:
+            m_json = r_meta.json()
+            d_count = m_json.get("downloads", 0)
+            likes_count = m_json.get("likes", 0)
+            pipeline_tag = m_json.get("pipeline_tag", "text-generation")
+            tags = m_json.get("tags", [])
+            card_data = m_json.get("cardData", {})
+    except Exception:
+        pass
+    readme_text = ""
+    try:
+        r_raw = requests.get(raw_url, timeout=5)
+        if r_raw.status_code == 200:
+            readme_text = r_raw.text
+        else:
+            r_master = requests.get(f"https://huggingface.co/{model_id}/raw/master/README.md", timeout=5)
+            if r_master.status_code == 200:
+                readme_text = r_master.text
+    except Exception:
+        pass
+    if readme_text:
+        base_resolve = f"https://huggingface.co/{model_id}/resolve/main/"
+        def repl_img(m):
+            alt = m.group(1)
+            src = m.group(2).strip()
+            if not src.startswith(("http://", "https://", "data:")):
+                clean_src = re.sub(r"^\.?\/?(resolve\/main\/)?", "", src)
+                src = base_resolve + clean_src
+            return f"![{alt}]({src})"
+        readme_text = re.sub(r"!\[(.*?)\]\((.*?)\)", repl_img, readme_text)
+    return {
+        "id": model_id,
+        "author": author,
+        "name": name,
+        "downloads": d_count,
+        "likes": likes_count,
+        "pipeline_tag": pipeline_tag,
+        "tags": tags[:15],
+        "readme": readme_text,
+        "card_data": card_data,
+        "compatibility": comp
+    }

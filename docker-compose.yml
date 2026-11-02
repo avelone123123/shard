@@ -1,0 +1,19 @@
+version: "3.8"
+services:
+  shard-engine:
+    build: .
+    container_name: shard-engine
+    ports:
+      - "8000:8000"
+    environment:
+      - SHARD_MODELS_DIR=/data/models
+      - SHARD_DATA_DIR=/data/shard
+    volumes:
+      - shard_models:/data/models
+      - shard_data:/data/shard
+    restart: unless-stopped
+volumes:
+  shard_models:
+    name: shard_models_volume
+  shard_data:
+    name: shard_data_volume
