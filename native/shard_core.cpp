@@ -20,6 +20,7 @@ extern "C" {
     float shard_asm_dot_unroll8(const float* a, const float* b, int count);
     void shard_asm_fast_scale(const float* src, float* dst, const float* scale, int count);
     float shard_asm_rmsnorm_sum_sq(const float* src, int count);
+    void shard_asm_vec_add_f32(const float* a, const float* b, float* dst, int count);
 #else
     inline float shard_asm_dot_f32(const float* a, const float* b, int count) {
         int i = 0;
@@ -201,6 +202,27 @@ extern "C" {
 #endif
         auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
         return static_cast<int>(elapsed_us);
+    }
+        SHARD_EXPORT void shard_vec_add_f32(const float* a, const float* b, float* dst, int count) {
+        if (!a || !b || !dst || count <= 0) return;
+        shard_asm_vec_add_f32(a, b, dst, count);
+    }
+    SHARD_EXPORT void shard_silu_f32(const float* src, float* dst, int count) {
+        if (!src || !dst || count <= 0) return;
+        for (int i = 0; i < count; ++i) {
+            float x = src[i];
+            dst[i] = x / (1.0f + expf(-x));
+        }
+    }
+    SHARD_EXPORT void shard_gelu_f32(const float* src, float* dst, int count) {
+        if (!src || !dst || count <= 0) return;
+        const float k0 = 0.7978845608f;
+        const float k1 = 0.044715f;
+        for (int i = 0; i < count; ++i) {
+            float x = src[i];
+            float inner = k0 * (x + k1 * x * x * x);
+            dst[i] = 0.5f * x * (1.0f + tanhf(inner));
+        }
     }
     SHARD_EXPORT const char* shard_get_version() {
         return "Shard Native Core v1.1.0 (C++20 Zero-Copy + MASM AVX2 Dual-Stream SIMD)";

@@ -23,6 +23,9 @@ class ShardNativeBridge:
                 self.dll.shard_scale_vector.argtypes = [ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_float, ctypes.c_int]
                 self.dll.shard_rmsnorm_f32.argtypes = [ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_float]
                 self.dll.shard_swiglu_f32.argtypes = [ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_int]
+                self.dll.shard_vec_add_f32.argtypes = [ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_int]
+                self.dll.shard_silu_f32.argtypes = [ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_int]
+                self.dll.shard_gelu_f32.argtypes = [ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_int]
                 self.dll.shard_dequant_q4.argtypes = [ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_float), ctypes.c_float, ctypes.c_int]
                 self.dll.shard_dequant_q8_0.argtypes = [ctypes.POINTER(ctypes.c_byte), ctypes.POINTER(ctypes.c_float), ctypes.c_float, ctypes.c_int]
                 self.dll.shard_mmap_open.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_uint64)]
@@ -77,6 +80,42 @@ class ShardNativeBridge:
             return list(cout)
         import math
         return [(g / (1.0 + math.exp(-g))) * u for g, u in zip(gate[:count], up[:count])]
+    def vec_add(self, list_a, list_b):
+        count = min(len(list_a), len(list_b))
+        if count == 0:
+            return []
+        arr_t = ctypes.c_float * count
+        ca = arr_t(*list_a[:count])
+        cb = arr_t(*list_b[:count])
+        cout = arr_t()
+        if self.is_native_active:
+            self.dll.shard_vec_add_f32(ca, cb, cout, count)
+            return list(cout)
+        return [a + b for a, b in zip(list_a[:count], list_b[:count])]
+    def silu(self, x):
+        count = len(x)
+        if count == 0:
+            return []
+        arr_t = ctypes.c_float * count
+        cx = arr_t(*x)
+        cout = arr_t()
+        if self.is_native_active:
+            self.dll.shard_silu_f32(cx, cout, count)
+            return list(cout)
+        import math
+        return [v / (1.0 + math.exp(-v)) for v in x]
+    def gelu(self, x):
+        count = len(x)
+        if count == 0:
+            return []
+        arr_t = ctypes.c_float * count
+        cx = arr_t(*x)
+        cout = arr_t()
+        if self.is_native_active:
+            self.dll.shard_gelu_f32(cx, cout, count)
+            return list(cout)
+        import math
+        return [0.5 * v * (1.0 + math.tanh(0.7978845608 * (v + 0.044715 * v * v * v))) for v in x]
     def dequant_q4(self, raw_bytes, scale=1.0):
         count = len(raw_bytes) * 2
         out = (ctypes.c_float * count)()

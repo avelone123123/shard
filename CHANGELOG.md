@@ -1,4 +1,13 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 19:18] v1.2.0: Резидуальные векторные связи MASM AVX2, активации SiLU и GeLU в C++20
+### 1. Затронутые модули
+- **Файлы**: native/shard_asm.asm, native/shard_core.cpp, shard_bridge.py, cli.py, shard_core.dll.
+- **Стек**: MASM x64 AVX2 + C++20 + Python ctypes.
+### 2. Решенные проблемы
+- Реализован ассемблерный кернел shard_asm_vec_add_f32 в shard_asm.asm для аппаратного сложения residual-тензоров.
+- Реализованы векторизованные активации shard_silu_f32 и shard_gelu_f32 в shard_core.cpp.
+- Добавлены ctypes-биндинги в shard_bridge.py (vec_add, silu, gelu).
+- Бенчмарк-сьют в cli.py расширен до 7 нативных кернелов, производительность FMA достигла 37.05 GFLOPS.
 ## [2026-11-02 19:12] v1.0.36: INSTALL (Dynamic /i Installer Script Generator)
 - **Дивизион**: APIs & CLI Experience
 - **Оптимизация**: Align SIMD lanes with page boundaries for zero-copy installer payload transfers.

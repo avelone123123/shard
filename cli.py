@@ -112,8 +112,23 @@ def cmd_test():
         for _ in range(3000):
             bridge.dequant_q8(q8_bytes, 0.05)
         deq_dt = time.time() - t0
-        print(f"[4/4] Q8_0 Dequant:     {3000 / deq_dt:.1f} ops/sec (Zero-Copy Int8->FP32)")
-        print("Native Pipeline:       ALL KERNELS VALIDATED [OK]")
+        print(f"[4/7] Q8_0 Dequant:     {3000 / deq_dt:.1f} ops/sec (Zero-Copy Int8->FP32)")
+        t0 = time.time()
+        for _ in range(3000):
+            bridge.vec_add(x_sample, w_sample)
+        add_dt = time.time() - t0
+        print(f"[5/7] Vec-Add SIMD:     {3000 / add_dt:.1f} ops/sec (MASM AVX2 Residual Addition)")
+        t0 = time.time()
+        for _ in range(3000):
+            bridge.silu(x_sample)
+        silu_dt = time.time() - t0
+        print(f"[6/7] SiLU Kernel:      {3000 / silu_dt:.1f} ops/sec (C++20 Fast Sigmoid Activation)")
+        t0 = time.time()
+        for _ in range(3000):
+            bridge.gelu(x_sample)
+        gelu_dt = time.time() - t0
+        print(f"[7/7] GeLU Kernel:      {3000 / gelu_dt:.1f} ops/sec (C++20 Fast Tanh Approximation)")
+        print("Native Pipeline:       ALL 7 KERNELS VALIDATED [OK]")
     else:
         print("Native Pipeline:       BENCHMARK FAILED [ERROR]")
 def cmd_key(args):

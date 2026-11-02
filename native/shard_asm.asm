@@ -131,4 +131,35 @@ rms_done:
     vzeroupper
     ret
 shard_asm_rmsnorm_sum_sq endp
+shard_asm_vec_add_f32 proc
+    mov eax, r9d
+    shr eax, 3
+    test eax, eax
+    jz add_scalar
+add_loop:
+    vmovups ymm0, ymmword ptr [rcx]
+    vmovups ymm1, ymmword ptr [rdx]
+    vaddps ymm0, ymm0, ymm1
+    vmovups ymmword ptr [r8], ymm0
+    add rcx, 32
+    add rdx, 32
+    add r8, 32
+    dec eax
+    jnz add_loop
+add_scalar:
+    and r9d, 7
+    jz add_done
+add_tail:
+    vmovss xmm0, real4 ptr [rcx]
+    vaddss xmm0, xmm0, real4 ptr [rdx]
+    vmovss real4 ptr [r8], xmm0
+    add rcx, 4
+    add rdx, 4
+    add r8, 4
+    dec r9d
+    jnz add_tail
+add_done:
+    vzeroupper
+    ret
+shard_asm_vec_add_f32 endp
 end
