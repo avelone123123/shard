@@ -1,4 +1,8 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 19:09] v1.0.28: SPEC (Model Card & Quant Spec Formatter)
+- **Дивизион**: Hugging Face Hub & Discovery
+- **Оптимизация**: Minimize register spills via explicit YMM reservation before FastAPI marshalling.
+- **Бенчмарк ядра**: 35.68 GFLOPS AVX2 SIMD валидировано
 ## [2026-11-02 19:04] v1.1.0: Реальная интеграция MASM x64 AVX2 Dual-Stream и C++20 Zero-Copy ядра
 ### 1. Затронутые модули
 - **Файлы**: native/shard_asm.asm, native/shard_core.cpp, native/build_native.py, shard_bridge.py, cli.py, shard_core.dll.

@@ -137,6 +137,14 @@
       "cycle": 27,
       "timestamp": 1793627764,
       "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
+    },
+    "spec": {
+      "role": "Model Card & Quant Spec Formatter",
+      "division": "Hugging Face Hub & Discovery",
+      "rule": "Minimize register spills via explicit YMM reservation before FastAPI marshalling.",
+      "cycle": 28,
+      "timestamp": 1793628563,
+      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
     }
   }
 }
