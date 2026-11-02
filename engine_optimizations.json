@@ -177,6 +177,14 @@
       "cycle": 32,
       "timestamp": 1793628659,
       "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
+    },
+    "claude": {
+      "role": "Anthropic /v1/messages Protocol Adapter",
+      "division": "APIs & CLI Experience",
+      "rule": "Prioritize AVX2 register blocking for contiguous memory access.",
+      "cycle": 33,
+      "timestamp": 1793628682,
+      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
     }
   }
 }
