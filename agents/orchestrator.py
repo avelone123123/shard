@@ -1,5 +1,7 @@
 import os
 import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 import time
 import subprocess
 from agents.agents_registry import list_all_agents, get_agent

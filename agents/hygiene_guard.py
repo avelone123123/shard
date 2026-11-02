@@ -1,7 +1,7 @@
 import os
 import re
 EMOJI_PATTERN = re.compile(
-    r"[\U00010000-\U0010ffff\u2600-\u26ff\u2700-\u27bf\u1f300-\u1f64f\u1f680-\u1f6ff]"
+    r"[\U00010000-\U0010ffff\u2600-\u26ff\u2700-\u27bf]"
 )
 def clean_code_content(content, file_ext=""):
     lines = content.splitlines()
