@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "target": "MASM x64 AVX2 / C++20 Zero-Copy",
+  "optimizations": {
+    "quant": {
+      "role": "Q4_K_M Block Dequantization Engineer",
+      "division": "Quantization & Tensors",
+      "rule": "Minimize data copies prioritize SIMD parallelism for tensor operations.",
+      "cycle": 11,
+      "timestamp": 1793626741,
+      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
+    }
+  }
+}

@@ -1,4 +1,8 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 18:39] v1.0.11: QUANT (Q4_K_M Block Dequantization Engineer)
+- **Дивизион**: Quantization & Tensors
+- **Оптимизация**: Minimize data copies prioritize SIMD parallelism for tensor operations.
+- **Бенчмарк ядра**: 18.31 GFLOPS AVX2 SIMD валидировано
 ## [2026-11-02 18:05] Управление моделями на SSD: сканирование, просмотр объема, запуск и удаление весов
 ### 1. Затронутые модули
 - **Файлы**: server.py, dashboard.html.
