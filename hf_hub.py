@@ -2,37 +2,37 @@ import re
 import requests
 from hardware import evaluate_compatibility, get_hardware_profile
 CURATED_MODELS = [
-    {"id": "Qwen/Qwen2.5-Coder-7B-Instruct", "category": "coding", "desc": "Лидер в кодинге для Cursor и OpenCode. Контекст 128k токенов."},
-    {"id": "Qwen/Qwen2.5-Coder-1.5B-Instruct", "category": "coding", "desc": "Сверхлегкий кодер. Мгновенный отклик для автокомплита строк кода."},
-    {"id": "Qwen/Qwen2.5-Coder-14B-Instruct", "category": "coding", "desc": "Продвинутый кодер среднего размера с глубоким пониманием репозиториев."},
-    {"id": "Qwen/Qwen2.5-Coder-32B-Instruct", "category": "coding", "desc": "Флагманский кодер уровня GPT-4o для сложных архитектурных систем."},
-    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", "category": "reasoning", "desc": "Флагманская модель рассуждений с логикой DeepSeek-R1."},
-    {"id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B", "category": "reasoning", "desc": "DeepSeek R1 рассуждения на базе архитектуры Llama-3.1."},
-    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", "category": "reasoning", "desc": "Компактная reasoning модель для моментального логического вывода."},
-    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B", "category": "reasoning", "desc": "Мощная дистилляция DeepSeek R1 с математической строгостью."},
-    {"id": "deepseek-ai/DeepSeek-V3", "category": "reasoning", "desc": "Универсальный MoE флагман мирового уровня от DeepSeek AI."},
-    {"id": "google/gemma-2-9b-it", "category": "general", "desc": "Высокая эрудиция и стиль рассуждений от Google DeepMind."},
-    {"id": "google/gemma-2-2b-it", "category": "compact", "desc": "Ультракомпактная модель Google. Занимает минимум памяти VRAM."},
-    {"id": "google/gemma-2-27b-it", "category": "general", "desc": "Большая языковая модель Google с глубоким анализом контекста."},
-    {"id": "meta-llama/Llama-3.2-3B-Instruct", "category": "compact", "desc": "Компактная быстрая Llama от Meta. 100% помещается в VRAM ноута."},
-    {"id": "meta-llama/Llama-3.2-1B-Instruct", "category": "compact", "desc": "Легковесная версия Llama 3.2 с околонулевой задержкой генерации."},
-    {"id": "meta-llama/Llama-3.1-8B-Instruct", "category": "general", "desc": "Основной индустриальный стандарт открытых LLM от Meta."},
-    {"id": "meta-llama/Llama-3.3-70B-Instruct", "category": "general", "desc": "Флагман Llama 3.3 с качеством на уровне топовых коммерческих моделей."},
-    {"id": "microsoft/Phi-3.5-mini-instruct", "category": "compact", "desc": "Мини-модель Microsoft 3.8B параметров с качеством больших моделей."},
-    {"id": "microsoft/phi-4", "category": "reasoning", "desc": "Передовая модель Microsoft 14B с сильным уклоном в математику и логику."},
-    {"id": "HuggingFaceTB/SmolLM2-1.7B-Instruct", "category": "compact", "desc": "Сверхбыстрая компактная модель Hugging Face для слабых ПК."},
-    {"id": "HuggingFaceTB/SmolLM2-360M-Instruct", "category": "compact", "desc": "Микро-модель 360M параметров с мгновенным откликом."},
-    {"id": "mistralai/Mistral-7B-Instruct-v0.3", "category": "general", "desc": "Классический надежный универсал Mistral с поддержкой вызова функций."},
-    {"id": "mistralai/Mistral-Nemo-Instruct-2407", "category": "general", "desc": "Модель Mistral 12B, разработанная совместно с NVIDIA. 128k контекст."},
-    {"id": "mistralai/Codestral-22B-v0.1", "category": "coding", "desc": "Специализированная кодовая модель Mistral для 80+ языков программирования."},
-    {"id": "bigcode/starcoder2-7b", "category": "coding", "desc": "Индустриальная модель генерации кода от BigCode и Hugging Face."},
-    {"id": "bigcode/starcoder2-3b", "category": "coding", "desc": "Компактный StarCoder для автодополнения строк кода на лету."},
-    {"id": "01-ai/Yi-1.5-9B-Chat", "category": "general", "desc": "Модель от 01.AI с сильным балансом кодинга, математики и логики."},
-    {"id": "01-ai/Yi-1.5-6B-Chat", "category": "compact", "desc": "Облегченная Yi 6B с быстрым временем первого токена."},
-    {"id": "tiiuae/Falcon3-7B-Instruct", "category": "general", "desc": "Свежее поколение открытых моделей Falcon от Института TII."},
-    {"id": "tiiuae/Falcon3-3B-Instruct", "category": "compact", "desc": "Высокоэффективный Falcon 3B для работы на потребительских GPU."},
-    {"id": "THUDM/glm-4-9b-chat", "category": "general", "desc": "Мощная открытая мультиязычная модель от исследователей Tsinghua."},
-    {"id": "cohereforai/c4ai-command-r-v01", "category": "general", "desc": "Модель Cohere для RAG-архитектур и корпоративных агентов."}
+    {"id": "Qwen/Qwen2.5-Coder-7B-Instruct", "category": "coding", "desc": "Флагман для кодинга и рефакторинга. Контекст 128k токенов."},
+    {"id": "Qwen/Qwen2.5-Coder-1.5B-Instruct", "category": "coding", "desc": "Компактная быстрая модель для автодополнения и скриптов."},
+    {"id": "Qwen/Qwen2.5-Coder-14B-Instruct", "category": "coding", "desc": "Высокоточная архитектура для сложных архитектурных задач."},
+    {"id": "Qwen/Qwen2.5-Coder-32B-Instruct", "category": "coding", "desc": "Экспертный уровень генерации кода на уровне закрытых сетей."},
+    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", "category": "reasoning", "desc": "Продвинутая модель рассуждений на базе Qwen-7B."},
+    {"id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B", "category": "reasoning", "desc": "Рассуждающая архитектура на базе весов Llama-3.1."},
+    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B", "category": "reasoning", "desc": "Ультрабыстрая модель логического мышления для ПК."},
+    {"id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B", "category": "reasoning", "desc": "Глубокий пошаговый анализ и точные доказательства."},
+    {"id": "deepseek-ai/DeepSeek-V3", "category": "reasoning", "desc": "Полномасштабная MoE модель нового поколения."},
+    {"id": "google/gemma-2-9b-it", "category": "general", "desc": "Высокая плотность знаний и сильный общий интеллект."},
+    {"id": "google/gemma-2-2b-it", "category": "compact", "desc": "Энергоэффективная компактная модель для CPU и VRAM."},
+    {"id": "google/gemma-2-27b-it", "category": "general", "desc": "Высокая производительность в комплексных диалогах."},
+    {"id": "meta-llama/Llama-3.2-3B-Instruct", "category": "compact", "desc": "Быстрая компактная Llama. 100% размещение в VRAM."},
+    {"id": "meta-llama/Llama-3.2-1B-Instruct", "category": "compact", "desc": "Ультралегкая модель для мгновенного инференса."},
+    {"id": "meta-llama/Llama-3.1-8B-Instruct", "category": "general", "desc": "Индустриальный стандарт открытых языковых моделей."},
+    {"id": "meta-llama/Llama-3.3-70B-Instruct", "category": "general", "desc": "Флагман 70B с контекстом 128k для серверных задач."},
+    {"id": "microsoft/Phi-3.5-mini-instruct", "category": "compact", "desc": "Мини-модель 3.8B с высокой логической связностью."},
+    {"id": "microsoft/phi-4", "category": "reasoning", "desc": "Модель 14B с сильным уклоном в математику и логику."},
+    {"id": "HuggingFaceTB/SmolLM2-1.7B-Instruct", "category": "compact", "desc": "Легковесная открытая модель для локальных машин."},
+    {"id": "HuggingFaceTB/SmolLM2-360M-Instruct", "category": "compact", "desc": "Ультра-модель 360M параметров с мгновенным откликом."},
+    {"id": "mistralai/Mistral-7B-Instruct-v0.3", "category": "general", "desc": "Классическая модель с поддержкой вызова функций."},
+    {"id": "mistralai/Mistral-Nemo-Instruct-2407", "category": "general", "desc": "Модель 12B с контекстом 128k токенов."},
+    {"id": "mistralai/Codestral-22B-v0.1", "category": "coding", "desc": "Кодогенерация для 80+ языков программирования."},
+    {"id": "bigcode/starcoder2-7b", "category": "coding", "desc": "Специализированная среда для кодинга и аудита."},
+    {"id": "bigcode/starcoder2-3b", "category": "coding", "desc": "Быстрый ассистент автодополнения кода."},
+    {"id": "01-ai/Yi-1.5-9B-Chat", "category": "general", "desc": "Сбалансированная модель для диалогов и анализа."},
+    {"id": "01-ai/Yi-1.5-6B-Chat", "category": "compact", "desc": "Компактная быстрая языковая архитектура."},
+    {"id": "tiiuae/Falcon3-7B-Instruct", "category": "general", "desc": "Открытая архитектура третьего поколения."},
+    {"id": "tiiuae/Falcon3-3B-Instruct", "category": "compact", "desc": "Энергоэффективная модель под скромные GPU."},
+    {"id": "THUDM/glm-4-9b-chat", "category": "general", "desc": "Продвинутая мультиязычная модель общего профиля."},
+    {"id": "cohereforai/c4ai-command-r-v01", "category": "general", "desc": "Модель для сложных RAG-сценариев и поиска."}
 ]
 def fetch_model_metadata(model_id, hw=None):
     if hw is None:
@@ -44,8 +44,8 @@ def fetch_model_metadata(model_id, hw=None):
         "id": model_id,
         "author": author,
         "name": name,
-        "desc": f"Открытая модель {name} от {author}.",
-        "description": f"Открытая модель {name} от {author}.",
+        "desc": f"Открытая архитектура {name} ({author}).",
+        "description": f"Открытая архитектура {name} ({author}).",
         "compat_badge": comp["tier_label"],
         "speed_tier": comp["speed_est"],
         "memory_slot": comp["mode"],
@@ -72,7 +72,7 @@ def browse_models(query=None, category=None, limit=100, hw=None):
                 comp = evaluate_compatibility(mid, hw)
                 d_count = item.get("downloads", 0)
                 likes_count = item.get("likes", 0)
-                desc = f"Hugging Face открытая модель. Скачиваний: {d_count:,}"
+                desc = f"Открытая архитектура весов. Скачиваний: {d_count:,}"
                 live_results.append({
                     "id": mid,
                     "author": author,
@@ -116,7 +116,7 @@ def browse_models(query=None, category=None, limit=100, hw=None):
                 comp = evaluate_compatibility(mid, hw)
                 d_count = item.get("downloads", 0)
                 likes_count = item.get("likes", 0)
-                desc = f"Hugging Face открытая модель. Скачиваний: {d_count:,}"
+                desc = f"Открытая архитектура весов. Скачиваний: {d_count:,}"
                 live_results.append({
                     "id": mid,
                     "author": author,

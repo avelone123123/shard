@@ -1,5 +1,5 @@
 # Contributing to Shard Engine
-Thank you for your interest in contributing to Shard. Shard is a high-performance local Hugging Face model runtime engineered with Python, C++20, and MASM x64 AVX2 SIMD.
+Thank you for your interest in contributing to Shard. Shard is a high-performance local model runtime engineered with Python, C++20, and MASM x64 AVX2 SIMD.
 ## Architecture Guidelines
 - System performance is prioritized: zero-copy buffers, SIMD vectorization, and minimal memory overhead.
 - Primary core codebase is written in C++20 and MASM assembly; Python provides the HTTP/SSE orchestration layer.

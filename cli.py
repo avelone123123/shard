@@ -13,7 +13,7 @@ BASE_URL = os.environ.get("SHARD_BASE_URL", "http://localhost:8000")
 API_KEY = os.environ.get("SHARD_API_KEY", "sk-shard-local-avelone-dev")
 def print_banner():
     print("=" * 64)
-    print("  SHARD // TRI-LANGUAGE LOCAL HUGGING FACE RUNNER")
+    print("  SHARD // TRI-LANGUAGE LOCAL MODEL RUNNER")
     print("  Python FastAPI + C++20 Zero-Copy Paging + MASM x64 AVX2")
     print("=" * 64)
 def cmd_help():
@@ -23,7 +23,7 @@ def cmd_help():
     print("  start      Launch Shard server and web workspace")
     print("             Options: --host 0.0.0.0 --port 8000")
     print("  status     Show local GPU, VRAM, RAM, and native engine state")
-    print("  list       Browse Hugging Face models and hardware tiers")
+    print("  list       Browse models and hardware tiers")
     print("             Options: --category [all|coding|reasoning|compact]")
     print("  run        Load a model and chat in terminal REPL")
     print("             Usage: shard run <model_id>")
@@ -73,7 +73,7 @@ def cmd_list(args):
     print_banner()
     cat = getattr(args, "category", "all") or "all"
     models = browse_models(category=cat)
-    print(f"Available Hugging Face Models ({cat}):\n")
+    print(f"Available Models ({cat}):\n")
     print(f"{'MODEL ID':<42} {'COMPATIBILITY':<24} {'SPEED':<16} {'DOWNLOADS'}")
     print("-" * 95)
     for m in models:

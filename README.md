@@ -1,9 +1,9 @@
-# SHARD // Tri-Language Local Hugging Face Runner
+# SHARD // Tri-Language Local Neural Engine
 [![Architecture](https://img.shields.io/badge/Architecture-Python%20%2B%20C%2B%2B20%20%2B%20MASM%20AVX2-06b6d4)](https://github.com/avelone123123/shard)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-10b981)](https://github.com/avelone123123/shard)
 [![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
 Shard is a high-performance local AI runtime engineered with a tri-language architecture:
-- Python 3.14 (Async FastAPI, Hugging Face Hub streaming, SSE token streaming)
+- Python 3.14 (Async FastAPI, Open weights streaming, SSE token streaming)
 - C++20 Core (Direct Win32 memory-mapped tensor paging, zero-copy matrix buffers)
 - MASM x64 Assembly (Hand-crafted AVX2/FMA SIMD vector kernels achieving 18+ GFLOPS)
 ## System Overview
@@ -16,7 +16,7 @@ Shard is a high-performance local AI runtime engineered with a tri-language arch
                                     v
 +-------------------------------------------------------------------------+
 |                        FASTAPI PYTHON LAYER                             |
-|      SSE Streamer  |  Hugging Face Hub  |  Hardware Profiler (VRAM)     |
+|      SSE Streamer  |  Model Hub Bridge  |  Hardware Profiler (VRAM)     |
 +-------------------------------------------------------------------------+
                                     | Zero-Copy C FFI
                                     v
@@ -43,7 +43,7 @@ Shard provides a unified command line tool:
 shard start                     # Start local server and web workspace (port 8000)
 shard start --port 8080         # Start on custom port
 shard status                    # Inspect GPU, VRAM, RAM, and native kernel state
-shard list                      # View curated Hugging Face models and tiers
+shard list                      # View curated models and tiers
 shard list --category coding    # Filter models by category
 shard run <model_id>            # Interactive REPL session with live telemetry
 shard test                      # Execute native AVX2 SIMD hardware benchmark
@@ -72,8 +72,8 @@ Run Shard in an isolated container with persistent model caching and automatic v
 docker compose up -d
 ```
 All downloaded weights are preserved in `shard_models_volume` (`/data/models`) across container restarts.
-## Hugging Face Model Card Browser
-The built-in web dashboard on `http://localhost:8000` provides real-time access to the entire Hugging Face Hub, featuring:
+## Model Specification & Card Browser
+The built-in web dashboard on `http://localhost:8000` provides real-time access to open model repositories, featuring:
 - Full Model Card rendering (tables, architecture charts, specs, and resolved CDN images).
 - Zero-copy tensor memory mapping straight to C++20 and MASM AVX2 vector registers.
 - Multi-session chat sandbox with persistent multi-turn conversational memory.

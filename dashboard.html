@@ -3,15 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shard // On-Device Hugging Face Engine</title>
+<title>Shard // On-Device Neural Engine</title>
 <style>
-:root{--bg:#090a0f;--surface:#10131b;--surface-elevated:#151a26;--border:#1d2333;--border-hover:#2a334a;--accent:#3b82f6;--accent-hover:#2563eb;--emerald:#10b981;--emerald-bg:rgba(16,185,129,0.12);--amber:#f59e0b;--amber-bg:rgba(245,158,11,0.12);--purple:#8b5cf6;--purple-bg:rgba(139,92,246,0.12);--text:#f1f5f9;--text-muted:#8492a6;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+:root{--bg:#0c0e14;--surface:#131620;--surface-elevated:#191d29;--border:#212736;--border-hover:#31394d;--accent:#2563eb;--accent-hover:#1d4ed8;--emerald:#10b981;--emerald-bg:rgba(16,185,129,0.08);--amber:#d97706;--amber-bg:rgba(217,119,6,0.08);--steel:#64748b;--steel-bg:rgba(100,116,139,0.08);--text:#f8fafc;--text-muted:#8892a4;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;}
 header{background:#0c0e14;border-bottom:1px solid var(--border);padding:14px 28px;display:flex;justify-content:space-between;align-items:center;}
 .brand{display:flex;align-items:center;gap:12px;}
-.brand-badge{background:#1e293b;border:1px solid #334155;color:#f8fafc;font-weight:700;font-size:12px;letter-spacing:1px;padding:4px 9px;border-radius:5px;}
-.brand-name{font-size:15px;font-weight:600;color:#fff;}
+.brand-logo-icon{width:32px;height:32px;background:#151822;border:1px solid #262c3d;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.brand-badge{background:#191d29;border:1px solid #2d3548;color:#94a3b8;font-weight:700;font-size:10px;letter-spacing:1px;padding:2px 7px;border-radius:4px;}
+.brand-name{font-size:15px;font-weight:700;color:#fff;letter-spacing:1px;}
 .brand-desc{font-size:12px;color:var(--text-muted);}
 .hw-bar{display:flex;gap:20px;align-items:center;background:var(--surface);padding:7px 16px;border-radius:6px;border:1px solid var(--border);}
 .hw-item{display:flex;flex-direction:column;}
@@ -160,9 +161,9 @@ main{flex:1;padding:24px 28px;max-width:1440px;margin:0 auto;width:100%;}
 <div>
 <div class="modal-title-row">
 <div id="modalModelTitle" class="modal-title">Model Name</div>
-<a id="modalHfLink" href="#" target="_blank" class="modal-hf-btn" title="Открыть страницу на Hugging Face">
+<span id="modalHfLink" class="modal-hf-btn" title="Спецификация архитектуры">
 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-Hugging Face
+Спецификация
 </a>
 </div>
 <div id="modalModelAuthor" class="modal-author">author</div>
@@ -183,10 +184,20 @@ Hugging Face
 </div>
 <header>
 <div class="brand">
-<div class="brand-badge">SHARD</div>
+<div class="brand-logo-icon">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+<path d="M12 2L21 7V17L12 22L3 17V7L12 2Z" stroke="#475569" stroke-width="1.8" stroke-linejoin="round"/>
+<path d="M12 2V22" stroke="#334155" stroke-width="1.2"/>
+<polygon points="12,4 19,8 12,12 5,8" fill="#2563eb" fill-opacity="0.25" stroke="#3b82f6" stroke-width="1"/>
+<polygon points="12,12 19,16 12,20 5,16" fill="#1e293b" fill-opacity="0.6" stroke="#475569" stroke-width="1"/>
+</svg>
+</div>
 <div>
-<div class="brand-name">Shard Engine Workspace</div>
-<div class="brand-desc">On-Device Hugging Face Model Runtime &amp; OpenAI Server</div>
+<div style="display:flex;align-items:center;gap:7px;">
+<span class="brand-name">SHARD</span>
+<span class="brand-badge">RUNTIME</span>
+</div>
+<div class="brand-desc">Локальная среда запуска нейросетей // C++20 Zero-Copy Engine</div>
 </div>
 </div>
 <div class="hw-bar">
@@ -200,7 +211,7 @@ Hugging Face
 <div class="nav-tabs">
 <button class="nav-btn active" onclick="showTab('market', this)">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-Каталог Hugging Face
+Каталог
 </button>
 <button class="nav-btn" onclick="showTab('connect', this)">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
@@ -208,7 +219,7 @@ Hugging Face
 </button>
 <button class="nav-btn" onclick="showTab('chat', this)">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-Чат-песочница
+Чат
 </button>
 <button class="nav-btn" onclick="showTab('keys', this)">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg>
@@ -245,7 +256,7 @@ API Ключи
 <div class="search-bar">
 <div class="search-wrapper">
 <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-<input type="text" id="searchInput" class="search-input" placeholder="Поиск среди 3 000 000+ моделей Hugging Face Hub (или вставьте точный ID: owner/model)..." oninput="handleSearchDebounced()" onkeyup="handleSearch(event)">
+<input type="text" id="searchInput" class="search-input" placeholder="Поиск среди 3 000 000+ открытых моделей (или точный ID: owner/model)..." oninput="handleSearchDebounced()" onkeyup="handleSearch(event)">
 </div>
 <div class="filter-tabs">
 <button class="filter-btn active" onclick="setCategory('all', this)">Все</button>
@@ -255,7 +266,7 @@ API Ключи
 <button class="filter-btn" onclick="setCategory('general', this)">Универсальные</button>
 </div>
 </div>
-<div id="modelsCountBadge" style="font-size:12px;color:var(--text-muted);margin:8px 0 12px 2px;">Загрузка каталога Hugging Face...</div>
+<div id="modelsCountBadge" style="font-size:12px;color:var(--text-muted);margin:8px 0 12px 2px;">Каталог открытых моделей...</div>
 <div class="models-grid" id="modelsGrid"></div>
 </div>
 <div id="tab-connect" class="section">
@@ -947,13 +958,13 @@ async function loadModels() {
     const q = document.getElementById('searchInput').value.trim();
     const grid = document.getElementById('modelsGrid');
     const badgeEl = document.getElementById('modelsCountBadge');
-    if (badgeEl) badgeEl.innerText = 'Загрузка моделей с Hugging Face Hub...';
+    if (badgeEl) badgeEl.innerText = 'Загрузка каталога моделей...';
     try {
         const res = await fetch('/api/hf/models?category=' + currentCategory + (q ? '&query=' + encodeURIComponent(q) : ''));
         const models = await res.json();
         grid.innerHTML = '';
         if (badgeEl) {
-            badgeEl.innerHTML = '<span style="color:#38bdf8;font-weight:600;">Каталог Hugging Face Hub (3 000 000+ открытых моделей)</span> &bull; Показано: ' + models.length + (q ? ' (по запросу: "' + escapeHtml(q) + '")' : ' популярных сборок');
+            badgeEl.innerHTML = '<span style="color:#38bdf8;font-weight:600;">Каталог Hub (3 000 000+ открытых моделей)</span> &bull; Показано: ' + models.length + (q ? ' (по запросу: "' + escapeHtml(q) + '")' : ' популярных сборок');
         }
         if (!models || models.length === 0) {
             grid.innerHTML = '<div style="color:var(--text-muted);padding:24px;font-size:13px;grid-column:1/-1;">Модели не найдены. Попробуйте другой запрос (например: qwen, deepseek, llama, gemma, mistral, phi).</div>';
@@ -1031,7 +1042,7 @@ function renderTable(rows) {
     return out;
 }
 function renderMarkdown(md) {
-    if (!md) return '<div style="color:var(--text-muted);padding:20px;">Описание отсутствует на Hugging Face Hub.</div>';
+    if (!md) return '<div style="color:var(--text-muted);padding:20px;">Описание модели недоступно.</div>';
     let text = md.replace(/^---[\s\S]*?---\n*/, '');
     let html = '';
     const lines = text.split('\n');
@@ -1098,9 +1109,9 @@ async function openModelCard(modelId) {
     backdrop.style.display = 'flex';
     titleEl.innerText = modelId.split('/').pop();
     authorEl.innerText = modelId.split('/')[0] || 'Community';
-    hfLink.href = 'https://huggingface.co/' + modelId;
+    hfLink.removeAttribute('href');
     launchBtn.onclick = () => { loadModel(modelId); closeModelCard(); };
-    bodyEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text-muted);"><div class="think-pulse" style="width:14px;height:14px;"></div><div style="font-size:13px;color:#cbd5e1;">Загрузка описания и карточки модели с Hugging Face Hub...</div></div>';
+    bodyEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text-muted);"><div class="think-pulse" style="width:14px;height:14px;"></div><div style="font-size:13px;color:#cbd5e1;">Загрузка спецификации и описания модели...</div></div>';
     try {
         const res = await fetch('/api/hf/model/' + encodeURIComponent(modelId));
         const data = await res.json();
@@ -1110,7 +1121,7 @@ async function openModelCard(modelId) {
             '<span class="spec-item" style="color:#10b981;font-weight:600;">' + (data.compatibility ? data.compatibility.tier_label : '') + '</span>';
         bodyEl.innerHTML = renderMarkdown(data.readme);
     } catch(e) {
-        bodyEl.innerHTML = '<div style="color:#ef4444;padding:30px;text-align:center;">Не удалось загрузить карточку с Hugging Face Hub.</div>';
+        bodyEl.innerHTML = '<div style="color:#ef4444;padding:30px;text-align:center;">Не удалось загрузить спецификацию модели.</div>';
     }
 }
 function closeModelCard() {
@@ -1126,7 +1137,7 @@ async function loadModel(modelId) {
     updateLoadingUI(true, {
         model_id: modelId,
         percent: 6,
-        stage: 'Инициализация весов с Hugging Face Hub',
+        stage: 'Скачивание весов модели',
         curr_mb: 0,
         total_mb: 100,
         speed_mb: 0,

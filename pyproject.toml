@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "shard-engine"
 version = "1.0.0"
-description = "Tri-language local Hugging Face runner (Python + C++20 + MASM AVX2 Assembly)"
+description = "Tri-language local neural engine (Python + C++20 + MASM AVX2 Assembly)"
 readme = "README.md"
 authors = [{name = "avelone123123", email = "avelone.dev@gmail.com"}]
 license = {text = "MIT"}
