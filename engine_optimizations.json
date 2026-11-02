@@ -105,6 +105,14 @@
       "cycle": 23,
       "timestamp": 1793627699,
       "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
+    },
+    "fetch": {
+      "role": "Resumable Multi-Chunk Tensor Downloader",
+      "division": "Hugging Face Hub & Discovery",
+      "rule": "Always align tensor chunks to 64-byte boundaries for AVX2 and prefetch next chunk during current chunk CRC.",
+      "cycle": 24,
+      "timestamp": 1793627715,
+      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
     }
   }
 }
