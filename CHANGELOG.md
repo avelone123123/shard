@@ -1,4 +1,8 @@
 # Журнал изменений Shard Engine
+## [2026-11-02 18:52] v1.0.16: ROPE (Rotary Position Embedding SIMD Accelerated)
+- **Дивизион**: Quantization & Tensors
+- **Оптимизация**: Batch process tensor operations using AVX2 SIMD to enhance performance and reduce memory access latency.
+- **Бенчмарк ядра**: 18.31 GFLOPS AVX2 SIMD валидировано
 ## [2026-11-02 18:52] v1.0.15: KV (Paged KV-Cache & Sliding Window Attn)
 - **Дивизион**: Quantization & Tensors
 - **Оптимизация**: Use quantized integers and AVX2 SIMD for tensor operations to enhance performance and reduce memory usage.

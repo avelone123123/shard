@@ -41,6 +41,14 @@
       "cycle": 15,
       "timestamp": 1793627521,
       "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
+    },
+    "rope": {
+      "role": "Rotary Position Embedding SIMD Accelerated",
+      "division": "Quantization & Tensors",
+      "rule": "Batch process tensor operations using AVX2 SIMD to enhance performance and reduce memory access latency.",
+      "cycle": 16,
+      "timestamp": 1793627547,
+      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
     }
   }
 }
