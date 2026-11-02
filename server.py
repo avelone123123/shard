@@ -58,36 +58,37 @@ async def chat_completions(req: Request):
     created = int(time.time())
     if stream:
         def event_generator():
-            for chunk in engine_instance.generate_stream(messages, max_tokens, temperature):
-                delta_payload = {
-                    "id": cid,
-                    "object": "chat.completion.chunk",
-                    "created": created,
-                    "model": model,
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {"content": chunk},
-                            "finish_reason": None
-                        }
-                    ]
-                }
-                yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-            final_payload = {
-                "id": cid,
-                "object": "chat.completion.chunk",
-                "created": created,
-                "model": model,
-                "choices": [
-                    {
-                        "index": 0,
-                        "delta": {},
-                        "finish_reason": "stop"
+            for item in engine_instance.generate_stream(messages, max_tokens, temperature):
+                if item.get("type") == "thought":
+                    delta_payload = {
+                        "id": cid,
+                        "object": "chat.completion.chunk",
+                        "created": created,
+                        "model": model,
+                        "choices": [{"index": 0, "delta": {"reasoning_content": item["token"]}, "finish_reason": None}]
                     }
-                ]
-            }
-            yield f"data: {json.dumps(final_payload, ensure_ascii=False)}\n\n"
-            yield "data: [DONE]\n\n"
+                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                elif item.get("type") == "content":
+                    delta_payload = {
+                        "id": cid,
+                        "object": "chat.completion.chunk",
+                        "created": created,
+                        "model": model,
+                        "choices": [{"index": 0, "delta": {"content": item["token"]}, "finish_reason": None}]
+                    }
+                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                elif item.get("type") == "done":
+                    final_payload = {
+                        "id": cid,
+                        "object": "chat.completion.chunk",
+                        "created": created,
+                        "model": model,
+                        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                        "telemetry": item.get("telemetry", {}),
+                        "usage": item.get("usage", {})
+                    }
+                    yield f"data: {json.dumps(final_payload, ensure_ascii=False)}\n\n"
+                    yield "data: [DONE]\n\n"
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     result = engine_instance.generate_sync(messages, max_tokens, temperature)
     return {
@@ -98,10 +99,15 @@ async def chat_completions(req: Request):
         "choices": [
             {
                 "index": 0,
-                "message": {"role": "assistant", "content": result["content"]},
+                "message": {
+                    "role": "assistant",
+                    "content": result["content"],
+                    "reasoning_content": result.get("reasoning_content", "")
+                },
                 "finish_reason": "stop"
             }
         ],
+        "telemetry": result.get("telemetry", {}),
         "usage": result.get("usage", {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0})
     }
 DASHBOARD_HTML = """<!DOCTYPE html>
@@ -158,13 +164,28 @@ main{flex:1;padding:24px 28px;max-width:1440px;margin:0 auto;width:100%;}
 .code-panel{background:#090a0f;border:1px solid var(--border);border-radius:6px;padding:12px 14px;font-family:Consolas,monospace;font-size:12px;color:#cbd5e1;position:relative;overflow-x:auto;}
 .btn-copy{position:absolute;top:9px;right:9px;background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
 .btn-copy:hover{background:#334155;}
-.chat-box{display:flex;flex-direction:column;height:560px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
-.chat-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;}
-.msg{max-width:75%;padding:10px 14px;border-radius:6px;font-size:13px;line-height:1.5;}
-.msg.user{align-self:flex-end;background:#2563eb;color:#fff;}
-.msg.assistant{align-self:flex-start;background:var(--surface-elevated);border:1px solid var(--border);color:#e2e8f0;}
-.chat-footer{display:flex;gap:10px;padding:12px;border-top:1px solid var(--border);background:#0c0e14;}
-.chat-input{flex:1;background:var(--surface);border:1px solid var(--border);color:#fff;padding:8px 12px;border-radius:5px;font-size:13px;outline:none;}
+.chat-container{display:flex;flex-direction:column;height:680px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.chat-header{padding:10px 18px;background:#0c0e14;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted);}
+.chat-header-model{display:flex;align-items:center;gap:8px;color:#fff;font-weight:500;}
+.chat-header-live{display:flex;align-items:center;gap:14px;font-family:Consolas,monospace;}
+.chat-body{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:18px;}
+.msg-wrapper{display:flex;flex-direction:column;gap:6px;}
+.msg-user{align-self:flex-end;max-width:70%;background:#1e293b;border:1px solid #334155;color:#fff;padding:10px 16px;border-radius:8px 8px 2px 8px;font-size:13px;line-height:1.5;}
+.msg-assistant{align-self:flex-start;max-width:88%;width:100%;background:var(--surface-elevated);border:1px solid var(--border);border-radius:8px 8px 8px 2px;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.think-panel{background:#0c0e14;border:1px solid #1e2638;border-radius:6px;overflow:hidden;transition:all 0.2s;}
+.think-header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;cursor:pointer;user-select:none;background:#0e111a;}
+.think-header:hover{background:#141824;}
+.think-title{font-size:11px;font-weight:600;color:#94a3b8;display:flex;align-items:center;gap:6px;}
+.think-pulse{width:7px;height:7px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8;animation:pulse 1.2s infinite ease-in-out;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.3;transform:scale(0.85);}}
+.think-content{padding:10px 12px;font-size:12px;color:#8492a6;line-height:1.6;font-family:Consolas,monospace;white-space:pre-wrap;border-top:1px solid #19202f;max-height:220px;overflow-y:auto;}
+.msg-content{font-size:13px;color:#f1f5f9;line-height:1.6;white-space:pre-wrap;}
+.msg-content pre{background:#090a0f;border:1px solid var(--border);padding:10px 12px;border-radius:5px;overflow-x:auto;font-family:Consolas,monospace;margin:10px 0;font-size:12px;color:#38bdf8;}
+.telemetry-row{display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding-top:10px;border-top:1px solid #1a2133;font-size:11px;color:#718096;font-family:Consolas,monospace;}
+.telemetry-item{display:flex;align-items:center;gap:5px;}
+.telemetry-item b{color:#cbd5e1;font-weight:600;}
+.chat-footer{display:flex;gap:10px;padding:14px;border-top:1px solid var(--border);background:#0c0e14;}
+.chat-input{flex:1;background:var(--surface);border:1px solid var(--border);color:#fff;padding:9px 14px;border-radius:6px;font-size:13px;outline:none;transition:border-color 0.15s;}
 .chat-input:focus{border-color:var(--accent);}
 .toast{position:fixed;top:20px;right:24px;background:#151a26;border:1px solid #334155;color:#f8fafc;padding:12px 18px;border-radius:6px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,0.5);transform:translateY(-10px);opacity:0;pointer-events:none;transition:all 0.25s cubic-bezier(0.16,1,0.3,1);z-index:9999;display:flex;align-items:center;gap:10px;}
 .toast.visible{transform:translateY(0);opacity:1;pointer-events:auto;}
@@ -266,13 +287,30 @@ CURL Проверка локального API
 </div>
 </div>
 <div id="tab-chat" class="section">
-<div class="chat-box">
+<div class="chat-container">
+<div class="chat-header">
+<div class="chat-header-model">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+<span id="chatActiveModel">Qwen2.5-Coder-7B-Instruct</span>
+</div>
+<div class="chat-header-live">
+<span id="chatCoreBadge">C++20 Zero-Copy / AVX2 ASM</span>
+<span id="chatLiveSpeed" style="color:#38bdf8;">Готов к запросам</span>
+</div>
+</div>
 <div class="chat-body" id="chatBody">
-<div class="msg assistant">Локальный движок Shard готов к работе. Выберите модель в Каталоге и отправьте запрос. Инференс выполняется локально через C++20 Zero-Copy и AVX2 ASM.</div>
+<div class="msg-wrapper">
+<div class="msg-assistant">
+<div class="msg-content">Локальный движок Shard готов к работе. Напишите задачу или вопрос в поле ниже. Вы увидите ход размышлений модели, время обдумывания, живую скорость токенов и подробный отчет по утилизации ресурсов.</div>
+</div>
+</div>
 </div>
 <div class="chat-footer">
-<input type="text" id="chatInput" class="chat-input" placeholder="Введите запрос к загруженной модели..." onkeypress="if(event.key==='Enter')sendChat()">
-<button class="btn-action" onclick="sendChat()">Отправить</button>
+<input type="text" id="chatInput" class="chat-input" placeholder="Напишите задачу, вопрос или запросите код..." onkeypress="if(event.key==='Enter')sendChat()">
+<button id="chatSendBtn" class="btn-action" onclick="sendChat()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+Отправить
+</button>
 </div>
 </div>
 </div>
@@ -293,6 +331,7 @@ CURL Проверка локального API
 let currentCategory = 'all';
 let activeModelId = 'Qwen/Qwen2.5-Coder-7B-Instruct';
 let toastTimeout = null;
+let isChatStreaming = false;
 function showToast(title, sub) {
     const el = document.getElementById('toast');
     if (toastTimeout) clearTimeout(toastTimeout);
@@ -330,9 +369,12 @@ async function fetchHardware() {
         document.getElementById('hwGpu').innerText = hw.gpu_name.replace(' Laptop GPU', '').replace('NVIDIA GeForce ', '');
         document.getElementById('hwVram').innerText = hw.vram_used_mb + ' / ' + hw.vram_total_mb + ' MB';
         document.getElementById('hwRam').innerText = hw.ram_used_gb + ' / ' + hw.ram_total_gb + ' GB';
-        if (eng.model) {
-            activeModelId = eng.model;
-            document.getElementById('hwModel').innerText = eng.model.split('/').pop();
+        if (eng.active_model) {
+            activeModelId = eng.active_model;
+            const shortName = eng.active_model.split('/').pop();
+            document.getElementById('hwModel').innerText = shortName;
+            const chatModelEl = document.getElementById('chatActiveModel');
+            if (chatModelEl) chatModelEl.innerText = shortName;
         }
     } catch(e) {}
 }
@@ -375,7 +417,7 @@ async function loadModels() {
             '</div>' +
             '<div class="card-bottom">' +
                 '<span style="font-size:11px;color:var(--text-muted);">' + m.downloads + ' загрузок</span>' +
-                '<button id="btn-' + m.id.replace(/[^a-zA-Z0-9]/g, '_') + '" class="' + btnClass + '" onclick="loadModel(\'' + m.id + '\')">' + btnText + '</button>' +
+                '<button id="btn-' + m.id.replace(/[^a-zA-Z0-9]/g, '_') + '" class="' + btnClass + '" onclick="loadModel('' + m.id + '')">' + btnText + '</button>' +
             '</div>';
             grid.appendChild(card);
         });
@@ -391,12 +433,15 @@ async function loadModel(modelId) {
         });
         const data = await res.json();
         activeModelId = modelId;
-        document.getElementById('hwModel').innerText = modelId.split('/').pop();
+        const shortName = modelId.split('/').pop();
+        document.getElementById('hwModel').innerText = shortName;
+        const chatModelEl = document.getElementById('chatActiveModel');
+        if (chatModelEl) chatModelEl.innerText = shortName;
         const cursorPanel = document.getElementById('codeCursor');
         if (cursorPanel) {
             cursorPanel.innerText = 'Base URL: http://localhost:8000/v1\nAPI Key:  sk-shard-local-avelone-dev\nModel:    ' + modelId;
         }
-        showToast('Модель готова', modelId.split('/').pop() + ' подключена к C++20 / AVX2 ядру');
+        showToast('Модель готова', shortName + ' подключена к C++20 / AVX2 ядру');
         loadModels();
     } catch(e) {
         showToast('Ошибка', 'Не удалось загрузить модель');
@@ -419,7 +464,7 @@ async function loadKeys() {
             item.style.borderRadius = '5px';
             item.style.fontFamily = 'Consolas, monospace';
             item.style.fontSize = '12px';
-            item.innerHTML = '<span>' + k + '</span><button class="btn-action" style="padding:3px 10px;font-size:11px;" onclick="navigator.clipboard.writeText(\'' + k + '\');showToast(\'Скопировано\', \'Ключ добавлен в буфер обмена\')">Скопировать</button>';
+            item.innerHTML = '<span>' + k + '</span><button class="btn-action" style="padding:3px 10px;font-size:11px;" onclick="navigator.clipboard.writeText('' + k + '');showToast('Скопировано', 'Ключ добавлен в буфер обмена')">Скопировать</button>';
             list.appendChild(item);
         });
     } catch(e) {}
@@ -432,22 +477,74 @@ async function generateKey() {
         loadKeys();
     } catch(e) {}
 }
+function formatDuration(sec) {
+    if (sec >= 60) {
+        const m = Math.floor(sec / 60);
+        const s = Math.round(sec % 60);
+        return m + ' мин ' + s + ' сек';
+    }
+    return sec.toFixed(2) + ' сек';
+}
+function toggleThink(id) {
+    const body = document.getElementById('think-body-' + id);
+    const arrow = document.getElementById('think-arrow-' + id);
+    if (!body) return;
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    } else {
+        body.style.display = 'none';
+        if (arrow) arrow.style.transform = 'rotate(-90deg)';
+    }
+}
 async function sendChat() {
+    if (isChatStreaming) return;
     const input = document.getElementById('chatInput');
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
-    const body = document.getElementById('chatBody');
-    const userMsg = document.createElement('div');
-    userMsg.className = 'msg user';
-    userMsg.innerText = text;
-    body.appendChild(userMsg);
-    body.scrollTop = body.scrollHeight;
-    const botMsg = document.createElement('div');
-    botMsg.className = 'msg assistant';
-    botMsg.innerText = '...';
-    body.appendChild(botMsg);
-    body.scrollTop = body.scrollHeight;
+    isChatStreaming = true;
+    document.getElementById('chatSendBtn').disabled = true;
+    const chatBody = document.getElementById('chatBody');
+    const msgId = 'msg-' + Date.now();
+    const userWrap = document.createElement('div');
+    userWrap.className = 'msg-wrapper';
+    userWrap.innerHTML = '<div class="msg-user">' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+    chatBody.appendChild(userWrap);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    const asstWrap = document.createElement('div');
+    asstWrap.className = 'msg-wrapper';
+    asstWrap.innerHTML = '<div class="msg-assistant">' +
+        '<div id="think-panel-' + msgId + '" class="think-panel">' +
+            '<div class="think-header" onclick="toggleThink('' + msgId + '')">' +
+                '<div class="think-title">' +
+                    '<span id="think-pulse-' + msgId + '" class="think-pulse"></span>' +
+                    '<span id="think-label-' + msgId + '">Думает (0.0 сек)...</span>' +
+                '</div>' +
+                '<svg id="think-arrow-' + msgId + '" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg>' +
+            '</div>' +
+            '<div id="think-body-' + msgId + '" class="think-content"></div>' +
+        '</div>' +
+        '<div id="content-' + msgId + '" class="msg-content"></div>' +
+        '<div id="telemetry-' + msgId + '" class="telemetry-row" style="display:none;"></div>' +
+    '</div>';
+    chatBody.appendChild(asstWrap);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    const thinkLabel = document.getElementById('think-label-' + msgId);
+    const thinkBody = document.getElementById('think-body-' + msgId);
+    const thinkPulse = document.getElementById('think-pulse-' + msgId);
+    const contentBox = document.getElementById('content-' + msgId);
+    const telemetryBox = document.getElementById('telemetry-' + msgId);
+    const liveSpeed = document.getElementById('chatLiveSpeed');
+    const tStart = performance.now();
+    let hasThoughtEnded = false;
+    let tokensCount = 0;
+    const thinkTimer = setInterval(() => {
+        if (!hasThoughtEnded) {
+            const elapsed = (performance.now() - tStart) / 1000;
+            thinkLabel.innerText = 'Думает (' + elapsed.toFixed(1) + ' сек)...';
+        }
+    }, 100);
     try {
         const res = await fetch('/v1/chat/completions', {
             method: 'POST',
@@ -455,15 +552,89 @@ async function sendChat() {
             body: JSON.stringify({
                 model: activeModelId,
                 messages: [{role: 'user', content: text}],
-                stream: false
+                stream: true
             })
         });
-        const data = await res.json();
-        botMsg.innerText = data.choices[0].message.content;
-    } catch(e) {
-        botMsg.innerText = 'Ошибка соединения с локальным сервером.';
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let thoughtSec = 0;
+        let totalSec = 0;
+        let speedVal = 0;
+        let usageData = {prompt_tokens: 0, completion_tokens: 0, total_tokens: 0};
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, {stream: true});
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed === 'data: [DONE]') continue;
+                if (trimmed.startsWith('data: ')) {
+                    try {
+                        const payload = JSON.parse(trimmed.slice(6));
+                        const choice = payload.choices && payload.choices[0];
+                        if (choice && choice.delta) {
+                            if (choice.delta.reasoning_content) {
+                                thinkBody.innerText += choice.delta.reasoning_content;
+                                tokensCount++;
+                            }
+                            if (choice.delta.content) {
+                                if (!hasThoughtEnded) {
+                                    hasThoughtEnded = true;
+                                    clearInterval(thinkTimer);
+                                    thoughtSec = (performance.now() - tStart) / 1000;
+                                    thinkPulse.style.display = 'none';
+                                    thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
+                                }
+                                contentBox.innerText += choice.delta.content;
+                                tokensCount++;
+                                const curElapsed = (performance.now() - tStart) / 1000;
+                                const curSpeed = (tokensCount / Math.max(0.1, curElapsed)).toFixed(1);
+                                if (liveSpeed) liveSpeed.innerText = curSpeed + ' ток/сек';
+                            }
+                        }
+                        if (payload.telemetry) {
+                            thoughtSec = payload.telemetry.thinking_seconds;
+                            totalSec = payload.telemetry.total_seconds;
+                            speedVal = payload.telemetry.tokens_per_sec;
+                        }
+                        if (payload.usage) {
+                            usageData = payload.usage;
+                        }
+                    } catch(e) {}
+                }
+            }
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+        clearInterval(thinkTimer);
+        hasThoughtEnded = true;
+        thinkPulse.style.display = 'none';
+        if (thoughtSec > 0) {
+            thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
+        }
+        if (!totalSec) {
+            totalSec = (performance.now() - tStart) / 1000;
+        }
+        if (!speedVal) {
+            speedVal = (tokensCount / Math.max(0.1, totalSec)).toFixed(1);
+        }
+        if (liveSpeed) liveSpeed.innerText = speedVal + ' ток/сек';
+        telemetryBox.style.display = 'flex';
+        telemetryBox.innerHTML = '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + formatDuration(totalSec) + '</b> (размышления: ' + formatDuration(thoughtSec) + ')</div>' +
+            '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + speedVal + ' токенов/сек</b></div>' +
+            '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + usageData.total_tokens + ' токенов</b> (промпт: ' + usageData.prompt_tokens + ', ответ: ' + usageData.completion_tokens + ')</div>' +
+            '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div>';
+        chatBody.scrollTop = chatBody.scrollHeight;
+    } catch(err) {
+        clearInterval(thinkTimer);
+        contentBox.innerText = 'Ошибка соединения с локальным сервером Shard.';
+    } finally {
+        isChatStreaming = false;
+        document.getElementById('chatSendBtn').disabled = false;
+        chatBody.scrollTop = chatBody.scrollHeight;
     }
-    body.scrollTop = body.scrollHeight;
 }
 window.onload = function() {
     fetchHardware();
