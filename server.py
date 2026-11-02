@@ -16,7 +16,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
-API_KEYS = ["sk-shard-local-avelone-dev", "sk-shard-cursor-default"]
+KEYS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys_db.json")
+def load_keys():
+    if os.path.exists(KEYS_FILE):
+        try:
+            with open(KEYS_FILE, "r", encoding="utf-8") as f:
+                d = json.load(f)
+                if isinstance(d, list):
+                    return d
+        except Exception:
+            pass
+    return []
+def save_keys(keys):
+    try:
+        with open(KEYS_FILE, "w", encoding="utf-8") as f:
+            json.dump(keys, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
+API_KEYS = load_keys()
 DASHBOARD_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
 @app.get("/api/system/hardware")
 def api_hardware():
@@ -42,7 +59,23 @@ def api_get_keys():
 def api_gen_key():
     new_key = f"sk-shard-{uuid.uuid4().hex[:16]}"
     API_KEYS.append(new_key)
+    save_keys(API_KEYS)
     return {"key": new_key, "keys": API_KEYS}
+@app.post("/api/keys/delete")
+async def api_del_key(req: Request):
+    target = ""
+    try:
+        data = await req.json()
+        target = data.get("key", "").strip()
+    except Exception:
+        pass
+    if not target:
+        target = req.query_params.get("key", "").strip()
+    if target and target in API_KEYS:
+        API_KEYS.remove(target)
+        save_keys(API_KEYS)
+        return {"status": "ok", "deleted": target, "keys": API_KEYS}
+    return JSONResponse(status_code=404, content={"status": "error", "message": "Key not found"})
 @app.get("/v1/models")
 def list_models():
     st = engine_instance.get_status()
@@ -163,12 +196,13 @@ async def anthropic_count_tokens(req: Request):
     count = sum(len(str(m.get("content", "")).split()) for m in raw_messages)
     return {"input_tokens": max(1, count)}
 @app.get("/i")
-def installer_script(tool: str = "claude", os: str = "linux", key: str = "sk-shard-local-avelone-dev"):
+def installer_script(tool: str = "claude", os: str = "linux", key: str = ""):
     tool_clean = tool.lower().strip()
     os_clean = os.lower().strip()
+    chosen_key = key.strip() if key else (API_KEYS[0] if API_KEYS else "sk-shard-local")
     if os_clean == "windows":
         if tool_clean == "claude":
-            script = '$k = if ($env:SHARD_KEY) { $env:SHARD_KEY } else { "' + key + '" }\n' + \
+            script = '$k = if ($env:SHARD_KEY) { $env:SHARD_KEY } else { "' + chosen_key + '" }\n' + \
                      '$p = Join-Path $HOME ".claude"\n' + \
                      'if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force | Out-Null }\n' + \
                      '$cfg = @{\n' + \
@@ -184,18 +218,34 @@ def installer_script(tool: str = "claude", os: str = "linux", key: str = "sk-sha
                      'Set-Content -Path (Join-Path $p "settings.json") -Value $cfg -Encoding UTF8\n' + \
                      'Write-Host "[OK] Shard: Claude CLI configured successfully on Windows!" -ForegroundColor Green\n'
         elif tool_clean == "opencode":
-            script = '$k = if ($env:SHARD_KEY) { $env:SHARD_KEY } else { "' + key + '" }\n' + \
+            script = '$k = if ($env:SHARD_KEY) { $env:SHARD_KEY } else { "' + chosen_key + '" }\n' + \
                      '$p = Join-Path $HOME ".config\\opencode"\n' + \
                      'if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force | Out-Null }\n' + \
                      '$cfg = @{\n' + \
-                     '  openai_base_url = "http://localhost:8000/v1"\n' + \
-                     '  api_key = $k\n' + \
-                     '  model = "Qwen/Qwen2.5-Coder-7B-Instruct"\n' + \
-                     '} | ConvertTo-Json -Depth 5\n' + \
+                     '  \'$schema\' = "https://opencode.ai/config.json"\n' + \
+                     '  provider = @{\n' + \
+                     '    shard = @{\n' + \
+                     '      npm = "@ai-sdk/openai-compatible"\n' + \
+                     '      name = "Shard"\n' + \
+                     '      options = @{\n' + \
+                     '        baseURL = "http://localhost:8000/v1"\n' + \
+                     '        apiKey = $k\n' + \
+                     '      }\n' + \
+                     '      models = @{\n' + \
+                     '        "Qwen/Qwen2.5-Coder-7B-Instruct" = @{ name = "Qwen2.5 Coder 7B"; modalities = @("text"); limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" = @{ name = "DeepSeek R1 Distill 7B"; modalities = @("text"); limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "google/gemma-2-9b-it" = @{ name = "Gemma 2 9B"; modalities = @("text"); limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "meta-llama/Llama-3.2-3B-Instruct" = @{ name = "Llama 3.2 3B"; modalities = @("text"); limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "mistralai/Mistral-7B-Instruct-v0.3" = @{ name = "Mistral 7B v0.3"; modalities = @("text"); limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '      }\n' + \
+                     '    }\n' + \
+                     '  }\n' + \
+                     '  model = "shard/Qwen/Qwen2.5-Coder-7B-Instruct"\n' + \
+                     '} | ConvertTo-Json -Depth 6\n' + \
                      'Set-Content -Path (Join-Path $p "config.json") -Value $cfg -Encoding UTF8\n' + \
-                     'Write-Host "[OK] Shard: OpenCode configured successfully on Windows!" -ForegroundColor Green\n'
+                     'Write-Host "[OK] Shard: OpenCode configured successfully with official schema on Windows!" -ForegroundColor Green\n'
         else:
-            script = '$k = if ($env:SHARD_KEY) { $env:SHARD_KEY } else { "' + key + '" }\n' + \
+            script = '$k = if ($env:SHARD_KEY) { $env:SHARD_KEY } else { "' + chosen_key + '" }\n' + \
                      '[Environment]::SetEnvironmentVariable("OPENAI_API_BASE", "http://localhost:8000/v1", "User")\n' + \
                      '[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", $k, "User")\n' + \
                      'Write-Host "[OK] Shard: Environment variables set for ' + tool_clean + ' on Windows!" -ForegroundColor Green\n'
@@ -203,7 +253,7 @@ def installer_script(tool: str = "claude", os: str = "linux", key: str = "sk-sha
     else:
         if tool_clean == "claude":
             script = '#!/usr/bin/env bash\n' + \
-                     'KEY="${1:-' + key + '}"\n' + \
+                     'KEY="${1:-' + chosen_key + '}"\n' + \
                      'mkdir -p "$HOME/.claude"\n' + \
                      'cat << \'EOF\' > "$HOME/.claude/settings.json"\n' + \
                      '{\n' + \
@@ -221,20 +271,36 @@ def installer_script(tool: str = "claude", os: str = "linux", key: str = "sk-sha
                      'echo "[OK] Shard: Claude CLI settings.json configured successfully."\n'
         elif tool_clean == "opencode":
             script = '#!/usr/bin/env bash\n' + \
-                     'KEY="${1:-' + key + '}"\n' + \
+                     'KEY="${1:-' + chosen_key + '}"\n' + \
                      'mkdir -p "$HOME/.config/opencode"\n' + \
                      'cat << \'EOF\' > "$HOME/.config/opencode/config.json"\n' + \
                      '{\n' + \
-                     '  "openai_base_url": "http://localhost:8000/v1",\n' + \
-                     '  "api_key": "KEY_PLACEHOLDER",\n' + \
-                     '  "model": "Qwen/Qwen2.5-Coder-7B-Instruct"\n' + \
+                     '  "$schema": "https://opencode.ai/config.json",\n' + \
+                     '  "provider": {\n' + \
+                     '    "shard": {\n' + \
+                     '      "npm": "@ai-sdk/openai-compatible",\n' + \
+                     '      "name": "Shard",\n' + \
+                     '      "options": {\n' + \
+                     '        "baseURL": "http://localhost:8000/v1",\n' + \
+                     '        "apiKey": "KEY_PLACEHOLDER"\n' + \
+                     '      },\n' + \
+                     '      "models": {\n' + \
+                     '        "Qwen/Qwen2.5-Coder-7B-Instruct": { "name": "Qwen2.5 Coder 7B", "modalities": {"input":["text"],"output":["text"]}, "limit": {"context":128000,"output":8192} },\n' + \
+                     '        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B": { "name": "DeepSeek R1 Distill 7B", "modalities": {"input":["text"],"output":["text"]}, "limit": {"context":128000,"output":8192} },\n' + \
+                     '        "google/gemma-2-9b-it": { "name": "Gemma 2 9B", "modalities": {"input":["text"],"output":["text"]}, "limit": {"context":128000,"output":8192} },\n' + \
+                     '        "meta-llama/Llama-3.2-3B-Instruct": { "name": "Llama 3.2 3B", "modalities": {"input":["text"],"output":["text"]}, "limit": {"context":128000,"output":8192} },\n' + \
+                     '        "mistralai/Mistral-7B-Instruct-v0.3": { "name": "Mistral 7B v0.3", "modalities": {"input":["text"],"output":["text"]}, "limit": {"context":128000,"output":8192} }\n' + \
+                     '      }\n' + \
+                     '    }\n' + \
+                     '  },\n' + \
+                     '  "model": "shard/Qwen/Qwen2.5-Coder-7B-Instruct"\n' + \
                      '}\n' + \
                      'EOF\n' + \
                      'sed -i "s/KEY_PLACEHOLDER/$KEY/g" "$HOME/.config/opencode/config.json"\n' + \
                      'echo "[OK] Shard: OpenCode config.json configured successfully."\n'
         else:
             script = '#!/usr/bin/env bash\n' + \
-                     'KEY="${1:-' + key + '}"\n' + \
+                     'KEY="${1:-' + chosen_key + '}"\n' + \
                      'export OPENAI_API_BASE="http://localhost:8000/v1"\n' + \
                      'export OPENAI_API_KEY="$KEY"\n' + \
                      'echo "[OK] Shard: OPENAI_API_BASE and OPENAI_API_KEY exported for ' + tool_clean + '."\n'

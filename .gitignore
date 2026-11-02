@@ -6,5 +6,6 @@ __pycache__/
 .idea/
 *.egg-info/
 social_config.json
+keys_db.json
 *.secret
 *.token

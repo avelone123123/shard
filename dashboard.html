@@ -354,9 +354,9 @@ macOS
 <div class="ep-item">
 <div>
 <div class="ep-label">API Key</div>
-<div class="ep-val" id="sidebarApiKey" style="color:#10b981;">sk-shard-local-avelone-dev</div>
+<div class="ep-val" id="sidebarApiKey" style="color:#ef4444;">Не создан</div>
 </div>
-<button class="ep-copy" onclick="copyValue('sk-shard-local-avelone-dev', 'API Key')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+<button class="ep-copy" onclick="copyApiKeyFromSidebar()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
 </div>
 </div>
 <div class="sidebar-card">
@@ -459,7 +459,7 @@ let toastTimeout = null;
 let isChatStreaming = false;
 let chatSessions = [];
 let activeChatId = null;
-const activeApiKey = 'sk-shard-local-avelone-dev';
+let activeApiKey = '';
 function showToast(title, sub) {
     const el = document.getElementById('toast');
     if (toastTimeout) clearTimeout(toastTimeout);
@@ -471,8 +471,16 @@ function copyValue(val, label) {
     navigator.clipboard.writeText(val);
     showToast('Скопировано', label + ' скопирован в буфер обмена');
 }
+function copyApiKeyFromSidebar() {
+    if (!activeApiKey) {
+        showToast('Ключ отсутствует', 'Сначала создайте API ключ во вкладке «API Ключи»');
+        return;
+    }
+    copyValue(activeApiKey, 'API Key');
+}
 function copyAllEndpoints() {
-    const all = 'BASE_URL: http://localhost:8000/v1\nAPI_KEY: ' + activeApiKey + '\nMODEL: ' + activeModelId;
+    const keyVal = activeApiKey || '(Создайте ключ во вкладке API Ключи)';
+    const all = 'BASE_URL: http://localhost:8000/v1\nAPI_KEY: ' + keyVal + '\nMODEL: ' + activeModelId;
     navigator.clipboard.writeText(all);
     showToast('Скопировано всё', 'Все параметры эндпоинта скопированы');
 }
@@ -555,23 +563,18 @@ function updateGuide() {
     document.getElementById('guideTitle').innerText = 'Инструкция: ' + (toolNames[currentTool] || currentTool) + ' + ' + (osNames[currentOS] || currentOS);
     const scriptBox = document.getElementById('guideScriptCode');
     const stepsList = document.getElementById('guideScriptSteps');
+    const keyParam = activeApiKey ? '&key=' + encodeURIComponent(activeApiKey) : '';
+    const keyFallback = activeApiKey || 'sk-shard-local';
     if (currentOS === 'windows') {
-        if (currentTool === 'claude') {
-            scriptBox.innerText = '$env:SHARD_KEY="' + activeApiKey + '"; irm "http://localhost:8000/i?os=windows&tool=claude" | iex';
-        } else if (currentTool === 'opencode') {
-            scriptBox.innerText = '$env:SHARD_KEY="' + activeApiKey + '"; irm "http://localhost:8000/i?os=windows&tool=opencode" | iex';
-        } else if (currentTool === 'cursor') {
-            scriptBox.innerText = '$env:SHARD_KEY="' + activeApiKey + '"; irm "http://localhost:8000/i?os=windows&tool=cursor" | iex';
-        } else {
-            scriptBox.innerText = '$env:SHARD_KEY="' + activeApiKey + '"; irm "http://localhost:8000/i?os=windows&tool=' + currentTool + '" | iex';
-        }
-        stepsList.innerHTML = '<li>Откройте Терминал: Нажмите <b>Win + X</b>, выберите <b>Терминал</b> или <b>PowerShell</b>.</li>' +
-            '<li>Вставьте команду комбинацией <b>Ctrl + V</b> и нажмите <b>Enter</b>.</li>' +
-            '<li>Готово. Локальный endpoint Shard подключен, модели появятся в приложении.</li>';
+        scriptBox.innerText = 'powershell -ExecutionPolicy Bypass -Command "irm \'http://localhost:8000/i?os=windows&tool=' + currentTool + keyParam + '\' | iex"';
+        stepsList.innerHTML = '<li>Откройте Терминал: <b>Win + X</b> -> Терминал (или откройте <b>PowerShell / CMD</b>).</li>' +
+            '<li>Вставьте скопированную команду комбинацией <b>Ctrl + V</b> и нажмите <b>Enter</b>.</li>' +
+            '<li>Готово. Команда работает в PowerShell и CMD. Конфигурация инструмента обновится автоматически.</li>';
     } else {
         const toolArg = (currentTool === 'claude-desktop') ? 'claude' : currentTool;
-        scriptBox.innerText = 'bash <(curl -fsSL "http://localhost:8000/i?tool=' + toolArg + '") ' + activeApiKey;
-        stepsList.innerHTML = '<li>Откройте Терминал: Нажмите <b>Ctrl + Alt + T</b> (Linux) или <b>Cmd + Пробел -> Terminal</b> (macOS).</li>' +
+        const unixKeyArg = activeApiKey ? ' ' + activeApiKey : '';
+        scriptBox.innerText = 'bash <(curl -fsSL "http://localhost:8000/i?tool=' + toolArg + keyParam + '")' + unixKeyArg;
+        stepsList.innerHTML = '<li>Откройте Терминал: <b>Ctrl + Alt + T</b> (Linux) или <b>Cmd + Пробел -> Terminal</b> (macOS).</li>' +
             '<li>Вставьте команду комбинацией <b>Ctrl + Shift + V</b> (или <b>Cmd + V</b>) и нажмите <b>Enter</b>.</li>' +
             '<li>Готово. Конфигурация применена к окружению без перезагрузки системы.</li>';
     }
@@ -592,7 +595,7 @@ function updateGuide() {
                 hasCompletedOnboarding: true,
                 env: {
                     ANTHROPIC_BASE_URL: "http://localhost:8000/v1",
-                    ANTHROPIC_AUTH_TOKEN: activeApiKey,
+                    ANTHROPIC_AUTH_TOKEN: keyFallback,
                     ANTHROPIC_DEFAULT_OPUS_MODEL: activeModelId,
                     ANTHROPIC_DEFAULT_SONNET_MODEL: activeModelId,
                     ANTHROPIC_DEFAULT_HAIKU_MODEL: activeModelId
@@ -610,25 +613,41 @@ function updateGuide() {
         '</div>';
         const pre = document.getElementById('codeCursorManual');
         if (pre) {
-            pre.innerText = 'Base URL: http://localhost:8000/v1\nAPI Key:  ' + activeApiKey + '\nModel:    ' + activeModelId;
+            pre.innerText = 'Base URL: http://localhost:8000/v1\nAPI Key:  ' + keyFallback + '\nModel:    ' + activeModelId;
         }
     } else if (currentTool === 'opencode') {
         const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.config\\opencode\\config.json' : '~/.config/opencode/config.json';
+        const opencodeCfg = {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
+                "shard": {
+                    "npm": "@ai-sdk/openai-compatible",
+                    "name": "Shard",
+                    "options": {
+                        "baseURL": "http://localhost:8000/v1",
+                        "apiKey": keyFallback
+                    },
+                    "models": {
+                        "Qwen/Qwen2.5-Coder-7B-Instruct": { "name": "Qwen2.5 Coder 7B", "modalities": ["text"], "limit": {"context": 128000, "output": 8192} },
+                        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B": { "name": "DeepSeek R1 Distill 7B", "modalities": ["text"], "limit": {"context": 128000, "output": 8192} },
+                        "google/gemma-2-9b-it": { "name": "Gemma 2 9B", "modalities": ["text"], "limit": {"context": 128000, "output": 8192} },
+                        "meta-llama/Llama-3.2-3B-Instruct": { "name": "Llama 3.2 3B", "modalities": ["text"], "limit": {"context": 128000, "output": 8192} },
+                        "mistralai/Mistral-7B-Instruct-v0.3": { "name": "Mistral 7B v0.3", "modalities": ["text"], "limit": {"context": 128000, "output": 8192} }
+                    }
+                }
+            },
+            "model": "shard/" + activeModelId
+        };
         manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к конфигу OpenCode:</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации OpenCode:</div>' +
             '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Вставьте блок настроек:</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Создайте или замените config.json официальным блоком OpenCode:</div>' +
             '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeOpenCodeManual"></pre><button class="btn-copy" onclick="copyOpenCodeManual()">Скопировать</button></div>' +
-            '<div>OpenCode подключится к локальному пайплайну Shard для автономного кодинга.</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Запустите OpenCode:</div>' +
+            '<div>OpenCode загрузит провайдер @ai-sdk/openai-compatible и подключится напрямую к локальному серверу Shard.</div>' +
         '</div>';
         const pre = document.getElementById('codeOpenCodeManual');
-        if (pre) {
-            pre.innerText = JSON.stringify({
-                openai_base_url: "http://localhost:8000/v1",
-                api_key: activeApiKey,
-                model: activeModelId
-            }, null, 2);
-        }
+        if (pre) pre.innerText = JSON.stringify(opencodeCfg, null, 2);
     } else {
         manualBox.innerHTML = '<div class="guide-steps">' +
             '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Переменные окружения (Environment Variables):</div>' +
@@ -637,7 +656,7 @@ function updateGuide() {
         '</div>';
         const pre = document.getElementById('codeEnvManual');
         if (pre) {
-            pre.innerText = 'export OPENAI_API_BASE="http://localhost:8000/v1"\nexport OPENAI_API_KEY="' + activeApiKey + '"';
+            pre.innerText = 'export OPENAI_API_BASE="http://localhost:8000/v1"\nexport OPENAI_API_KEY="' + keyFallback + '"';
         }
     }
 }
@@ -771,19 +790,43 @@ async function loadKeys() {
         const res = await fetch('/api/keys');
         const data = await res.json();
         const list = document.getElementById('keysList');
+        if (!list) return;
         list.innerHTML = '';
-        data.keys.forEach(k => {
+        const keys = data.keys || [];
+        if (keys.length > 0) {
+            if (!activeApiKey || !keys.includes(activeApiKey)) {
+                activeApiKey = keys[0];
+            }
+        } else {
+            activeApiKey = '';
+        }
+        const sidebarKeyEl = document.getElementById('sidebarApiKey');
+        if (sidebarKeyEl) {
+            if (activeApiKey) {
+                sidebarKeyEl.innerText = activeApiKey;
+                sidebarKeyEl.style.color = '#10b981';
+            } else {
+                sidebarKeyEl.innerText = 'Не создан';
+                sidebarKeyEl.style.color = '#ef4444';
+            }
+        }
+        updateGuide();
+        if (keys.length === 0) {
+            list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);background:#090a0f;border:1px dashed var(--border);border-radius:6px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" style="margin-bottom:8px;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg><div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:4px;">Ключи API еще не созданы</div><div style="font-size:12px;">Нажмите кнопку выше для генерации вашего уникального локального ключа</div></div>';
+            return;
+        }
+        keys.forEach(k => {
             const item = document.createElement('div');
             item.style.display = 'flex';
             item.style.justifyContent = 'space-between';
             item.style.alignItems = 'center';
             item.style.padding = '8px 12px';
             item.style.background = '#090a0f';
-            item.style.border = '1px solid var(--border)';
+            item.style.border = (k === activeApiKey) ? '1px solid #10b981' : '1px solid var(--border)';
             item.style.borderRadius = '5px';
             item.style.fontFamily = 'Consolas, monospace';
             item.style.fontSize = '12px';
-            item.innerHTML = '<span>' + k + '</span><button class="btn-action" style="padding:3px 10px;font-size:11px;" onclick="copyValue(\'' + k + '\', \'Ключ API\')">Скопировать</button>';
+            item.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#f1f5f9;">' + k + '</span>' + (k === activeApiKey ? '<span style="font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(16,185,129,0.15);color:#10b981;font-weight:600;">АКТИВЕН</span>' : '') + '</div><div style="display:flex;gap:6px;"><button class="btn-action" style="padding:4px 10px;font-size:11px;" onclick="copyValue(\'' + k + '\', \'Ключ API\')">Скопировать</button><button class="btn-action" style="padding:4px 10px;font-size:11px;border-color:#7f1d1d;color:#fca5a5;" onclick="deleteKey(\'' + k + '\')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить</button></div>';
             list.appendChild(item);
         });
     } catch(e) {}
@@ -792,9 +835,26 @@ async function generateKey() {
     try {
         const res = await fetch('/api/keys/generate', {method: 'POST'});
         const data = await res.json();
+        activeApiKey = data.key;
         showToast('Ключ создан', data.key);
-        loadKeys();
-    } catch(e) {}
+        await loadKeys();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось создать ключ');
+    }
+}
+async function deleteKey(k) {
+    try {
+        const res = await fetch('/api/keys/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({key: k})
+        });
+        showToast('Ключ удален', k);
+        if (activeApiKey === k) activeApiKey = '';
+        await loadKeys();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось удалить ключ');
+    }
 }
 function formatDuration(sec) {
     if (sec >= 60) {
@@ -1100,6 +1160,7 @@ async function sendChat() {
 }
 window.onload = function() {
     fetchHardware();
+    loadKeys();
     loadModels();
     updateGuide();
     initChatSessions();
