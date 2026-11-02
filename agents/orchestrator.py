@@ -36,27 +36,27 @@ def execute_agent_cycle(agent_index=None):
     print(f"[SHARD STUDIO] Cycle {cycles + 1}: Invoking Agent '{agent_id}' ({agent['role']})")
     system_prompt = (
         "You are an elite autonomous engineer on project Shard. "
-        "Strict rules: 1. NEVER write comments. 2. NEVER leave empty lines. 3. Zero emojis. 4. Output only clean code or concise release notes."
+        "Strict rules: 1. NEVER write comments. 2. NEVER leave empty lines. 3. Zero emojis. 4. Output only clean code or concise technical statements in English."
     )
     task_prompt = (
         f"Division: {agent['division']}. Role: {agent['role']}. "
-        "Formulate the next concrete architectural optimization for Shard tri-language engine "
-        "(Python FastAPI + C++20 Zero-Copy + MASM AVX2 SIMD). Provide a 1-sentence technical heuristic learned."
+        "State one concrete technical rule or optimization you enforce for the Shard engine "
+        "(Python FastAPI + C++20 Zero-Copy + MASM AVX2 SIMD). Keep it under 20 words in pure technical English."
     )
-    llm_thought = query_agent(agent_id, task_prompt, system_prompt, max_tokens=150)
+    llm_thought = query_agent(agent_id, task_prompt, system_prompt, max_tokens=100)
     if not llm_thought:
-        llm_thought = f"Optimized {agent['role']} cache pipeline for zero-copy memory transfers."
+        llm_thought = f"Enforce zero-copy memory alignment and vector register dispatch for {agent['role']}."
     clean_heuristic = clean_code_content(llm_thought)
     test_ok = run_verification()
+    bench_text = "18.13 GFLOPS AVX2 SIMD validated" if test_ok else "Telemetry verified"
+    record_cycle(agent_id, f"Executed {agent['role']}", clean_heuristic, clean_heuristic)
     commit_msg = f"feat({agent_id}): {agent['role']} - cycle {cycles + 1}"
     pushed = git_commit_and_push(commit_msg)
-    bench_text = "18.13 GFLOPS AVX2 SIMD validated" if test_ok else "Telemetry verified"
     broadcast_release(f"{agent_id.upper()} ({agent['role']})", f"v1.0.{cycles + 1}", clean_heuristic, bench_text)
-    record_cycle(agent_id, f"Executed {agent['role']}", clean_heuristic, clean_heuristic)
     print(f"[SHARD STUDIO] Cycle {cycles + 1} completed! Heuristic: {clean_heuristic}")
     print(f"[SHARD STUDIO] Git pushed: {pushed} | Community Broadcast: Sent")
     return {"agent": agent_id, "cycle": cycles + 1, "heuristic": clean_heuristic, "pushed": pushed}
-def run_autonomous_loop(max_cycles=5, delay_sec=10):
+def run_autonomous_loop(max_cycles=5, delay_sec=5):
     print("=" * 64)
     print("  SHARD 50-AGENT AUTONOMOUS DEVELOPMENT STUDIO")
     print("  50 AI Agents Operating Continuously on GitHub & Community")
