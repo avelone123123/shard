@@ -1,8 +1,8 @@
 # SHARD // Tri-Language Local Neural Engine
-[![Version](https://img.shields.io/badge/Version-v1.3.0-2563eb)](https://github.com/avelone123123/shard)
+[![Version](https://img.shields.io/badge/Version-v1.3.1-2563eb)](https://github.com/avelone123123/shard)
 [![Architecture](https://img.shields.io/badge/Architecture-Python%20%2B%20C%2B%2B20%20%2B%20MASM%20AVX2-06b6d4)](https://github.com/avelone123123/shard)
-[![Kernels](https://img.shields.io/badge/Kernels-16%20Active-10b981)](https://github.com/avelone123123/shard)
-[![Tests](https://img.shields.io/badge/Tests-22%20Passed-10b981)](https://github.com/avelone123123/shard)
+[![Kernels](https://img.shields.io/badge/Kernels-17%20Active-10b981)](https://github.com/avelone123123/shard)
+[![Tests](https://img.shields.io/badge/Tests-23%20Passed-10b981)](https://github.com/avelone123123/shard)
 [![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
 Shard is a high-performance 100% local AI inference runtime engineered with a tri-language architecture:
 - **Python 3.14 Layer**: Async FastAPI server, OpenAI `/v1/chat/completions` & Anthropic `/v1/messages` SSE streaming, Hugging Face Hub discovery, and VRAM/RAM/NVMe tier profiling.
@@ -49,7 +49,7 @@ pip install -e .
 | `shard run <model_id>` | Interactive terminal REPL with live token/sec telemetry |
 | `shard test` | Execute 12-family MASM x64 AVX2 + C++20 hardware benchmark |
 | `shard key --gen` | Generate local `sk-shard-*` authentication key |
-| `python -m unittest tests_shard.py` | Execute 22 deterministic native & runtime unit tests |
+| `python -m unittest tests_shard.py` | Execute 23 deterministic native & runtime unit tests |
 ## IDE & Tool Integration
 Shard exposes OpenAI and Anthropic Messages compatible endpoints on `http://localhost:8000/v1`:
 ### 1. Cursor IDE / Continue / Aider
@@ -71,7 +71,7 @@ docker compose up -d
 All downloaded weights persist in `shard_models_volume` (`/data/models`) across container restarts.
 ## Native AVX2 Benchmark (`shard test`)
 ```
-Kernel: Shard Native Core v1.3.0 (C++20 Zero-Copy + MASM x64 AVX2 16-Kernel Engine)
+Kernel: Shard Native Core v1.3.1 (C++20 Zero-Copy + MASM x64 AVX2 17-Kernel Engine)
 [01/12] Dot-Product FMA:  35.15 GFLOPS (23,307 us)
 [05/12] Q8_0 Dequant:     2457.3 ops/sec (AVX2 Int8->FP32)
 [06/12] Q4_0 Dequant:     2561.8 ops/sec (AVX2 Nibble Unpack)

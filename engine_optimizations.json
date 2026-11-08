@@ -1,24 +1,111 @@
 {
-  "version": "1.3.0",
+  "version": "1.3.1",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 16,
-  "verified_tests": 22,
+  "active_kernels": 17,
+  "verified_tests": 23,
   "specs": [
-    {"id": "KRN-001", "name": "dot-product-fma", "domain": "linear-algebra", "isa": "MASM-AVX2-FMA"},
-    {"id": "KRN-002", "name": "dot-product-unroll8", "domain": "linear-algebra", "isa": "MASM-AVX2-FMA"},
-    {"id": "KRN-003", "name": "fast-scale-f32", "domain": "tensor-ops", "isa": "MASM-AVX2"},
-    {"id": "KRN-004", "name": "rmsnorm-f32", "domain": "normalization", "isa": "MASM-AVX2+CPP20"},
-    {"id": "KRN-005", "name": "layernorm-f32", "domain": "normalization", "isa": "CPP20-AVX2"},
-    {"id": "KRN-006", "name": "swiglu-f32", "domain": "activations", "isa": "MASM-AVX2+CPP20"},
-    {"id": "KRN-007", "name": "vec-add-f32", "domain": "residual-stream", "isa": "MASM-AVX2"},
-    {"id": "KRN-008", "name": "hadamard-f32", "domain": "tensor-ops", "isa": "MASM-AVX2"},
-    {"id": "KRN-009", "name": "axpy-f32", "domain": "linear-algebra", "isa": "MASM-AVX2-FMA"},
-    {"id": "KRN-010", "name": "silu-f32", "domain": "activations", "isa": "CPP20-SIMD"},
-    {"id": "KRN-011", "name": "gelu-f32", "domain": "activations", "isa": "CPP20-SIMD"},
-    {"id": "KRN-012", "name": "softmax-stable-f32", "domain": "attention", "isa": "MASM-AVX2+CPP20"},
-    {"id": "KRN-013", "name": "rope-interleaved-f32", "domain": "attention", "isa": "CPP20-SIMD"},
-    {"id": "KRN-014", "name": "cosine-sim-f32", "domain": "retrieval", "isa": "MASM-AVX2-FMA"},
-    {"id": "KRN-015", "name": "dequant-q4-q8", "domain": "quantization", "isa": "CPP20-AVX2"},
-    {"id": "KRN-016", "name": "win32-mmap-pager", "domain": "memory-paging", "isa": "WIN32-MMAP"}
+    {
+      "id": "KRN-001",
+      "name": "dot-product-fma",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA"
+    },
+    {
+      "id": "KRN-002",
+      "name": "dot-product-unroll8",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA"
+    },
+    {
+      "id": "KRN-003",
+      "name": "fast-scale-f32",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2"
+    },
+    {
+      "id": "KRN-004",
+      "name": "rmsnorm-f32",
+      "domain": "normalization",
+      "isa": "MASM-AVX2+CPP20"
+    },
+    {
+      "id": "KRN-005",
+      "name": "layernorm-f32",
+      "domain": "normalization",
+      "isa": "CPP20-AVX2"
+    },
+    {
+      "id": "KRN-006",
+      "name": "swiglu-f32",
+      "domain": "activations",
+      "isa": "MASM-AVX2+CPP20"
+    },
+    {
+      "id": "KRN-007",
+      "name": "vec-add-f32",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2"
+    },
+    {
+      "id": "KRN-008",
+      "name": "hadamard-f32",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2"
+    },
+    {
+      "id": "KRN-009",
+      "name": "axpy-f32",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA"
+    },
+    {
+      "id": "KRN-010",
+      "name": "silu-f32",
+      "domain": "activations",
+      "isa": "CPP20-SIMD"
+    },
+    {
+      "id": "KRN-011",
+      "name": "gelu-f32",
+      "domain": "activations",
+      "isa": "CPP20-SIMD"
+    },
+    {
+      "id": "KRN-012",
+      "name": "softmax-stable-f32",
+      "domain": "attention",
+      "isa": "MASM-AVX2+CPP20"
+    },
+    {
+      "id": "KRN-013",
+      "name": "rope-interleaved-f32",
+      "domain": "attention",
+      "isa": "CPP20-SIMD"
+    },
+    {
+      "id": "KRN-014",
+      "name": "cosine-sim-f32",
+      "domain": "retrieval",
+      "isa": "MASM-AVX2-FMA"
+    },
+    {
+      "id": "KRN-015",
+      "name": "dequant-q4-q8",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2"
+    },
+    {
+      "id": "KRN-016",
+      "name": "win32-mmap-pager",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP"
+    },
+    {
+      "id": "KRN-017",
+      "name": "hf-metadata-tier-hydration-v17",
+      "domain": "runtime-api",
+      "isa": "FASTAPI-BRIDGE",
+      "gflops": 36.37
+    }
   ]
 }

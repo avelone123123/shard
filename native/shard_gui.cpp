@@ -34,7 +34,7 @@ struct ShardGuiState {
     int cpuThreads;
     wchar_t versionText[64];
 };
-static ShardGuiState g_state = { 0, 0, 16, 22, 0.0, 0, 0, 0.0, 0.0, 0.0, 0.0, 16.0, 8.0, 8, L"v1.3.0" };
+static ShardGuiState g_state = { 0, 0, 17, 23, 0.0, 0, 0, 0.0, 0.0, 0.0, 0.0, 16.0, 8.0, 8, L"v1.3.1" };
 static void RefreshHostTelemetry() {
     MEMORYSTATUSEX ms;
     ms.dwLength = sizeof(ms);

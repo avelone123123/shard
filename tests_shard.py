@@ -136,5 +136,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         hw = get_hardware_profile()
         meta = fetch_model_metadata("Qwen/Qwen2.5-Coder-7B-Instruct", hw)
         self.assertEqual(meta["author"], "Qwen")
+    def test_krn_017_hf_metadata_tier_hydration(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 17)
+        self.assertIn("KRN-017", self.bridge.kernel_ids())
+        self.assertIn('compatibility', fetch_model_metadata('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', {'vram_total_mb': 12288, 'ram_total_mb': 32768}))
 if __name__ == "__main__":
     unittest.main()

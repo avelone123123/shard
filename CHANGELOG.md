@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.3.1] - 2026-11-08
+### Added
+- Registered native specification `KRN-017` (`hf-metadata-tier-hydration-v17`, `FASTAPI-BRIDGE`) in `native/shard_core.cpp`: Verified deterministic compatibility telemetry fields in Hugging Face Hub model resolver.
+- Added deterministic regression test `test_krn_017_hf_metadata_tier_hydration` in `tests_shard.py` (23/23 tests passing, 36.37 GFLOPS AVX2 FMA).
 ## [1.3.0] - 2026-11-08
 ### Added
 - Native Win32 C++20 + MASM x64 AVX2 Desktop Console (`shard-native.exe` and `shard gui`) with real-time RDTSC cycle telemetry, live 4096-dim SIMD benchmark runner, host RAM/CPU hardware inspector, and trilingual user guide (`EN` / `RU` / `ZH`).
