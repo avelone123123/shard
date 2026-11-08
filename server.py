@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Str
 from engine import engine_instance
 from hardware import get_hardware_profile, evaluate_compatibility
 from hf_hub import browse_models, fetch_model_metadata, fetch_model_card
-app = FastAPI(title="Shard Local Model Engine and Server", version="1.0.0")
+app = FastAPI(title="Shard Local Model Engine and Server", version="1.3.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

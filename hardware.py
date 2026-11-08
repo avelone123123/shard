@@ -8,7 +8,8 @@ def get_hardware_profile():
     vram_used_mb = 0
     try:
         cmd = ["nvidia-smi", "--query-gpu=name,memory.total,memory.used", "--format=csv,noheader,nounits"]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+        res = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=5, **kw)
         if res.returncode == 0 and res.stdout.strip():
             parts = res.stdout.strip().split("\n")[0].split(",")
             if len(parts) >= 3:

@@ -1,214 +1,24 @@
 {
-  "version": "1.0.0",
+  "version": "1.3.0",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "optimizations": {
-    "quant": {
-      "role": "Q4_K_M Block Dequantization Engineer",
-      "division": "Quantization & Tensors",
-      "rule": "Minimize data copies prioritize SIMD parallelism for tensor operations.",
-      "cycle": 11,
-      "timestamp": 1793626741,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "bit": {
-      "role": "Q8_0 & FP16 Fast Precision Conversion",
-      "division": "Quantization & Tensors",
-      "rule": "Prioritize AVX2 intrinsics for quantized to floating-point conversions to maximize parallelism and reduce latency.",
-      "cycle": 12,
-      "timestamp": 1793627450,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "shard": {
-      "role": "Dynamic Layer Splitting (VRAM/RAM/NVMe)",
-      "division": "Quantization & Tensors",
-      "rule": "Maximize vector register usage for parallelism; align memory mappings to hardware page sizes.",
-      "cycle": 13,
-      "timestamp": 1793627491,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "hybrid": {
-      "role": "Out-of-Memory (OOM) Predictive Guard",
-      "division": "Quantization & Tensors",
-      "rule": "Prioritize tensor compression over reallocation for OOM prevention.",
-      "cycle": 14,
-      "timestamp": 1793627505,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "kv": {
-      "role": "Paged KV-Cache & Sliding Window Attn",
-      "division": "Quantization & Tensors",
-      "rule": "Use quantized integers and AVX2 SIMD for tensor operations to enhance performance and reduce memory usage.",
-      "cycle": 15,
-      "timestamp": 1793627521,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "rope": {
-      "role": "Rotary Position Embedding SIMD Accelerated",
-      "division": "Quantization & Tensors",
-      "rule": "Batch process tensor operations using AVX2 SIMD to enhance performance and reduce memory access latency.",
-      "cycle": 16,
-      "timestamp": 1793627547,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "norm": {
-      "role": "RMSNorm & LayerNorm Vectorized Math",
-      "division": "Quantization & Tensors",
-      "rule": "Maximize YMM register usage for SIMD parallelism, aligning tensor operations to cache lines.",
-      "cycle": 17,
-      "timestamp": 1793627578,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "fuse": {
-      "role": "Fused SwiGLU / GeLU Activation Pipeline",
-      "division": "Quantization & Tensors",
-      "rule": "Minimize memory allocation, prioritize AVX2 instructions.",
-      "cycle": 18,
-      "timestamp": 1793627595,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "prune": {
-      "role": "Sparse Weight Pruner & Sparsity Loader",
-      "division": "Quantization & Tensors",
-      "rule": "Prioritize non-zero element processing in SIMD for sparse matrices to enhance performance.",
-      "cycle": 19,
-      "timestamp": 1793627613,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "scale": {
-      "role": "Dynamic FP8 Activation Scaling Manager",
-      "division": "Quantization & Tensors",
-      "rule": "Adjust FP8 scale factors dynamically for optimal precision and performance balance.",
-      "cycle": 20,
-      "timestamp": 1793627633,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "scout": {
-      "role": "HF Hub Real-Time Model Discovery & Ranker",
-      "division": "Hugging Face Hub & Discovery",
-      "rule": "Maximize AVX2 register utilization by aligning memory access patterns to 256-bit boundaries.",
-      "cycle": 21,
-      "timestamp": 1793627664,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "tokenizer": {
-      "role": "Fast BPE & WordPiece Parser & Tokenizer",
-      "division": "Hugging Face Hub & Discovery",
-      "rule": "Optimize SIMD usage for parallelizable tasks; prioritize zero-copy mechanisms for data efficiency.",
-      "cycle": 22,
-      "timestamp": 1793627680,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "manifest": {
-      "role": "Safetensors Header & JSON Index Parser",
-      "division": "Hugging Face Hub & Discovery",
-      "rule": "Optimize tensor parsing by minimizing memory copies and utilizing SIMD registers for parallel processing.",
-      "cycle": 23,
-      "timestamp": 1793627699,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "fetch": {
-      "role": "Resumable Multi-Chunk Tensor Downloader",
-      "division": "Hugging Face Hub & Discovery",
-      "rule": "Always align tensor chunks to 64-byte boundaries for AVX2 and prefetch next chunk during current chunk CRC.",
-      "cycle": 24,
-      "timestamp": 1793627715,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "verify": {
-      "role": "SHA256 & Model Checksum Integrity Auditor",
-      "division": "Hugging Face Hub & Discovery",
-      "rule": "Optimize engine with parallelized AVX2 instructions.",
-      "cycle": 25,
-      "timestamp": 1793627729,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "matrix": {
-      "role": "Hardware Capability & Tier Matrix Evaluator",
-      "division": "Hugging Face Hub & Discovery",
-      "rule": "Optimize critical paths using AVX2 SIMD for maximum performance gains.",
-      "cycle": 26,
-      "timestamp": 1793627749,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "preset": {
-      "role": "Curated Model Catalog Configuration Curator",
-      "division": "Hugging Face Hub & Discovery",
-      "rule": "Utilize SIMD intrinsics for parallelizable operations to boost performance.",
-      "cycle": 27,
-      "timestamp": 1793627764,
-      "telemetry": "18.31 GFLOPS AVX2 SIMD validated"
-    },
-    "spec": {
-      "role": "Model Card & Quant Spec Formatter",
-      "division": "Hugging Face Hub & Discovery",
-      "rule": "Minimize register spills via explicit YMM reservation before FastAPI marshalling.",
-      "cycle": 28,
-      "timestamp": 1793628563,
-      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
-    },
-    "mirror": {
-      "role": "Hugging Face Mirror & CDN Fallback Router",
-      "division": "Hugging Face Hub & Discovery",
-      "rule": "Minimize data copying across language boundaries for performance gains.",
-      "cycle": 29,
-      "timestamp": 1793628590,
-      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
-    },
-    "profile": {
-      "role": "Auto-Tuning Hardware Benchmark Profiler",
-      "division": "Hugging Face Hub & Discovery",
-      "rule": "Optimize cache locality and minimize memory allocation.",
-      "cycle": 30,
-      "timestamp": 1793628612,
-      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
-    },
-    "fast": {
-      "role": "FastAPI Async SSE Streaming Engine",
-      "division": "APIs & CLI Experience",
-      "rule": "Optimize data pipelines using AVX2 SIMD for parallel processing gains.",
-      "cycle": 31,
-      "timestamp": 1793628636,
-      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
-    },
-    "openai": {
-      "role": "OpenAI /v1/chat/completions Protocol Validator",
-      "division": "APIs & CLI Experience",
-      "rule": "Align all SIMD operands to register width or suffer pipeline bubbles.",
-      "cycle": 32,
-      "timestamp": 1793628659,
-      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
-    },
-    "claude": {
-      "role": "Anthropic /v1/messages Protocol Adapter",
-      "division": "APIs & CLI Experience",
-      "rule": "Prioritize AVX2 register blocking for contiguous memory access.",
-      "cycle": 33,
-      "timestamp": 1793628682,
-      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
-    },
-    "cli": {
-      "role": "Shard CLI Command Expansion Engineer",
-      "division": "APIs & CLI Experience",
-      "rule": "Optimize SIMD register usage dynamically to minimize cache misses and maximize parallel execution.",
-      "cycle": 34,
-      "timestamp": 1793628705,
-      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
-    },
-    "repl": {
-      "role": "Terminal Chat REPL & Telemetry Display",
-      "division": "APIs & CLI Experience",
-      "rule": "Optimize register usage dynamically for workload-specific performance gains.",
-      "cycle": 35,
-      "timestamp": 1793628735,
-      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
-    },
-    "install": {
-      "role": "Dynamic /i Installer Script Generator",
-      "division": "APIs & CLI Experience",
-      "rule": "Align SIMD lanes with page boundaries for zero-copy installer payload transfers.",
-      "cycle": 36,
-      "timestamp": 1793628761,
-      "telemetry": "35.68 GFLOPS AVX2 SIMD validated"
-    }
-  }
+  "active_kernels": 16,
+  "verified_tests": 22,
+  "specs": [
+    {"id": "KRN-001", "name": "dot-product-fma", "domain": "linear-algebra", "isa": "MASM-AVX2-FMA"},
+    {"id": "KRN-002", "name": "dot-product-unroll8", "domain": "linear-algebra", "isa": "MASM-AVX2-FMA"},
+    {"id": "KRN-003", "name": "fast-scale-f32", "domain": "tensor-ops", "isa": "MASM-AVX2"},
+    {"id": "KRN-004", "name": "rmsnorm-f32", "domain": "normalization", "isa": "MASM-AVX2+CPP20"},
+    {"id": "KRN-005", "name": "layernorm-f32", "domain": "normalization", "isa": "CPP20-AVX2"},
+    {"id": "KRN-006", "name": "swiglu-f32", "domain": "activations", "isa": "MASM-AVX2+CPP20"},
+    {"id": "KRN-007", "name": "vec-add-f32", "domain": "residual-stream", "isa": "MASM-AVX2"},
+    {"id": "KRN-008", "name": "hadamard-f32", "domain": "tensor-ops", "isa": "MASM-AVX2"},
+    {"id": "KRN-009", "name": "axpy-f32", "domain": "linear-algebra", "isa": "MASM-AVX2-FMA"},
+    {"id": "KRN-010", "name": "silu-f32", "domain": "activations", "isa": "CPP20-SIMD"},
+    {"id": "KRN-011", "name": "gelu-f32", "domain": "activations", "isa": "CPP20-SIMD"},
+    {"id": "KRN-012", "name": "softmax-stable-f32", "domain": "attention", "isa": "MASM-AVX2+CPP20"},
+    {"id": "KRN-013", "name": "rope-interleaved-f32", "domain": "attention", "isa": "CPP20-SIMD"},
+    {"id": "KRN-014", "name": "cosine-sim-f32", "domain": "retrieval", "isa": "MASM-AVX2-FMA"},
+    {"id": "KRN-015", "name": "dequant-q4-q8", "domain": "quantization", "isa": "CPP20-AVX2"},
+    {"id": "KRN-016", "name": "win32-mmap-pager", "domain": "memory-paging", "isa": "WIN32-MMAP"}
+  ]
 }

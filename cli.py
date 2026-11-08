@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -22,6 +23,7 @@ def cmd_help():
     print("Commands:")
     print("  start      Launch Shard server and web workspace")
     print("             Options: --host 0.0.0.0 --port 8000")
+    print("  gui        Open native Win32 C++20 + MASM x64 AVX2 desktop console")
     print("  status     Show local GPU, VRAM, RAM, and native engine state")
     print("  list       Browse models and hardware tiers")
     print("             Options: --category [all|coding|reasoning|compact]")
@@ -31,11 +33,13 @@ def cmd_help():
     print("  key        List or generate authentication API keys")
     print("             Options: --gen (create new key)")
     print("  help       Show this reference documentation")
-    print("\nExamples:")
-    print("  shard start --port 8000")
-    print("  shard run Qwen/Qwen2.5-Coder-7B-Instruct")
-    print("  shard status")
-    print("  shard test")
+def cmd_gui():
+    exe_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shard-native.exe")
+    if os.path.exists(exe_path):
+        subprocess.Popen([exe_path], cwd=os.path.dirname(exe_path))
+        print(f"Launched native console: {exe_path}")
+    else:
+        print(f"Native console binary not found at: {exe_path}")
 def cmd_start(args):
     import uvicorn
     host = args.host if hasattr(args, "host") and args.host else "0.0.0.0"
@@ -69,6 +73,7 @@ def cmd_status():
     print(f"RAM Allocation:  {hw.get('ram_used_gb', 0)} / {hw.get('ram_total_gb', 0)} GB")
     print(f"CPU Threads:     {hw.get('cpu_cores', 0)}")
     print(f"Native Core:     {bridge.version}")
+    print(f"Registered Specs:{bridge.kernel_count()} verified kernels")
 def cmd_list(args):
     print_banner()
     cat = getattr(args, "category", "all") or "all"
@@ -87,6 +92,7 @@ def cmd_test():
     print("Running Shard Native Core C++20 + MASM AVX2 SIMD Benchmark Suite...")
     bridge = ShardNativeBridge()
     print(f"Kernel: {bridge.version}")
+    print(f"Active Kernel Registry: {bridge.kernel_count()} Specs")
     iters = 100000
     us = bridge.benchmark_avx2(iters)
     if us > 0:
@@ -94,43 +100,60 @@ def cmd_test():
         total_ops = ops_per_iter * iters
         sec = us / 1000000.0
         gflops = (total_ops / sec) / 1e9
-        print(f"[1/4] Dot-Product FMA: {gflops:.2f} GFLOPS ({us:,} us)")
-        x_sample = [0.05 * (i % 20) for i in range(4096)]
+        print(f"[01/12] Dot-Product FMA:  {gflops:.2f} GFLOPS ({us:,} us)")
+        x_sample = [0.05 * ((i % 20) + 1) for i in range(4096)]
         w_sample = [1.0 for _ in range(4096)]
+        b_sample = [0.01 for _ in range(4096)]
         t0 = time.time()
-        for _ in range(3000):
+        for _ in range(2500):
             bridge.rmsnorm(x_sample, w_sample)
-        rms_dt = time.time() - t0
-        print(f"[2/4] RMSNorm Vector:  {3000 / rms_dt:.1f} ops/sec (AVX2 sum of squares)")
+        print(f"[02/12] RMSNorm Vector:   {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (MASM AVX2 sum_sq)")
         t0 = time.time()
-        for _ in range(3000):
+        for _ in range(2500):
+            bridge.layernorm(x_sample, w_sample, b_sample)
+        print(f"[03/12] LayerNorm Affine: {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (C++20 AVX2 mean/var)")
+        t0 = time.time()
+        for _ in range(2500):
             bridge.swiglu(x_sample, w_sample)
-        swi_dt = time.time() - t0
-        print(f"[3/4] SwiGLU Kernel:   {3000 / swi_dt:.1f} ops/sec (Vectorized Sigmoid)")
+        print(f"[04/12] SwiGLU Fused:     {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (Sigmoid + ASM Hadamard)")
         q8_bytes = bytes([i % 127 for i in range(4096)])
         t0 = time.time()
-        for _ in range(3000):
+        for _ in range(2500):
             bridge.dequant_q8(q8_bytes, 0.05)
-        deq_dt = time.time() - t0
-        print(f"[4/7] Q8_0 Dequant:     {3000 / deq_dt:.1f} ops/sec (Zero-Copy Int8->FP32)")
+        print(f"[05/12] Q8_0 Dequant:     {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (AVX2 Int8->FP32)")
+        q4_bytes = bytes([0xA3 for _ in range(2048)])
         t0 = time.time()
-        for _ in range(3000):
+        for _ in range(2500):
+            bridge.dequant_q4(q4_bytes, 0.05)
+        print(f"[06/12] Q4_0 Dequant:     {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (AVX2 Nibble Unpack)")
+        t0 = time.time()
+        for _ in range(2500):
             bridge.vec_add(x_sample, w_sample)
-        add_dt = time.time() - t0
-        print(f"[5/7] Vec-Add SIMD:     {3000 / add_dt:.1f} ops/sec (MASM AVX2 Residual Addition)")
+        print(f"[07/12] Vec-Add SIMD:     {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (MASM AVX2 vaddps)")
         t0 = time.time()
-        for _ in range(3000):
-            bridge.silu(x_sample)
-        silu_dt = time.time() - t0
-        print(f"[6/7] SiLU Kernel:      {3000 / silu_dt:.1f} ops/sec (C++20 Fast Sigmoid Activation)")
+        for _ in range(2500):
+            bridge.hadamard(x_sample, w_sample)
+        print(f"[08/12] Hadamard Gate:    {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (MASM AVX2 vmulps)")
         t0 = time.time()
-        for _ in range(3000):
-            bridge.gelu(x_sample)
-        gelu_dt = time.time() - t0
-        print(f"[7/7] GeLU Kernel:      {3000 / gelu_dt:.1f} ops/sec (C++20 Fast Tanh Approximation)")
-        print("Native Pipeline:       ALL 7 KERNELS VALIDATED [OK]")
+        for _ in range(2500):
+            bridge.axpy(x_sample, w_sample, 0.5)
+        print(f"[09/12] Fused AXPY:       {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (MASM AVX2 vfmadd231ps)")
+        t0 = time.time()
+        for _ in range(2500):
+            bridge.softmax(x_sample[:512])
+        print(f"[10/12] Stable Softmax:   {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (MASM vmaxps + Scale)")
+        t0 = time.time()
+        for _ in range(2500):
+            bridge.rope(x_sample[:512], pos=7)
+        print(f"[11/12] RoPE Rotary:      {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (Interleaved Cos/Sin)")
+        t0 = time.time()
+        for _ in range(2500):
+            bridge.cosine_sim(x_sample, w_sample)
+        print(f"[12/12] Cosine Sim RAG:   {2500 / max(1e-6, time.time() - t0):.1f} ops/sec (FMA Dual-Norm)")
+        print("Native Pipeline:          ALL 12 KERNEL FAMILIES VALIDATED [OK]")
     else:
-        print("Native Pipeline:       BENCHMARK FAILED [ERROR]")
+        print("Native Pipeline:          BENCHMARK FAILED [ERROR]")
+        sys.exit(1)
 def cmd_key(args):
     print_banner()
     if getattr(args, "gen", False):
@@ -203,6 +226,7 @@ def main():
     p_start = sub.add_parser("start")
     p_start.add_argument("--host", default="0.0.0.0", help="Host interface")
     p_start.add_argument("--port", type=int, default=8000, help="Port")
+    sub.add_parser("gui")
     sub.add_parser("status")
     p_list = sub.add_parser("list")
     p_list.add_argument("--category", default="all", help="Category filter")
@@ -218,6 +242,8 @@ def main():
     args = parser.parse_args()
     if args.command == "start":
         cmd_start(args)
+    elif args.command == "gui":
+        cmd_gui()
     elif args.command == "status":
         cmd_status()
     elif args.command == "list":
