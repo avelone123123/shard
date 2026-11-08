@@ -14,19 +14,20 @@ BASE_URL = os.environ.get("SHARD_BASE_URL", "http://localhost:8000")
 API_KEY = os.environ.get("SHARD_API_KEY", "sk-shard-local-avelone-dev")
 def print_banner():
     print("=" * 64)
-    print("  SHARD // TRI-LANGUAGE LOCAL MODEL RUNNER")
-    print("  Python FastAPI + C++20 Zero-Copy Paging + MASM x64 AVX2")
+    print("  SHARD STUDIO // TRI-LANGUAGE LOCAL NEURAL ENGINE")
+    print("  Win32 C++20 Desktop + MASM x64 AVX2 + Python FastAPI")
     print("=" * 64)
 def cmd_help():
     print_banner()
-    print("Usage: shard <command> [options]\n")
+    print("Usage: shard [command] [options]\n")
     print("Commands:")
-    print("  start      Launch Shard server and web workspace")
+    print("  (no args)  Launch Shard Native Desktop Studio (.exe) + Auto-Server")
+    print("  gui        Launch Shard Native Desktop Studio (.exe)")
+    print("  start      Launch headless Shard FastAPI server")
     print("             Options: --host 0.0.0.0 --port 8000")
-    print("  gui        Open native Win32 C++20 + MASM x64 AVX2 desktop console")
     print("  status     Show local GPU, VRAM, RAM, and native engine state")
-    print("  list       Browse models and hardware tiers")
-    print("             Options: --category [all|coding|reasoning|compact]")
+    print("  list       Browse Hugging Face models and hardware tiers")
+    print("             Options: --category [all|ideal|coding|reasoning|compact]")
     print("  run        Load a model and chat in terminal REPL")
     print("             Usage: shard run <model_id>")
     print("  test       Run native C++20 and MASM AVX2 benchmarks")
@@ -34,12 +35,14 @@ def cmd_help():
     print("             Options: --gen (create new key)")
     print("  help       Show this reference documentation")
 def cmd_gui():
-    exe_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shard-native.exe")
-    if os.path.exists(exe_path):
-        subprocess.Popen([exe_path], cwd=os.path.dirname(exe_path))
-        print(f"Launched native console: {exe_path}")
-    else:
-        print(f"Native console binary not found at: {exe_path}")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    for name in ("shard-native.exe", "shard.exe"):
+        exe_path = os.path.join(base_dir, name)
+        if os.path.exists(exe_path):
+            subprocess.Popen([exe_path, "--gui"], cwd=base_dir)
+            print(f"Launched Shard Desktop Studio: {exe_path}")
+            return
+    print("Native desktop binary not found. Run: python native/build_native.py")
 def cmd_start(args):
     import uvicorn
     host = args.host if hasattr(args, "host") and args.host else "0.0.0.0"
@@ -181,7 +184,7 @@ def cmd_key(args):
             pass
         print(f"Default API Key: {API_KEY}")
 def cmd_run(args):
-    model_id = args.model if hasattr(args, "model") and args.model else "Qwen/Qwen2.5-Coder-7B-Instruct"
+    model_id = args.model if hasattr(args, "model") and args.model else "Qwen/Qwen2.5-Coder-1.5B-Instruct"
     print_banner()
     print(f"Connecting to model: {model_id}")
     try:
@@ -205,7 +208,7 @@ def cmd_run(args):
             payload = {"model": model_id, "messages": messages, "stream": False}
             headers = {"Authorization": f"Bearer {API_KEY}"}
             t0 = time.time()
-            res = requests.post(f"{BASE_URL}/v1/chat/completions", json=payload, headers=headers, timeout=60)
+            res = requests.post(f"{BASE_URL}/v1/chat/completions", json=payload, headers=headers, timeout=90)
             dt = time.time() - t0
             if res.status_code == 200:
                 data = res.json()
@@ -231,12 +234,18 @@ def main():
     p_list = sub.add_parser("list")
     p_list.add_argument("--category", default="all", help="Category filter")
     p_run = sub.add_parser("run")
-    p_run.add_argument("model", nargs="?", default="Qwen/Qwen2.5-Coder-7B-Instruct", help="Model ID")
+    p_run.add_argument("model", nargs="?", default="Qwen/Qwen2.5-Coder-1.5B-Instruct", help="Model ID")
     sub.add_parser("test")
     p_key = sub.add_parser("key")
     p_key.add_argument("--gen", action="store_true", help="Generate key")
     sub.add_parser("help")
     if len(sys.argv) <= 1:
+        if os.name == "nt":
+            cmd_gui()
+            sys.exit(0)
+        cmd_help()
+        sys.exit(0)
+    if sys.argv[1] in ("-h", "--help"):
         cmd_help()
         sys.exit(0)
     args = parser.parse_args()

@@ -1,4 +1,9 @@
 # Shard Engine Changelog
+## [1.4.0] - 2026-11-08
+### Added
+- Built full standalone Win32 C++20 + MASM x64 Desktop Application (`shard.exe` and `shard-native.exe`, registered as `KRN-018`) replacing browser dependency with an instant double-buffered native executive UI, silent background local server auto-launcher (`127.0.0.1:8000`), live Hugging Face 3,000,000+ model hub, hardware fit advisor, SSD model cache manager, persistent multi-session SSE streaming AI chat, API key manager, and 1-click configurator for Claude Code, OpenRouter SDK, Cursor, OpenCode, Continue, Aider, Zed, and Codex.
+- Added `/api/integrations/apply` (with automatic `.shard.bak` backup protection), `/api/models/cancel`, full Anthropic `/v1/messages` SSE streaming for Claude Code CLI, and `category=ideal` hardware-matched catalog filtering.
+- Optimized local model inference (`engine.py`, `hardware.py`, `hf_hub.py`): eliminated unsolicited cold-boot downloads, added FP16/CUDA/CPU memory-aware precision selection, `torch.inference_mode()`, native tokenizer `apply_chat_template`, live `<think>` tag streaming, 1-token cancellation, and 4-second `nvidia-smi` hardware cache.
 ## [1.3.1] - 2026-11-08
 ### Added
 - Registered native specification `KRN-017` (`hf-metadata-tier-hydration-v17`, `FASTAPI-BRIDGE`) in `native/shard_core.cpp`: Verified deterministic compatibility telemetry fields in Hugging Face Hub model resolver.

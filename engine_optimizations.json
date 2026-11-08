@@ -1,8 +1,8 @@
 {
-  "version": "1.3.1",
+  "version": "1.4.0",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 17,
-  "verified_tests": 23,
+  "active_kernels": 18,
+  "verified_tests": 26,
   "specs": [
     {
       "id": "KRN-001",
@@ -106,6 +106,13 @@
       "domain": "runtime-api",
       "isa": "FASTAPI-BRIDGE",
       "gflops": 36.37
+    },
+    {
+      "id": "KRN-018",
+      "name": "win32-desktop-studio-v18",
+      "domain": "desktop-runtime",
+      "isa": "WIN32-GDI-WINHTTP",
+      "gflops": 36.45
     }
   ]
 }

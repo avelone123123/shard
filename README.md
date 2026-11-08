@@ -1,78 +1,56 @@
-# SHARD // Tri-Language Local Neural Engine
-[![Version](https://img.shields.io/badge/Version-v1.3.1-2563eb)](https://github.com/avelone123123/shard)
-[![Architecture](https://img.shields.io/badge/Architecture-Python%20%2B%20C%2B%2B20%20%2B%20MASM%20AVX2-06b6d4)](https://github.com/avelone123123/shard)
-[![Kernels](https://img.shields.io/badge/Kernels-17%20Active-10b981)](https://github.com/avelone123123/shard)
-[![Tests](https://img.shields.io/badge/Tests-23%20Passed-10b981)](https://github.com/avelone123123/shard)
+# SHARD STUDIO // Native Desktop Local AI Runtime & CLI Bridge
+[![Version](https://img.shields.io/badge/Version-v1.4.0-cfa65b)](https://github.com/avelone123123/shard)
+[![Architecture](https://img.shields.io/badge/Architecture-Win32%20C%2B%2B20%20%2B%20MASM%20AVX2%20%2B%20FastAPI-22a06b)](https://github.com/avelone123123/shard)
+[![Kernels](https://img.shields.io/badge/Kernels-18%20Active-10b981)](https://github.com/avelone123123/shard)
+[![Tests](https://img.shields.io/badge/Tests-26%20Passed-10b981)](https://github.com/avelone123123/shard)
 [![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
-Shard is a high-performance 100% local AI inference runtime engineered with a tri-language architecture:
-- **Python 3.14 Layer**: Async FastAPI server, OpenAI `/v1/chat/completions` & Anthropic `/v1/messages` SSE streaming, Hugging Face Hub discovery, and VRAM/RAM/NVMe tier profiling.
-- **C++20 Native Core (`shard_core.dll`)**: Direct Win32 `MapViewOfFile` zero-copy tensor paging, vectorized `LayerNorm`, `Softmax`, `RoPE`, `SwiGLU`, `CosineSim`, and `Q4`/`Q8_0` dequantization.
-- **MASM x64 Assembly (`shard_asm.asm` + `shard-native.exe`)**: Hand-crafted 256-bit AVX2/FMA SIMD kernels (`ymm0-ymm7`) achieving 35+ GFLOPS plus an instant native Win32 desktop telemetry console with trilingual (`EN` / `RU` / `ZH`) user guide.
+Shard Studio is a standalone 100% local AI desktop platform (`shard.exe` / `shard-native.exe`) engineered with a tri-language native architecture:
+- **Native Win32 C++20 Desktop Studio (`shard.exe` / `shard-native.exe`)**: Double-buffered 60fps desktop application with asynchronous `WinHTTP` worker threads, auto-managed background server startup (`CREATE_NO_WINDOW`), live Hugging Face 3,000,000+ model catalog, hardware fit advisor, SSD storage manager, multi-session SSE streaming AI chat, and 1-click CLI/IDE auto-configurator.
+- **C++20 Zero-Copy Core (`shard_core.dll`)**: Direct Win32 `MapViewOfFile` Safetensors paging, vectorized `LayerNorm`, `Softmax`, `RoPE`, `SwiGLU`, `CosineSim`, and `Q4`/`Q8_0` dequantization.
+- **MASM x64 Assembly (`shard_asm.asm`) & Python FastAPI Runtime**: Hand-crafted 256-bit AVX2/FMA SIMD kernels (`ymm0-ymm7`) achieving 35+ GFLOPS plus full OpenAI `/v1/chat/completions` and Anthropic `/v1/messages` SSE streaming endpoints on `http://localhost:8000/v1`.
 ## System Overview
 ```
 +-------------------------------------------------------------------------+
-|                          CLIENT ECOSYSTEM                               |
-|   Cursor IDE  |  OpenCode  |  Claude Code  |  Aider CLI  |  Continue   |
+|                    ECOSYSTEM & CLI AUTO-INTEGRATION                     |
+|  Claude Code | OpenRouter SDK | Cursor | OpenCode | Continue | Aider    |
 +-------------------------------------------------------------------------+
-                                    | OpenAI & Claude Messages API
+                                    | OpenAI & Anthropic Messages SSE API
                                     v
 +-------------------------------------------------------------------------+
-|                        FASTAPI PYTHON LAYER                             |
-|      SSE Streamer  |  Model Hub Bridge  |  Hardware Profiler (VRAM)     |
+|               SHARD STUDIO NATIVE DESKTOP (.EXE) + SERVER               |
+|  HF Hub Search | Hardware Fit Advisor | Live AI Chat | SSD Disk Manager |
 +-------------------------------------------------------------------------+
-                                    | Zero-Copy C FFI
+                                    | Zero-Copy C FFI & WinHTTP
                                     v
 +-------------------------------------------------------------------------+
-|                   C++20 NATIVE CORE + WIN32 CONSOLE                     |
-|      Win32 MapViewOfFile Pager  |  Q4/Q8 Unpacker  |  shard-native.exe  |
-+-------------------------------------------------------------------------+
-                                    | Direct Register Dispatch
-                                    v
-+-------------------------------------------------------------------------+
-|                     MASM x64 AVX2 ASSEMBLY KERNELS                      |
-|    Dot Unroll8 FMA | RMSNorm | Hadamard | AXPY | VecAdd | MaxSoft       |
+|                   C++20 NATIVE CORE + MASM x64 AVX2                     |
+|   MapViewOfFile Pager | Dot Unroll8 FMA | RMSNorm | Q4/Q8 Unpacker      |
 +-------------------------------------------------------------------------+
 ```
-## Installation
+## Instant Desktop Quickstart
+1. Download or clone the repository and launch **`shard.exe`** (or **`shard-native.exe`**):
 ```bash
 git clone https://github.com/avelone123123/shard.git
 cd shard
-pip install -e .
+shard.exe
 ```
-## CLI & Native Desktop Console
+2. `shard.exe` opens immediately and starts the local inference server (`127.0.0.1:8000`) silently in the background.
+3. Browse open-weight Hugging Face models filtered for your exact GPU VRAM & RAM, download & launch in 1 click, chat locally, or click **Apply in 1 Click** to connect **Claude Code**, **OpenRouter SDK**, **Cursor**, **OpenCode**, **Continue**, **Aider**, **Zed**, or **Codex**.
+## CLI & Desktop Commands
 | Command | Responsibility |
 | :--- | :--- |
-| `shard start --port 8000` | Start local FastAPI server and Web Workspace |
-| `shard gui` | Launch native Win32 C++20 + MASM x64 AVX2 desktop console (`shard-native.exe`) |
+| `shard` / `shard.exe` | Open Native Win32 C++20 Desktop Studio + Auto-Start Local Server |
+| `shard start --port 8000` | Start headless FastAPI server |
 | `shard status` | Inspect GPU, VRAM, RAM, CPU threads, and active native DLL state |
-| `shard list --category coding` | Rank open-weight models against host hardware compatibility tiers |
+| `shard list --category ideal` | Rank open-weight Hugging Face models ideal for host GPU/RAM |
 | `shard run <model_id>` | Interactive terminal REPL with live token/sec telemetry |
 | `shard test` | Execute 12-family MASM x64 AVX2 + C++20 hardware benchmark |
 | `shard key --gen` | Generate local `sk-shard-*` authentication key |
-| `python -m unittest tests_shard.py` | Execute 23 deterministic native & runtime unit tests |
-## IDE & Tool Integration
-Shard exposes OpenAI and Anthropic Messages compatible endpoints on `http://localhost:8000/v1`:
-### 1. Cursor IDE / Continue / Aider
-- Model Name: `Qwen/Qwen2.5-Coder-7B-Instruct`
-- OpenAI Base URL: `http://localhost:8000/v1`
-- API Key: `sk-shard-...` (`shard key --gen`)
-### 2. Universal Windows One-Liner (Claude Code / OpenCode)
-```powershell
-powershell -ExecutionPolicy Bypass -Command "irm 'http://localhost:8000/i?os=windows&tool=opencode' | iex"
-```
-### 3. Linux & macOS One-Liner
-```bash
-bash <(curl -fsSL "http://localhost:8000/i?tool=opencode")
-```
-## Docker & Persistent Model Storage
-```bash
-docker compose up -d
-```
-All downloaded weights persist in `shard_models_volume` (`/data/models`) across container restarts.
+| `python -m unittest tests_shard.py` | Execute 26 deterministic native & runtime unit tests |
 ## Native AVX2 Benchmark (`shard test`)
 ```
-Kernel: Shard Native Core v1.3.1 (C++20 Zero-Copy + MASM x64 AVX2 17-Kernel Engine)
-[01/12] Dot-Product FMA:  35.15 GFLOPS (23,307 us)
+Kernel: Shard Native Core v1.4.0 (C++20 Zero-Copy + MASM x64 AVX2 18-Kernel Engine)
+[01/12] Dot-Product FMA:  36.45 GFLOPS (22,480 us)
 [05/12] Q8_0 Dequant:     2457.3 ops/sec (AVX2 Int8->FP32)
 [06/12] Q4_0 Dequant:     2561.8 ops/sec (AVX2 Nibble Unpack)
 [10/12] Stable Softmax:   10565.9 ops/sec (MASM vmaxps + Scale)

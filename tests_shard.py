@@ -3,7 +3,7 @@ import os
 import tempfile
 import unittest
 from hardware import estimate_model_params, evaluate_compatibility, get_hardware_profile
-from hf_hub import CURATED_MODELS, fetch_model_metadata
+from hf_hub import CURATED_MODELS, browse_models, fetch_model_metadata
 from shard_bridge import ShardNativeBridge
 class ShardKernelAndRuntimeSuite(unittest.TestCase):
     @classmethod
@@ -140,5 +140,22 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 17)
         self.assertIn("KRN-017", self.bridge.kernel_ids())
         self.assertIn('compatibility', fetch_model_metadata('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', {'vram_total_mb': 12288, 'ram_total_mb': 32768}))
+    def test_krn_018_desktop_studio_binaries_present(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 18)
+        self.assertIn("KRN-018", self.bridge.kernel_ids())
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.assertTrue(os.path.exists(os.path.join(base_dir, "shard-native.exe")))
+        self.assertTrue(os.path.exists(os.path.join(base_dir, "shard.exe")))
+    def test_23_decimal_param_estimator_precision(self):
+        self.assertEqual(estimate_model_params("Qwen/Qwen3-0.6B"), 0.6)
+        self.assertEqual(estimate_model_params("Qwen/Qwen2.5-Coder-1.5B-Instruct"), 1.5)
+        self.assertEqual(estimate_model_params("openai-community/gpt2"), 0.15)
+        comp_4gb = evaluate_compatibility("Qwen/Qwen3-0.6B", {"vram_total_mb": 4096, "ram_total_mb": 8192})
+        self.assertEqual(comp_4gb["tier"], "PERFECT")
+    def test_24_ideal_hardware_catalog_filter(self):
+        hw_4gb = {"vram_total_mb": 4096, "ram_total_mb": 8192}
+        ideal = browse_models(category="ideal", hw=hw_4gb)
+        self.assertGreater(len(ideal), 0)
+        self.assertEqual(ideal[0]["compatibility"]["tier"], "PERFECT")
 if __name__ == "__main__":
     unittest.main()
