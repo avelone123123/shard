@@ -249,5 +249,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 41)
         self.assertIn("KRN-041", self.bridge.kernel_ids())
         self.assertEqual(len(self.bridge.dequant_q4(bytes([0x88]*16), scale=0.25)), 32)
+    def test_krn_042_q8_signed_avx2_widening(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 42)
+        self.assertIn("KRN-042", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.dequant_q8(bytes([256 - 4]*8), scale=0.5)[0], -2.0, places=4)
 if __name__ == "__main__":
     unittest.main()

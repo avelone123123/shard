@@ -1,8 +1,8 @@
 {
-  "version": "1.4.22",
+  "version": "1.4.23",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 41,
-  "verified_tests": 49,
+  "active_kernels": 42,
+  "verified_tests": 50,
   "specs": [
     {
       "id": "KRN-001",
@@ -267,6 +267,13 @@
       "domain": "quantization",
       "isa": "CPP20-AVX2",
       "gflops": 35.54
+    },
+    {
+      "id": "KRN-042",
+      "name": "q8-signed-avx2-widening-v42",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2",
+      "gflops": 34.65
     }
   ]
 }
