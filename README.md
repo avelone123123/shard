@@ -1,8 +1,8 @@
 # SHARD STUDIO // Native Desktop Local AI Runtime & CLI Bridge
-[![Version](https://img.shields.io/badge/Version-v1.4.19-cfa65b)](https://github.com/avelone123123/shard)
+[![Version](https://img.shields.io/badge/Version-v1.4.20-cfa65b)](https://github.com/avelone123123/shard)
 [![Architecture](https://img.shields.io/badge/Architecture-Win32%20C%2B%2B20%20%2B%20MASM%20AVX2%20%2B%20FastAPI-22a06b)](https://github.com/avelone123123/shard)
-[![Kernels](https://img.shields.io/badge/Kernels-38%20Active-10b981)](https://github.com/avelone123123/shard)
-[![Tests](https://img.shields.io/badge/Tests-46%20Passed-10b981)](https://github.com/avelone123123/shard)
+[![Kernels](https://img.shields.io/badge/Kernels-39%20Active-10b981)](https://github.com/avelone123123/shard)
+[![Tests](https://img.shields.io/badge/Tests-47%20Passed-10b981)](https://github.com/avelone123123/shard)
 [![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
 Shard Studio is a standalone 100% local AI desktop platform (`shard.exe` / `shard-native.exe`) engineered with a tri-language native architecture:
 - **Native Win32 C++20 Desktop Studio (`shard.exe` / `shard-native.exe`)**: Double-buffered 60fps desktop application with asynchronous `WinHTTP` worker threads, auto-managed background server startup (`CREATE_NO_WINDOW`), live Hugging Face 3,000,000+ model catalog, hardware fit advisor, SSD storage manager, multi-session SSE streaming AI chat, and 1-click CLI/IDE auto-configurator.
@@ -46,10 +46,10 @@ shard.exe
 | `shard run <model_id>` | Interactive terminal REPL with live token/sec telemetry |
 | `shard test` | Execute 12-family MASM x64 AVX2 + C++20 hardware benchmark |
 | `shard key --gen` | Generate local `sk-shard-*` authentication key |
-| `python -m unittest tests_shard.py` | Execute 46 deterministic native & runtime unit tests |
+| `python -m unittest tests_shard.py` | Execute 47 deterministic native & runtime unit tests |
 ## Native AVX2 Benchmark (`shard test`)
 ```
-Kernel: Shard Native Core v1.4.19 (C++20 Zero-Copy + MASM x64 AVX2 38-Kernel Engine)
+Kernel: Shard Native Core v1.4.20 (C++20 Zero-Copy + MASM x64 AVX2 39-Kernel Engine)
 [01/12] Dot-Product FMA:  36.45 GFLOPS (22,480 us)
 [05/12] Q8_0 Dequant:     2457.3 ops/sec (AVX2 Int8->FP32)
 [06/12] Q4_0 Dequant:     2561.8 ops/sec (AVX2 Nibble Unpack)
