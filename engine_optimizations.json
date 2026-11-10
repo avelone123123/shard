@@ -1,16 +1,9 @@
 {
-  "version": "1.4.76",
+  "version": "1.4.77",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 95,
-  "verified_tests": 103,
+  "active_kernels": 96,
+  "verified_tests": 104,
   "specs": [
-    {
-      "id": "KRN-036",
-      "name": "vec-add-4k-hidden-dimension-v36",
-      "domain": "residual-stream",
-      "isa": "MASM-AVX2",
-      "gflops": 37.6
-    },
     {
       "id": "KRN-037",
       "name": "dot-standard-vs-unroll8-parity-v37",
@@ -423,6 +416,13 @@
       "domain": "memory-paging",
       "isa": "WIN32-MMAP",
       "gflops": 34.21
+    },
+    {
+      "id": "KRN-096",
+      "name": "vec-add-4k-hidden-dimension-v96",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2",
+      "gflops": 35.55
     }
   ]
 }
