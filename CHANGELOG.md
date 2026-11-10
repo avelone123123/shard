@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.65] - 2026-11-10
+### Added
+- Registered native specification `KRN-084` (`layernorm-affine-shift-invariance-v84`, `CPP20-AVX2`) in `native/shard_core.cpp`: Validated shift invariance of vectorized C++20 LayerNorm under large constant bias offsets.
+- Added deterministic regression test `test_krn_084_layernorm_affine_shift_invariance` in `tests_shard.py` (92/92 tests passing, 35.38 GFLOPS AVX2 FMA).
 ## [1.4.64] - 2026-11-10
 ### Added
 - Registered native specification `KRN-083` (`rmsnorm-epsilon-floor-guard-v83`, `MASM-AVX2+CPP20`) in `native/shard_core.cpp`: Hardened RMSNorm reciprocal square-root stability on near-zero activation vectors.

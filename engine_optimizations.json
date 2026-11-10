@@ -1,16 +1,9 @@
 {
-  "version": "1.4.64",
+  "version": "1.4.65",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 83,
-  "verified_tests": 91,
+  "active_kernels": 84,
+  "verified_tests": 92,
   "specs": [
-    {
-      "id": "KRN-024",
-      "name": "layernorm-affine-shift-invariance-v24",
-      "domain": "normalization",
-      "isa": "CPP20-AVX2",
-      "gflops": 34.89
-    },
     {
       "id": "KRN-025",
       "name": "softmax-overflow-logit-clamp-v25",
@@ -423,6 +416,13 @@
       "domain": "normalization",
       "isa": "MASM-AVX2+CPP20",
       "gflops": 34.57
+    },
+    {
+      "id": "KRN-084",
+      "name": "layernorm-affine-shift-invariance-v84",
+      "domain": "normalization",
+      "isa": "CPP20-AVX2",
+      "gflops": 35.38
     }
   ]
 }
