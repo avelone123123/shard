@@ -157,5 +157,13 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         ideal = browse_models(category="ideal", hw=hw_4gb)
         self.assertGreater(len(ideal), 0)
         self.assertEqual(ideal[0]["compatibility"]["tier"], "PERFECT")
+    def test_krn_019_tiled_gemv_unroll32(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 19)
+        self.assertIn("KRN-019", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.dot_product([0.5]*99, [2.0]*99, fast=True), 99.0, places=3)
+    def test_krn_020_tiled_gemv_unroll32(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 20)
+        self.assertIn("KRN-020", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.dot_product([0.5]*99, [2.0]*99, fast=True), 99.0, places=3)
 if __name__ == "__main__":
     unittest.main()
