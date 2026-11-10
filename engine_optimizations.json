@@ -1,8 +1,8 @@
 {
-  "version": "1.4.41",
+  "version": "1.4.42",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 60,
-  "verified_tests": 68,
+  "active_kernels": 61,
+  "verified_tests": 69,
   "specs": [
     {
       "id": "KRN-001",
@@ -400,6 +400,13 @@
       "domain": "linear-algebra",
       "isa": "MASM-AVX2-FMA",
       "gflops": 33.4
+    },
+    {
+      "id": "KRN-061",
+      "name": "q4-nibble-scale-symmetry-v61",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2",
+      "gflops": 32.33
     }
   ]
 }
