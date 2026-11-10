@@ -1,15 +1,9 @@
 {
-  "version": "1.4.44",
+  "version": "1.4.45",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 63,
-  "verified_tests": 71,
+  "active_kernels": 64,
+  "verified_tests": 72,
   "specs": [
-    {
-      "id": "KRN-003",
-      "name": "fast-scale-f32",
-      "domain": "tensor-ops",
-      "isa": "MASM-AVX2"
-    },
     {
       "id": "KRN-004",
       "name": "rmsnorm-f32",
@@ -409,6 +403,13 @@
       "domain": "normalization",
       "isa": "MASM-AVX2+CPP20",
       "gflops": 33.5
+    },
+    {
+      "id": "KRN-064",
+      "name": "layernorm-affine-shift-invariance-v64",
+      "domain": "normalization",
+      "isa": "CPP20-AVX2",
+      "gflops": 34.46
     }
   ]
 }
