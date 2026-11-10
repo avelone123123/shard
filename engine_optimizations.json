@@ -1,8 +1,8 @@
 {
-  "version": "1.4.10",
+  "version": "1.4.11",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 29,
-  "verified_tests": 37,
+  "active_kernels": 30,
+  "verified_tests": 38,
   "specs": [
     {
       "id": "KRN-001",
@@ -183,6 +183,13 @@
       "domain": "retrieval",
       "isa": "MASM-AVX2-FMA",
       "gflops": 33.95
+    },
+    {
+      "id": "KRN-030",
+      "name": "hadamard-elementwise-masking-v30",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 34.81
     }
   ]
 }
