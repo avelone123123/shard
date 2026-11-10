@@ -1,8 +1,8 @@
 {
-  "version": "1.4.4",
+  "version": "1.4.5",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 23,
-  "verified_tests": 31,
+  "active_kernels": 24,
+  "verified_tests": 32,
   "specs": [
     {
       "id": "KRN-001",
@@ -141,6 +141,13 @@
       "domain": "normalization",
       "isa": "MASM-AVX2+CPP20",
       "gflops": 34.76
+    },
+    {
+      "id": "KRN-024",
+      "name": "layernorm-affine-shift-invariance-v24",
+      "domain": "normalization",
+      "isa": "CPP20-AVX2",
+      "gflops": 34.89
     }
   ]
 }
