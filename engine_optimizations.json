@@ -1,8 +1,8 @@
 {
-  "version": "1.4.17",
+  "version": "1.4.18",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 36,
-  "verified_tests": 44,
+  "active_kernels": 37,
+  "verified_tests": 45,
   "specs": [
     {
       "id": "KRN-001",
@@ -232,6 +232,13 @@
       "domain": "residual-stream",
       "isa": "MASM-AVX2",
       "gflops": 37.6
+    },
+    {
+      "id": "KRN-037",
+      "name": "dot-standard-vs-unroll8-parity-v37",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 36.77
     }
   ]
 }
