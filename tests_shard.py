@@ -165,5 +165,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 20)
         self.assertIn("KRN-020", self.bridge.kernel_ids())
         self.assertAlmostEqual(self.bridge.dot_product([0.5]*99, [2.0]*99, fast=True), 99.0, places=3)
+    def test_krn_021_q4_nibble_scale_symmetry(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 21)
+        self.assertIn("KRN-021", self.bridge.kernel_ids())
+        self.assertEqual(len(self.bridge.dequant_q4(bytes([0x88]*16), scale=0.25)), 32)
 if __name__ == "__main__":
     unittest.main()
