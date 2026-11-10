@@ -1,16 +1,9 @@
 {
-  "version": "1.4.58",
+  "version": "1.4.59",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 77,
-  "verified_tests": 85,
+  "active_kernels": 78,
+  "verified_tests": 86,
   "specs": [
-    {
-      "id": "KRN-017",
-      "name": "hf-metadata-tier-hydration-v17",
-      "domain": "runtime-api",
-      "isa": "FASTAPI-BRIDGE",
-      "gflops": 36.37
-    },
     {
       "id": "KRN-018",
       "name": "win32-desktop-studio-v18",
@@ -423,6 +416,13 @@
       "domain": "linear-algebra",
       "isa": "MASM-AVX2-FMA",
       "gflops": 33.05
+    },
+    {
+      "id": "KRN-078",
+      "name": "mmap-missing-file-null-guard-v78",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 35.02
     }
   ]
 }

@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.59] - 2026-11-10
+### Added
+- Registered native specification `KRN-078` (`mmap-missing-file-null-guard-v78`, `WIN32-MMAP`) in `native/shard_core.cpp`: Verified clean nullptr safety guard in shard_mmap_open on missing Safetensors paths.
+- Added deterministic regression test `test_krn_078_mmap_missing_file_null_guard` in `tests_shard.py` (86/86 tests passing, 35.02 GFLOPS AVX2 FMA).
 ## [1.4.58] - 2026-11-10
 ### Added
 - Registered native specification `KRN-077` (`dot-standard-vs-unroll8-parity-v77`, `MASM-AVX2-FMA`) in `native/shard_core.cpp`: Verified numerical parity between standard AVX2 dot product and 128-byte unroll8 FMA kernel.
