@@ -257,5 +257,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 43)
         self.assertIn("KRN-043", self.bridge.kernel_ids())
         self.assertTrue(all(abs(v) < 1e-4 for v in self.bridge.rmsnorm([0.0]*16, [1.0]*16, eps=1e-5)))
+    def test_krn_044_layernorm_affine_shift_invariance(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 44)
+        self.assertIn("KRN-044", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.layernorm([101.0, 102.0, 103.0, 104.0])[0], self.bridge.layernorm([1.0, 2.0, 3.0, 4.0])[0], places=3)
 if __name__ == "__main__":
     unittest.main()
