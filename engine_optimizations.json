@@ -1,16 +1,9 @@
 {
-  "version": "1.4.59",
+  "version": "1.4.60",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 78,
-  "verified_tests": 86,
+  "active_kernels": 79,
+  "verified_tests": 87,
   "specs": [
-    {
-      "id": "KRN-018",
-      "name": "win32-desktop-studio-v18",
-      "domain": "desktop-runtime",
-      "isa": "WIN32-GDI-WINHTTP",
-      "gflops": 36.45
-    },
     {
       "id": "KRN-020",
       "name": "tiled-gemv-unroll32-v20",
@@ -423,6 +416,13 @@
       "domain": "memory-paging",
       "isa": "WIN32-MMAP",
       "gflops": 35.02
+    },
+    {
+      "id": "KRN-079",
+      "name": "hf-metadata-tier-hydration-v79",
+      "domain": "runtime-api",
+      "isa": "FASTAPI-BRIDGE",
+      "gflops": 34.54
     }
   ]
 }
