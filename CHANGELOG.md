@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.24] - 2026-11-10
+### Added
+- Registered native specification `KRN-043` (`rmsnorm-epsilon-floor-guard-v43`, `MASM-AVX2+CPP20`) in `native/shard_core.cpp`: Hardened RMSNorm reciprocal square-root stability on near-zero activation vectors.
+- Added deterministic regression test `test_krn_043_rmsnorm_epsilon_floor_guard` in `tests_shard.py` (51/51 tests passing, 34.75 GFLOPS AVX2 FMA).
 ## [1.4.23] - 2026-11-10
 ### Added
 - Registered native specification `KRN-042` (`q8-signed-avx2-widening-v42`, `CPP20-AVX2`) in `native/shard_core.cpp`: Verified negative and positive Int8 block dequantization via _mm256_cvtepi8_epi32 widening.

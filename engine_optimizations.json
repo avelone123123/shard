@@ -1,8 +1,8 @@
 {
-  "version": "1.4.23",
+  "version": "1.4.24",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 42,
-  "verified_tests": 50,
+  "active_kernels": 43,
+  "verified_tests": 51,
   "specs": [
     {
       "id": "KRN-001",
@@ -274,6 +274,13 @@
       "domain": "quantization",
       "isa": "CPP20-AVX2",
       "gflops": 34.65
+    },
+    {
+      "id": "KRN-043",
+      "name": "rmsnorm-epsilon-floor-guard-v43",
+      "domain": "normalization",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.75
     }
   ]
 }
