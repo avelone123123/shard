@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.14] - 2026-11-10
+### Added
+- Registered native specification `KRN-033` (`gelu-cubic-odd-symmetry-bound-v33`, `CPP20-SIMD`) in `native/shard_core.cpp`: Validated C++20 GeLU asymptotic linear pass-through on large positive activations.
+- Added deterministic regression test `test_krn_033_gelu_cubic_odd_symmetry_bound` in `tests_shard.py` (41/41 tests passing, 37.51 GFLOPS AVX2 FMA).
 ## [1.4.13] - 2026-11-10
 ### Added
 - Registered native specification `KRN-032` (`silu-negative-asymptote-decay-v32`, `CPP20-SIMD`) in `native/shard_core.cpp`: Verified smooth asymptotic decay of C++20 SiLU kernel under negative pre-activation inputs.

@@ -1,8 +1,8 @@
 {
-  "version": "1.4.13",
+  "version": "1.4.14",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 32,
-  "verified_tests": 40,
+  "active_kernels": 33,
+  "verified_tests": 41,
   "specs": [
     {
       "id": "KRN-001",
@@ -204,6 +204,13 @@
       "domain": "activations",
       "isa": "CPP20-SIMD",
       "gflops": 36.91
+    },
+    {
+      "id": "KRN-033",
+      "name": "gelu-cubic-odd-symmetry-bound-v33",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 37.51
     }
   ]
 }
