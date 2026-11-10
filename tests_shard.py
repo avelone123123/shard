@@ -389,5 +389,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 76)
         self.assertIn("KRN-076", self.bridge.kernel_ids())
         self.assertAlmostEqual(self.bridge.vec_add([1.25]*4096, [2.75]*4096)[4095], 4.0, places=5)
+    def test_krn_077_dot_standard_vs_unroll8_parity(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 77)
+        self.assertIn("KRN-077", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.dot_product([0.3]*257, [0.7]*257, fast=True), self.bridge.dot_product([0.3]*257, [0.7]*257, fast=False), places=2)
 if __name__ == "__main__":
     unittest.main()

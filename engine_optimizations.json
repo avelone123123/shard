@@ -1,15 +1,9 @@
 {
-  "version": "1.4.57",
+  "version": "1.4.58",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 76,
-  "verified_tests": 84,
+  "active_kernels": 77,
+  "verified_tests": 85,
   "specs": [
-    {
-      "id": "KRN-016",
-      "name": "win32-mmap-pager",
-      "domain": "memory-paging",
-      "isa": "WIN32-MMAP"
-    },
     {
       "id": "KRN-017",
       "name": "hf-metadata-tier-hydration-v17",
@@ -422,6 +416,13 @@
       "domain": "residual-stream",
       "isa": "MASM-AVX2",
       "gflops": 35.07
+    },
+    {
+      "id": "KRN-077",
+      "name": "dot-standard-vs-unroll8-parity-v77",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 33.05
     }
   ]
 }
