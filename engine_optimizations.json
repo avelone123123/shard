@@ -1,16 +1,9 @@
 {
-  "version": "1.4.73",
+  "version": "1.4.74",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 92,
-  "verified_tests": 100,
+  "active_kernels": 93,
+  "verified_tests": 101,
   "specs": [
-    {
-      "id": "KRN-033",
-      "name": "gelu-cubic-odd-symmetry-bound-v33",
-      "domain": "activations",
-      "isa": "CPP20-SIMD",
-      "gflops": 37.51
-    },
     {
       "id": "KRN-034",
       "name": "hybrid-vram-ram-tier-partition-v34",
@@ -423,6 +416,13 @@
       "domain": "activations",
       "isa": "CPP20-SIMD",
       "gflops": 34.63
+    },
+    {
+      "id": "KRN-093",
+      "name": "gelu-cubic-odd-symmetry-bound-v93",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 34.21
     }
   ]
 }
