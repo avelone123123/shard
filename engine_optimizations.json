@@ -1,15 +1,9 @@
 {
-  "version": "1.4.51",
+  "version": "1.4.52",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 70,
-  "verified_tests": 78,
+  "active_kernels": 71,
+  "verified_tests": 79,
   "specs": [
-    {
-      "id": "KRN-010",
-      "name": "silu-f32",
-      "domain": "activations",
-      "isa": "CPP20-SIMD"
-    },
     {
       "id": "KRN-011",
       "name": "gelu-f32",
@@ -416,6 +410,13 @@
       "domain": "tensor-ops",
       "isa": "MASM-AVX2",
       "gflops": 35.5
+    },
+    {
+      "id": "KRN-071",
+      "name": "fast-scale-inverse-temperature-v71",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 35.04
     }
   ]
 }
