@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.38] - 2026-11-10
+### Added
+- Registered native specification `KRN-057` (`dot-standard-vs-unroll8-parity-v57`, `MASM-AVX2-FMA`) in `native/shard_core.cpp`: Verified numerical parity between standard AVX2 dot product and 128-byte unroll8 FMA kernel.
+- Added deterministic regression test `test_krn_057_dot_standard_vs_unroll8_parity` in `tests_shard.py` (65/65 tests passing, 35.38 GFLOPS AVX2 FMA).
 ## [1.4.37] - 2026-11-10
 ### Added
 - Registered native specification `KRN-056` (`vec-add-4k-hidden-dimension-v56`, `MASM-AVX2`) in `native/shard_core.cpp`: Verified full 4096-dim transformer hidden state residual sum in MASM x64 AVX2.
