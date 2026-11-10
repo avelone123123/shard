@@ -1,16 +1,9 @@
 {
-  "version": "1.4.74",
+  "version": "1.4.75",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 93,
-  "verified_tests": 101,
+  "active_kernels": 94,
+  "verified_tests": 102,
   "specs": [
-    {
-      "id": "KRN-034",
-      "name": "hybrid-vram-ram-tier-partition-v34",
-      "domain": "memory-paging",
-      "isa": "WIN32-MMAP",
-      "gflops": 37.67
-    },
     {
       "id": "KRN-035",
       "name": "moe-70b-param-budget-estimator-v35",
@@ -423,6 +416,13 @@
       "domain": "activations",
       "isa": "CPP20-SIMD",
       "gflops": 34.21
+    },
+    {
+      "id": "KRN-094",
+      "name": "hybrid-vram-ram-tier-partition-v94",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 33.2
     }
   ]
 }
