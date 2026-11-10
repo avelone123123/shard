@@ -1,15 +1,9 @@
 {
-  "version": "1.4.42",
+  "version": "1.4.43",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 61,
-  "verified_tests": 69,
+  "active_kernels": 62,
+  "verified_tests": 70,
   "specs": [
-    {
-      "id": "KRN-001",
-      "name": "dot-product-fma",
-      "domain": "linear-algebra",
-      "isa": "MASM-AVX2-FMA"
-    },
     {
       "id": "KRN-002",
       "name": "dot-product-unroll8",
@@ -407,6 +401,13 @@
       "domain": "quantization",
       "isa": "CPP20-AVX2",
       "gflops": 32.33
+    },
+    {
+      "id": "KRN-062",
+      "name": "q8-signed-avx2-widening-v62",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2",
+      "gflops": 34.06
     }
   ]
 }
