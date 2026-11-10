@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.41] - 2026-11-10
+### Added
+- Registered native specification `KRN-060` (`tiled-gemv-unroll32-v60`, `MASM-AVX2-FMA`) in `native/shard_core.cpp`: Verified 128-byte unroll8 dot-product tile across non-aligned tail dimensions with zero register spill.
+- Added deterministic regression test `test_krn_060_tiled_gemv_unroll32` in `tests_shard.py` (68/68 tests passing, 33.40 GFLOPS AVX2 FMA).
 ## [1.4.40] - 2026-11-10
 ### Added
 - Registered native specification `KRN-059` (`hf-metadata-tier-hydration-v59`, `FASTAPI-BRIDGE`) in `native/shard_core.cpp`: Verified deterministic compatibility telemetry fields in Hugging Face Hub model resolver.

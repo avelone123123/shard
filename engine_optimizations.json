@@ -1,8 +1,8 @@
 {
-  "version": "1.4.40",
+  "version": "1.4.41",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 59,
-  "verified_tests": 67,
+  "active_kernels": 60,
+  "verified_tests": 68,
   "specs": [
     {
       "id": "KRN-001",
@@ -393,6 +393,13 @@
       "domain": "runtime-api",
       "isa": "FASTAPI-BRIDGE",
       "gflops": 33.78
+    },
+    {
+      "id": "KRN-060",
+      "name": "tiled-gemv-unroll32-v60",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 33.4
     }
   ]
 }
