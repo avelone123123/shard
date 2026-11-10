@@ -1,8 +1,8 @@
 {
-  "version": "1.4.26",
+  "version": "1.4.27",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 45,
-  "verified_tests": 53,
+  "active_kernels": 46,
+  "verified_tests": 54,
   "specs": [
     {
       "id": "KRN-001",
@@ -295,6 +295,13 @@
       "domain": "attention",
       "isa": "MASM-AVX2+CPP20",
       "gflops": 35.02
+    },
+    {
+      "id": "KRN-046",
+      "name": "rope-zero-position-identity-v46",
+      "domain": "attention",
+      "isa": "CPP20-SIMD",
+      "gflops": 32.83
     }
   ]
 }

@@ -2,7 +2,7 @@ import sys
 from setuptools import setup, find_packages
 setup(
     name="shard-engine",
-    version="1.4.26",
+    version="1.4.27",
     description="Tri-language local neural engine (Python + C++20 + MASM AVX2 Assembly)",
     author="avelone123123",
     author_email="ermekeraly16@gmail.com",
