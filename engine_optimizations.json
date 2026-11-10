@@ -1,8 +1,8 @@
 {
-  "version": "1.4.29",
+  "version": "1.4.30",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 48,
-  "verified_tests": 56,
+  "active_kernels": 49,
+  "verified_tests": 57,
   "specs": [
     {
       "id": "KRN-001",
@@ -316,6 +316,13 @@
       "domain": "residual-stream",
       "isa": "MASM-AVX2-FMA",
       "gflops": 34.82
+    },
+    {
+      "id": "KRN-049",
+      "name": "cosine-rag-antiparallel-bound-v49",
+      "domain": "retrieval",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 35.5
     }
   ]
 }
