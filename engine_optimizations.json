@@ -1,15 +1,9 @@
 {
-  "version": "1.4.49",
+  "version": "1.4.50",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 68,
-  "verified_tests": 76,
+  "active_kernels": 69,
+  "verified_tests": 77,
   "specs": [
-    {
-      "id": "KRN-008",
-      "name": "hadamard-f32",
-      "domain": "tensor-ops",
-      "isa": "MASM-AVX2"
-    },
     {
       "id": "KRN-009",
       "name": "axpy-f32",
@@ -414,6 +408,13 @@
       "domain": "residual-stream",
       "isa": "MASM-AVX2-FMA",
       "gflops": 34.52
+    },
+    {
+      "id": "KRN-069",
+      "name": "cosine-rag-antiparallel-bound-v69",
+      "domain": "retrieval",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 35.0
     }
   ]
 }
