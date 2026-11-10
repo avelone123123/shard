@@ -71,6 +71,7 @@ static const ShardKernelSpec SHARD_KERNEL_REGISTRY[] = {
     { "KRN-047", "swiglu-hadamard-gate-fusion-v47", "activations", "MASM-AVX2+CPP20", "In-place logistic gate buffer feeds directly into MASM vmulps hadamard projection" },
     { "KRN-048", "residual-axpy-scale-accumulation-v48", "residual-stream", "MASM-AVX2-FMA", "Single-pass vfmadd231ps fuses residual scaling and skip-connection addition in YMM lanes" },
     { "KRN-049", "cosine-rag-antiparallel-bound-v49", "retrieval", "MASM-AVX2-FMA", "Antiparallel vectors converge to -1.0 while zero-norm vectors guard against NaN division" },
+    { "KRN-050", "hadamard-elementwise-masking-v50", "tensor-ops", "MASM-AVX2", "Zero mask lanes zero out padded token activations across 32-byte YMM boundaries" },
 };
 static const int SHARD_KERNEL_COUNT = static_cast<int>(sizeof(SHARD_KERNEL_REGISTRY) / sizeof(SHARD_KERNEL_REGISTRY[0]));
 extern "C" {
@@ -389,6 +390,6 @@ extern "C" {
         return static_cast<int>(elapsed_us);
     }
     SHARD_EXPORT const char* shard_get_version() {
-        return "Shard Native Core v1.4.30 (C++20 Zero-Copy + MASM x64 AVX2 49-Kernel Engine)";
+        return "Shard Native Core v1.4.31 (C++20 Zero-Copy + MASM x64 AVX2 50-Kernel Engine)";
     }
 }

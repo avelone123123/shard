@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.31] - 2026-11-10
+### Added
+- Registered native specification `KRN-050` (`hadamard-elementwise-masking-v50`, `MASM-AVX2`) in `native/shard_core.cpp`: Validated MASM AVX2 elementwise Hadamard masking across mixed zero/unit token masks.
+- Added deterministic regression test `test_krn_050_hadamard_elementwise_masking` in `tests_shard.py` (58/58 tests passing, 34.83 GFLOPS AVX2 FMA).
 ## [1.4.30] - 2026-11-10
 ### Added
 - Registered native specification `KRN-049` (`cosine-rag-antiparallel-bound-v49`, `MASM-AVX2-FMA`) in `native/shard_core.cpp`: Verified cosine similarity -1.0 antiparallel bound and zero-vector NaN protection.
