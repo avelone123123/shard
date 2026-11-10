@@ -1,8 +1,8 @@
 {
-  "version": "1.4.39",
+  "version": "1.4.40",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 58,
-  "verified_tests": 66,
+  "active_kernels": 59,
+  "verified_tests": 67,
   "specs": [
     {
       "id": "KRN-001",
@@ -386,6 +386,13 @@
       "domain": "memory-paging",
       "isa": "WIN32-MMAP",
       "gflops": 34.77
+    },
+    {
+      "id": "KRN-059",
+      "name": "hf-metadata-tier-hydration-v59",
+      "domain": "runtime-api",
+      "isa": "FASTAPI-BRIDGE",
+      "gflops": 33.78
     }
   ]
 }

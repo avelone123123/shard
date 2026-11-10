@@ -317,5 +317,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 58)
         self.assertIn("KRN-058", self.bridge.kernel_ids())
         self.assertEqual(self.bridge.mmap_open_file('__nonexistent_shard_weights__.safetensors'), (None, 0))
+    def test_krn_059_hf_metadata_tier_hydration(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 59)
+        self.assertIn("KRN-059", self.bridge.kernel_ids())
+        self.assertIn('compatibility', fetch_model_metadata('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', {'vram_total_mb': 12288, 'ram_total_mb': 32768}))
 if __name__ == "__main__":
     unittest.main()

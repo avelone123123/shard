@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.40] - 2026-11-10
+### Added
+- Registered native specification `KRN-059` (`hf-metadata-tier-hydration-v59`, `FASTAPI-BRIDGE`) in `native/shard_core.cpp`: Verified deterministic compatibility telemetry fields in Hugging Face Hub model resolver.
+- Added deterministic regression test `test_krn_059_hf_metadata_tier_hydration` in `tests_shard.py` (67/67 tests passing, 33.78 GFLOPS AVX2 FMA).
 ## [1.4.39] - 2026-11-10
 ### Added
 - Registered native specification `KRN-058` (`mmap-missing-file-null-guard-v58`, `WIN32-MMAP`) in `native/shard_core.cpp`: Verified clean nullptr safety guard in shard_mmap_open on missing Safetensors paths.
