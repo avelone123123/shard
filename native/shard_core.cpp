@@ -61,6 +61,7 @@ static const ShardKernelSpec SHARD_KERNEL_REGISTRY[] = {
     { "KRN-037", "dot-standard-vs-unroll8-parity-v37", "linear-algebra", "MASM-AVX2-FMA", "shard_asm_dot_f32 and shard_asm_dot_unroll8 converge within FP32 rounding epsilon" },
     { "KRN-038", "mmap-missing-file-null-guard-v38", "memory-paging", "WIN32-MMAP", "Non-existent weight paths return nullptr and 0 bytes cleanly without leaking Win32 handles" },
     { "KRN-039", "hf-metadata-tier-hydration-v39", "runtime-api", "FASTAPI-BRIDGE", "Curated model metadata always includes deterministic tier badge, speed estimate, and memory slot" },
+    { "KRN-040", "tiled-gemv-unroll32-v40", "linear-algebra", "MASM-AVX2-FMA", "Dual-accumulator 128-byte FMA tile eliminates YMM pipeline read-after-write stalls" },
 };
 static const int SHARD_KERNEL_COUNT = static_cast<int>(sizeof(SHARD_KERNEL_REGISTRY) / sizeof(SHARD_KERNEL_REGISTRY[0]));
 extern "C" {
@@ -379,6 +380,6 @@ extern "C" {
         return static_cast<int>(elapsed_us);
     }
     SHARD_EXPORT const char* shard_get_version() {
-        return "Shard Native Core v1.4.20 (C++20 Zero-Copy + MASM x64 AVX2 39-Kernel Engine)";
+        return "Shard Native Core v1.4.21 (C++20 Zero-Copy + MASM x64 AVX2 40-Kernel Engine)";
     }
 }
