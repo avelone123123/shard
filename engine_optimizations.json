@@ -1,8 +1,8 @@
 {
-  "version": "1.4.31",
+  "version": "1.4.32",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 50,
-  "verified_tests": 58,
+  "active_kernels": 51,
+  "verified_tests": 59,
   "specs": [
     {
       "id": "KRN-001",
@@ -330,6 +330,13 @@
       "domain": "tensor-ops",
       "isa": "MASM-AVX2",
       "gflops": 34.83
+    },
+    {
+      "id": "KRN-051",
+      "name": "fast-scale-inverse-temperature-v51",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 34.55
     }
   ]
 }

@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.32] - 2026-11-10
+### Added
+- Registered native specification `KRN-051` (`fast-scale-inverse-temperature-v51`, `MASM-AVX2`) in `native/shard_core.cpp`: Verified MASM AVX2 inverse-temperature logit scaling across non-multiple-of-8 vocab tails.
+- Added deterministic regression test `test_krn_051_fast_scale_inverse_temperature` in `tests_shard.py` (59/59 tests passing, 34.55 GFLOPS AVX2 FMA).
 ## [1.4.31] - 2026-11-10
 ### Added
 - Registered native specification `KRN-050` (`hadamard-elementwise-masking-v50`, `MASM-AVX2`) in `native/shard_core.cpp`: Validated MASM AVX2 elementwise Hadamard masking across mixed zero/unit token masks.
