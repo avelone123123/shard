@@ -1,15 +1,9 @@
 {
-  "version": "1.4.52",
+  "version": "1.4.53",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 71,
-  "verified_tests": 79,
+  "active_kernels": 72,
+  "verified_tests": 80,
   "specs": [
-    {
-      "id": "KRN-011",
-      "name": "gelu-f32",
-      "domain": "activations",
-      "isa": "CPP20-SIMD"
-    },
     {
       "id": "KRN-012",
       "name": "softmax-stable-f32",
@@ -417,6 +411,13 @@
       "domain": "tensor-ops",
       "isa": "MASM-AVX2",
       "gflops": 35.04
+    },
+    {
+      "id": "KRN-072",
+      "name": "silu-negative-asymptote-decay-v72",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 33.47
     }
   ]
 }

@@ -369,5 +369,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 71)
         self.assertIn("KRN-071", self.bridge.kernel_ids())
         self.assertAlmostEqual(self.bridge.scale_vector([2.0]*19, 0.5)[18], 1.0, places=5)
+    def test_krn_072_silu_negative_asymptote_decay(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 72)
+        self.assertIn("KRN-072", self.bridge.kernel_ids())
+        self.assertLess(abs(self.bridge.silu([-12.0])[0]), 1e-3)
 if __name__ == "__main__":
     unittest.main()
