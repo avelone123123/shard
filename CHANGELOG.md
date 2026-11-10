@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.22] - 2026-11-10
+### Added
+- Registered native specification `KRN-041` (`q4-nibble-scale-symmetry-v41`, `CPP20-AVX2`) in `native/shard_core.cpp`: Validated symmetric zero-point Q4 nibble dequantization accuracy across odd and even tensor blocks.
+- Added deterministic regression test `test_krn_041_q4_nibble_scale_symmetry` in `tests_shard.py` (49/49 tests passing, 35.54 GFLOPS AVX2 FMA).
 ## [1.4.21] - 2026-11-10
 ### Added
 - Registered native specification `KRN-040` (`tiled-gemv-unroll32-v40`, `MASM-AVX2-FMA`) in `native/shard_core.cpp`: Verified 128-byte unroll8 dot-product tile across non-aligned tail dimensions with zero register spill.
