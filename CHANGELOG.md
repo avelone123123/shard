@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.8] - 2026-11-10
+### Added
+- Registered native specification `KRN-027` (`swiglu-hadamard-gate-fusion-v27`, `MASM-AVX2+CPP20`) in `native/shard_core.cpp`: Validated fused SwiGLU FFN gating accuracy across multi-cacheline 64-element hidden slices.
+- Added deterministic regression test `test_krn_027_swiglu_hadamard_gate_fusion` in `tests_shard.py` (35/35 tests passing, 34.75 GFLOPS AVX2 FMA).
 ## [1.4.7] - 2026-11-10
 ### Added
 - Registered native specification `KRN-026` (`rope-zero-position-identity-v26`, `CPP20-SIMD`) in `native/shard_core.cpp`: Verified exact identity preservation and L2 norm conservation in RoPE head rotation.

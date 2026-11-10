@@ -189,5 +189,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 26)
         self.assertIn("KRN-026", self.bridge.kernel_ids())
         self.assertAlmostEqual(self.bridge.rope([1.25, -0.75, 0.5, 2.0], pos=0)[1], -0.75, places=5)
+    def test_krn_027_swiglu_hadamard_gate_fusion(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 27)
+        self.assertIn("KRN-027", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.swiglu([0.0]*16, [3.0]*16)[0], 0.0, places=5)
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,8 @@
 {
-  "version": "1.4.7",
+  "version": "1.4.8",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 26,
-  "verified_tests": 34,
+  "active_kernels": 27,
+  "verified_tests": 35,
   "specs": [
     {
       "id": "KRN-001",
@@ -162,6 +162,13 @@
       "domain": "attention",
       "isa": "CPP20-SIMD",
       "gflops": 33.84
+    },
+    {
+      "id": "KRN-027",
+      "name": "swiglu-hadamard-gate-fusion-v27",
+      "domain": "activations",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.75
     }
   ]
 }
