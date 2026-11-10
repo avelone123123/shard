@@ -1,15 +1,9 @@
 {
-  "version": "1.4.54",
+  "version": "1.4.55",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 73,
-  "verified_tests": 81,
+  "active_kernels": 74,
+  "verified_tests": 82,
   "specs": [
-    {
-      "id": "KRN-013",
-      "name": "rope-interleaved-f32",
-      "domain": "attention",
-      "isa": "CPP20-SIMD"
-    },
     {
       "id": "KRN-014",
       "name": "cosine-sim-f32",
@@ -419,6 +413,13 @@
       "domain": "activations",
       "isa": "CPP20-SIMD",
       "gflops": 35.02
+    },
+    {
+      "id": "KRN-074",
+      "name": "hybrid-vram-ram-tier-partition-v74",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 34.94
     }
   ]
 }

@@ -95,6 +95,7 @@ static const ShardKernelSpec SHARD_KERNEL_REGISTRY[] = {
     { "KRN-071", "fast-scale-inverse-temperature-v71", "tensor-ops", "MASM-AVX2", "vbroadcastss broadcasts 1/T scalar across all 8 YMM lanes for pre-softmax temperature scaling" },
     { "KRN-072", "silu-negative-asymptote-decay-v72", "activations", "CPP20-SIMD", "Large negative pre-activations decay smoothly toward zero without expf NaN generation" },
     { "KRN-073", "gelu-cubic-odd-symmetry-bound-v73", "activations", "CPP20-SIMD", "Cubic tanh approximation preserves positive linear identity slope for x >> 1" },
+    { "KRN-074", "hybrid-vram-ram-tier-partition-v74", "memory-paging", "WIN32-MMAP", "Models exceeding free VRAM but fitting host DDR allocate deterministic hybrid split budgets" },
 };
 static const int SHARD_KERNEL_COUNT = static_cast<int>(sizeof(SHARD_KERNEL_REGISTRY) / sizeof(SHARD_KERNEL_REGISTRY[0]));
 extern "C" {
@@ -413,6 +414,6 @@ extern "C" {
         return static_cast<int>(elapsed_us);
     }
     SHARD_EXPORT const char* shard_get_version() {
-        return "Shard Native Core v1.4.54 (C++20 Zero-Copy + MASM x64 AVX2 73-Kernel Engine)";
+        return "Shard Native Core v1.4.55 (C++20 Zero-Copy + MASM x64 AVX2 74-Kernel Engine)";
     }
 }
