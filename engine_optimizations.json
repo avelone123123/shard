@@ -1,8 +1,8 @@
 {
-  "version": "1.4.18",
+  "version": "1.4.19",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 37,
-  "verified_tests": 45,
+  "active_kernels": 38,
+  "verified_tests": 46,
   "specs": [
     {
       "id": "KRN-001",
@@ -239,6 +239,13 @@
       "domain": "linear-algebra",
       "isa": "MASM-AVX2-FMA",
       "gflops": 36.77
+    },
+    {
+      "id": "KRN-038",
+      "name": "mmap-missing-file-null-guard-v38",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 38.11
     }
   ]
 }
