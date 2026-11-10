@@ -1,16 +1,9 @@
 {
-  "version": "1.4.71",
+  "version": "1.4.72",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 90,
-  "verified_tests": 98,
+  "active_kernels": 91,
+  "verified_tests": 99,
   "specs": [
-    {
-      "id": "KRN-031",
-      "name": "fast-scale-inverse-temperature-v31",
-      "domain": "tensor-ops",
-      "isa": "MASM-AVX2",
-      "gflops": 36.48
-    },
     {
       "id": "KRN-032",
       "name": "silu-negative-asymptote-decay-v32",
@@ -423,6 +416,13 @@
       "domain": "tensor-ops",
       "isa": "MASM-AVX2",
       "gflops": 34.47
+    },
+    {
+      "id": "KRN-091",
+      "name": "fast-scale-inverse-temperature-v91",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 34.52
     }
   ]
 }
