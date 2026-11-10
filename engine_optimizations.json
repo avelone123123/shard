@@ -1,15 +1,9 @@
 {
-  "version": "1.4.50",
+  "version": "1.4.51",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 69,
-  "verified_tests": 77,
+  "active_kernels": 70,
+  "verified_tests": 78,
   "specs": [
-    {
-      "id": "KRN-009",
-      "name": "axpy-f32",
-      "domain": "linear-algebra",
-      "isa": "MASM-AVX2-FMA"
-    },
     {
       "id": "KRN-010",
       "name": "silu-f32",
@@ -415,6 +409,13 @@
       "domain": "retrieval",
       "isa": "MASM-AVX2-FMA",
       "gflops": 35.0
+    },
+    {
+      "id": "KRN-070",
+      "name": "hadamard-elementwise-masking-v70",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 35.5
     }
   ]
 }
