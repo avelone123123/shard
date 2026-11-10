@@ -473,5 +473,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 97)
         self.assertIn("KRN-097", self.bridge.kernel_ids())
         self.assertAlmostEqual(self.bridge.dot_product([0.3]*257, [0.7]*257, fast=True), self.bridge.dot_product([0.3]*257, [0.7]*257, fast=False), places=2)
+    def test_krn_098_mmap_missing_file_null_guard(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 98)
+        self.assertIn("KRN-098", self.bridge.kernel_ids())
+        self.assertEqual(self.bridge.mmap_open_file('__nonexistent_shard_weights__.safetensors'), (None, 0))
 if __name__ == "__main__":
     unittest.main()
