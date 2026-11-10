@@ -1,8 +1,8 @@
 {
-  "version": "1.4.32",
+  "version": "1.4.33",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 51,
-  "verified_tests": 59,
+  "active_kernels": 52,
+  "verified_tests": 60,
   "specs": [
     {
       "id": "KRN-001",
@@ -337,6 +337,13 @@
       "domain": "tensor-ops",
       "isa": "MASM-AVX2",
       "gflops": 34.55
+    },
+    {
+      "id": "KRN-052",
+      "name": "silu-negative-asymptote-decay-v52",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 36.49
     }
   ]
 }
