@@ -1,16 +1,9 @@
 {
-  "version": "1.4.68",
+  "version": "1.4.69",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 87,
-  "verified_tests": 95,
+  "active_kernels": 88,
+  "verified_tests": 96,
   "specs": [
-    {
-      "id": "KRN-028",
-      "name": "residual-axpy-scale-accumulation-v28",
-      "domain": "residual-stream",
-      "isa": "MASM-AVX2-FMA",
-      "gflops": 32.39
-    },
     {
       "id": "KRN-029",
       "name": "cosine-rag-antiparallel-bound-v29",
@@ -423,6 +416,13 @@
       "domain": "activations",
       "isa": "MASM-AVX2+CPP20",
       "gflops": 34.49
+    },
+    {
+      "id": "KRN-088",
+      "name": "residual-axpy-scale-accumulation-v88",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 35.57
     }
   ]
 }

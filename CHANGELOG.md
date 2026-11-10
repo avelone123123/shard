@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.69] - 2026-11-10
+### Added
+- Registered native specification `KRN-088` (`residual-axpy-scale-accumulation-v88`, `MASM-AVX2-FMA`) in `native/shard_core.cpp`: Verified fused alpha-scaled residual accumulation for deep transformer skip connections.
+- Added deterministic regression test `test_krn_088_residual_axpy_scale_accumulation` in `tests_shard.py` (96/96 tests passing, 35.57 GFLOPS AVX2 FMA).
 ## [1.4.68] - 2026-11-10
 ### Added
 - Registered native specification `KRN-087` (`swiglu-hadamard-gate-fusion-v87`, `MASM-AVX2+CPP20`) in `native/shard_core.cpp`: Validated fused SwiGLU FFN gating accuracy across multi-cacheline 64-element hidden slices.
