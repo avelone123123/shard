@@ -385,5 +385,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 75)
         self.assertIn("KRN-075", self.bridge.kernel_ids())
         self.assertEqual(estimate_model_params('meta-llama/Llama-3.1-405B-Instruct'), 405.0)
+    def test_krn_076_vec_add_4k_hidden_dimension(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 76)
+        self.assertIn("KRN-076", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.vec_add([1.25]*4096, [2.75]*4096)[4095], 4.0, places=5)
 if __name__ == "__main__":
     unittest.main()

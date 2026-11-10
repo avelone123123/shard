@@ -1,15 +1,9 @@
 {
-  "version": "1.4.56",
+  "version": "1.4.57",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 75,
-  "verified_tests": 83,
+  "active_kernels": 76,
+  "verified_tests": 84,
   "specs": [
-    {
-      "id": "KRN-015",
-      "name": "dequant-q4-q8",
-      "domain": "quantization",
-      "isa": "CPP20-AVX2"
-    },
     {
       "id": "KRN-016",
       "name": "win32-mmap-pager",
@@ -421,6 +415,13 @@
       "domain": "memory-paging",
       "isa": "WIN32-MMAP",
       "gflops": 34.81
+    },
+    {
+      "id": "KRN-076",
+      "name": "vec-add-4k-hidden-dimension-v76",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2",
+      "gflops": 35.07
     }
   ]
 }
