@@ -118,6 +118,7 @@ static const ShardKernelSpec SHARD_KERNEL_REGISTRY[] = {
     { "KRN-094", "hybrid-vram-ram-tier-partition-v94", "memory-paging", "WIN32-MMAP", "Models exceeding free VRAM but fitting host DDR allocate deterministic hybrid split budgets" },
     { "KRN-095", "moe-70b-param-budget-estimator-v95", "memory-paging", "WIN32-MMAP", "High-parameter checkpoints map to NVMe streaming tier on consumer laptops without OOM" },
     { "KRN-096", "vec-add-4k-hidden-dimension-v96", "residual-stream", "MASM-AVX2", "512 consecutive 256-bit YMM additions complete with zero drift across 4096 hidden units" },
+    { "KRN-097", "dot-standard-vs-unroll8-parity-v97", "linear-algebra", "MASM-AVX2-FMA", "shard_asm_dot_f32 and shard_asm_dot_unroll8 converge within FP32 rounding epsilon" },
 };
 static const int SHARD_KERNEL_COUNT = static_cast<int>(sizeof(SHARD_KERNEL_REGISTRY) / sizeof(SHARD_KERNEL_REGISTRY[0]));
 extern "C" {
@@ -436,6 +437,6 @@ extern "C" {
         return static_cast<int>(elapsed_us);
     }
     SHARD_EXPORT const char* shard_get_version() {
-        return "Shard Native Core v1.4.77 (C++20 Zero-Copy + MASM x64 AVX2 96-Kernel Engine)";
+        return "Shard Native Core v1.4.78 (C++20 Zero-Copy + MASM x64 AVX2 97-Kernel Engine)";
     }
 }

@@ -1,16 +1,9 @@
 {
-  "version": "1.4.77",
+  "version": "1.4.78",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 96,
-  "verified_tests": 104,
+  "active_kernels": 97,
+  "verified_tests": 105,
   "specs": [
-    {
-      "id": "KRN-037",
-      "name": "dot-standard-vs-unroll8-parity-v37",
-      "domain": "linear-algebra",
-      "isa": "MASM-AVX2-FMA",
-      "gflops": 36.77
-    },
     {
       "id": "KRN-038",
       "name": "mmap-missing-file-null-guard-v38",
@@ -423,6 +416,13 @@
       "domain": "residual-stream",
       "isa": "MASM-AVX2",
       "gflops": 35.55
+    },
+    {
+      "id": "KRN-097",
+      "name": "dot-standard-vs-unroll8-parity-v97",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 34.64
     }
   ]
 }
