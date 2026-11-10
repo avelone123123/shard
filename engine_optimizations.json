@@ -1,8 +1,8 @@
 {
-  "version": "1.4.8",
+  "version": "1.4.9",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 27,
-  "verified_tests": 35,
+  "active_kernels": 28,
+  "verified_tests": 36,
   "specs": [
     {
       "id": "KRN-001",
@@ -169,6 +169,13 @@
       "domain": "activations",
       "isa": "MASM-AVX2+CPP20",
       "gflops": 34.75
+    },
+    {
+      "id": "KRN-028",
+      "name": "residual-axpy-scale-accumulation-v28",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 32.39
     }
   ]
 }
