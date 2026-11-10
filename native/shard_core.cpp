@@ -44,6 +44,7 @@ static const ShardKernelSpec SHARD_KERNEL_REGISTRY[] = {
     { "KRN-020", "tiled-gemv-unroll32-v20", "linear-algebra", "MASM-AVX2-FMA", "Dual-accumulator 128-byte FMA tile eliminates YMM pipeline read-after-write stalls" },
     { "KRN-021", "q4-nibble-scale-symmetry-v21", "quantization", "CPP20-AVX2", "Unsigned 4-bit nibble pairs unpack around bias 8 into contiguous FP32 SIMD lanes" },
     { "KRN-022", "q8-signed-avx2-widening-v22", "quantization", "CPP20-AVX2", "vpmovsxbd sign-extends 8 signed bytes per cycle before vcvtdq2ps scale multiplication" },
+    { "KRN-023", "rmsnorm-epsilon-floor-guard-v23", "normalization", "MASM-AVX2+CPP20", "Zero-input tensor normalization remains finite via strict epsilon floor before rsqrt" },
 };
 static const int SHARD_KERNEL_COUNT = static_cast<int>(sizeof(SHARD_KERNEL_REGISTRY) / sizeof(SHARD_KERNEL_REGISTRY[0]));
 extern "C" {
@@ -362,6 +363,6 @@ extern "C" {
         return static_cast<int>(elapsed_us);
     }
     SHARD_EXPORT const char* shard_get_version() {
-        return "Shard Native Core v1.4.3 (C++20 Zero-Copy + MASM x64 AVX2 22-Kernel Engine)";
+        return "Shard Native Core v1.4.4 (C++20 Zero-Copy + MASM x64 AVX2 23-Kernel Engine)";
     }
 }
