@@ -425,5 +425,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 85)
         self.assertIn("KRN-085", self.bridge.kernel_ids())
         self.assertAlmostEqual(sum(self.bridge.softmax([5000.0, 5001.0, 4999.0, 5000.5])), 1.0, places=4)
+    def test_krn_086_rope_zero_position_identity(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 86)
+        self.assertIn("KRN-086", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.rope([1.25, -0.75, 0.5, 2.0], pos=0)[1], -0.75, places=5)
 if __name__ == "__main__":
     unittest.main()

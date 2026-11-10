@@ -1,16 +1,9 @@
 {
-  "version": "1.4.66",
+  "version": "1.4.67",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 85,
-  "verified_tests": 93,
+  "active_kernels": 86,
+  "verified_tests": 94,
   "specs": [
-    {
-      "id": "KRN-026",
-      "name": "rope-zero-position-identity-v26",
-      "domain": "attention",
-      "isa": "CPP20-SIMD",
-      "gflops": 33.84
-    },
     {
       "id": "KRN-027",
       "name": "swiglu-hadamard-gate-fusion-v27",
@@ -423,6 +416,13 @@
       "domain": "attention",
       "isa": "MASM-AVX2+CPP20",
       "gflops": 34.73
+    },
+    {
+      "id": "KRN-086",
+      "name": "rope-zero-position-identity-v86",
+      "domain": "attention",
+      "isa": "CPP20-SIMD",
+      "gflops": 33.74
     }
   ]
 }
