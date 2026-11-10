@@ -1,15 +1,9 @@
 {
-  "version": "1.4.47",
+  "version": "1.4.48",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 66,
-  "verified_tests": 74,
+  "active_kernels": 67,
+  "verified_tests": 75,
   "specs": [
-    {
-      "id": "KRN-006",
-      "name": "swiglu-f32",
-      "domain": "activations",
-      "isa": "MASM-AVX2+CPP20"
-    },
     {
       "id": "KRN-007",
       "name": "vec-add-f32",
@@ -412,6 +406,13 @@
       "domain": "attention",
       "isa": "CPP20-SIMD",
       "gflops": 33.25
+    },
+    {
+      "id": "KRN-067",
+      "name": "swiglu-hadamard-gate-fusion-v67",
+      "domain": "activations",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 35.36
     }
   ]
 }
