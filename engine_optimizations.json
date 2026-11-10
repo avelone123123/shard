@@ -1,15 +1,9 @@
 {
-  "version": "1.4.45",
+  "version": "1.4.46",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 64,
-  "verified_tests": 72,
+  "active_kernels": 65,
+  "verified_tests": 73,
   "specs": [
-    {
-      "id": "KRN-004",
-      "name": "rmsnorm-f32",
-      "domain": "normalization",
-      "isa": "MASM-AVX2+CPP20"
-    },
     {
       "id": "KRN-005",
       "name": "layernorm-f32",
@@ -410,6 +404,13 @@
       "domain": "normalization",
       "isa": "CPP20-AVX2",
       "gflops": 34.46
+    },
+    {
+      "id": "KRN-065",
+      "name": "softmax-overflow-logit-clamp-v65",
+      "domain": "attention",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.5
     }
   ]
 }

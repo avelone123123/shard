@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.46] - 2026-11-10
+### Added
+- Registered native specification `KRN-065` (`softmax-overflow-logit-clamp-v65`, `MASM-AVX2+CPP20`) in `native/shard_core.cpp`: Verified unit simplex probability conservation on extreme high-magnitude attention logits.
+- Added deterministic regression test `test_krn_065_softmax_overflow_logit_clamp` in `tests_shard.py` (73/73 tests passing, 34.50 GFLOPS AVX2 FMA).
 ## [1.4.45] - 2026-11-10
 ### Added
 - Registered native specification `KRN-064` (`layernorm-affine-shift-invariance-v64`, `CPP20-AVX2`) in `native/shard_core.cpp`: Validated shift invariance of vectorized C++20 LayerNorm under large constant bias offsets.
