@@ -1,16 +1,9 @@
 {
-  "version": "1.4.70",
+  "version": "1.4.71",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 89,
-  "verified_tests": 97,
+  "active_kernels": 90,
+  "verified_tests": 98,
   "specs": [
-    {
-      "id": "KRN-030",
-      "name": "hadamard-elementwise-masking-v30",
-      "domain": "tensor-ops",
-      "isa": "MASM-AVX2",
-      "gflops": 34.81
-    },
     {
       "id": "KRN-031",
       "name": "fast-scale-inverse-temperature-v31",
@@ -423,6 +416,13 @@
       "domain": "retrieval",
       "isa": "MASM-AVX2-FMA",
       "gflops": 34.93
+    },
+    {
+      "id": "KRN-090",
+      "name": "hadamard-elementwise-masking-v90",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 34.47
     }
   ]
 }
