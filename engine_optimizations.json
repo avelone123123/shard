@@ -1,15 +1,9 @@
 {
-  "version": "1.4.48",
+  "version": "1.4.49",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 67,
-  "verified_tests": 75,
+  "active_kernels": 68,
+  "verified_tests": 76,
   "specs": [
-    {
-      "id": "KRN-007",
-      "name": "vec-add-f32",
-      "domain": "residual-stream",
-      "isa": "MASM-AVX2"
-    },
     {
       "id": "KRN-008",
       "name": "hadamard-f32",
@@ -413,6 +407,13 @@
       "domain": "activations",
       "isa": "MASM-AVX2+CPP20",
       "gflops": 35.36
+    },
+    {
+      "id": "KRN-068",
+      "name": "residual-axpy-scale-accumulation-v68",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 34.52
     }
   ]
 }
