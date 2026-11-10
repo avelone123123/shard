@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.13] - 2026-11-10
+### Added
+- Registered native specification `KRN-032` (`silu-negative-asymptote-decay-v32`, `CPP20-SIMD`) in `native/shard_core.cpp`: Verified smooth asymptotic decay of C++20 SiLU kernel under negative pre-activation inputs.
+- Added deterministic regression test `test_krn_032_silu_negative_asymptote_decay` in `tests_shard.py` (40/40 tests passing, 36.91 GFLOPS AVX2 FMA).
 ## [1.4.12] - 2026-11-10
 ### Added
 - Registered native specification `KRN-031` (`fast-scale-inverse-temperature-v31`, `MASM-AVX2`) in `native/shard_core.cpp`: Verified MASM AVX2 inverse-temperature logit scaling across non-multiple-of-8 vocab tails.
