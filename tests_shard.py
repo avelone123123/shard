@@ -437,5 +437,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 88)
         self.assertIn("KRN-088", self.bridge.kernel_ids())
         self.assertAlmostEqual(self.bridge.axpy([4.0]*17, [1.5]*17, 0.25)[16], 2.5, places=4)
+    def test_krn_089_cosine_rag_antiparallel_bound(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 89)
+        self.assertIn("KRN-089", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.cosine_sim([1.0, -2.0, 3.0], [-1.0, 2.0, -3.0]), -1.0, places=4)
 if __name__ == "__main__":
     unittest.main()

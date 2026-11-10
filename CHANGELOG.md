@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.70] - 2026-11-10
+### Added
+- Registered native specification `KRN-089` (`cosine-rag-antiparallel-bound-v89`, `MASM-AVX2-FMA`) in `native/shard_core.cpp`: Verified cosine similarity -1.0 antiparallel bound and zero-vector NaN protection.
+- Added deterministic regression test `test_krn_089_cosine_rag_antiparallel_bound` in `tests_shard.py` (97/97 tests passing, 34.93 GFLOPS AVX2 FMA).
 ## [1.4.69] - 2026-11-10
 ### Added
 - Registered native specification `KRN-088` (`residual-axpy-scale-accumulation-v88`, `MASM-AVX2-FMA`) in `native/shard_core.cpp`: Verified fused alpha-scaled residual accumulation for deep transformer skip connections.
