@@ -1,16 +1,9 @@
 {
-  "version": "1.4.63",
+  "version": "1.4.64",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 82,
-  "verified_tests": 90,
+  "active_kernels": 83,
+  "verified_tests": 91,
   "specs": [
-    {
-      "id": "KRN-023",
-      "name": "rmsnorm-epsilon-floor-guard-v23",
-      "domain": "normalization",
-      "isa": "MASM-AVX2+CPP20",
-      "gflops": 34.76
-    },
     {
       "id": "KRN-024",
       "name": "layernorm-affine-shift-invariance-v24",
@@ -423,6 +416,13 @@
       "domain": "quantization",
       "isa": "CPP20-AVX2",
       "gflops": 34.96
+    },
+    {
+      "id": "KRN-083",
+      "name": "rmsnorm-epsilon-floor-guard-v83",
+      "domain": "normalization",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.57
     }
   ]
 }
