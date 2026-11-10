@@ -1,15 +1,9 @@
 {
-  "version": "1.4.53",
+  "version": "1.4.54",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 72,
-  "verified_tests": 80,
+  "active_kernels": 73,
+  "verified_tests": 81,
   "specs": [
-    {
-      "id": "KRN-012",
-      "name": "softmax-stable-f32",
-      "domain": "attention",
-      "isa": "MASM-AVX2+CPP20"
-    },
     {
       "id": "KRN-013",
       "name": "rope-interleaved-f32",
@@ -418,6 +412,13 @@
       "domain": "activations",
       "isa": "CPP20-SIMD",
       "gflops": 33.47
+    },
+    {
+      "id": "KRN-073",
+      "name": "gelu-cubic-odd-symmetry-bound-v73",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 35.02
     }
   ]
 }

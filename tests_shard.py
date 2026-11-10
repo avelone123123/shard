@@ -373,5 +373,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 72)
         self.assertIn("KRN-072", self.bridge.kernel_ids())
         self.assertLess(abs(self.bridge.silu([-12.0])[0]), 1e-3)
+    def test_krn_073_gelu_cubic_odd_symmetry_bound(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 73)
+        self.assertIn("KRN-073", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.gelu([4.0])[0], 4.0, places=2)
 if __name__ == "__main__":
     unittest.main()
