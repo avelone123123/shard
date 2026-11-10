@@ -1,16 +1,9 @@
 {
-  "version": "1.4.67",
+  "version": "1.4.68",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 86,
-  "verified_tests": 94,
+  "active_kernels": 87,
+  "verified_tests": 95,
   "specs": [
-    {
-      "id": "KRN-027",
-      "name": "swiglu-hadamard-gate-fusion-v27",
-      "domain": "activations",
-      "isa": "MASM-AVX2+CPP20",
-      "gflops": 34.75
-    },
     {
       "id": "KRN-028",
       "name": "residual-axpy-scale-accumulation-v28",
@@ -423,6 +416,13 @@
       "domain": "attention",
       "isa": "CPP20-SIMD",
       "gflops": 33.74
+    },
+    {
+      "id": "KRN-087",
+      "name": "swiglu-hadamard-gate-fusion-v87",
+      "domain": "activations",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.49
     }
   ]
 }

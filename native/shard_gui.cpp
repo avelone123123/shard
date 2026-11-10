@@ -52,7 +52,7 @@ struct ShardGuiState {
     int cpuThreads;
     wchar_t versionText[64];
 };
-static ShardGuiState g_state = { 0, 0, 86, 94, 0.0, 0, 0, 0.0, 0.0, 0.0, 0.0, 16.0, 8.0, 8, L"v1.4.67" };
+static ShardGuiState g_state = { 0, 0, 87, 95, 0.0, 0, 0, 0.0, 0.0, 0.0, 0.0, 16.0, 8.0, 8, L"v1.4.68" };
 static std::wstring Utf8ToWide(const std::string& s) {
     if (s.empty()) return L"";
     int len = MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), nullptr, 0);
