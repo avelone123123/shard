@@ -1,15 +1,9 @@
 {
-  "version": "1.4.55",
+  "version": "1.4.56",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 74,
-  "verified_tests": 82,
+  "active_kernels": 75,
+  "verified_tests": 83,
   "specs": [
-    {
-      "id": "KRN-014",
-      "name": "cosine-sim-f32",
-      "domain": "retrieval",
-      "isa": "MASM-AVX2-FMA"
-    },
     {
       "id": "KRN-015",
       "name": "dequant-q4-q8",
@@ -420,6 +414,13 @@
       "domain": "memory-paging",
       "isa": "WIN32-MMAP",
       "gflops": 34.94
+    },
+    {
+      "id": "KRN-075",
+      "name": "moe-70b-param-budget-estimator-v75",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 34.81
     }
   ]
 }

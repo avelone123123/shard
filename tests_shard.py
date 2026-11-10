@@ -381,5 +381,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 74)
         self.assertIn("KRN-074", self.bridge.kernel_ids())
         self.assertEqual(evaluate_compatibility('Qwen/Qwen2.5-Coder-14B-Instruct', {'vram_total_mb': 8192, 'ram_total_mb': 32768})['tier'], 'RECOMMENDED')
+    def test_krn_075_moe_70b_param_budget_estimator(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 75)
+        self.assertIn("KRN-075", self.bridge.kernel_ids())
+        self.assertEqual(estimate_model_params('meta-llama/Llama-3.1-405B-Instruct'), 405.0)
 if __name__ == "__main__":
     unittest.main()

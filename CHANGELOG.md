@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.56] - 2026-11-10
+### Added
+- Registered native specification `KRN-075` (`moe-70b-param-budget-estimator-v75`, `WIN32-MMAP`) in `native/shard_core.cpp`: Validated 70B and 405B parameter parser and NVMe streaming fallback assignment.
+- Added deterministic regression test `test_krn_075_moe_70b_param_budget_estimator` in `tests_shard.py` (83/83 tests passing, 34.81 GFLOPS AVX2 FMA).
 ## [1.4.55] - 2026-11-10
 ### Added
 - Registered native specification `KRN-074` (`hybrid-vram-ram-tier-partition-v74`, `WIN32-MMAP`) in `native/shard_core.cpp`: Verified hybrid VRAM+RAM tier planner for 14B quantized weights on 8GB VRAM / 32GB RAM hosts.
