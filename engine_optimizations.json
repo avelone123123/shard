@@ -1,8 +1,8 @@
 {
-  "version": "1.4.36",
+  "version": "1.4.37",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 55,
-  "verified_tests": 63,
+  "active_kernels": 56,
+  "verified_tests": 64,
   "specs": [
     {
       "id": "KRN-001",
@@ -365,6 +365,13 @@
       "domain": "memory-paging",
       "isa": "WIN32-MMAP",
       "gflops": 35.02
+    },
+    {
+      "id": "KRN-056",
+      "name": "vec-add-4k-hidden-dimension-v56",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2",
+      "gflops": 34.44
     }
   ]
 }

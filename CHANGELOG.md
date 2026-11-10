@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.37] - 2026-11-10
+### Added
+- Registered native specification `KRN-056` (`vec-add-4k-hidden-dimension-v56`, `MASM-AVX2`) in `native/shard_core.cpp`: Verified full 4096-dim transformer hidden state residual sum in MASM x64 AVX2.
+- Added deterministic regression test `test_krn_056_vec_add_4k_hidden_dimension` in `tests_shard.py` (64/64 tests passing, 34.44 GFLOPS AVX2 FMA).
 ## [1.4.36] - 2026-11-10
 ### Added
 - Registered native specification `KRN-055` (`moe-70b-param-budget-estimator-v55`, `WIN32-MMAP`) in `native/shard_core.cpp`: Validated 70B and 405B parameter parser and NVMe streaming fallback assignment.
