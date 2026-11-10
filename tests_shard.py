@@ -181,5 +181,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 24)
         self.assertIn("KRN-024", self.bridge.kernel_ids())
         self.assertAlmostEqual(self.bridge.layernorm([101.0, 102.0, 103.0, 104.0])[0], self.bridge.layernorm([1.0, 2.0, 3.0, 4.0])[0], places=3)
+    def test_krn_025_softmax_overflow_logit_clamp(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 25)
+        self.assertIn("KRN-025", self.bridge.kernel_ids())
+        self.assertAlmostEqual(sum(self.bridge.softmax([5000.0, 5001.0, 4999.0, 5000.5])), 1.0, places=4)
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,8 @@
 {
-  "version": "1.4.5",
+  "version": "1.4.6",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 24,
-  "verified_tests": 32,
+  "active_kernels": 25,
+  "verified_tests": 33,
   "specs": [
     {
       "id": "KRN-001",
@@ -148,6 +148,13 @@
       "domain": "normalization",
       "isa": "CPP20-AVX2",
       "gflops": 34.89
+    },
+    {
+      "id": "KRN-025",
+      "name": "softmax-overflow-logit-clamp-v25",
+      "domain": "attention",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 35.0
     }
   ]
 }
