@@ -273,5 +273,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 47)
         self.assertIn("KRN-047", self.bridge.kernel_ids())
         self.assertAlmostEqual(self.bridge.swiglu([0.0]*16, [3.0]*16)[0], 0.0, places=5)
+    def test_krn_048_residual_axpy_scale_accumulation(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 48)
+        self.assertIn("KRN-048", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.axpy([4.0]*17, [1.5]*17, 0.25)[16], 2.5, places=4)
 if __name__ == "__main__":
     unittest.main()
