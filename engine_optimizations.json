@@ -1,8 +1,8 @@
 {
-  "version": "1.4.35",
+  "version": "1.4.36",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 54,
-  "verified_tests": 62,
+  "active_kernels": 55,
+  "verified_tests": 63,
   "specs": [
     {
       "id": "KRN-001",
@@ -358,6 +358,13 @@
       "domain": "memory-paging",
       "isa": "WIN32-MMAP",
       "gflops": 37.55
+    },
+    {
+      "id": "KRN-055",
+      "name": "moe-70b-param-budget-estimator-v55",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 35.02
     }
   ]
 }
