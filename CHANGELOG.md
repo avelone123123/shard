@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.7] - 2026-11-10
+### Added
+- Registered native specification `KRN-026` (`rope-zero-position-identity-v26`, `CPP20-SIMD`) in `native/shard_core.cpp`: Verified exact identity preservation and L2 norm conservation in RoPE head rotation.
+- Added deterministic regression test `test_krn_026_rope_zero_position_identity` in `tests_shard.py` (34/34 tests passing, 33.84 GFLOPS AVX2 FMA).
 ## [1.4.6] - 2026-11-10
 ### Added
 - Registered native specification `KRN-025` (`softmax-overflow-logit-clamp-v25`, `MASM-AVX2+CPP20`) in `native/shard_core.cpp`: Verified unit simplex probability conservation on extreme high-magnitude attention logits.
