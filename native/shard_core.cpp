@@ -106,6 +106,7 @@ static const ShardKernelSpec SHARD_KERNEL_REGISTRY[] = {
     { "KRN-082", "q8-signed-avx2-widening-v82", "quantization", "CPP20-AVX2", "vpmovsxbd sign-extends 8 signed bytes per cycle before vcvtdq2ps scale multiplication" },
     { "KRN-083", "rmsnorm-epsilon-floor-guard-v83", "normalization", "MASM-AVX2+CPP20", "Zero-input tensor normalization remains finite via strict epsilon floor before rsqrt" },
     { "KRN-084", "layernorm-affine-shift-invariance-v84", "normalization", "CPP20-AVX2", "Constant logit offset cancels identically during AVX2 two-pass mean-variance normalization" },
+    { "KRN-085", "softmax-overflow-logit-clamp-v85", "attention", "MASM-AVX2+CPP20", "MASM vmaxps horizontal max subtraction prevents IEEE-754 expf overflow up to +8000 logits" },
 };
 static const int SHARD_KERNEL_COUNT = static_cast<int>(sizeof(SHARD_KERNEL_REGISTRY) / sizeof(SHARD_KERNEL_REGISTRY[0]));
 extern "C" {
@@ -424,6 +425,6 @@ extern "C" {
         return static_cast<int>(elapsed_us);
     }
     SHARD_EXPORT const char* shard_get_version() {
-        return "Shard Native Core v1.4.65 (C++20 Zero-Copy + MASM x64 AVX2 84-Kernel Engine)";
+        return "Shard Native Core v1.4.66 (C++20 Zero-Copy + MASM x64 AVX2 85-Kernel Engine)";
     }
 }

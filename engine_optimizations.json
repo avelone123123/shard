@@ -1,16 +1,9 @@
 {
-  "version": "1.4.65",
+  "version": "1.4.66",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 84,
-  "verified_tests": 92,
+  "active_kernels": 85,
+  "verified_tests": 93,
   "specs": [
-    {
-      "id": "KRN-025",
-      "name": "softmax-overflow-logit-clamp-v25",
-      "domain": "attention",
-      "isa": "MASM-AVX2+CPP20",
-      "gflops": 35.0
-    },
     {
       "id": "KRN-026",
       "name": "rope-zero-position-identity-v26",
@@ -423,6 +416,13 @@
       "domain": "normalization",
       "isa": "CPP20-AVX2",
       "gflops": 35.38
+    },
+    {
+      "id": "KRN-085",
+      "name": "softmax-overflow-logit-clamp-v85",
+      "domain": "attention",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.73
     }
   ]
 }
