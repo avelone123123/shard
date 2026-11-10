@@ -1,15 +1,9 @@
 {
-  "version": "1.4.43",
+  "version": "1.4.44",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 62,
-  "verified_tests": 70,
+  "active_kernels": 63,
+  "verified_tests": 71,
   "specs": [
-    {
-      "id": "KRN-002",
-      "name": "dot-product-unroll8",
-      "domain": "linear-algebra",
-      "isa": "MASM-AVX2-FMA"
-    },
     {
       "id": "KRN-003",
       "name": "fast-scale-f32",
@@ -408,6 +402,13 @@
       "domain": "quantization",
       "isa": "CPP20-AVX2",
       "gflops": 34.06
+    },
+    {
+      "id": "KRN-063",
+      "name": "rmsnorm-epsilon-floor-guard-v63",
+      "domain": "normalization",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 33.5
     }
   ]
 }

@@ -333,5 +333,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 62)
         self.assertIn("KRN-062", self.bridge.kernel_ids())
         self.assertAlmostEqual(self.bridge.dequant_q8(bytes([256 - 4]*8), scale=0.5)[0], -2.0, places=4)
+    def test_krn_063_rmsnorm_epsilon_floor_guard(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 63)
+        self.assertIn("KRN-063", self.bridge.kernel_ids())
+        self.assertTrue(all(abs(v) < 1e-4 for v in self.bridge.rmsnorm([0.0]*16, [1.0]*16, eps=1e-5)))
 if __name__ == "__main__":
     unittest.main()
