@@ -297,5 +297,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 53)
         self.assertIn("KRN-053", self.bridge.kernel_ids())
         self.assertAlmostEqual(self.bridge.gelu([4.0])[0], 4.0, places=2)
+    def test_krn_054_hybrid_vram_ram_tier_partition(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 54)
+        self.assertIn("KRN-054", self.bridge.kernel_ids())
+        self.assertEqual(evaluate_compatibility('Qwen/Qwen2.5-Coder-14B-Instruct', {'vram_total_mb': 8192, 'ram_total_mb': 32768})['tier'], 'RECOMMENDED')
 if __name__ == "__main__":
     unittest.main()

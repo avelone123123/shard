@@ -1,8 +1,8 @@
 {
-  "version": "1.4.34",
+  "version": "1.4.35",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 53,
-  "verified_tests": 61,
+  "active_kernels": 54,
+  "verified_tests": 62,
   "specs": [
     {
       "id": "KRN-001",
@@ -351,6 +351,13 @@
       "domain": "activations",
       "isa": "CPP20-SIMD",
       "gflops": 34.1
+    },
+    {
+      "id": "KRN-054",
+      "name": "hybrid-vram-ram-tier-partition-v54",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 37.55
     }
   ]
 }

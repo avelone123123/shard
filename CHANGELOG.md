@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.35] - 2026-11-10
+### Added
+- Registered native specification `KRN-054` (`hybrid-vram-ram-tier-partition-v54`, `WIN32-MMAP`) in `native/shard_core.cpp`: Verified hybrid VRAM+RAM tier planner for 14B quantized weights on 8GB VRAM / 32GB RAM hosts.
+- Added deterministic regression test `test_krn_054_hybrid_vram_ram_tier_partition` in `tests_shard.py` (62/62 tests passing, 37.55 GFLOPS AVX2 FMA).
 ## [1.4.34] - 2026-11-10
 ### Added
 - Registered native specification `KRN-053` (`gelu-cubic-odd-symmetry-bound-v53`, `CPP20-SIMD`) in `native/shard_core.cpp`: Validated C++20 GeLU asymptotic linear pass-through on large positive activations.
