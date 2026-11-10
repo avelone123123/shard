@@ -1,4 +1,8 @@
 # Shard Engine Changelog
+## [1.4.63] - 2026-11-10
+### Added
+- Registered native specification `KRN-082` (`q8-signed-avx2-widening-v82`, `CPP20-AVX2`) in `native/shard_core.cpp`: Verified negative and positive Int8 block dequantization via _mm256_cvtepi8_epi32 widening.
+- Added deterministic regression test `test_krn_082_q8_signed_avx2_widening` in `tests_shard.py` (90/90 tests passing, 34.96 GFLOPS AVX2 FMA).
 ## [1.4.62] - 2026-11-10
 ### Added
 - Registered native specification `KRN-081` (`q4-nibble-scale-symmetry-v81`, `CPP20-AVX2`) in `native/shard_core.cpp`: Validated symmetric zero-point Q4 nibble dequantization accuracy across odd and even tensor blocks.

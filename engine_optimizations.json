@@ -1,16 +1,9 @@
 {
-  "version": "1.4.62",
+  "version": "1.4.63",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 81,
-  "verified_tests": 89,
+  "active_kernels": 82,
+  "verified_tests": 90,
   "specs": [
-    {
-      "id": "KRN-022",
-      "name": "q8-signed-avx2-widening-v22",
-      "domain": "quantization",
-      "isa": "CPP20-AVX2",
-      "gflops": 31.84
-    },
     {
       "id": "KRN-023",
       "name": "rmsnorm-epsilon-floor-guard-v23",
@@ -423,6 +416,13 @@
       "domain": "quantization",
       "isa": "CPP20-AVX2",
       "gflops": 35.47
+    },
+    {
+      "id": "KRN-082",
+      "name": "q8-signed-avx2-widening-v82",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2",
+      "gflops": 34.96
     }
   ]
 }
