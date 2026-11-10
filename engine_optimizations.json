@@ -1,15 +1,9 @@
 {
-  "version": "1.4.46",
+  "version": "1.4.47",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 65,
-  "verified_tests": 73,
+  "active_kernels": 66,
+  "verified_tests": 74,
   "specs": [
-    {
-      "id": "KRN-005",
-      "name": "layernorm-f32",
-      "domain": "normalization",
-      "isa": "CPP20-AVX2"
-    },
     {
       "id": "KRN-006",
       "name": "swiglu-f32",
@@ -411,6 +405,13 @@
       "domain": "attention",
       "isa": "MASM-AVX2+CPP20",
       "gflops": 34.5
+    },
+    {
+      "id": "KRN-066",
+      "name": "rope-zero-position-identity-v66",
+      "domain": "attention",
+      "isa": "CPP20-SIMD",
+      "gflops": 33.25
     }
   ]
 }
