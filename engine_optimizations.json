@@ -1,16 +1,9 @@
 {
-  "version": "1.4.60",
+  "version": "1.4.61",
   "target": "MASM x64 AVX2 / C++20 Zero-Copy",
-  "active_kernels": 79,
-  "verified_tests": 87,
+  "active_kernels": 80,
+  "verified_tests": 88,
   "specs": [
-    {
-      "id": "KRN-020",
-      "name": "tiled-gemv-unroll32-v20",
-      "domain": "linear-algebra",
-      "isa": "MASM-AVX2-FMA",
-      "gflops": 29.66
-    },
     {
       "id": "KRN-021",
       "name": "q4-nibble-scale-symmetry-v21",
@@ -423,6 +416,13 @@
       "domain": "runtime-api",
       "isa": "FASTAPI-BRIDGE",
       "gflops": 34.54
+    },
+    {
+      "id": "KRN-080",
+      "name": "tiled-gemv-unroll32-v80",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 35.58
     }
   ]
 }

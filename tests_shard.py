@@ -401,5 +401,9 @@ class ShardKernelAndRuntimeSuite(unittest.TestCase):
         self.assertGreaterEqual(self.bridge.kernel_count(), 79)
         self.assertIn("KRN-079", self.bridge.kernel_ids())
         self.assertIn('compatibility', fetch_model_metadata('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', {'vram_total_mb': 12288, 'ram_total_mb': 32768}))
+    def test_krn_080_tiled_gemv_unroll32(self):
+        self.assertGreaterEqual(self.bridge.kernel_count(), 80)
+        self.assertIn("KRN-080", self.bridge.kernel_ids())
+        self.assertAlmostEqual(self.bridge.dot_product([0.5]*99, [2.0]*99, fast=True), 99.0, places=3)
 if __name__ == "__main__":
     unittest.main()
