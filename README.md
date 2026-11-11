@@ -1,7 +1,7 @@
 # SHARD — Local AI engine that tells you *first* whether a model will run
 
 [![Tests](https://github.com/avelone123123/shard/actions/workflows/tests.yml/badge.svg)](https://github.com/avelone123123/shard/actions/workflows/tests.yml)
-[![Version](https://img.shields.io/badge/Version-v1.5.0-22a06b)](https://github.com/avelone123123/shard)
+[![Version](https://img.shields.io/badge/Version-v1.5.1-22a06b)](https://github.com/avelone123123/shard)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-38bdf8)](https://github.com/avelone123123/shard)
 [![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
 

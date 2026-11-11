@@ -1,4 +1,7 @@
 # Shard Engine Changelog
+## [1.5.1] - 2026-11-11
+### Fixed
+- `hardware.py` imported `psutil` at module top level, so `fit.fit_report(hw=...)` crashed with `ModuleNotFoundError` in dependency-free environments (CI). `psutil` is now imported lazily inside `get_hardware_profile()` — the only place it is used; `estimate_model_params` never needed it. Full suite passes with psutil absent (50/50, verified locally with a blocked import).
 ## [1.5.0] - 2026-11-11
 ### Added
 - Honest pre-flight fit advisor (`fit.py`; `shard fit <model>`, dashboard card): per-quant VRAM/RAM/speed plan for every model — GPU / HYBRID / IMPOSSIBLE verdict computed from your live hardware *before* download, including KV-cache sizing at your context length and a disk-space veto.

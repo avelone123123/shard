@@ -1,11 +1,13 @@
 import os
 import re
 import time
-import psutil
 import shutil
 import subprocess
 _gpu_cache = {"ts": 0.0, "gpu_name": "CPU Only", "vram_total_mb": 0, "vram_used_mb": 0, "probed": False}
 def get_hardware_profile(force_refresh=False):
+    # Lazy import: psutil is only needed when probing live hardware.
+    # Module import must stay stdlib-only so fit_report(hw=...) works without deps.
+    import psutil
     now = time.time()
     if force_refresh or not _gpu_cache["probed"] or (now - _gpu_cache["ts"] >= 4.0):
         _gpu_cache["ts"] = now
