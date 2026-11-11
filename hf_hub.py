@@ -60,6 +60,16 @@ def fetch_model_metadata(model_id, hw=None):
     author = model_id.split("/")[0] if "/" in model_id else "Community"
     name = model_id.split("/")[-1] if "/" in model_id else model_id
     cached = get_local_cached_ids()
+    d_count = None
+    likes_count = None
+    try:
+        r = requests.get(f"https://huggingface.co/api/models/{model_id}", timeout=3.5)
+        if r.status_code == 200:
+            m_json = r.json()
+            d_count = m_json.get("downloads")
+            likes_count = m_json.get("likes")
+    except Exception:
+        pass
     return {
         "id": model_id,
         "author": author,
@@ -71,8 +81,8 @@ def fetch_model_metadata(model_id, hw=None):
         "memory_slot": comp["mode"],
         "size_est_mb": comp.get("size_est_mb", 1000),
         "is_downloaded": model_id.lower() in cached,
-        "downloads": 125000,
-        "likes": 4200,
+        "downloads": d_count,
+        "likes": likes_count,
         "compatibility": comp
     }
 def _build_entry(mid, cat, desc, d_count, likes_count, hw, cached):
@@ -111,7 +121,7 @@ def browse_models(query=None, category=None, limit=80, hw=None):
     if category_clean == "ideal":
         ideal_list = []
         for item in CURATED_MODELS:
-            entry = _build_entry(item["id"], item["category"], item["desc"], 640000, 14200, hw, cached)
+            entry = _build_entry(item["id"], item["category"], item["desc"], None, None, hw, cached)
             tier = entry["compatibility"]["tier"]
             if tier in ("PERFECT", "RECOMMENDED"):
                 if not query_clean or query_clean.lower() in item["id"].lower() or query_clean.lower() in item["desc"].lower():
@@ -126,7 +136,7 @@ def browse_models(query=None, category=None, limit=80, hw=None):
             if category_clean == "all" or item.get("category") == category_clean:
                 mid = item["id"]
                 seen_ids.add(mid)
-                live_results.append(_build_entry(mid, item["category"], item["desc"], 820000, 15800, hw, cached))
+                live_results.append(_build_entry(mid, item["category"], item["desc"], None, None, hw, cached))
     if query_clean and "/" in query_clean:
         try:
             r_single = requests.get(f"https://huggingface.co/api/models/{query_clean}", timeout=3.5)
@@ -134,9 +144,9 @@ def browse_models(query=None, category=None, limit=80, hw=None):
                 item = r_single.json()
                 mid = item.get("id", query_clean)
                 seen_ids.add(mid)
-                d_count = item.get("downloads", 0)
-                likes_count = item.get("likes", 0)
-                desc = f"Репозиторий Hugging Face. Скачиваний: {d_count:,}"
+                d_count = item.get("downloads")
+                likes_count = item.get("likes")
+                desc = "Репозиторий Hugging Face"
                 live_results.append(_build_entry(mid, "all", desc, d_count, likes_count, hw, cached))
         except Exception:
             pass
@@ -161,7 +171,11 @@ def browse_models(query=None, category=None, limit=80, hw=None):
                 mid = item.get("id")
                 if not mid or mid in seen_ids:
                     continue
-                entry = _build_entry(mid, category_clean if category_clean != "all" else "general", f"Открытая архитектура Hugging Face. Скачиваний: {item.get('downloads', 0):,}", item.get("downloads", 0), item.get("likes", 0), hw, cached)
+                dl = item.get("downloads")
+                desc = "Открытая архитектура Hugging Face"
+                if dl is not None:
+                    desc += f". Скачиваний: {dl:,}"
+                entry = _build_entry(mid, category_clean if category_clean != "all" else "general", desc, dl, item.get("likes"), hw, cached)
                 if category_clean == "compact" and entry["compatibility"].get("params_b", 7.0) > 4.2:
                     continue
                 seen_ids.add(mid)
@@ -178,7 +192,7 @@ def browse_models(query=None, category=None, limit=80, hw=None):
         mid = item["id"]
         if query_clean and query_clean.lower() not in mid.lower():
             continue
-        fallback_results.append(_build_entry(mid, item["category"], item["desc"], 580000, 12400, hw, cached))
+        fallback_results.append(_build_entry(mid, item["category"], item["desc"], None, None, hw, cached))
     _hub_cache[cache_key] = (now, fallback_results)
     return fallback_results
 def fetch_model_card(model_id, hw=None):

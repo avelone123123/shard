@@ -5,6 +5,7 @@ __pycache__/
 .vscode/
 .idea/
 *.egg-info/
+.venv/
 social_config.json
 keys_db.json
 *.secret
@@ -12,3 +13,7 @@ keys_db.json
 agent.md
 skill.md
 *.exp
+*.exe
+*.dll
+*.lib
+*.obj

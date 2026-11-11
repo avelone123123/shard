@@ -10,7 +10,9 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Str
 from engine import engine_instance
 from hardware import get_hardware_profile, evaluate_compatibility
 from hf_hub import browse_models, fetch_model_metadata, fetch_model_card, get_local_cached_ids
-app = FastAPI(title="Shard Local Model Engine and Server", version="1.4.79")
+import settings
+from fit import fit_report
+app = FastAPI(title="Shard Local Model Engine and Server", version="1.5.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -200,6 +202,50 @@ async def api_del_key(req: Request):
         save_keys(API_KEYS)
         return {"status": "ok", "deleted": target, "keys": API_KEYS}
     return JSONResponse(status_code=404, content={"status": "error", "message": "Key not found"})
+@app.get("/api/settings")
+def api_get_settings():
+    return {
+        "models_dir": settings.models_dir(),
+        "default_models_dir": settings.DEFAULT_MODELS_DIR,
+        "is_custom": settings.is_custom_models_dir(),
+        "disk": settings.disk_info()
+    }
+@app.post("/api/settings")
+async def api_set_settings(req: Request):
+    data = await req.json()
+    if data.get("reset"):
+        path = settings.reset_models_dir()
+        return {"status": "ok", "models_dir": path, "is_custom": False,
+                "message": "Возвращена папка по умолчанию. Применится после перезапуска приложения"}
+    path = (data.get("models_dir") or "").strip()
+    try:
+        saved = settings.set_models_dir(path)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+    return {"status": "ok", "models_dir": saved, "is_custom": True,
+            "disk": settings.disk_info(saved),
+            "message": f"Папка моделей сохранена: {saved}. Применится после перезапуска приложения"}
+@app.get("/api/drives")
+def api_drives():
+    return {
+        "drives": settings.available_drives(),
+        "current": settings.models_dir(),
+        "disk": settings.disk_info()
+    }
+@app.get("/api/fit/{model_id:path}")
+def api_fit(model_id: str):
+    mid = (model_id or "").strip()
+    if not mid:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "model_id required"})
+    try:
+        hw = get_hardware_profile()
+        return fit_report(mid, hw=hw)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": f"Ошибка оценки: {e}"})
 def _backup_and_write(target_path, content_str):
     os.makedirs(os.path.dirname(target_path), exist_ok=True)
     if os.path.exists(target_path):
@@ -349,7 +395,8 @@ def list_models():
     return {"object": "list", "data": model_list}
 @app.get("/v1/ping")
 def api_ping():
-    return {"status": "ok", "latency_ms": 0.3, "engine": "C++20 Zero-Copy / MASM AVX2", "active_model": engine_instance.active_model_id, "is_loaded": engine_instance.model is not None}
+    is_loaded = engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
+    return {"status": "ok", "latency_ms": 0.3, "engine": "shard-local-engine", "active_model": engine_instance.active_model_id, "is_loaded": is_loaded}
 @app.post("/v1/chat/completions")
 async def chat_completions(req: Request):
     data = await req.json()

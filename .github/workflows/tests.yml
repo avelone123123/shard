@@ -1,0 +1,21 @@
+# Unit tests: fit advisor math, GGUF selection, settings. Stdlib only — no deps.
+# windows-latest: settings tests assert Windows drive paths (the product targets Windows).
+name: tests
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run unit tests
+        run: python -m unittest tests_shard.py -v

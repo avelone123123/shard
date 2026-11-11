@@ -33,6 +33,10 @@ def cmd_help():
     print("  test       Run native C++20 and MASM AVX2 benchmarks")
     print("  key        List or generate authentication API keys")
     print("             Options: --gen (create new key)")
+    print("  fit        Check whether a model fits this hardware before download")
+    print("             Usage: shard fit <model_id>")
+    print("  models-dir Show or change the models download folder")
+    print("             Usage: shard models-dir [path|reset]")
     print("  help       Show this reference documentation")
 def cmd_gui():
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -88,7 +92,8 @@ def cmd_list(args):
         mid = m["id"]
         compat = m.get("compat_badge", "HYBRID")
         speed = m.get("speed_tier", "20 t/s")
-        d = f"{m.get('downloads', 0):,}"
+        d_raw = m.get("downloads")
+        d = f"{d_raw:,}" if d_raw is not None else "—"
         print(f"{mid:<42} {compat:<24} {speed:<16} {d}")
 def cmd_test():
     print_banner()
@@ -183,6 +188,120 @@ def cmd_key(args):
         except Exception:
             pass
         print(f"Default API Key: {API_KEY}")
+def cmd_fit(args):
+    print_banner()
+    model_id = (getattr(args, "model", None) or "").strip()
+    if not model_id:
+        print("Usage: shard fit <model_id>   (example: google/gemma-2-27b-it)")
+        sys.exit(1)
+    print(f"Checking fit: {model_id}\n")
+    try:
+        r = requests.get(f"{BASE_URL}/api/fit/{model_id}", timeout=15)
+        rep = r.json() if r.status_code == 200 else None
+    except Exception:
+        rep = None
+    if not isinstance(rep, dict) or "quants" not in rep:
+        try:
+            from fit import fit_report
+            rep = fit_report(model_id)
+        except Exception as e:
+            print(f"Fit check failed: {e}")
+            sys.exit(1)
+    vram_gb = rep.get("vram_total_mb", 0) / 1024.0
+    ram_gb = rep.get("ram_total_mb", 0) / 1024.0
+    print(f"GPU: {rep.get('gpu_name', 'CPU')} ({vram_gb:.1f} GB VRAM) | RAM: {ram_gb:.1f} GB")
+    print(f"Params: {rep.get('params_b', '?')}B (source: {rep.get('params_source', '?')}) "
+          f"| FP16: {rep.get('fp16_gb', '?')} GB | KV-cache: {rep.get('kv_gb', '?')} GB\n")
+    print(f"{'QUANT':<8} {'SIZE':>9} {'VRAM':>9} {'RAM':>9} {'GPU LAYERS':>12} {'SPEED':>10}  STATUS")
+    print("-" * 78)
+    layers = rep.get("layers") or 0
+    for row in rep.get("quants", []):
+        ngl_txt = f"{row.get('ngl', 0)}/{layers}" if layers else str(row.get("ngl", 0))
+        print(f"{row.get('quant', '?'):<8} {row.get('size_gb', 0):>7.1f} GB "
+              f"{row.get('vram_gb', 0):>7.1f} GB {row.get('ram_gb', 0):>7.1f} GB "
+              f"{ngl_txt:>12} {row.get('tok_s', 0):>8.1f} t/s  {row.get('verdict', '?')}")
+    print()
+    verdict = rep.get("verdict")
+    if verdict == "IMPOSSIBLE":
+        print("Result: DO NOT START ON THIS HARDWARE")
+    else:
+        rec = rep.get("recommended")
+        rec_row = next((r2 for r2 in rep.get("quants", []) if r2.get("quant") == rec), None)
+        print("Result: LAUNCH OK")
+        if rec_row:
+            print(f"Recommendation: {rec} — file {rec_row.get('size_gb', 0):.1f} GB, "
+                  f"{rec_row.get('ngl', 0)}/{layers} layers on GPU, "
+                  f"~{rec_row.get('tok_s', 0):.1f} tok/s")
+    if not rep.get("disk_ok", True):
+        print(f"Disk: not enough space (free: {rep.get('disk_free_gb', 0):.1f} GB)")
+    if rep.get("mmap_note"):
+        print(f"Note: {rep['mmap_note']}")
+    print()
+    print(rep.get("message_ru", ""))
+def _models_dir_set(path):
+    if path.lower() == "reset":
+        try:
+            r = requests.post(f"{BASE_URL}/api/settings", json={"reset": True}, timeout=5)
+        except Exception:
+            r = None
+        if r is not None and r.status_code == 200:
+            print("Models folder reset to default. Applies after app restart")
+            return
+        import settings as _settings
+        _settings.reset_models_dir()
+        print("Models folder reset to default. Applies after app restart")
+        return
+    try:
+        r = requests.post(f"{BASE_URL}/api/settings", json={"models_dir": path}, timeout=5)
+    except Exception:
+        r = None
+    if r is not None:
+        if r.status_code == 200:
+            data = r.json()
+            print(f"Models folder saved: {data.get('models_dir')}")
+            print("Applies after app restart")
+            return
+        if r.status_code == 400:
+            print(f"Error: {(r.json() or {}).get('message', 'Invalid path')}")
+            sys.exit(1)
+    import settings as _settings
+    try:
+        saved = _settings.set_models_dir(path)
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    print(f"Models folder saved: {saved}")
+    print("Applies after app restart")
+def cmd_models_dir(args):
+    print_banner()
+    new_path = (getattr(args, "path", None) or "").strip()
+    if new_path:
+        _models_dir_set(new_path)
+        return
+    data = None
+    try:
+        r = requests.get(f"{BASE_URL}/api/settings", timeout=2)
+        if r.status_code == 200:
+            data = r.json()
+    except Exception:
+        pass
+    if not isinstance(data, dict):
+        import settings as _settings
+        data = {
+            "models_dir": _settings.models_dir(),
+            "default_models_dir": _settings.DEFAULT_MODELS_DIR,
+            "is_custom": _settings.is_custom_models_dir(),
+            "disk": _settings.disk_info(),
+        }
+    print(f"Current models folder: {data.get('models_dir')}")
+    if data.get("is_custom"):
+        print("Status: custom (set via shard models-dir)")
+    else:
+        print(f"Status: default ({data.get('default_models_dir')})")
+    disk = data.get("disk") or {}
+    print(f"Free space: {disk.get('free_gb', '?')} GB of {disk.get('total_gb', '?')} GB")
+    print("Change:  shard models-dir <path>")
+    print("Reset:   shard models-dir reset")
 def cmd_run(args):
     model_id = args.model if hasattr(args, "model") and args.model else "Qwen/Qwen2.5-Coder-1.5B-Instruct"
     print_banner()
@@ -238,6 +357,10 @@ def main():
     sub.add_parser("test")
     p_key = sub.add_parser("key")
     p_key.add_argument("--gen", action="store_true", help="Generate key")
+    p_fit = sub.add_parser("fit")
+    p_fit.add_argument("model", nargs="?", default=None, help="Model ID to check")
+    p_dir = sub.add_parser("models-dir")
+    p_dir.add_argument("path", nargs="?", default=None, help="New folder path, or 'reset'")
     sub.add_parser("help")
     if len(sys.argv) <= 1:
         if os.name == "nt":
@@ -263,6 +386,10 @@ def main():
         cmd_test()
     elif args.command == "key":
         cmd_key(args)
+    elif args.command == "fit":
+        cmd_fit(args)
+    elif args.command == "models-dir":
+        cmd_models_dir(args)
     else:
         cmd_help()
 if __name__ == "__main__":

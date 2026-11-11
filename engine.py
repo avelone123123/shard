@@ -5,14 +5,23 @@ import sys
 import time
 import threading
 if "HF_HOME" not in os.environ:
-    if os.path.exists("/data/models") or os.environ.get("SHARD_MODELS_DIR"):
-        os.environ["HF_HOME"] = os.environ.get("SHARD_MODELS_DIR", "/data/models")
-        os.environ["TRANSFORMERS_CACHE"] = os.environ["HF_HOME"]
-    else:
-        h_dir = os.path.join(os.path.expanduser("~"), ".shard", "models")
-        os.makedirs(h_dir, exist_ok=True)
-        os.environ["HF_HOME"] = h_dir
-        os.environ["TRANSFORMERS_CACHE"] = h_dir
+    try:
+        import settings as _shard_settings
+        _models_root = _shard_settings.models_dir()
+    except Exception:
+        _models_root = None
+    if not _models_root:
+        if os.path.exists("/data/models") or os.environ.get("SHARD_MODELS_DIR"):
+            _models_root = os.environ.get("SHARD_MODELS_DIR", "/data/models")
+        else:
+            _models_root = os.path.join(os.path.expanduser("~"), ".shard", "models")
+    try:
+        os.makedirs(_models_root, exist_ok=True)
+    except Exception:
+        _models_root = os.path.join(os.path.expanduser("~"), ".shard", "models")
+        os.makedirs(_models_root, exist_ok=True)
+    os.environ["HF_HOME"] = _models_root
+    os.environ["TRANSFORMERS_CACHE"] = _models_root
 try:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer, StoppingCriteria, StoppingCriteriaList, TextIteratorStreamer
@@ -28,6 +37,14 @@ except Exception:
     TORCH_AVAILABLE = False
 from hardware import evaluate_compatibility, get_hardware_profile, estimate_model_params
 from shard_bridge import shard_native
+try:
+    from fit import fit_report
+    import gguf_backend as gguf_mod
+    FIT_AVAILABLE = True
+except Exception:
+    fit_report = None
+    gguf_mod = None
+    FIT_AVAILABLE = False
 if os.path.exists(r"C:\Users\avelo\Desktop\airllm\air_llm"):
     sys.path.append(r"C:\Users\avelo\Desktop\airllm\air_llm")
 _active_engine = None
@@ -98,6 +115,7 @@ class ShardEngine:
         self.native_core = shard_native
         self.model = None
         self.tokenizer = None
+        self.gguf = None
         self.current_loaded_id = None
         self._cancel_load = False
         self._cancel_gen = False
@@ -154,14 +172,21 @@ class ShardEngine:
             }
     def get_status(self):
         hw = get_hardware_profile()
+        gguf_info = None
+        if self.gguf is not None:
+            try:
+                gguf_info = self.gguf.info()
+            except Exception:
+                gguf_info = None
         return {
             "status": self.status,
             "active_model": self.active_model_id,
             "current_loaded": self.current_loaded_id,
-            "is_loaded": self.model is not None,
+            "is_loaded": bool(self.model is not None or (self.gguf is not None and self.gguf.is_running())),
             "load_progress": self.load_progress,
             "loaded_info": self.loaded_info,
             "hardware": hw,
+            "gguf": gguf_info,
             "native_engine": {
                 "active": self.native_core.is_native_active,
                 "version": self.native_core.version
@@ -169,6 +194,25 @@ class ShardEngine:
             "total_tokens_generated": self.total_tokens_generated,
             "last_latency_ms": self.last_latency_ms
         }
+    def _gguf(self):
+        if gguf_mod is None:
+            return None
+        if self.gguf is None:
+            self.gguf = gguf_mod.LlamaBackend()
+        return self.gguf
+    def _fit_for(self, model_id):
+        if fit_report is None:
+            return None
+        try:
+            return fit_report(model_id)
+        except Exception:
+            return None
+    def _verdict_presentation(self, verdict):
+        return {
+            "GPU": ("PERFECT", "ИДЕАЛЬНО (VRAM)", "#22a06b"),
+            "HYBRID": ("RECOMMENDED", "ГИБРИД (VRAM+RAM)", "#d4943a"),
+            "IMPOSSIBLE": ("BLOCKED", "НЕ ЗАПУСТИТСЯ", "#c96a4b"),
+        }.get(verdict, ("UNKNOWN", "НЕИЗВЕСТНО", "#888888"))
     def _select_dtype_and_device(self, params_b, hw):
         if not TORCH_AVAILABLE or torch is None:
             return None, "cpu"
@@ -329,10 +373,322 @@ class ShardEngine:
                 "eta_text": "Ошибка",
                 "message": f"Сбой загрузки: {str(e)[:140]}"
             }
+    def _run_loader_gguf(self, model_id, seq_id, fit):
+        self.status = "loading"
+        self._cancel_load = False
+        def _fail(stage, message):
+            if seq_id != self._load_seq:
+                return
+            self.status = "error"
+            self.load_progress = {
+                "status": "error",
+                "model_id": model_id,
+                "percent": 0,
+                "stage": stage,
+                "curr_mb": 0,
+                "total_mb": 0,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Ошибка",
+                "message": message
+            }
+        def _stop_backend():
+            if self.gguf is not None:
+                try:
+                    self.gguf.stop()
+                except Exception:
+                    pass
+        if fit is None or fit.get("verdict") not in ("GPU", "HYBRID"):
+            msg = (fit or {}).get("message_ru") or "Модель не подходит под ваше железо."
+            mmap_note = (fit or {}).get("mmap_note") or ""
+            _fail("Модель не подходит", f"{msg} {mmap_note}".strip())
+            return
+        try:
+            self.load_progress = {
+                "status": "loading",
+                "model_id": model_id,
+                "percent": 2,
+                "stage": "Поиск GGUF-репозитория",
+                "curr_mb": 0,
+                "total_mb": 0,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Поиск...",
+                "message": f"Ищу готовый GGUF для {model_id} (квант {fit.get('recommended')})..."
+            }
+            repo_id = gguf_mod.find_gguf_repo(model_id)
+            if self._cancel_load or seq_id != self._load_seq:
+                return
+            if not repo_id:
+                _fail("GGUF не найден", f"Для {model_id} не нашёл готовый GGUF-репозиторий на Hugging Face. Попробуйте модель с официально выложенным GGUF (например, Qwen или Gemma).")
+                return
+            files = gguf_mod.list_gguf_files(repo_id)
+            if self._cancel_load or seq_id != self._load_seq:
+                return
+            sel = gguf_mod.select_gguf_file(files, wanted_quant=fit.get("recommended"))
+            if not sel:
+                _fail("GGUF не найден", f"В {repo_id} нет подходящего GGUF-файла (квант {fit.get('recommended')}).")
+                return
+            total_mb = round(sel["size_bytes"] / (1024 * 1024), 1)
+            hub_dir = os.path.join(os.environ.get("HF_HOME", "/data/models"), "hub", f"models--{repo_id.replace('/', '--')}")
+            sel_path = None
+            if os.path.isdir(hub_dir):
+                found_parts = {}
+                for root, _, fns in os.walk(hub_dir):
+                    for p in sel["parts"]:
+                        base = os.path.basename(p)
+                        if base in fns and base not in found_parts:
+                            found_parts[base] = os.path.join(root, base)
+                if len(found_parts) == len(sel["parts"]):
+                    sel_path = found_parts[os.path.basename(sel["parts"][0])]
+            if sel_path is None:
+                est_sec = max(5, int(total_mb / 20))
+                eta_init = f"~{est_sec} сек" if est_sec < 60 else f"~{est_sec // 60} мин {est_sec % 60} сек"
+                self.load_progress = {
+                    "status": "loading",
+                    "model_id": model_id,
+                    "percent": 4,
+                    "stage": "Скачивание GGUF",
+                    "curr_mb": 0,
+                    "total_mb": total_mb,
+                    "speed_mb": 0,
+                    "eta_seconds": est_sec,
+                    "eta_text": eta_init,
+                    "message": f"Скачивание {repo_id}/{sel['path']} ({total_mb:.0f} МБ, квант {sel['quant']})..."
+                }
+                t0 = time.time()
+                stop_ticker = False
+                def _ticker():
+                    nonlocal stop_ticker
+                    blobs_dir = os.path.join(hub_dir, "blobs")
+                    last_bytes = 0
+                    last_t = t0
+                    while not stop_ticker and self.status == "loading" and seq_id == self._load_seq:
+                        time.sleep(0.8)
+                        if stop_ticker or self._cancel_load:
+                            break
+                        if not os.path.isdir(blobs_dir):
+                            continue
+                        curr_bytes = 0
+                        try:
+                            for fn in os.listdir(blobs_dir):
+                                fp = os.path.join(blobs_dir, fn)
+                                if os.path.isfile(fp) and not fn.endswith(".incomplete"):
+                                    curr_bytes += os.path.getsize(fp)
+                        except Exception:
+                            pass
+                        if curr_bytes <= 0:
+                            continue
+                        cur_mb = round(curr_bytes / (1024 * 1024), 1)
+                        now_t = time.time()
+                        dt_int = max(0.2, now_t - last_t)
+                        spd = round(((curr_bytes - last_bytes) / (1024 * 1024)) / dt_int, 1)
+                        if spd <= 0.1:
+                            spd = round(cur_mb / max(0.5, now_t - t0), 1)
+                        last_bytes = curr_bytes
+                        last_t = now_t
+                        target_total = max(total_mb, int(cur_mb * 1.02))
+                        cur_p = min(88, max(4, int((cur_mb / target_total) * 88)))
+                        rem_sec = max(1, int((target_total - cur_mb) / max(0.5, spd)))
+                        eta_t = f"~{rem_sec} сек" if rem_sec < 60 else f"~{rem_sec // 60} мин {rem_sec % 60} сек"
+                        if self.load_progress.get("status") == "loading":
+                            self.load_progress.update({
+                                "percent": cur_p,
+                                "curr_mb": cur_mb,
+                                "total_mb": target_total,
+                                "speed_mb": spd,
+                                "eta_seconds": rem_sec,
+                                "eta_text": eta_t,
+                                "stage": "Скачивание GGUF",
+                                "message": f"Скачано {cur_mb} из {target_total} МБ ({cur_p}%) | {spd} МБ/с | Осталось: {eta_t}"
+                            })
+                threading.Thread(target=_ticker, daemon=True).start()
+                try:
+                    sel_path = gguf_mod.download_gguf(repo_id, sel)
+                finally:
+                    stop_ticker = True
+                if self._cancel_load or seq_id != self._load_seq:
+                    return
+            def _runtime_progress(got, total, speed):
+                if not total:
+                    if self.load_progress.get("status") == "loading":
+                        self.load_progress.update({"stage": "Подготовка движка llama.cpp", "message": "Загружаю llama-server..."})
+                    return
+                mb_g = round(got / (1024 * 1024), 1)
+                mb_t = round(total / (1024 * 1024), 1)
+                spd = round(speed / (1024 * 1024), 1) if speed else 0
+                pct = min(94, 90 + int((got / total) * 4))
+                if self.load_progress.get("status") == "loading":
+                    self.load_progress.update({
+                        "percent": pct,
+                        "curr_mb": mb_g,
+                        "total_mb": mb_t,
+                        "speed_mb": spd,
+                        "stage": "Подготовка движка llama.cpp",
+                        "message": f"Движок llama.cpp: {mb_g} из {mb_t} МБ ({spd} МБ/с)..."
+                    })
+            self.load_progress = {
+                "status": "loading",
+                "model_id": model_id,
+                "percent": 90 if self.load_progress.get("percent", 0) < 90 else self.load_progress.get("percent", 90),
+                "stage": "Подготовка движка llama.cpp",
+                "curr_mb": total_mb,
+                "total_mb": total_mb,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Запуск...",
+                "message": "Подготовка движка llama.cpp (~50 МБ, один раз)..."
+            }
+            server_path = gguf_mod.ensure_llama_server(progress_cb=_runtime_progress)
+            if self._cancel_load or seq_id != self._load_seq:
+                return
+            ngl = gguf_mod.compute_ngl(fit.get("verdict"), fit.get("ngl", 0))
+            threads = gguf_mod.default_threads()
+            ngl_desc = "все слои на GPU" if ngl >= 999 else f"{ngl} слоёв на GPU"
+            def _wait_beat(elapsed, timeout):
+                if self.load_progress.get("status") != "loading":
+                    return
+                pct = min(99, 94 + int((elapsed / max(1.0, timeout)) * 5))
+                rem = max(1, int(timeout - elapsed))
+                eta_t = f"~{rem} сек"
+                self.load_progress.update({
+                    "percent": pct,
+                    "eta_seconds": rem,
+                    "eta_text": eta_t,
+                    "stage": "Запуск инференс-процесса",
+                    "message": f"Загружаю GGUF в память ({'VRAM' if ngl > 0 else 'RAM'}, {ngl_desc})... Осталось: {eta_t}"
+                })
+            try:
+                backend = self._gguf()
+                if backend is None:
+                    raise RuntimeError("GGUF backend недоступен в этом окружении.")
+                backend.start(sel_path, int(fit.get("ctx_tokens") or 4096), ngl, threads, model_id,
+                              server_path=server_path, wait_timeout=180, on_wait=_wait_beat)
+            except RuntimeError as e:
+                if self._cancel_load or seq_id != self._load_seq:
+                    _stop_backend()
+                    return
+                params_b = fit.get("params_b") or 0
+                if params_b <= 1.2 and TORCH_AVAILABLE:
+                    self._run_loader(model_id, seq_id)
+                    return
+                _fail("Ошибка запуска GGUF", f"Движок llama.cpp не запустился: {str(e)[:140]}")
+                return
+            if self._cancel_load or seq_id != self._load_seq:
+                _stop_backend()
+                return
+            rec_row = None
+            for r in fit.get("quants", []):
+                if r.get("quant") == fit.get("recommended"):
+                    rec_row = r
+                    break
+            layers_total = int(fit.get("layers") or 0)
+            layers_vram_final = layers_total if ngl >= 999 else min(layers_total, max(0, ngl))
+            self.model = None
+            self.tokenizer = None
+            self.current_loaded_id = model_id
+            self.active_model_id = model_id
+            self.status = "ready"
+            pres = self._verdict_presentation(fit.get("verdict"))
+            bench_us = self.native_core.benchmark_avx2(1000)
+            self.loaded_info = {
+                "model_id": model_id,
+                "tier": pres[0],
+                "tier_label": pres[1],
+                "color": pres[2],
+                "mode": f"GGUF (llama.cpp), {'полностью на GPU' if ngl >= 999 else ngl_desc}",
+                "speed_est": fit.get("tok_s_est") or 0,
+                "vram_alloc_mb": int(round((rec_row or {}).get("vram_gb", 0) * 1024)),
+                "ram_alloc_mb": int(round((rec_row or {}).get("ram_gb", 0) * 1024)),
+                "total_layers": layers_total,
+                "layers_vram": layers_vram_final,
+                "layers_ram": max(0, layers_total - layers_vram_final),
+                "layers_nvme": 0,
+                "native_avx2_us": bench_us,
+                "backend": "gguf",
+                "quant": sel["quant"],
+                "fit": {
+                    "params_b": fit.get("params_b"),
+                    "params_source": fit.get("params_source"),
+                    "verdict": fit.get("verdict"),
+                    "quant": fit.get("recommended"),
+                    "est_tok_s": fit.get("tok_s_est"),
+                    "backend": "gguf",
+                    "gguf_repo": repo_id
+                },
+                "loaded_at": time.time()
+            }
+            self.load_progress = {
+                "status": "ready",
+                "model_id": model_id,
+                "percent": 100,
+                "stage": "Готова к работе",
+                "curr_mb": total_mb,
+                "total_mb": total_mb,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Готово",
+                "message": f"Модель {model_id} активна и готова к работе (GGUF {sel['quant']})."
+            }
+            try:
+                with open(self.active_model_file, "w", encoding="utf-8") as f:
+                    json.dump({"model_id": model_id}, f, ensure_ascii=False)
+            except Exception:
+                pass
+        except Exception as e:
+            if seq_id != self._load_seq:
+                return
+            _fail("Ошибка загрузки GGUF", f"Сбой загрузки: {str(e)[:140]}")
     def load_model(self, model_id):
         if self.model is not None and self.current_loaded_id == model_id and self.status == "ready":
             return self.loaded_info
+        if self.gguf is not None and self.gguf.is_running() and self.gguf.model_id == model_id:
+            return self.loaded_info
         self.active_model_id = model_id
+        fit = self._fit_for(model_id)
+        # Honest pre-flight veto: never spawn a load thread for a model that
+        # mathematically cannot fit (this is what used to crash the app).
+        if fit is not None and fit.get("verdict") == "IMPOSSIBLE":
+            pres = self._verdict_presentation("IMPOSSIBLE")
+            msg = fit.get("message_ru") or "Модель не подходит под ваше железо."
+            mmap_note = fit.get("mmap_note") or ""
+            self.loaded_info = {
+                "model_id": model_id,
+                "tier": pres[0],
+                "tier_label": pres[1],
+                "color": pres[2],
+                "mode": "veto",
+                "speed_est": 0,
+                "vram_alloc_mb": 0,
+                "ram_alloc_mb": 0,
+                "total_layers": int(fit.get("layers") or 0),
+                "layers_vram": 0,
+                "layers_ram": int(fit.get("layers") or 0),
+                "layers_nvme": 0,
+                "fit": {
+                    "params_b": fit.get("params_b"),
+                    "params_source": fit.get("params_source"),
+                    "verdict": "IMPOSSIBLE",
+                    "quant": fit.get("recommended"),
+                    "est_tok_s": 0.0,
+                    "backend": "gguf"
+                },
+                "loaded_at": time.time()
+            }
+            self.status = "error"
+            self.load_progress = {
+                "status": "error",
+                "model_id": model_id,
+                "percent": 0,
+                "stage": "Модель не подходит",
+                "curr_mb": 0,
+                "total_mb": 0,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Ошибка",
+                "message": f"{msg} {mmap_note}".strip()
+            }
+            return self.loaded_info
         hw = get_hardware_profile()
         comp = evaluate_compatibility(model_id, hw)
         total_layers = 32
@@ -349,22 +705,74 @@ class ShardEngine:
             total_layers = 12
         layers_vram = min(total_layers, 28 if comp["tier"] == "PERFECT" else (14 if hw["vram_total_mb"] >= 4000 else 8))
         layers_ram = total_layers - layers_vram
-        bench_us = self.native_core.benchmark_avx2(1000)
-        self.loaded_info = {
-            "model_id": model_id,
-            "tier": comp["tier"],
-            "tier_label": comp["tier_label"],
-            "mode": comp["mode"],
-            "speed_est": comp["speed_est"],
-            "vram_alloc_mb": comp["vram_alloc_mb"],
-            "ram_alloc_mb": comp["ram_alloc_mb"],
-            "total_layers": total_layers,
-            "layers_vram": layers_vram,
-            "layers_ram": layers_ram,
-            "layers_nvme": 0,
-            "native_avx2_us": bench_us,
-            "loaded_at": time.time()
-        }
+        # Replace decorative numbers with real fit math when available.
+        fit_summary = None
+        if fit is not None:
+            pres = self._verdict_presentation(fit.get("verdict"))
+            rec_quant = fit.get("recommended")
+            rec_row = None
+            for r in fit.get("quants", []):
+                if r.get("quant") == rec_quant:
+                    rec_row = r
+                    break
+            total_layers = int(fit.get("layers") or total_layers)
+            verdict = fit.get("verdict")
+            if verdict == "GPU":
+                layers_vram = total_layers
+                layers_ram = 0
+            elif verdict == "HYBRID" and rec_row is not None:
+                layers_vram = min(total_layers, max(0, int(rec_row.get("ngl", 0) or 0)))
+                layers_ram = total_layers - layers_vram
+            fit_summary = {
+                "params_b": fit.get("params_b"),
+                "params_source": fit.get("params_source"),
+                "verdict": verdict,
+                "quant": rec_quant,
+                "est_tok_s": fit.get("tok_s_est"),
+                "backend": "gguf"
+            }
+            if rec_row is not None and verdict in ("GPU", "HYBRID"):
+                fit_summary["vram_gb"] = rec_row.get("vram_gb")
+                fit_summary["ram_gb"] = rec_row.get("ram_gb")
+            bench_us = self.native_core.benchmark_avx2(1000)
+            self.loaded_info = {
+                "model_id": model_id,
+                "tier": pres[0],
+                "tier_label": pres[1],
+                "mode": f"GGUF (llama.cpp), квант {rec_quant}",
+                "speed_est": fit.get("tok_s_est") or comp["speed_est"],
+                "vram_alloc_mb": int(round((rec_row or {}).get("vram_gb", 0) * 1024)),
+                "ram_alloc_mb": int(round((rec_row or {}).get("ram_gb", 0) * 1024)),
+                "total_layers": total_layers,
+                "layers_vram": layers_vram,
+                "layers_ram": layers_ram,
+                "layers_nvme": 0,
+                "native_avx2_us": bench_us,
+                "fit": fit_summary,
+                "loaded_at": time.time()
+            }
+        else:
+            bench_us = self.native_core.benchmark_avx2(1000)
+            self.loaded_info = {
+                "model_id": model_id,
+                "tier": comp["tier"],
+                "tier_label": comp["tier_label"],
+                "mode": comp["mode"],
+                "speed_est": comp["speed_est"],
+                "vram_alloc_mb": comp["vram_alloc_mb"],
+                "ram_alloc_mb": comp["ram_alloc_mb"],
+                "total_layers": total_layers,
+                "layers_vram": layers_vram,
+                "layers_ram": layers_ram,
+                "layers_nvme": 0,
+                "native_avx2_us": bench_us,
+                "loaded_at": time.time()
+            }
+        if self.gguf is not None and self.gguf.is_running() and self.gguf.model_id != model_id:
+            try:
+                self.gguf.stop()
+            except Exception:
+                pass
         if self.model is not None and self.current_loaded_id != model_id:
             self.model = None
             self.tokenizer = None
@@ -374,13 +782,23 @@ class ShardEngine:
             gc.collect()
         self._load_seq += 1
         seq_id = self._load_seq
-        t = threading.Thread(target=self._run_loader, args=(model_id, seq_id), daemon=True)
+        force_torch = os.environ.get("SHARD_FORCE_TORCH", "0") == "1"
+        use_gguf = (not force_torch) and fit is not None and (not fit.get("torch_gpu_ok")) and gguf_mod is not None
+        if use_gguf:
+            t = threading.Thread(target=self._run_loader_gguf, args=(model_id, seq_id, fit), daemon=True)
+        else:
+            t = threading.Thread(target=self._run_loader, args=(model_id, seq_id), daemon=True)
         t.start()
         return self.loaded_info
     def unload_model(self):
         self._cancel_load = True
         self._cancel_gen = True
         self._load_seq += 1
+        if self.gguf is not None:
+            try:
+                self.gguf.stop()
+            except Exception:
+                pass
         self.current_loaded_id = None
         self.model = None
         self.tokenizer = None
@@ -407,7 +825,8 @@ class ShardEngine:
     def generate_stream(self, messages, max_tokens=512, temperature=0.7):
         t0 = time.time()
         self._cancel_gen = False
-        if self.model is None and self.status == "idle" and self.active_model_id and _is_model_cached_complete(self.active_model_id):
+        gguf_ready = self.gguf is not None and self.gguf.is_running()
+        if self.model is None and not gguf_ready and self.status == "idle" and self.active_model_id and _is_model_cached_complete(self.active_model_id):
             self.load_model(self.active_model_id)
             wait_start = time.time()
             while self.status == "loading" and (time.time() - wait_start) < 25.0:
@@ -423,7 +842,10 @@ class ShardEngine:
             yield {"type": "content", "token": ans, "done": False}
             yield {"type": "done", "token": "", "done": True, "telemetry": {"thinking_seconds": 0.0, "total_seconds": 0.05, "tokens_per_sec": 0.0}, "usage": {"prompt_tokens": 1, "completion_tokens": len(ans.split()), "total_tokens": len(ans.split()) + 1}}
             return
-        if self.model is None or self.tokenizer is None:
+        if self.gguf is not None and self.gguf.is_running():
+            yield from self._generate_gguf(messages, max_tokens, temperature)
+            return
+        if self.gguf is None and (self.model is None or self.tokenizer is None):
             ans = "Модель еще не запущена в память. Откройте вкладку «Каталог Hugging Face» или «Подбор под Железо» и нажмите кнопку «Запустить» на выбранной модели."
             yield {"type": "content", "token": ans, "done": False}
             yield {"type": "done", "token": "", "done": True, "telemetry": {"thinking_seconds": 0.0, "total_seconds": 0.02, "tokens_per_sec": 0.0}, "usage": {"prompt_tokens": 1, "completion_tokens": len(ans.split()), "total_tokens": len(ans.split()) + 1}}
@@ -522,6 +944,84 @@ class ShardEngine:
                 "completion_tokens": token_count,
                 "total_tokens": prompt_tokens + token_count
             }
+        }
+    def _generate_gguf(self, messages, max_tokens=512, temperature=0.7):
+        """Streaming generation through the llama.cpp subprocess (GGUF path).
+
+        Mirrors generate_stream's telemetry and think-tag contract, but talks
+        to llama-server over its OpenAI-compatible SSE endpoint. The server
+        applies the model's chat template itself, so no prompt building here.
+        """
+        t0 = time.time()
+        self.status = "generating"
+        self._cancel_gen = False
+        think_duration = 0.0
+        t_think_start = time.time()
+        in_think_tag = False
+        token_count = 0
+        prompt_tokens = 1
+        usage = None
+        try:
+            for kind, payload in self.gguf.chat_stream(
+                messages, int(max_tokens), float(temperature),
+                cancel_check=lambda: self._cancel_gen
+            ):
+                chunk = payload or ""
+                if kind == "delta":
+                    if self._cancel_gen:
+                        break
+                    if not chunk:
+                        continue
+                    if "\u003cthink\u003e" in chunk:
+                        in_think_tag = True
+                        chunk = chunk.replace("\u003cthink\u003e", "")
+                    if "\u003c/think\u003e" in chunk:
+                        parts_t = chunk.split("\u003c/think\u003e", 1)
+                        if parts_t[0]:
+                            token_count += 1
+                            self.total_tokens_generated += 1
+                            yield {"type": "thought", "token": parts_t[0], "done": False}
+                        in_think_tag = False
+                        think_duration = round(time.time() - t_think_start, 2)
+                        chunk = parts_t[1]
+                    if not chunk:
+                        continue
+                    for stop_seq in ("\nuser:", "\u003c|im_end|\u003e", "\u003c|endoftext|\u003e"):
+                        if stop_seq in chunk:
+                            chunk = chunk.split(stop_seq)[0]
+                            self._cancel_gen = True
+                    if chunk:
+                        token_count += 1
+                        self.total_tokens_generated += 1
+                        yield {"type": "thought" if in_think_tag else "content", "token": chunk, "done": False}
+                elif kind == "error":
+                    yield {"type": "content", "token": f"[Ошибка инференса: {chunk}]", "done": False}
+                    break
+                elif kind == "usage":
+                    usage = payload if isinstance(payload, dict) else None
+        except Exception as e:
+            token_count = max(1, token_count)
+            yield {"type": "content", "token": f"\n[Ошибка инференса: {str(e)}]", "done": False}
+        total_duration = round(time.time() - t0, 2)
+        tokens_per_sec = round(token_count / max(0.05, total_duration), 1)
+        self.last_latency_ms = int(total_duration * 1000)
+        self.status = "ready" if (self.model is not None or (self.gguf is not None and self.gguf.is_running())) else "idle"
+        if usage is None:
+            usage = {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": token_count,
+                "total_tokens": prompt_tokens + token_count
+            }
+        yield {
+            "type": "done",
+            "token": "",
+            "done": True,
+            "telemetry": {
+                "thinking_seconds": think_duration,
+                "total_seconds": total_duration,
+                "tokens_per_sec": tokens_per_sec
+            },
+            "usage": usage
         }
     def generate_sync(self, messages, max_tokens=512, temperature=0.7):
         thought_chunks = []

@@ -185,6 +185,34 @@ main{flex:1;padding:24px 28px;max-width:1440px;margin:0 auto;width:100%;}
 <div id="modelModalBody" class="modal-body"></div>
 </div>
 </div>
+<div id="dirModalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeDirPicker()">
+<div class="modal-card" style="max-width:520px;">
+<div class="modal-header">
+<div>
+<div class="modal-title-row">
+<div class="modal-title">Папка загрузки моделей</div>
+</div>
+<div class="modal-author">Куда скачивать веса моделей (например, внешний SSD)</div>
+<div id="dirDiskInfo" class="modal-stats-bar"></div>
+</div>
+<div class="modal-actions">
+<button class="modal-close-btn" onclick="closeDirPicker()" title="Закрыть">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</button>
+</div>
+</div>
+<div class="modal-body" style="padding:18px 22px;">
+<label style="font-size:11px;letter-spacing:0.08em;color:var(--text-muted);display:block;margin-bottom:6px;">ПУТЬ К ПАПКЕ</label>
+<input type="text" id="dirPathInput" style="width:100%;background:#0a0d14;border:1px solid #1e2638;border-radius:6px;color:#e2e8f0;padding:9px 12px;font-size:12.5px;font-family:Consolas,monospace;outline:none;box-sizing:border-box;" placeholder="E:\shard-models" onkeydown="if(event.key==='Enter')saveModelsDir()">
+<div style="font-size:11px;color:var(--text-muted);margin:6px 0 14px;">Применится после перезапуска приложения. Папка будет создана автоматически.</div>
+<div id="dirDriveList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+<div style="display:flex;justify-content:space-between;gap:10px;">
+<button class="btn-action" onclick="resetModelsDir()" style="padding:7px 14px;font-size:12px;">Сбросить по умолчанию</button>
+<button class="btn-action active" onclick="saveModelsDir()" style="padding:7px 18px;font-size:12px;">Сохранить</button>
+</div>
+</div>
+</div>
+</div>
 <header>
 <div class="brand">
 <div class="brand-logo-icon">
@@ -261,6 +289,10 @@ API Ключи
 <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 <input type="text" id="searchInput" class="search-input" placeholder="Поиск среди 3 000 000+ открытых моделей (или точный ID: owner/model)..." oninput="handleSearchDebounced()" onkeyup="handleSearch(event)">
 </div>
+<button class="filter-btn" onclick="openDirPicker()" title="Куда скачивать модели (можно подключить внешний SSD)" style="gap:6px;white-space:nowrap;flex-shrink:0;">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+<span id="modelsDirLabel">Папка моделей</span>
+</button>
 <div class="filter-tabs">
 <button class="filter-btn active" onclick="setCategory('all', this)">Все</button>
 <button class="filter-btn" onclick="setCategory('coding', this)">Кодинг</button>
@@ -1085,7 +1117,7 @@ async function loadModels() {
             const desc = m.description || m.desc || '';
             const speed = m.speed_tier || (m.compatibility && m.compatibility.speed_est) || '18-32 ток/сек';
             const mem = m.memory_slot || (m.compatibility && m.compatibility.mode) || 'VRAM + RAM Hybrid';
-            const dCount = (typeof m.downloads === 'number') ? m.downloads.toLocaleString('ru-RU') : m.downloads;
+            const dCount = (typeof m.downloads === 'number') ? m.downloads.toLocaleString('ru-RU') : '—';
             const isLoadingThis = (isModelLoading && (loadingModelId === m.id || loadingModelId === m.id.split('/').pop()));
             const isActive = (m.id === activeModelId && !isModelLoading);
             const btnClass = isLoadingThis ? 'btn-action loading' : (isActive ? 'btn-action active' : 'btn-action');
@@ -1211,9 +1243,10 @@ async function openModelCard(modelId) {
     try {
         const res = await fetch('/api/hf/model/' + encodeURIComponent(modelId));
         const data = await res.json();
+        const dlSpan = (data.downloads != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ' + Number(data.downloads).toLocaleString('ru-RU') + ' скачиваний</span>' : '';
+        const likeSpan = (data.likes != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ' + Number(data.likes).toLocaleString('ru-RU') + ' лайков</span>' : '';
         statsEl.innerHTML = '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> ' + data.pipeline_tag + '</span>' +
-            '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ' + Number(data.downloads).toLocaleString('ru-RU') + ' скачиваний</span>' +
-            '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ' + Number(data.likes).toLocaleString('ru-RU') + ' лайков</span>' +
+            dlSpan + likeSpan +
             '<span class="spec-item" style="color:#10b981;font-weight:600;">' + (data.compatibility ? data.compatibility.tier_label : '') + '</span>';
         bodyEl.innerHTML = renderMarkdown(data.readme);
     } catch(e) {
@@ -1224,7 +1257,85 @@ function closeModelCard() {
     const backdrop = document.getElementById('modelModalBackdrop');
     if (backdrop) backdrop.style.display = 'none';
 }
-window.addEventListener('keydown', e => { if (e.key === 'Escape') closeModelCard(); });
+let _drivesCache = [];
+function openDirPicker() {
+    const backdrop = document.getElementById('dirModalBackdrop');
+    const input = document.getElementById('dirPathInput');
+    const listEl = document.getElementById('dirDriveList');
+    const diskEl = document.getElementById('dirDiskInfo');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+    input.value = '';
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Загрузка дисков...</div>';
+    diskEl.innerHTML = '';
+    fetch('/api/settings').then(r => r.json()).then(s => {
+        if (s.models_dir) input.value = s.models_dir;
+        const disk = s.disk || {};
+        diskEl.innerHTML = '<span class="spec-item">Свободно: ' + disk.free_gb + ' GB из ' + disk.total_gb + ' GB</span>' +
+            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + (s.is_custom ? 'CUSTOM' : 'ПО УМОЛЧАНИЮ') + '</span>';
+    }).catch(() => {});
+    fetch('/api/drives').then(r => r.json()).then(d => {
+        _drivesCache = (d && d.drives) || [];
+        listEl.innerHTML = _drivesCache.map((dr, i) =>
+            '<button class="filter-btn" onclick="pickDrive(' + i + ')" style="gap:6px;">' + dr.path +
+            '<span style="color:var(--text-muted);font-size:10px;">' + dr.free_gb + ' GB</span></button>'
+        ).join('') || '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
+    }).catch(() => {
+        listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
+    });
+}
+function pickDrive(i) {
+    const dr = (_drivesCache || [])[i];
+    const inp = document.getElementById('dirPathInput');
+    if (!dr || !inp) return;
+    const sep = String.fromCharCode(92);
+    inp.value = (dr.path.endsWith('/') || dr.path.endsWith(sep)) ? dr.path + 'shard-models' : dr.path + '/shard-models';
+}
+function closeDirPicker() {
+    const backdrop = document.getElementById('dirModalBackdrop');
+    if (backdrop) backdrop.style.display = 'none';
+}
+async function saveModelsDir() {
+    const path = ((document.getElementById('dirPathInput') || {}).value || '').trim();
+    if (!path) { showToast('Путь не указан', 'Введите путь к папке для моделей'); return; }
+    try {
+        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ models_dir: path }) });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 200) {
+            showToast('Папка сохранена', data.models_dir + ' — применится после перезапуска');
+            closeDirPicker();
+            refreshDirLabel();
+        } else {
+            showToast('Ошибка', data.message || 'Папка недоступна для записи');
+        }
+    } catch (e) {
+        showToast('Ошибка', 'Сервер недоступен');
+    }
+}
+async function resetModelsDir() {
+    try {
+        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: true }) });
+        if (res.status === 200) {
+            showToast('Папка сброшена', 'Вернётся стандартная папка после перезапуска');
+            document.getElementById('dirPathInput').value = '';
+            refreshDirLabel();
+        } else {
+            showToast('Ошибка', 'Сбой сброса');
+        }
+    } catch (e) {
+        showToast('Ошибка', 'Сервер недоступен');
+    }
+}
+function refreshDirLabel() {
+    fetch('/api/settings').then(r => r.json()).then(s => {
+        const el = document.getElementById('modelsDirLabel');
+        if (el && s.models_dir) {
+            el.textContent = s.models_dir.length > 24 ? '…' + s.models_dir.slice(-23) : s.models_dir;
+            el.parentElement.title = 'Загрузка моделей: ' + s.models_dir;
+        }
+    }).catch(() => {});
+}
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeDirPicker(); });
 async function loadModel(modelId) {
     isModelLoading = true;
     loadingModelId = modelId;
@@ -1632,6 +1743,7 @@ window.onload = function() {
     fetchHardware();
     loadKeys();
     loadModels();
+    refreshDirLabel();
     updateGuide();
     initChatSessions();
     setPollRate(5000);

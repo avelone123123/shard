@@ -1,481 +1,439 @@
-import math
+"""Tests for shard: fit advisor, GGUF selection, settings, module compile.
+
+All expected values below were verified empirically against the live module
+(scratch runs on Python 3.14, Windows). Run with:
+
+    python -m unittest tests_shard.py
+"""
+import json
 import os
+import py_compile
+import shutil
+import sys
 import tempfile
 import unittest
-from hardware import estimate_model_params, evaluate_compatibility, get_hardware_profile
-from hf_hub import CURATED_MODELS, browse_models, fetch_model_metadata
-from shard_bridge import ShardNativeBridge
-class ShardKernelAndRuntimeSuite(unittest.TestCase):
+
+REPO = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, REPO)
+
+# settings.py reads SHARD_DATA_DIR at import time -> must be set first
+_TMP_DATA = tempfile.mkdtemp(prefix="shard_test_data_")
+os.environ["SHARD_DATA_DIR"] = _TMP_DATA
+
+import fit  # noqa: E402
+import gguf_backend as g  # noqa: E402
+import settings  # noqa: E402
+
+
+# ---------------------------------------------------------------------------
+# quant names
+# ---------------------------------------------------------------------------
+class TestQuantNames(unittest.TestCase):
+    def test_parse_iq_quants(self):
+        # IQ files were silently skipped before the _QUANT_RE fix
+        self.assertEqual(g.parse_quant_from_name("model-IQ4_XS.gguf"), "IQ4_XS")
+        self.assertEqual(g.parse_quant_from_name("model-iq4_xs.gguf"), "IQ4_XS")
+        self.assertEqual(g.parse_quant_from_name("model-IQ4_NL.gguf"), "IQ4_NL")
+        self.assertEqual(g.parse_quant_from_name("model-IQ2_M.gguf"), "IQ2_M")
+        self.assertEqual(g.parse_quant_from_name("model-IQ1_S.gguf"), "IQ1_S")
+
+    def test_parse_rejects_non_quant(self):
+        self.assertIsNone(g.parse_quant_from_name("model-q4.gguf"))
+        self.assertIsNone(g.parse_quant_from_name("Qwen2.5-7B-Instruct.gguf"))
+
+    def test_parse_standard(self):
+        self.assertEqual(g.parse_quant_from_name("model-Q8_0.gguf"), "Q8_0")
+        self.assertEqual(g.parse_quant_from_name("model-Q6_K.gguf"), "Q6_K")
+        self.assertEqual(g.parse_quant_from_name("model-Q2_K_S.gguf"), "Q2_K_S")
+        self.assertEqual(g.parse_quant_from_name("model-Q4_K_M.gguf"), "Q4_K_M")
+        self.assertEqual(
+            g.parse_quant_from_name("model-Q5_K_M-00001-of-00003.gguf"), "Q5_K_M")
+
+    def test_parse_float16_names(self):
+        self.assertEqual(g.parse_quant_from_name("model-F16.gguf"), "F16")
+        self.assertEqual(g.parse_quant_from_name("model-bf16.gguf"), "F16")
+        self.assertEqual(g.parse_quant_from_name("model.f16.gguf"), "F16")
+
+    def test_normalize(self):
+        self.assertEqual(g.normalize_quant("q4-k-m"), "Q4_K_M")
+        self.assertEqual(g.normalize_quant("Q4KM"), "Q4_K_M")
+        self.assertEqual(g.normalize_quant("Q4_K_M"), "Q4_K_M")
+        self.assertEqual(g.normalize_quant(" q5_k_m "), "Q5_K_M")
+        self.assertIsNone(g.normalize_quant("garbage"))
+        self.assertIsNone(g.normalize_quant(""))
+        self.assertIsNone(g.normalize_quant(None))
+
+
+# ---------------------------------------------------------------------------
+# parameter / KV-cache math
+# ---------------------------------------------------------------------------
+class TestParams(unittest.TestCase):
+    QWEN3B = {"hidden_size": 2048, "num_hidden_layers": 36,
+              "num_attention_heads": 16, "num_key_value_heads": 2,
+              "head_dim": 128, "intermediate_size": 11008,
+              "vocab_size": 152064, "tie_word_embeddings": True}
+
+    def test_tied_vs_untied(self):
+        self.assertEqual(fit.params_from_config(self.QWEN3B), (3.09, "config"))
+        untied = dict(self.QWEN3B, tie_word_embeddings=False)
+        self.assertEqual(fit.params_from_config(untied), (3.4, "config"))
+
+    def test_gemma9(self):
+        cfg = {"hidden_size": 3584, "num_hidden_layers": 42,
+               "num_attention_heads": 16, "num_key_value_heads": 8,
+               "head_dim": 256, "intermediate_size": 14336,
+               "vocab_size": 256000, "tie_word_embeddings": True}
+        self.assertEqual(fit.params_from_config(cfg), (9.24, "config"))
+
+    def test_moe_counts_experts(self):
+        cfg = {"hidden_size": 2048, "num_hidden_layers": 1,
+               "num_attention_heads": 16, "head_dim": 128,
+               "intermediate_size": 1408, "num_local_experts": 8,
+               "shared_expert_intermediate_size": 1408,
+               "vocab_size": 1000, "tie_word_embeddings": True}
+        self.assertEqual(fit.params_from_config(cfg), (0.1, "config"))
+
+    def test_defaults_fill_missing(self):
+        cfg = {"hidden_size": 1024, "num_hidden_layers": 8,
+               "num_attention_heads": 8, "intermediate_size": 2752,
+               "vocab_size": 4096}
+        self.assertEqual(fit.params_from_config(cfg), (0.11, "config"))
+
+    def test_raises_without_essentials(self):
+        for bad in ({}, {"hidden_size": 2048, "num_attention_heads": 16}):
+            with self.assertRaises(ValueError):
+                fit.params_from_config(bad)
+
+
+class TestKVCache(unittest.TestCase):
+    CFG = {"hidden_size": 1024, "num_hidden_layers": 28,
+           "num_attention_heads": 16, "num_key_value_heads": 8, "head_dim": 128}
+
+    def test_qwen06_ctx4096(self):
+        self.assertEqual(fit.kv_cache_bytes_from_config(self.CFG, 4096),
+                         469762048)
+
+    def test_tiny_ctx(self):
+        self.assertEqual(fit.kv_cache_bytes_from_config(self.CFG, 10), 29360128)
+
+    def test_empty_config(self):
+        self.assertEqual(fit.kv_cache_bytes_from_config({}, 4096), 0)
+
+
+# ---------------------------------------------------------------------------
+# bandwidth model
+# ---------------------------------------------------------------------------
+class TestEst(unittest.TestCase):
+    def test_pure_gpu(self):
+        self.assertEqual(fit.est_tok_s(1e9, 0), 90.0)
+
+    def test_hybrid(self):
+        self.assertEqual(fit.est_tok_s(0.5e9, 0.5e9), 55.4)
+
+    def test_disk_stream(self):
+        self.assertEqual(fit.est_tok_s(0, 0, 2.5e9), 1.0)
+        self.assertEqual(fit.est_tok_s(0, 0, 0), 0.0)
+
+    def test_quant_size_bytes(self):
+        self.assertEqual(fit.quant_size_bytes(1.0, 8.0), 1e9)
+
+
+class TestPlanQuant(unittest.TestCase):
+    CFG10 = {"num_hidden_layers": 10}
+
+    def test_gpu_full_fit(self):
+        p = fit._plan_quant(1.0, self.CFG10, 0, 8.0, 2e9, 1e9)
+        self.assertEqual(p["verdict"], "GPU")
+        self.assertEqual(p["ngl"], 999)
+        self.assertEqual(p["tok_s"], 90.0)
+
+    def test_hybrid_split(self):
+        p = fit._plan_quant(1.0, self.CFG10, 0, 8.0, 0.5e9, 1e9)
+        self.assertEqual(p["verdict"], "HYBRID")
+        self.assertEqual(p["ngl"], 5)
+        self.assertAlmostEqual(p["vram_gb"], 0.5, places=2)
+        self.assertAlmostEqual(p["ram_gb"], 0.5, places=2)
+        self.assertEqual(p["tok_s"], 55.4)
+
+    def test_impossible_by_ram(self):
+        p = fit._plan_quant(1.0, self.CFG10, 0, 8.0, 0.5e9, 0.1e9)
+        self.assertEqual(p["verdict"], "IMPOSSIBLE")
+        self.assertAlmostEqual(p["ram_gb"], 0.5, places=2)
+
+    def test_impossible_tiny_vram(self):
+        p = fit._plan_quant(1.0, self.CFG10, 0, 8.0, 5e7, 1e9)
+        self.assertEqual(p["verdict"], "IMPOSSIBLE")
+        self.assertAlmostEqual(p["ram_gb"], 1.0, places=2)
+
+    def test_hybrid_with_kv(self):
+        p = fit._plan_quant(1.0, self.CFG10, 100e6, 8.0, 5e8, 1e9)
+        self.assertEqual(p["verdict"], "HYBRID")
+        self.assertEqual(p["ngl"], 4)
+        self.assertAlmostEqual(p["vram_gb"], 0.44, places=2)
+        self.assertAlmostEqual(p["ram_gb"], 0.66, places=2)
+        self.assertEqual(p["tok_s"], 46.8)
+        self.assertAlmostEqual(p["total_gb"], 1.1, places=2)
+
+
+class TestBudgets(unittest.TestCase):
+    def test_mb_to_bytes(self):
+        self.assertEqual(
+            fit._budgets({"vram_free_mb": 3500, "ram_avail_mb": 12000}),
+            (3250585600, 10435428352))
+
+    def test_negative_clamped(self):
+        self.assertEqual(
+            fit._budgets({"vram_free_mb": -5, "ram_avail_mb": -5}), (0, 0))
+
+
+class TestFallbackCfg(unittest.TestCase):
+    def test_27b_fields(self):
+        cfg, src = fit._fallback_cfg("x/27b", 27.0, 4096)
+        self.assertEqual(src, "name-regex")
+        self.assertEqual(cfg["hidden_size"], 4096)
+        self.assertEqual(cfg["num_hidden_layers"], 64)
+        self.assertEqual(cfg["num_attention_heads"], 32)
+        self.assertEqual(cfg["num_key_value_heads"], 32)
+        self.assertEqual(cfg["intermediate_size"], 21708)
+        self.assertEqual(cfg["vocab_size"], 32000)
+        self.assertTrue(cfg["tie_word_embeddings"])
+
+    def test_small_models(self):
+        c03, _ = fit._fallback_cfg("x/0.3b", 0.3, 4096)
+        self.assertEqual((c03["hidden_size"], c03["num_hidden_layers"],
+                          c03["num_attention_heads"]), (768, 24, 6))
+        c2, _ = fit._fallback_cfg("x/2b", 2.0, 4096)
+        self.assertEqual((c2["hidden_size"], c2["num_hidden_layers"]),
+                         (2048, 36))
+
+
+# ---------------------------------------------------------------------------
+# fit_report integration (fetch=False, no network)
+# ---------------------------------------------------------------------------
+HW_OK = {"vram_free_mb": 8000, "ram_avail_mb": 16000, "vram_total_mb": 8192,
+         "ram_total_mb": 16384, "gpu_name": "RTX 3060", "disk_free_gb": 200.0}
+
+
+class TestFitReport(unittest.TestCase):
+    def test_gpu_full_fit(self):
+        r = fit.fit_report("tiny-360m-gpu-fit", hw=HW_OK, ctx_tokens=4096,
+                           fetch=False)
+        self.assertEqual(r["params_b"], 0.35)
+        self.assertEqual(r["layers"], 24)
+        self.assertAlmostEqual(r["fp16_gb"], 1.0, places=2)
+        self.assertAlmostEqual(r["kv_gb"], 0.3, places=2)
+        self.assertEqual(r["verdict"], "GPU")
+        self.assertEqual(r["recommended"], "Q8_0")
+        self.assertEqual(r["ngl"], 999)
+        self.assertEqual(r["tok_s_est"], 133.6)
+        self.assertAlmostEqual(r["gguf_size_gb"], 0.37, places=2)
+        self.assertTrue(r["disk_ok"])
+        self.assertIn("полностью помещается", r["message_ru"])
+        self.assertIn("KV-кэш", r["message_ru"])
+
+    def test_hybrid(self):
+        r = fit.fit_report("test/phi-4", hw=HW_OK, ctx_tokens=4096, fetch=False)
+        self.assertEqual(r["params_b"], 14.0)
+        self.assertEqual(r["verdict"], "HYBRID")
+        self.assertEqual(r["recommended"], "Q2_K")
+        self.assertEqual(r["ngl"], 44)
+        self.assertEqual(r["tok_s_est"], 9.5)
+        self.assertAlmostEqual(r["gguf_size_gb"], 5.34, places=2)
+        self.assertAlmostEqual(r["kv_gb"], 3.22, places=2)
+        self.assertIn("гибрид", r["message_ru"])
+        rows = {q["quant"]: q for q in r["quants"]}
+        self.assertEqual((rows["Q8_0"]["ngl"], rows["Q8_0"]["tok_s"],
+                          rows["Q8_0"]["ram_gb"]), (21, 2.9, 10.18))
+        self.assertEqual((rows["Q2_K"]["ngl"], rows["Q2_K"]["tok_s"],
+                          rows["Q2_K"]["ram_gb"]), (44, 9.5, 0.71))
+
+    def test_disk_veto(self):
+        hw = dict(HW_OK, disk_free_gb=1.0)
+        r = fit.fit_report("test/phi-4-disk-veto", hw=hw, ctx_tokens=4096,
+                           fetch=False)
+        self.assertEqual(r["verdict"], "IMPOSSIBLE")
+        self.assertEqual(r["recommended"], "Q2_K")
+        self.assertEqual(r["ngl"], 0)
+        self.assertEqual(r["tok_s_est"], 0.0)
+        self.assertIsNone(r["gguf_size_gb"])
+        self.assertFalse(r["disk_ok"])
+        self.assertIn("НЕ ЗАПУСТИТСЯ", r["message_ru"])
+        self.assertNotIn("KV-кэш", r["message_ru"])
+        self.assertIn("SSD", r["mmap_note"])
+
+    def test_impossible_rtx2050_27b(self):
+        hw = {"vram_free_mb": 3500, "ram_avail_mb": 12000,
+              "vram_total_mb": 4096, "ram_total_mb": 12288,
+              "gpu_name": "RTX 2050", "disk_free_gb": 200.0}
+        r = fit.fit_report("google/gemma-2-27b-it", hw=hw, ctx_tokens=4096,
+                           fetch=False)
+        self.assertEqual(r["params_b"], 27.0)
+        self.assertEqual(r["params_source"], "name-regex")
+        self.assertEqual(r["layers"], 64)
+        self.assertAlmostEqual(r["fp16_gb"], 58.29, places=2)
+        self.assertAlmostEqual(r["kv_gb"], 4.29, places=2)
+        self.assertEqual(r["verdict"], "IMPOSSIBLE")
+        self.assertEqual(r["recommended"], "Q2_K")
+        self.assertEqual(r["ngl"], 0)
+        self.assertEqual(r["tok_s_est"], 0.0)
+        self.assertIsNone(r["gguf_size_gb"])
+        self.assertTrue(r["disk_ok"])
+        self.assertIn("SSD", r["mmap_note"])
+        self.assertIn("~0.0 ток/с", r["mmap_note"])
+        self.assertIn("НЕ ЗАПУСТИТСЯ", r["message_ru"])
+
+
+# ---------------------------------------------------------------------------
+# ngl mapping
+# ---------------------------------------------------------------------------
+class TestComputeNgl(unittest.TestCase):
+    def test_gpu_full(self):
+        self.assertEqual(g.compute_ngl("GPU", 0), 999)
+
+    def test_hybrid(self):
+        self.assertEqual(g.compute_ngl("HYBRID", 44), 44)
+        self.assertEqual(g.compute_ngl("HYBRID", -3), 0)
+
+    def test_other_zero(self):
+        self.assertEqual(g.compute_ngl("IMPOSSIBLE", 5), 0)
+
+
+# ---------------------------------------------------------------------------
+# GGUF file selection
+# ---------------------------------------------------------------------------
+class TestSelectGguf(unittest.TestCase):
+    MULTI = [("dir/model-Q4_K_M-00001-of-00003.gguf", 300),
+             ("dir/model-Q4_K_M-00002-of-00003.gguf", 300),
+             ("dir/model-Q4_K_M-00003-of-00003.gguf", 300)]
+
+    def test_multipart_grouping(self):
+        r = g.select_gguf_file(self.MULTI)
+        self.assertEqual(r["quant"], "Q4_K_M")
+        self.assertEqual(r["size_bytes"], 900)
+        self.assertTrue(r["multipart"])
+        self.assertEqual(len(r["parts"]), 3)
+        self.assertEqual(r["path"], "dir/model-Q4_K_M-00001-of-00003.gguf")
+
+    def test_wanted_exact(self):
+        r = g.select_gguf_file(self.MULTI, wanted_quant="Q4_K_M")
+        self.assertEqual(r["quant"], "Q4_K_M")
+        self.assertEqual(r["size_bytes"], 900)
+
+    def test_wanted_falls_to_smaller(self):
+        two = [("m-Q4_K_M.gguf", 485), ("m-Q8_0.gguf", 850)]
+        r = g.select_gguf_file(two, wanted_quant="Q5_K_M")
+        self.assertEqual(r["quant"], "Q4_K_M")
+
+    def test_wanted_smaller_not_available(self):
+        r = g.select_gguf_file([("m-Q8_0.gguf", 850)], wanted_quant="Q2_K")
+        self.assertEqual(r["quant"], "Q8_0")
+
+    def test_prefer_max_bpw(self):
+        two = [("m-Q4_K_M.gguf", 485), ("m-Q8_0.gguf", 850)]
+        self.assertEqual(
+            g.select_gguf_file(two, prefer_max_bpw=5.0)["quant"], "Q4_K_M")
+        # 1.0 fits nothing -> plain best-quant fall-through
+        self.assertEqual(
+            g.select_gguf_file(two, prefer_max_bpw=1.0)["quant"], "Q8_0")
+
+    def test_prefer_single_over_multipart(self):
+        mix = [("big-Q8_0-00001-of-00002.gguf", 400),
+               ("big-Q8_0-00002-of-00002.gguf", 400), ("s-Q8_0.gguf", 800)]
+        r = g.select_gguf_file(mix)
+        self.assertEqual(r["path"], "s-Q8_0.gguf")
+        self.assertFalse(r["multipart"])
+
+    def test_multipart_best_wins_without_single_same_quant(self):
+        mix = [("big-Q8_0-00001-of-00002.gguf", 400),
+               ("big-Q8_0-00002-of-00002.gguf", 400), ("s-Q4_K_M.gguf", 485)]
+        r = g.select_gguf_file(mix)
+        self.assertTrue(r["multipart"])
+        self.assertEqual(r["size_bytes"], 800)
+        self.assertEqual(len(r["parts"]), 2)
+
+    def test_empty_and_unparseable(self):
+        self.assertIsNone(g.select_gguf_file([]))
+        self.assertIsNone(g.select_gguf_file(
+            [("Qwen2.5-7B-Instruct.gguf", 100), ("model-q4.gguf", 100)]))
+
+    def test_nonfirst_parts_only(self):
+        self.assertIsNone(g.select_gguf_file(
+            [("dir/m-00002-of-00003.gguf", 300), ("dir/m-00003-of-00003.gguf", 300)]))
+
+
+# ---------------------------------------------------------------------------
+# settings (custom models dir)
+# ---------------------------------------------------------------------------
+class TestSettings(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.bridge = ShardNativeBridge()
-    def test_01_native_dll_loaded(self):
-        self.assertTrue(self.bridge.is_native_active)
-        self.assertIn("Shard Native Core", self.bridge.version)
-    def test_02_kernel_registry_populated(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 16)
-        ids = self.bridge.kernel_ids()
-        self.assertIn("KRN-001", ids)
-        self.assertIn("KRN-016", ids)
-    def test_03_dot_product_avx2_standard(self):
-        a = [float(i + 1) * 0.25 for i in range(67)]
-        b = [float(70 - i) * 0.1 for i in range(67)]
-        ref = sum(x * y for x, y in zip(a, b))
-        got = self.bridge.dot_product(a, b, fast=False)
-        self.assertAlmostEqual(got, ref, places=2)
-    def test_04_dot_product_unroll8_dual_stream(self):
-        a = [float((i % 19) - 9) * 0.15 for i in range(133)]
-        b = [float((i % 13) - 6) * 0.22 for i in range(133)]
-        ref = sum(x * y for x, y in zip(a, b))
-        got = self.bridge.dot_product(a, b, fast=True)
-        self.assertAlmostEqual(got, ref, places=2)
-    def test_05_scale_vector_avx2(self):
-        v = [float(i) - 10.0 for i in range(37)]
-        out = self.bridge.scale_vector(v, 2.5)
-        for g, x in zip(out, v):
-            self.assertAlmostEqual(g, x * 2.5, places=4)
-    def test_06_rmsnorm_f32_affine(self):
-        x = [0.2 * (i + 1) for i in range(33)]
-        w = [1.5 for _ in range(33)]
-        out = self.bridge.rmsnorm(x, w, eps=1e-5)
-        rms = 1.0 / math.sqrt(sum(v * v for v in x) / len(x) + 1e-5)
-        for g, v in zip(out, x):
-            self.assertAlmostEqual(g, v * rms * 1.5, places=3)
-    def test_07_layernorm_f32_zero_mean(self):
-        x = [float(i * 2 - 15) for i in range(35)]
-        g = [1.0 for _ in range(35)]
-        b = [0.0 for _ in range(35)]
-        out = self.bridge.layernorm(x, g, b, eps=1e-5)
-        self.assertAlmostEqual(sum(out) / len(out), 0.0, places=3)
-    def test_08_swiglu_fused_gate(self):
-        gate = [-1.0, 0.0, 1.0, 2.0, 0.5, -0.5, 1.5, -1.5, 0.25]
-        up = [2.0 for _ in gate]
-        out = self.bridge.swiglu(gate, up)
-        for o, g in zip(out, gate):
-            ref = (g / (1.0 + math.exp(-g))) * 2.0
-            self.assertAlmostEqual(o, ref, places=4)
-    def test_09_vec_add_masm_avx2(self):
-        a = [float(i) for i in range(45)]
-        b = [float(100 - i) for i in range(45)]
-        out = self.bridge.vec_add(a, b)
-        self.assertTrue(all(abs(v - 100.0) < 1e-4 for v in out))
-    def test_10_hadamard_masm_avx2(self):
-        a = [float(i + 1) for i in range(29)]
-        b = [0.5 for _ in range(29)]
-        out = self.bridge.hadamard(a, b)
-        for o, x in zip(out, a):
-            self.assertAlmostEqual(o, x * 0.5, places=4)
-    def test_11_axpy_masm_avx2(self):
-        x = [2.0 for _ in range(41)]
-        y = [3.0 for _ in range(41)]
-        out = self.bridge.axpy(x, y, 4.0)
-        self.assertTrue(all(abs(v - 11.0) < 1e-4 for v in out))
-    def test_12_silu_activation(self):
-        x = [-2.0, -0.5, 0.0, 0.5, 2.0]
-        out = self.bridge.silu(x)
-        self.assertAlmostEqual(out[2], 0.0, places=5)
-        self.assertGreater(out[4], 1.7)
-    def test_13_gelu_activation(self):
-        x = [-3.0, 0.0, 1.0, 3.0]
-        out = self.bridge.gelu(x)
-        self.assertAlmostEqual(out[1], 0.0, places=5)
-        self.assertGreater(out[2], 0.8)
-    def test_14_softmax_numerical_stability(self):
-        logits = [1000.0, 1001.0, 1002.0, 999.0, 998.0, 1000.5, 997.0, 1001.5, 1000.2]
-        probs = self.bridge.softmax(logits)
-        self.assertAlmostEqual(sum(probs), 1.0, places=4)
-        self.assertEqual(probs.index(max(probs)), 2)
-    def test_15_rope_norm_preservation(self):
-        vec = [0.6, 0.8, -0.5, 1.2, 0.3, -0.4, 1.0, 0.0]
-        rot = self.bridge.rope(vec, pos=11, theta=10000.0)
-        orig_norm = sum(v * v for v in vec)
-        rot_norm = sum(v * v for v in rot)
-        self.assertAlmostEqual(orig_norm, rot_norm, places=3)
-    def test_16_cosine_similarity_identical_and_orthogonal(self):
-        v1 = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
-        self.assertAlmostEqual(self.bridge.cosine_sim(v1, v1), 1.0, places=4)
-        o1 = [1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0]
-        o2 = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0]
-        self.assertAlmostEqual(self.bridge.cosine_sim(o1, o2), 0.0, places=4)
-    def test_17_dequant_q4_nibble_unpack(self):
-        raw = bytes([0x98] * 10)
-        out = self.bridge.dequant_q4(raw, scale=0.5)
-        self.assertEqual(len(out), 20)
-        self.assertAlmostEqual(out[0], 0.0, places=4)
-        self.assertAlmostEqual(out[1], 0.5, places=4)
-    def test_18_dequant_q8_avx2_unpack(self):
-        raw = bytes([10, 20, 30, 40, 50, 60, 70, 80, 90])
-        out = self.bridge.dequant_q8(raw, scale=0.1)
-        self.assertAlmostEqual(out[0], 1.0, places=4)
-        self.assertAlmostEqual(out[8], 9.0, places=4)
-    def test_19_win32_mmap_zero_copy_roundtrip(self):
-        with tempfile.NamedTemporaryFile(delete=False) as tf:
-            tf.write(b"SHARD_MMAP_TEST_PAYLOAD_2026" * 64)
-            tpath = tf.name
+        cls.custom = os.path.join(_TMP_DATA, "models_custom")
+        os.makedirs(cls.custom, exist_ok=True)
+
+    @classmethod
+    def tearDownClass(cls):
         try:
-            ptr, sz = self.bridge.mmap_open_file(tpath)
-            self.assertIsNotNone(ptr)
-            self.assertEqual(sz, len(b"SHARD_MMAP_TEST_PAYLOAD_2026") * 64)
-            closed = self.bridge.mmap_close_view(ptr)
-            self.assertTrue(closed)
-        finally:
-            if os.path.exists(tpath):
-                os.remove(tpath)
-    def test_20_hardware_tier_matrix(self):
-        hw_high = {"vram_total_mb": 24576, "ram_total_mb": 65536}
-        c_perf = evaluate_compatibility("Qwen/Qwen2.5-Coder-7B-Instruct", hw_high)
-        self.assertEqual(c_perf["tier"], "PERFECT")
-        hw_low = {"vram_total_mb": 2048, "ram_total_mb": 8192}
-        c_nvme = evaluate_compatibility("meta-llama/Llama-3.3-70B-Instruct", hw_low)
-        self.assertEqual(c_nvme["tier"], "NVME_STREAM")
-    def test_21_model_param_estimator(self):
-        self.assertEqual(estimate_model_params("Qwen/Qwen2.5-Coder-32B-Instruct"), 32.0)
-        self.assertEqual(estimate_model_params("HuggingFaceTB/SmolLM2-360M-Instruct"), 0.35)
-    def test_22_curated_catalog_and_metadata(self):
-        self.assertGreaterEqual(len(CURATED_MODELS), 25)
-        hw = get_hardware_profile()
-        meta = fetch_model_metadata("Qwen/Qwen2.5-Coder-7B-Instruct", hw)
-        self.assertEqual(meta["author"], "Qwen")
-    def test_krn_017_hf_metadata_tier_hydration(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 17)
-        self.assertIn("KRN-017", self.bridge.kernel_ids())
-        self.assertIn('compatibility', fetch_model_metadata('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', {'vram_total_mb': 12288, 'ram_total_mb': 32768}))
-    def test_krn_018_desktop_studio_binaries_present(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 18)
-        self.assertIn("KRN-018", self.bridge.kernel_ids())
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.assertTrue(os.path.exists(os.path.join(base_dir, "shard-native.exe")))
-        self.assertTrue(os.path.exists(os.path.join(base_dir, "shard.exe")))
-    def test_23_decimal_param_estimator_precision(self):
-        self.assertEqual(estimate_model_params("Qwen/Qwen3-0.6B"), 0.6)
-        self.assertEqual(estimate_model_params("Qwen/Qwen2.5-Coder-1.5B-Instruct"), 1.5)
-        self.assertEqual(estimate_model_params("openai-community/gpt2"), 0.15)
-        comp_4gb = evaluate_compatibility("Qwen/Qwen3-0.6B", {"vram_total_mb": 4096, "ram_total_mb": 8192})
-        self.assertEqual(comp_4gb["tier"], "PERFECT")
-    def test_24_ideal_hardware_catalog_filter(self):
-        hw_4gb = {"vram_total_mb": 4096, "ram_total_mb": 8192}
-        ideal = browse_models(category="ideal", hw=hw_4gb)
-        self.assertGreater(len(ideal), 0)
-        self.assertEqual(ideal[0]["compatibility"]["tier"], "PERFECT")
-    def test_krn_019_tiled_gemv_unroll32(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 19)
-        self.assertIn("KRN-019", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dot_product([0.5]*99, [2.0]*99, fast=True), 99.0, places=3)
-    def test_krn_020_tiled_gemv_unroll32(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 20)
-        self.assertIn("KRN-020", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dot_product([0.5]*99, [2.0]*99, fast=True), 99.0, places=3)
-    def test_krn_021_q4_nibble_scale_symmetry(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 21)
-        self.assertIn("KRN-021", self.bridge.kernel_ids())
-        self.assertEqual(len(self.bridge.dequant_q4(bytes([0x88]*16), scale=0.25)), 32)
-    def test_krn_022_q8_signed_avx2_widening(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 22)
-        self.assertIn("KRN-022", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dequant_q8(bytes([256 - 4]*8), scale=0.5)[0], -2.0, places=4)
-    def test_krn_023_rmsnorm_epsilon_floor_guard(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 23)
-        self.assertIn("KRN-023", self.bridge.kernel_ids())
-        self.assertTrue(all(abs(v) < 1e-4 for v in self.bridge.rmsnorm([0.0]*16, [1.0]*16, eps=1e-5)))
-    def test_krn_024_layernorm_affine_shift_invariance(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 24)
-        self.assertIn("KRN-024", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.layernorm([101.0, 102.0, 103.0, 104.0])[0], self.bridge.layernorm([1.0, 2.0, 3.0, 4.0])[0], places=3)
-    def test_krn_025_softmax_overflow_logit_clamp(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 25)
-        self.assertIn("KRN-025", self.bridge.kernel_ids())
-        self.assertAlmostEqual(sum(self.bridge.softmax([5000.0, 5001.0, 4999.0, 5000.5])), 1.0, places=4)
-    def test_krn_026_rope_zero_position_identity(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 26)
-        self.assertIn("KRN-026", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.rope([1.25, -0.75, 0.5, 2.0], pos=0)[1], -0.75, places=5)
-    def test_krn_027_swiglu_hadamard_gate_fusion(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 27)
-        self.assertIn("KRN-027", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.swiglu([0.0]*16, [3.0]*16)[0], 0.0, places=5)
-    def test_krn_028_residual_axpy_scale_accumulation(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 28)
-        self.assertIn("KRN-028", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.axpy([4.0]*17, [1.5]*17, 0.25)[16], 2.5, places=4)
-    def test_krn_029_cosine_rag_antiparallel_bound(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 29)
-        self.assertIn("KRN-029", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.cosine_sim([1.0, -2.0, 3.0], [-1.0, 2.0, -3.0]), -1.0, places=4)
-    def test_krn_030_hadamard_elementwise_masking(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 30)
-        self.assertIn("KRN-030", self.bridge.kernel_ids())
-        self.assertEqual(self.bridge.hadamard([5.0, 6.0, 7.0, 8.0], [1.0, 0.0, 1.0, 0.0]), [5.0, 0.0, 7.0, 0.0])
-    def test_krn_031_fast_scale_inverse_temperature(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 31)
-        self.assertIn("KRN-031", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.scale_vector([2.0]*19, 0.5)[18], 1.0, places=5)
-    def test_krn_032_silu_negative_asymptote_decay(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 32)
-        self.assertIn("KRN-032", self.bridge.kernel_ids())
-        self.assertLess(abs(self.bridge.silu([-12.0])[0]), 1e-3)
-    def test_krn_033_gelu_cubic_odd_symmetry_bound(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 33)
-        self.assertIn("KRN-033", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.gelu([4.0])[0], 4.0, places=2)
-    def test_krn_034_hybrid_vram_ram_tier_partition(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 34)
-        self.assertIn("KRN-034", self.bridge.kernel_ids())
-        self.assertEqual(evaluate_compatibility('Qwen/Qwen2.5-Coder-14B-Instruct', {'vram_total_mb': 8192, 'ram_total_mb': 32768})['tier'], 'RECOMMENDED')
-    def test_krn_035_moe_70b_param_budget_estimator(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 35)
-        self.assertIn("KRN-035", self.bridge.kernel_ids())
-        self.assertEqual(estimate_model_params('meta-llama/Llama-3.1-405B-Instruct'), 405.0)
-    def test_krn_036_vec_add_4k_hidden_dimension(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 36)
-        self.assertIn("KRN-036", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.vec_add([1.25]*4096, [2.75]*4096)[4095], 4.0, places=5)
-    def test_krn_037_dot_standard_vs_unroll8_parity(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 37)
-        self.assertIn("KRN-037", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dot_product([0.3]*257, [0.7]*257, fast=True), self.bridge.dot_product([0.3]*257, [0.7]*257, fast=False), places=2)
-    def test_krn_038_mmap_missing_file_null_guard(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 38)
-        self.assertIn("KRN-038", self.bridge.kernel_ids())
-        self.assertEqual(self.bridge.mmap_open_file('__nonexistent_shard_weights__.safetensors'), (None, 0))
-    def test_krn_039_hf_metadata_tier_hydration(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 39)
-        self.assertIn("KRN-039", self.bridge.kernel_ids())
-        self.assertIn('compatibility', fetch_model_metadata('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', {'vram_total_mb': 12288, 'ram_total_mb': 32768}))
-    def test_krn_040_tiled_gemv_unroll32(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 40)
-        self.assertIn("KRN-040", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dot_product([0.5]*99, [2.0]*99, fast=True), 99.0, places=3)
-    def test_krn_041_q4_nibble_scale_symmetry(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 41)
-        self.assertIn("KRN-041", self.bridge.kernel_ids())
-        self.assertEqual(len(self.bridge.dequant_q4(bytes([0x88]*16), scale=0.25)), 32)
-    def test_krn_042_q8_signed_avx2_widening(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 42)
-        self.assertIn("KRN-042", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dequant_q8(bytes([256 - 4]*8), scale=0.5)[0], -2.0, places=4)
-    def test_krn_043_rmsnorm_epsilon_floor_guard(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 43)
-        self.assertIn("KRN-043", self.bridge.kernel_ids())
-        self.assertTrue(all(abs(v) < 1e-4 for v in self.bridge.rmsnorm([0.0]*16, [1.0]*16, eps=1e-5)))
-    def test_krn_044_layernorm_affine_shift_invariance(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 44)
-        self.assertIn("KRN-044", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.layernorm([101.0, 102.0, 103.0, 104.0])[0], self.bridge.layernorm([1.0, 2.0, 3.0, 4.0])[0], places=3)
-    def test_krn_045_softmax_overflow_logit_clamp(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 45)
-        self.assertIn("KRN-045", self.bridge.kernel_ids())
-        self.assertAlmostEqual(sum(self.bridge.softmax([5000.0, 5001.0, 4999.0, 5000.5])), 1.0, places=4)
-    def test_krn_046_rope_zero_position_identity(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 46)
-        self.assertIn("KRN-046", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.rope([1.25, -0.75, 0.5, 2.0], pos=0)[1], -0.75, places=5)
-    def test_krn_047_swiglu_hadamard_gate_fusion(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 47)
-        self.assertIn("KRN-047", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.swiglu([0.0]*16, [3.0]*16)[0], 0.0, places=5)
-    def test_krn_048_residual_axpy_scale_accumulation(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 48)
-        self.assertIn("KRN-048", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.axpy([4.0]*17, [1.5]*17, 0.25)[16], 2.5, places=4)
-    def test_krn_049_cosine_rag_antiparallel_bound(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 49)
-        self.assertIn("KRN-049", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.cosine_sim([1.0, -2.0, 3.0], [-1.0, 2.0, -3.0]), -1.0, places=4)
-    def test_krn_050_hadamard_elementwise_masking(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 50)
-        self.assertIn("KRN-050", self.bridge.kernel_ids())
-        self.assertEqual(self.bridge.hadamard([5.0, 6.0, 7.0, 8.0], [1.0, 0.0, 1.0, 0.0]), [5.0, 0.0, 7.0, 0.0])
-    def test_krn_051_fast_scale_inverse_temperature(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 51)
-        self.assertIn("KRN-051", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.scale_vector([2.0]*19, 0.5)[18], 1.0, places=5)
-    def test_krn_052_silu_negative_asymptote_decay(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 52)
-        self.assertIn("KRN-052", self.bridge.kernel_ids())
-        self.assertLess(abs(self.bridge.silu([-12.0])[0]), 1e-3)
-    def test_krn_053_gelu_cubic_odd_symmetry_bound(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 53)
-        self.assertIn("KRN-053", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.gelu([4.0])[0], 4.0, places=2)
-    def test_krn_054_hybrid_vram_ram_tier_partition(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 54)
-        self.assertIn("KRN-054", self.bridge.kernel_ids())
-        self.assertEqual(evaluate_compatibility('Qwen/Qwen2.5-Coder-14B-Instruct', {'vram_total_mb': 8192, 'ram_total_mb': 32768})['tier'], 'RECOMMENDED')
-    def test_krn_055_moe_70b_param_budget_estimator(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 55)
-        self.assertIn("KRN-055", self.bridge.kernel_ids())
-        self.assertEqual(estimate_model_params('meta-llama/Llama-3.1-405B-Instruct'), 405.0)
-    def test_krn_056_vec_add_4k_hidden_dimension(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 56)
-        self.assertIn("KRN-056", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.vec_add([1.25]*4096, [2.75]*4096)[4095], 4.0, places=5)
-    def test_krn_057_dot_standard_vs_unroll8_parity(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 57)
-        self.assertIn("KRN-057", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dot_product([0.3]*257, [0.7]*257, fast=True), self.bridge.dot_product([0.3]*257, [0.7]*257, fast=False), places=2)
-    def test_krn_058_mmap_missing_file_null_guard(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 58)
-        self.assertIn("KRN-058", self.bridge.kernel_ids())
-        self.assertEqual(self.bridge.mmap_open_file('__nonexistent_shard_weights__.safetensors'), (None, 0))
-    def test_krn_059_hf_metadata_tier_hydration(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 59)
-        self.assertIn("KRN-059", self.bridge.kernel_ids())
-        self.assertIn('compatibility', fetch_model_metadata('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', {'vram_total_mb': 12288, 'ram_total_mb': 32768}))
-    def test_krn_060_tiled_gemv_unroll32(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 60)
-        self.assertIn("KRN-060", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dot_product([0.5]*99, [2.0]*99, fast=True), 99.0, places=3)
-    def test_krn_061_q4_nibble_scale_symmetry(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 61)
-        self.assertIn("KRN-061", self.bridge.kernel_ids())
-        self.assertEqual(len(self.bridge.dequant_q4(bytes([0x88]*16), scale=0.25)), 32)
-    def test_krn_062_q8_signed_avx2_widening(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 62)
-        self.assertIn("KRN-062", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dequant_q8(bytes([256 - 4]*8), scale=0.5)[0], -2.0, places=4)
-    def test_krn_063_rmsnorm_epsilon_floor_guard(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 63)
-        self.assertIn("KRN-063", self.bridge.kernel_ids())
-        self.assertTrue(all(abs(v) < 1e-4 for v in self.bridge.rmsnorm([0.0]*16, [1.0]*16, eps=1e-5)))
-    def test_krn_064_layernorm_affine_shift_invariance(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 64)
-        self.assertIn("KRN-064", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.layernorm([101.0, 102.0, 103.0, 104.0])[0], self.bridge.layernorm([1.0, 2.0, 3.0, 4.0])[0], places=3)
-    def test_krn_065_softmax_overflow_logit_clamp(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 65)
-        self.assertIn("KRN-065", self.bridge.kernel_ids())
-        self.assertAlmostEqual(sum(self.bridge.softmax([5000.0, 5001.0, 4999.0, 5000.5])), 1.0, places=4)
-    def test_krn_066_rope_zero_position_identity(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 66)
-        self.assertIn("KRN-066", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.rope([1.25, -0.75, 0.5, 2.0], pos=0)[1], -0.75, places=5)
-    def test_krn_067_swiglu_hadamard_gate_fusion(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 67)
-        self.assertIn("KRN-067", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.swiglu([0.0]*16, [3.0]*16)[0], 0.0, places=5)
-    def test_krn_068_residual_axpy_scale_accumulation(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 68)
-        self.assertIn("KRN-068", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.axpy([4.0]*17, [1.5]*17, 0.25)[16], 2.5, places=4)
-    def test_krn_069_cosine_rag_antiparallel_bound(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 69)
-        self.assertIn("KRN-069", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.cosine_sim([1.0, -2.0, 3.0], [-1.0, 2.0, -3.0]), -1.0, places=4)
-    def test_krn_070_hadamard_elementwise_masking(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 70)
-        self.assertIn("KRN-070", self.bridge.kernel_ids())
-        self.assertEqual(self.bridge.hadamard([5.0, 6.0, 7.0, 8.0], [1.0, 0.0, 1.0, 0.0]), [5.0, 0.0, 7.0, 0.0])
-    def test_krn_071_fast_scale_inverse_temperature(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 71)
-        self.assertIn("KRN-071", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.scale_vector([2.0]*19, 0.5)[18], 1.0, places=5)
-    def test_krn_072_silu_negative_asymptote_decay(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 72)
-        self.assertIn("KRN-072", self.bridge.kernel_ids())
-        self.assertLess(abs(self.bridge.silu([-12.0])[0]), 1e-3)
-    def test_krn_073_gelu_cubic_odd_symmetry_bound(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 73)
-        self.assertIn("KRN-073", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.gelu([4.0])[0], 4.0, places=2)
-    def test_krn_074_hybrid_vram_ram_tier_partition(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 74)
-        self.assertIn("KRN-074", self.bridge.kernel_ids())
-        self.assertEqual(evaluate_compatibility('Qwen/Qwen2.5-Coder-14B-Instruct', {'vram_total_mb': 8192, 'ram_total_mb': 32768})['tier'], 'RECOMMENDED')
-    def test_krn_075_moe_70b_param_budget_estimator(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 75)
-        self.assertIn("KRN-075", self.bridge.kernel_ids())
-        self.assertEqual(estimate_model_params('meta-llama/Llama-3.1-405B-Instruct'), 405.0)
-    def test_krn_076_vec_add_4k_hidden_dimension(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 76)
-        self.assertIn("KRN-076", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.vec_add([1.25]*4096, [2.75]*4096)[4095], 4.0, places=5)
-    def test_krn_077_dot_standard_vs_unroll8_parity(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 77)
-        self.assertIn("KRN-077", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dot_product([0.3]*257, [0.7]*257, fast=True), self.bridge.dot_product([0.3]*257, [0.7]*257, fast=False), places=2)
-    def test_krn_078_mmap_missing_file_null_guard(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 78)
-        self.assertIn("KRN-078", self.bridge.kernel_ids())
-        self.assertEqual(self.bridge.mmap_open_file('__nonexistent_shard_weights__.safetensors'), (None, 0))
-    def test_krn_079_hf_metadata_tier_hydration(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 79)
-        self.assertIn("KRN-079", self.bridge.kernel_ids())
-        self.assertIn('compatibility', fetch_model_metadata('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', {'vram_total_mb': 12288, 'ram_total_mb': 32768}))
-    def test_krn_080_tiled_gemv_unroll32(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 80)
-        self.assertIn("KRN-080", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dot_product([0.5]*99, [2.0]*99, fast=True), 99.0, places=3)
-    def test_krn_081_q4_nibble_scale_symmetry(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 81)
-        self.assertIn("KRN-081", self.bridge.kernel_ids())
-        self.assertEqual(len(self.bridge.dequant_q4(bytes([0x88]*16), scale=0.25)), 32)
-    def test_krn_082_q8_signed_avx2_widening(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 82)
-        self.assertIn("KRN-082", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dequant_q8(bytes([256 - 4]*8), scale=0.5)[0], -2.0, places=4)
-    def test_krn_083_rmsnorm_epsilon_floor_guard(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 83)
-        self.assertIn("KRN-083", self.bridge.kernel_ids())
-        self.assertTrue(all(abs(v) < 1e-4 for v in self.bridge.rmsnorm([0.0]*16, [1.0]*16, eps=1e-5)))
-    def test_krn_084_layernorm_affine_shift_invariance(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 84)
-        self.assertIn("KRN-084", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.layernorm([101.0, 102.0, 103.0, 104.0])[0], self.bridge.layernorm([1.0, 2.0, 3.0, 4.0])[0], places=3)
-    def test_krn_085_softmax_overflow_logit_clamp(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 85)
-        self.assertIn("KRN-085", self.bridge.kernel_ids())
-        self.assertAlmostEqual(sum(self.bridge.softmax([5000.0, 5001.0, 4999.0, 5000.5])), 1.0, places=4)
-    def test_krn_086_rope_zero_position_identity(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 86)
-        self.assertIn("KRN-086", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.rope([1.25, -0.75, 0.5, 2.0], pos=0)[1], -0.75, places=5)
-    def test_krn_087_swiglu_hadamard_gate_fusion(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 87)
-        self.assertIn("KRN-087", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.swiglu([0.0]*16, [3.0]*16)[0], 0.0, places=5)
-    def test_krn_088_residual_axpy_scale_accumulation(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 88)
-        self.assertIn("KRN-088", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.axpy([4.0]*17, [1.5]*17, 0.25)[16], 2.5, places=4)
-    def test_krn_089_cosine_rag_antiparallel_bound(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 89)
-        self.assertIn("KRN-089", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.cosine_sim([1.0, -2.0, 3.0], [-1.0, 2.0, -3.0]), -1.0, places=4)
-    def test_krn_090_hadamard_elementwise_masking(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 90)
-        self.assertIn("KRN-090", self.bridge.kernel_ids())
-        self.assertEqual(self.bridge.hadamard([5.0, 6.0, 7.0, 8.0], [1.0, 0.0, 1.0, 0.0]), [5.0, 0.0, 7.0, 0.0])
-    def test_krn_091_fast_scale_inverse_temperature(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 91)
-        self.assertIn("KRN-091", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.scale_vector([2.0]*19, 0.5)[18], 1.0, places=5)
-    def test_krn_092_silu_negative_asymptote_decay(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 92)
-        self.assertIn("KRN-092", self.bridge.kernel_ids())
-        self.assertLess(abs(self.bridge.silu([-12.0])[0]), 1e-3)
-    def test_krn_093_gelu_cubic_odd_symmetry_bound(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 93)
-        self.assertIn("KRN-093", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.gelu([4.0])[0], 4.0, places=2)
-    def test_krn_094_hybrid_vram_ram_tier_partition(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 94)
-        self.assertIn("KRN-094", self.bridge.kernel_ids())
-        self.assertEqual(evaluate_compatibility('Qwen/Qwen2.5-Coder-14B-Instruct', {'vram_total_mb': 8192, 'ram_total_mb': 32768})['tier'], 'RECOMMENDED')
-    def test_krn_095_moe_70b_param_budget_estimator(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 95)
-        self.assertIn("KRN-095", self.bridge.kernel_ids())
-        self.assertEqual(estimate_model_params('meta-llama/Llama-3.1-405B-Instruct'), 405.0)
-    def test_krn_096_vec_add_4k_hidden_dimension(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 96)
-        self.assertIn("KRN-096", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.vec_add([1.25]*4096, [2.75]*4096)[4095], 4.0, places=5)
-    def test_krn_097_dot_standard_vs_unroll8_parity(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 97)
-        self.assertIn("KRN-097", self.bridge.kernel_ids())
-        self.assertAlmostEqual(self.bridge.dot_product([0.3]*257, [0.7]*257, fast=True), self.bridge.dot_product([0.3]*257, [0.7]*257, fast=False), places=2)
-    def test_krn_098_mmap_missing_file_null_guard(self):
-        self.assertGreaterEqual(self.bridge.kernel_count(), 98)
-        self.assertIn("KRN-098", self.bridge.kernel_ids())
-        self.assertEqual(self.bridge.mmap_open_file('__nonexistent_shard_weights__.safetensors'), (None, 0))
+            settings.reset_models_dir()
+        except Exception:
+            pass
+
+    def setUp(self):
+        self.addCleanup(settings.reset_models_dir)
+
+    def test_default(self):
+        self.assertEqual(settings.models_dir(), settings.DEFAULT_MODELS_DIR)
+        self.assertFalse(settings.is_custom_models_dir())
+
+    def test_set_and_persist(self):
+        got = settings.set_models_dir(self.custom)
+        self.assertEqual(got, os.path.abspath(self.custom))
+        self.assertEqual(settings.models_dir(), got)
+        self.assertTrue(settings.is_custom_models_dir())
+        with open(settings._SETTINGS_FILE, "r", encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["models_dir"], got)
+
+    def test_reset(self):
+        settings.set_models_dir(self.custom)
+        settings.reset_models_dir()
+        self.assertEqual(settings.models_dir(), settings.DEFAULT_MODELS_DIR)
+        self.assertFalse(settings.is_custom_models_dir())
+
+    def test_empty_rejected(self):
+        with self.assertRaises(ValueError):
+            settings.set_models_dir("")
+
+    def test_drive_only_rejected(self):
+        with self.assertRaises(ValueError):
+            settings.set_models_dir("C:")
+
+    def test_disk_info(self):
+        info = settings.disk_info(self.custom)
+        self.assertGreater(info["total_gb"], 0)
+        self.assertGreaterEqual(info["free_gb"], 0)
+        self.assertEqual(set(info), {"total_gb", "free_gb", "used_gb"})
+
+    def test_available_drives(self):
+        drives = settings.available_drives()
+        self.assertGreaterEqual(len(drives), 1)
+        for d in drives:
+            self.assertEqual(set(d), {"path", "free_gb", "total_gb"})
+            self.assertRegex(d["path"], r"^[A-Z]:\\$")
+            self.assertGreaterEqual(d["free_gb"], 0)
+
+
+# ---------------------------------------------------------------------------
+# everything still compiles (no import side effects)
+# ---------------------------------------------------------------------------
+class TestCompile(unittest.TestCase):
+    MODULES = ["fit", "gguf_backend", "settings", "server", "cli",
+               "engine", "hf_hub", "hardware"]
+
+    def test_all_compile(self):
+        for mod in self.MODULES:
+            path = os.path.join(REPO, mod + ".py")
+            with self.subTest(module=mod):
+                py_compile.compile(path, doraise=True)
+
+
 if __name__ == "__main__":
     unittest.main()
