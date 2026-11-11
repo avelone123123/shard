@@ -23,8 +23,8 @@ def cmd_help():
     print("Commands:")
     print("  (no args)  Launch Shard Native Desktop Studio (.exe) + Auto-Server")
     print("  gui        Launch Shard Native Desktop Studio (.exe)")
-    print("  start      Launch headless Shard FastAPI server")
-    print("             Options: --host 0.0.0.0 --port 8000")
+    print("  start      Launch Shard FastAPI server (auto-opens browser)")
+    print("             Options: --host 0.0.0.0 --port 8000 (SHARD_HOST/SHARD_PORT/SHARD_DOCKER respected)")
     print("  status     Show local GPU, VRAM, RAM, and native engine state")
     print("  list       Browse Hugging Face models and hardware tiers")
     print("             Options: --category [all|ideal|coding|reasoning|compact]")
@@ -48,11 +48,22 @@ def cmd_gui():
             return
     print("Native desktop binary not found. Run: python native/build_native.py")
 def cmd_start(args):
+    import threading
+    import webbrowser
     import uvicorn
-    host = args.host if hasattr(args, "host") and args.host else "0.0.0.0"
-    port = args.port if hasattr(args, "port") and args.port else 8000
+    host = getattr(args, "host", None) or os.environ.get("SHARD_HOST", "0.0.0.0")
+    port = getattr(args, "port", None) or int(os.environ.get("SHARD_PORT", "8000"))
     print_banner()
     print(f"Starting Shard Server on http://{host}:{port}...")
+    if not os.environ.get("SHARD_DOCKER"):
+        bind_host = "127.0.0.1" if host == "0.0.0.0" else host
+        def _open_browser():
+            time.sleep(1.2)
+            try:
+                webbrowser.open(f"http://{bind_host}:{port}")
+            except Exception:
+                pass
+        threading.Thread(target=_open_browser, daemon=True).start()
     uvicorn.run("server:app", host=host, port=port, log_level="info")
 def cmd_status():
     print_banner()
@@ -346,8 +357,8 @@ def main():
     parser = argparse.ArgumentParser(description="Shard CLI Engine", add_help=False)
     sub = parser.add_subparsers(dest="command")
     p_start = sub.add_parser("start")
-    p_start.add_argument("--host", default="0.0.0.0", help="Host interface")
-    p_start.add_argument("--port", type=int, default=8000, help="Port")
+    p_start.add_argument("--host", default=None, help="Host interface (default: SHARD_HOST or 0.0.0.0)")
+    p_start.add_argument("--port", type=int, default=None, help="Port (default: SHARD_PORT or 8000)")
     sub.add_parser("gui")
     sub.add_parser("status")
     p_list = sub.add_parser("list")
