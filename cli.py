@@ -353,6 +353,89 @@ def cmd_run(args):
                 print(f"Error: HTTP {res.status_code} - {res.text}")
         except Exception as e:
             print(f"Failed to communicate with Shard Server: {e}")
+def cmd_lan(args):
+    """shard lan — shard-сеть control (HTTP proxy to local Shard Server)."""
+    print_banner()
+    action = (getattr(args, "action", None) or "status").lower()
+    if action == "status":
+        st = None
+        try:
+            r = requests.get(f"{BASE_URL}/api/lan/status", timeout=3)
+            st = r.json() if r.status_code == 200 else None
+        except Exception:
+            st = None
+        if not isinstance(st, dict):
+            print("Shard Server не запущен — запустите shard start и повторите.")
+            sys.exit(1)
+        print(f"Режим: {st.get('mode') or 'выкл'} | имя сети: {st.get('name')}")
+        print(f"IP этой машины: {st.get('ip')}")
+        if st.get("pairing_code"):
+            print(f"Код подключения: {st.get('pairing_code')}")
+        members = st.get("members") or []
+        if members:
+            print("\nУчастники:")
+            for m in members:
+                mark = "на связи" if m.get("alive") else "не отвечает"
+                print(f"  {m.get('ip')}  {m.get('name')}  [{m.get('role')}] — {mark}")
+        peers = st.get("peers") or []
+        if peers:
+            print("\nРядом в сети (обнаружены по UDP-маяку):")
+            for p in peers:
+                print(f"  {p.get('ip')}  {p.get('name')}  [{p.get('role')}] порт {p.get('port')}")
+        rpc = st.get("rpc")
+        if rpc:
+            print(f"\nRPC-пул: --rpc {rpc.get('servers')} -ts {rpc.get('split')}")
+        return
+    if action == "create":
+        name = " ".join(getattr(args, "extra", []) or []).strip() or None
+        try:
+            r = requests.post(f"{BASE_URL}/api/lan/create", json={"name": name}, timeout=10)
+        except Exception:
+            r = None
+        if r is None or r.status_code != 200:
+            print("Не удалось создать сеть — Shard Server не запущен (shard start).")
+            sys.exit(1)
+        st = r.json()
+        print(f"Сеть «{st.get('name')}» создана. Код подключения: {st.get('pairing_code')}")
+        print(f"На второй машине: shard lan join {st.get('ip')} {st.get('pairing_code')}")
+        print("С --share машина станет вычислительным узлом (отдаст VRAM/RAM).")
+        return
+    if action == "join":
+        extra = getattr(args, "extra", []) or []
+        if len(extra) < 2:
+            print("Usage: shard lan join <IP мастера> <код XXXX-XXXX> [--share]")
+            sys.exit(1)
+        ip, code = extra[0], extra[1]
+        try:
+            r = requests.post(f"{BASE_URL}/api/lan/join",
+                              json={"ip": ip, "code": code,
+                                    "share": bool(getattr(args, "share", False))},
+                              timeout=15)
+        except Exception:
+            r = None
+        if r is None:
+            print("Shard Server не запущен — запустите shard start и повторите.")
+            sys.exit(1)
+        data = r.json()
+        if data.get("status") == "ok":
+            print(f"Подключено к «{data.get('master')}». Режим: {data.get('mode')}")
+        else:
+            print(f"Ошибка: {data.get('message')}")
+            sys.exit(1)
+        return
+    if action == "off":
+        try:
+            r = requests.post(f"{BASE_URL}/api/lan/off", json={}, timeout=5)
+        except Exception:
+            r = None
+        if r is None or r.status_code != 200:
+            print("Shard Server не запущен.")
+            sys.exit(1)
+        print("Сеть отключена.")
+        return
+    print("Usage: shard lan [status|create|join|off]")
+    sys.exit(1)
+
 def main():
     parser = argparse.ArgumentParser(description="Shard CLI Engine", add_help=False)
     sub = parser.add_subparsers(dest="command")
@@ -372,6 +455,12 @@ def main():
     p_fit.add_argument("model", nargs="?", default=None, help="Model ID to check")
     p_dir = sub.add_parser("models-dir")
     p_dir.add_argument("path", nargs="?", default=None, help="New folder path, or 'reset'")
+    p_lan = sub.add_parser("lan")
+    p_lan.add_argument("action", nargs="?", default="status",
+                       choices=["status", "create", "join", "off"])
+    p_lan.add_argument("extra", nargs="*", help="create [name] | join <ip> <code>")
+    p_lan.add_argument("--share", action="store_true",
+                       help="join as compute worker (share VRAM/RAM)")
     sub.add_parser("help")
     if len(sys.argv) <= 1:
         if os.name == "nt":
@@ -401,6 +490,8 @@ def main():
         cmd_fit(args)
     elif args.command == "models-dir":
         cmd_models_dir(args)
+    elif args.command == "lan":
+        cmd_lan(args)
     else:
         cmd_help()
 if __name__ == "__main__":

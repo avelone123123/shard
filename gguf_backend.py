@@ -388,7 +388,8 @@ class LlamaBackend:
         return self.proc is not None and self.proc.poll() is None
 
     def start(self, gguf_path, ctx_tokens, ngl, threads, model_id, server_path=None,
-              wait_timeout=180.0, on_wait=None):
+              wait_timeout=180.0, on_wait=None, rpc_servers=None,
+              tensor_split=None):
         self.stop()
         server_path = server_path or find_llama_server()
         if not server_path:
@@ -408,6 +409,10 @@ class LlamaBackend:
             "-t", str(threads),
             "--parallel", "1",
         ]
+        if rpc_servers:
+            cmd += ["--rpc", str(rpc_servers)]
+        if tensor_split:
+            cmd += ["-ts", str(tensor_split)]
         kw = {}
         if os.name == "nt":
             kw["creationflags"] = _CREATE_NO_WINDOW

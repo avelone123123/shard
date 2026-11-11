@@ -12,6 +12,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import unittest.mock
 
 REPO = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, REPO)
@@ -22,6 +23,7 @@ os.environ["SHARD_DATA_DIR"] = _TMP_DATA
 
 import fit  # noqa: E402
 import gguf_backend as g  # noqa: E402
+import lan  # noqa: E402
 import settings  # noqa: E402
 
 
@@ -422,11 +424,193 @@ class TestSettings(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# LAN pooling (all expected values verified empirically in scratch runs)
+# ---------------------------------------------------------------------------
+class TestLan(unittest.TestCase):
+    def setUp(self):
+        # clean registry file so each test starts in "off" mode
+        # (a fresh LanManager then loads no state and spawns no resume threads)
+        try:
+            os.remove(lan.lan_file())
+        except FileNotFoundError:
+            pass
+        self.lan = lan.LanManager()
+        self.addCleanup(self.lan.off, True)
+
+    # -- pure helpers --------------------------------------------------------
+    def test_device_budget_vram(self):
+        # 4096 MB VRAM - 400 MB reserve (fit.py VRAM_RESERVE_MB)
+        self.assertEqual(lan.device_budget(4096, 0), (3696, 0))
+        self.assertEqual(lan.device_budget(0, 0), (0, 0))
+        self.assertEqual(lan.device_budget(-5, 0), (0, 0))
+        self.assertEqual(lan.device_budget(None, None), (0, 0))
+
+    def test_device_budget_ram(self):
+        # 16077 MB RAM - 2048 MB reserve (fit.py RAM_RESERVE_MB)
+        self.assertEqual(lan.device_budget(0, 16077), (0, 14029))
+
+    def test_split_weights(self):
+        self.assertEqual(lan.split_weights([(1485, 0), (0, 7792)]),
+                         [1485, 7792])
+        # all-zero -> honest equal fallback (llama.cpp even-splits anyway)
+        self.assertEqual(lan.split_weights([(0, 0), (0, 0)]), [1, 1])
+
+    def test_format_args(self):
+        self.assertEqual(lan.format_ts_arg([1485, 7792]), "1485,7792")
+        self.assertEqual(lan.format_rpc_arg(
+            ["9.9.9.9:50052", "9.9.9.10:50053"]),
+            "9.9.9.9:50052,9.9.9.10:50053")
+
+    def test_pairing_code_format(self):
+        import re
+        code = lan.gen_pairing_code()
+        pat = (r"^[" + re.escape(lan.PAIR_ALPHABET) + r"]{4}-"
+               r"[" + re.escape(lan.PAIR_ALPHABET) + r"]{4}$")
+        self.assertRegex(code, pat)
+
+    def test_normalize_code(self):
+        self.assertEqual(lan.normalize_code("ABCD-EFGH"), "ABCD-EFGH")
+        self.assertEqual(lan.normalize_code("abcd-efgh"), "ABCD-EFGH")
+        self.assertEqual(lan.normalize_code("abcd efgh"), "ABCD-EFGH")
+        self.assertEqual(lan.normalize_code("ABCDEFGH"), "ABCD-EFGH")
+        # ambiguous chars and wrong length rejected
+        self.assertIsNone(lan.normalize_code("ABCD-EF1H"))
+        self.assertIsNone(lan.normalize_code("ABCD-EF"))
+
+    def test_member_token(self):
+        import re
+        tok = lan.new_member_token()
+        self.assertTrue(tok.startswith(lan.TOKEN_PREFIX))
+        self.assertTrue(lan.is_member_token(tok))
+        pat = r"^" + re.escape(lan.TOKEN_PREFIX) + r"[0-9a-f]{16}$"
+        self.assertRegex(tok, pat)
+        self.assertFalse(lan.is_member_token("sk-shard-lan-zzz"))
+        self.assertFalse(lan.is_member_token(""))
+        self.assertFalse(lan.is_member_token(None))
+
+    def test_is_loopback(self):
+        for ip in ("::1", "127.0.0.1", "127.9.9.9", "localhost", "  localhost  "):
+            self.assertTrue(lan.is_loopback(ip), ip)
+        for ip in ("192.168.100.6", "10.0.0.2", "", None):
+            self.assertFalse(lan.is_loopback(ip), repr(ip))
+
+    def test_member_alive_window(self):
+        m = {"last_seen": 1000.0}
+        self.assertTrue(lan.member_alive(m, now=1001.0))
+        # 3 heartbeats x 1 s window; 3.5 s silence = dead
+        self.assertFalse(lan.member_alive(m, now=1003.5))
+
+    def test_parse_beacon(self):
+        p = lan.beacon_payload("mynet", "server")
+        d = lan.parse_beacon(json.dumps(p).encode("utf-8"))
+        self.assertEqual(d["name"], "mynet")
+        self.assertEqual(d["role"], "server")
+        for raw in (json.dumps({"app": "wrong", "ver": 1,
+                                "name": "x"}).encode(),
+                    json.dumps({"app": "shard-lan", "ver": 2,
+                                "name": "x"}).encode(),
+                    json.dumps({"app": "shard-lan", "ver": 1,
+                                "name": "  "}).encode(),
+                    b"not json at all"):
+            self.assertIsNone(lan.parse_beacon(raw), raw)
+
+    # -- server state machine -------------------------------------------------
+    def test_create_and_pair(self):
+        st = self.lan.create("my-net")
+        self.assertEqual(st["mode"], "server")
+        self.assertEqual(st["name"], "my-net")
+        self.assertTrue(st["pairing_code"])
+        payload, err = self.lan.handle_pair(st["pairing_code"], "9.9.9.9",
+                                            name="pc2", share=True)
+        self.assertIsNone(err)
+        self.assertTrue(lan.is_member_token(payload["token"]))
+        self.assertEqual(self.lan.tokens(), {payload["token"]})
+
+    def test_pair_wrong_code_and_mode(self):
+        self.lan.create()
+        payload, err = self.lan.handle_pair("AAAA-BBBB", "9.9.9.9")
+        self.assertIsNone(payload)
+        self.assertEqual(err, "Неверный код подключения")
+        self.lan.off(quiet=True)
+        payload, err = self.lan.handle_pair("AAAA-BBBB", "9.9.9.9")
+        self.assertIsNone(payload)
+        self.assertEqual(err, "Эта машина не является сервером shard-сети")
+
+    def test_repair_same_ip_reuses_token(self):
+        st = self.lan.create()
+        p1, _ = self.lan.handle_pair(st["pairing_code"], "9.9.9.9",
+                                     name="pc2", share=True)
+        p2, err = self.lan.handle_pair(st["pairing_code"], "9.9.9.9")
+        self.assertIsNone(err)
+        self.assertEqual(p1["token"], p2["token"])
+
+    def test_heartbeat_and_unknown_member(self):
+        st = self.lan.create()
+        payload, _ = self.lan.handle_pair(st["pairing_code"], "9.9.9.9",
+                                          share=True)
+        token = payload["token"]
+        self.assertTrue(self.lan.handle_heartbeat(
+            "9.9.9.9", token, hw={"vram_free_mb": 0, "ram_avail_mb": 9840},
+            rpc_port=50052))
+        self.assertFalse(self.lan.handle_heartbeat("9.9.9.9", "sk-shard-lan-0000000000000000"))
+        self.assertFalse(self.lan.handle_heartbeat("1.1.1.1", token))
+
+    def test_status_strips_member_tokens(self):
+        st = self.lan.create()
+        token, _ = self.lan.handle_pair(st["pairing_code"], "9.9.9.9")
+        st = self.lan.status()
+        self.assertEqual(len(st["members"]), 1)
+        self.assertIsNone(st["members"][0]["token"])
+        for key in ("mode", "name", "ip", "pairing_code", "master",
+                    "members", "peers", "rpc", "constants"):
+            self.assertIn(key, st)
+
+    # -- pooled math with live master hardware --------------------------------
+    def _pair_worker(self, rpc_port=50052):
+        st = self.lan.create()
+        payload, _ = self.lan.handle_pair(st["pairing_code"], "9.9.9.9",
+                                          share=True)
+        self.assertTrue(self.lan.handle_heartbeat(
+            "9.9.9.9", payload["token"],
+            hw={"vram_free_mb": 0, "ram_avail_mb": 9840},
+            rpc_port=rpc_port))
+        return st, payload["token"]
+
+    def test_rpc_targets_none_without_pool(self):
+        self.lan.create()
+        self.assertIsNone(self.lan.rpc_targets())
+
+    def test_rpc_targets_live_split(self):
+        self._pair_worker()
+        with unittest.mock.patch(
+                "hardware.get_hardware_profile",
+                return_value={"vram_free_mb": 1885, "ram_avail_mb": 0}):
+            self.assertTrue(self.lan.pool_active())
+            rpc = self.lan.rpc_targets()
+        self.assertEqual(rpc["servers"], "9.9.9.9:50052")
+        # master VRAM 1885-400=1485, worker RAM 9840-2048=7792 (verified live)
+        self.assertEqual(rpc["split"], "1485,7792")
+
+    def test_pool_capacity_mb(self):
+        self._pair_worker()
+        with unittest.mock.patch(
+                "hardware.get_hardware_profile",
+                return_value={"vram_free_mb": 1885, "ram_avail_mb": 0}):
+            self.assertEqual(self.lan.pool_capacity_mb(), 1485 + 7792)
+
+    # -- misc ------------------------------------------------------------------
+    def test_worker_cmd(self):
+        self.assertEqual(lan.worker_cmd(50052, exe="X:\\rpc.exe"),
+                         ["X:\\rpc.exe", "--host", "0.0.0.0",
+                          "--port", "50052"])
+
+
+# ---------------------------------------------------------------------------
 # everything still compiles (no import side effects)
 # ---------------------------------------------------------------------------
 class TestCompile(unittest.TestCase):
     MODULES = ["fit", "gguf_backend", "settings", "server", "cli",
-               "engine", "hf_hub", "hardware"]
+               "engine", "hf_hub", "hardware", "lan"]
 
     def test_all_compile(self):
         for mod in self.MODULES:

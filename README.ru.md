@@ -1,7 +1,7 @@
 # SHARD — локальный AI-движок, который *сначала* говорит, запустится ли модель
 
 [![Tests](https://github.com/avelone123123/shard/actions/workflows/tests.yml/badge.svg)](https://github.com/avelone123123/shard/actions/workflows/tests.yml)
-[![Version](https://img.shields.io/badge/Version-v1.6.0-22a06b)](https://github.com/avelone123123/shard)
+[![Version](https://img.shields.io/badge/Version-v1.7.0-22a06b)](https://github.com/avelone123123/shard)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-38bdf8)](https://github.com/avelone123123/shard)
 [![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
 
@@ -99,7 +99,17 @@ Recommendation: Q8_0 — file 1.6 GB, 999/36 layers on GPU, ~32.1 tok/s
 - скачивание с живым прогрессом (включая многокомпонентные GGUF) на любой диск,
 - загрузка/выгрузка модели с этапами прогресса, чат со SSE-стримингом,
 - карточка fit-advisor по модели *до* скачивания,
+- вкладка «Сеть»: создание/подключение к shard-сети с кодами подключения и живым статусом участников,
 - менеджер дисков и хранилища, управление API-ключами (`sk-shard-*`), настройка CLI/IDE в один клик.
+
+## LAN-шардинг
+
+Несколько машин работают как **один большой сервер для одной модели**: мастер держит API и модель, воркеры отдают свою VRAM/RAM через llama.cpp RPC, а пул памяти считается с теми же резервами, что и одно-машинный advisor (400 MB VRAM / 2048 MB RAM). Модель, которую advisor отказал на одной машине, может влезть в пул.
+
+- Создайте сеть на мастере (вкладка «Сеть» в дашборде или `shard lan create`), подключите другие машины по коду вида `XXXX-XXXX`.
+- На машинах-воркерах запускается `ggml-rpc-server.exe` (поставляется вместе с рантаймом llama.cpp, уже в `~/.shard/runtime`) и каждые 1 с идёт heartbeat; 3 промаха — участник отбрасывается автоматически.
+- Для сетей через интернет дополнительный код не нужен: заведите машины в Radmin VPN / ZeroTier / Tailscale и используйте их IP. NAT-траверса не входит в MVP.
+- Подробности, модель авторизации и известные ограничения: [docs/LAN_SHARDING_DESIGN.md](docs/LAN_SHARDING_DESIGN.md).
 
 ## API
 
@@ -112,6 +122,8 @@ Recommendation: Q8_0 — file 1.6 GB, 999/36 layers on GPU, ~32.1 tok/s
 | `POST /api/models/load`, `POST /api/models/unload` | Управление движком |
 | `GET /api/hf/models`, `GET /api/hf/model/{id}` | Каталог и метаданные HF |
 | `GET /api/drives`, `GET/POST /api/settings`, `GET /api/keys` | Диски, настройки, ключи |
+| `POST /api/lan/create`, `POST /api/lan/join`, `POST /api/lan/off` | Управление shard-сетью (мастер / подключающаяся машина) |
+| `GET /api/lan/status` | Режим LAN, участники, код подключения, pooled `--rpc`/`-ts` |
 
 ## CLI
 
@@ -126,6 +138,7 @@ Recommendation: Q8_0 — file 1.6 GB, 999/36 layers on GPU, ~32.1 tok/s
 | `shard status` | GPU, VRAM, RAM, потоки CPU, состояние нативного ядра |
 | `shard test` | Бенчмарк 12 семейств AVX2 + C++20 ядер |
 | `shard key --gen` | Генерация локального API-ключа |
+| `shard lan [status\|create\|join\|off]` | Shard-сеть по LAN: создание, подключение (IP + код), статус, аварийное отключение |
 
 ## Нативное ядро (опционально)
 
@@ -153,7 +166,7 @@ Native Pipeline:          ALL 12 KERNEL FAMILIES VALIDATED [OK]
 
 ## Тесты и CI
 
-- `python -m unittest tests_shard.py` — **50 фокусных unit-тестов** (математика fit-advisor, выбор GGUF-кандидатов, настройки, компиляция модулей). Каждое ожидаемое значение в наборе проверено эмпирически перед записью.
+- `python -m unittest tests_shard.py` — **69 фокусных unit-тестов** (математика fit-advisor, выбор GGUF-кандидатов, настройки, конечный автомат LAN-пула и математика pooled-разбиения, компиляция модулей). Каждое ожидаемое значение в наборе проверено эмпирически перед записью.
 - CI гоняет тот же набор на `windows-latest` для Python 3.12–3.14 (бейдж выше).
 
 ## Честные ограничения
@@ -162,12 +175,14 @@ Native Pipeline:          ALL 12 KERNEL FAMILIES VALIDATED [OK]
 - Число параметров при отсутствии `config.json` офлайн восстанавливается по имени модели (name-regex); advisor помечает источник.
 - В первую очередь Windows: работа с дисками и нативная сборка нацелены на Windows; Linux/macOS пока нет.
 - Нативный движок safetensors не умеет выгружать слои из VRAM — если VRAM мало, используйте GGUF-модели (путь llama.cpp именно про слабое железо).
-- Одна GPU; multi-GPU пока нет.
+- Одна GPU; multi-GPU пока нет (ответ на большие модели сейчас — LAN-пул между машинами).
+- LAN-пул: эндпоинты дашборда/`/api/*` доверяют LAN (защищайте порт мастера на уровне сети); `/v1` API требует токены участников для не-loopback клиентов. Порядок устройств в `-ts` следует документации llama.cpp и ещё не проверен на живом размещении весов (Phase 1.1).
 - Интерфейс русский.
 
 ## Roadmap
 
-- **LAN-шардинг** — расщепление одной модели на 2+ ПК в вашей сети (мастер владеет планировщиком/токенизатором, воркеры — своими диапазонами слоёв). Эскиз дизайна: [docs/LAN_SHARDING_DESIGN.md](docs/LAN_SHARDING_DESIGN.md).
+- ~~LAN-шардинг~~ — **вышел в v1.7.0** (пул памяти через llama.cpp RPC, коды подключения, вкладка «Сеть» в дашборде): [docs/LAN_SHARDING_DESIGN.md](docs/LAN_SHARDING_DESIGN.md).
+- Phase 1.1: живая проверка порядка устройств в `-ts`, измеренные бенчмарки одна машина vs пул в `benchmarks/`.
 - Измеренные бенчмарки по моделям — в `benchmarks/`.
 - Английский UI, сборки Linux/macOS.
 

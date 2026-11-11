@@ -1,7 +1,7 @@
 # SHARD — Local AI engine that tells you *first* whether a model will run
 
 [![Tests](https://github.com/avelone123123/shard/actions/workflows/tests.yml/badge.svg)](https://github.com/avelone123123/shard/actions/workflows/tests.yml)
-[![Version](https://img.shields.io/badge/Version-v1.6.0-22a06b)](https://github.com/avelone123123/shard)
+[![Version](https://img.shields.io/badge/Version-v1.7.0-22a06b)](https://github.com/avelone123123/shard)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-38bdf8)](https://github.com/avelone123123/shard)
 [![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
 
@@ -101,7 +101,17 @@ Open `http://localhost:8000`:
 - download with live progress (multi-part GGUF included) to any drive,
 - load/unload with progress stages, chat with SSE streaming,
 - fit-advisor card per model *before* download,
+- "Сеть" tab: create/join a LAN shard network with pairing codes and live member status,
 - drives & storage manager, API-key management (`sk-shard-*`), 1-click CLI/IDE integration.
+
+## LAN sharding
+
+Several machines act as **one big server for one model**: the master hosts the API and the model, workers share their VRAM/RAM through llama.cpp RPC, and the memory pool is filled with the same hard reserves as the single-machine advisor (400 MB VRAM / 2048 MB RAM). A model the fit advisor refuses on one machine can fit the pool.
+
+- Create a network on the master (dashboard "Сеть" tab or `shard lan create`), join from other machines with a `XXXX-XXXX` pairing code.
+- Worker machines run `ggml-rpc-server.exe` (bundled with the llama.cpp runtime, already in `~/.shard/runtime`) and heartbeat every 1 s; 3 misses drop them automatically.
+- Internet networks need no extra code: run the machines in a Radmin VPN / ZeroTier / Tailscale network and use those IPs. NAT traversal is not included.
+- Details, auth model and known limits: [docs/LAN_SHARDING_DESIGN.md](docs/LAN_SHARDING_DESIGN.md).
 
 ## API
 
@@ -114,6 +124,8 @@ Open `http://localhost:8000`:
 | `POST /api/models/load`, `POST /api/models/unload` | Engine control |
 | `GET /api/hf/models`, `GET /api/hf/model/{id}` | HF catalog & metadata |
 | `GET /api/drives`, `GET/POST /api/settings`, `GET /api/keys` | Storage, settings, keys |
+| `POST /api/lan/create`, `POST /api/lan/join`, `POST /api/lan/off` | LAN network control (master / joining machine) |
+| `GET /api/lan/status` | LAN mode, members, pairing code, pooled `--rpc`/`-ts` |
 
 ## CLI
 
@@ -128,6 +140,7 @@ Open `http://localhost:8000`:
 | `shard status` | GPU, VRAM, RAM, CPU threads, native core state |
 | `shard test` | 12-family AVX2 + C++20 kernel benchmark |
 | `shard key --gen` | Generate a local API key |
+| `shard lan [status\|create\|join\|off]` | LAN shard network: create, join (IP + pairing code), status, kill switch |
 
 ## Native core (optional)
 
@@ -155,7 +168,7 @@ Native Pipeline:          ALL 12 KERNEL FAMILIES VALIDATED [OK]
 
 ## Tests & CI
 
-- `python -m unittest tests_shard.py` — **50 focused unit tests** (fit-advisor math, GGUF candidate selection, settings, module compilation). Every expected value in the suite was verified empirically before being written down.
+- `python -m unittest tests_shard.py` — **69 focused unit tests** (fit-advisor math, GGUF candidate selection, settings, LAN pooling state machine and pooled-split math, module compilation). Every expected value in the suite was verified empirically before being written down.
 - CI runs the same suite on `windows-latest` for Python 3.12–3.14 (see the badge above).
 
 ## Honest limitations
@@ -164,12 +177,14 @@ Native Pipeline:          ALL 12 KERNEL FAMILIES VALIDATED [OK]
 - Parameter counts fall back to name-regex parsing when `config.json` isn't available offline; the advisor labels the source.
 - Windows-first: drive handling and the native build target Windows; Linux/macOS support is not there yet.
 - The safetensors native engine has no VRAM offload — if your VRAM is small, use GGUF models (the llama.cpp path is the one that handles low-VRAM hardware).
-- Single GPU only; no multi-GPU yet.
+- Single GPU only; no multi-GPU yet (LAN pooling across machines is the current answer for big models).
+- LAN pool: dashboard/`/api/*` endpoints are trusted-LAN (protect the master port at the network layer); the `/v1` API requires member tokens from non-loopback clients. `-ts` device order follows llama.cpp docs and is not yet verified against live weight placement (Phase 1.1).
 - UI text is Russian-first.
 
 ## Roadmap
 
-- **LAN sharding** — split one model across 2+ PCs on your network (a master owns the scheduler/tokenizer, workers own layer ranges). Design draft: [docs/LAN_SHARDING_DESIGN.md](docs/LAN_SHARDING_DESIGN.md).
+- ~~LAN sharding~~ — **shipped in v1.7.0** (llama.cpp RPC pooling, pairing codes, dashboard "Сеть" tab): [docs/LAN_SHARDING_DESIGN.md](docs/LAN_SHARDING_DESIGN.md).
+- Phase 1.1: live `-ts` device-order verification, measured single-machine vs pool benchmarks in `benchmarks/`.
 - Measured per-model benchmarks published in `benchmarks/`.
 - English UI, Linux/macOS builds.
 

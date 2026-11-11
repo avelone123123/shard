@@ -12,7 +12,8 @@ from hardware import get_hardware_profile, evaluate_compatibility
 from hf_hub import browse_models, fetch_model_metadata, fetch_model_card, get_local_cached_ids
 import settings
 from fit import fit_report
-app = FastAPI(title="Shard Local Model Engine and Server", version="1.5.0")
+from lan import LAN, is_loopback, DEFAULT_MASTER_PORT
+app = FastAPI(title="Shard Local Model Engine and Server", version="1.7.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,6 +21,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"]
 )
+
+@app.middleware("http")
+async def lan_gate(request, call_next):
+    """Member-only gate for /v1 while this machine hosts a shard-сеть:
+    non-loopback clients must present a valid member token. Loopback stays
+    open and /api/* stays LAN-trusted (documented honestly in README)."""
+    try:
+        if (request.url.path or "").startswith("/v1") and LAN.is_server():
+            client = request.client.host if request.client else ""
+            if not is_loopback(client):
+                auth = request.headers.get("authorization") or ""
+                token = auth[7:].strip() if auth.lower().startswith("bearer ") else auth.strip()
+                if token not in LAN.tokens():
+                    return JSONResponse(
+                        status_code=401,
+                        content={"error": {"message": "Требуется токен участника shard-сети",
+                                           "type": "auth_error"}})
+    except Exception:
+        pass
+    return await call_next(request)
+
 DATA_DIR = os.getenv("SHARD_DATA_DIR") or os.path.join(os.path.expanduser("~"), ".shard")
 os.makedirs(DATA_DIR, exist_ok=True)
 KEYS_FILE = os.path.join(DATA_DIR, "keys_db.json")
@@ -629,6 +651,56 @@ def installer_script(tool: str = "claude", os: str = "linux", key: str = ""):
                  'export OPENAI_API_KEY="$KEY"\n' + \
                  'echo "[OK] Shard: OPENAI_API_BASE and OPENAI_API_KEY exported for ' + tool_clean + '."\n'
     return PlainTextResponse(script, media_type="text/plain; charset=utf-8")
+# --- shard-сеть (LAN pooling) ----------------------------------------------
+@app.post("/api/lan/create")
+async def api_lan_create(req: Request):
+    data = await req.json()
+    st = LAN.create((data.get("name") or "").strip() or None)
+    return {"status": "ok", **st}
+
+@app.post("/api/lan/join")
+async def api_lan_join(req: Request):
+    data = await req.json()
+    return LAN.join((data.get("ip") or "").strip(), data.get("code") or "",
+                    share=bool(data.get("share")),
+                    port=int(data.get("port") or DEFAULT_MASTER_PORT))
+
+@app.post("/api/lan/pair")
+async def api_lan_pair(req: Request):
+    data = await req.json()
+    ip = req.client.host if req.client else ""
+    payload, err = LAN.handle_pair(data.get("code") or "", ip,
+                                   (data.get("name") or "").strip() or None,
+                                   share=bool(data.get("share")))
+    if err:
+        return JSONResponse(status_code=403, content={"status": "error", "message": err})
+    return {"status": "ok", **payload}
+
+@app.post("/api/lan/heartbeat")
+async def api_lan_heartbeat(req: Request):
+    data = await req.json()
+    ip = req.client.host if req.client else ""
+    ok = LAN.handle_heartbeat(ip, data.get("token") or "",
+                              hw=data.get("hw"), rpc_port=data.get("rpc_port"))
+    if not ok:
+        return JSONResponse(status_code=404, content={"status": "error", "message": "Участник не найден"})
+    return {"status": "ok"}
+
+@app.post("/api/lan/leave")
+async def api_lan_leave(req: Request):
+    data = await req.json()
+    ip = req.client.host if req.client else ""
+    dropped = LAN.handle_leave(ip, data.get("token") or "")
+    return {"status": "ok", "dropped": dropped}
+
+@app.post("/api/lan/off")
+def api_lan_off():
+    return LAN.off()
+
+@app.get("/api/lan/status")
+def api_lan_status():
+    return LAN.status()
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
     with open(DASHBOARD_PATH, "r", encoding="utf-8") as f:

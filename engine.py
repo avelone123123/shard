@@ -40,11 +40,37 @@ from shard_bridge import shard_native
 try:
     from fit import fit_report
     import gguf_backend as gguf_mod
+    from lan import LAN
     FIT_AVAILABLE = True
 except Exception:
     fit_report = None
     gguf_mod = None
+    LAN = None
     FIT_AVAILABLE = False
+
+
+def _lan_pooled():
+    """True while this machine is a shard-сеть server with live workers."""
+    return LAN is not None and LAN.pool_active()
+
+
+def _lan_pool_fit_ok(fit):
+    """Pooled-load check: the model must fit into the LAN pool (master's live
+    memory + live workers', after the same reserves fit.py uses). A disk veto
+    stays a veto even pooled — there is nothing to download to."""
+    if fit is None or LAN is None or not LAN.pool_active():
+        return False
+    if fit.get("disk_ok") is False:
+        return False
+    try:
+        need = next(q.get("total_gb") for q in fit.get("quants", [])
+                    if q.get("quant") == fit.get("recommended"))
+    except StopIteration:
+        need = fit.get("fp16_gb")
+    if not need:
+        return False
+    cap = LAN.pool_capacity_mb()
+    return cap / 1024.0 >= float(need)
 if os.path.exists(r"C:\Users\avelo\Desktop\airllm\air_llm"):
     sys.path.append(r"C:\Users\avelo\Desktop\airllm\air_llm")
 _active_engine = None
@@ -398,10 +424,15 @@ class ShardEngine:
                     self.gguf.stop()
                 except Exception:
                     pass
-        if fit is None or fit.get("verdict") not in ("GPU", "HYBRID"):
+        pooled_ok = _lan_pool_fit_ok(fit)
+        if fit is None or (fit.get("verdict") not in ("GPU", "HYBRID")
+                           and not pooled_ok):
             msg = (fit or {}).get("message_ru") or "Модель не подходит под ваше железо."
             mmap_note = (fit or {}).get("mmap_note") or ""
-            _fail("Модель не подходит", f"{msg} {mmap_note}".strip())
+            note = f"{msg} {mmap_note}".strip()
+            if _lan_pooled():
+                note += " Модель не влезает даже в объединённую память shard-сети."
+            _fail("Модель не подходит", note)
             return
         try:
             self.load_progress = {
@@ -543,6 +574,11 @@ class ShardEngine:
             if self._cancel_load or seq_id != self._load_seq:
                 return
             ngl = gguf_mod.compute_ngl(fit.get("verdict"), fit.get("ngl", 0))
+            if _lan_pooled():
+                # RPC devices are GPU backends; all layers are distributed
+                # across the pool (same policy as docs/rpc.md: -ngl 99 even
+                # on a CPU-only master)
+                ngl = 999
             threads = gguf_mod.default_threads()
             ngl_desc = "все слои на GPU" if ngl >= 999 else f"{ngl} слоёв на GPU"
             def _wait_beat(elapsed, timeout):
@@ -562,8 +598,18 @@ class ShardEngine:
                 backend = self._gguf()
                 if backend is None:
                     raise RuntimeError("GGUF backend недоступен в этом окружении.")
+                start_kw = {}
+                try:
+                    if _lan_pooled():
+                        rpc = LAN.rpc_targets()
+                        if rpc:
+                            start_kw["rpc_servers"] = rpc["servers"]
+                            start_kw["tensor_split"] = rpc["split"]
+                except Exception:
+                    start_kw = {}
                 backend.start(sel_path, int(fit.get("ctx_tokens") or 4096), ngl, threads, model_id,
-                              server_path=server_path, wait_timeout=180, on_wait=_wait_beat)
+                              server_path=server_path, wait_timeout=180, on_wait=_wait_beat,
+                              **start_kw)
             except RuntimeError as e:
                 if self._cancel_load or seq_id != self._load_seq:
                     _stop_backend()

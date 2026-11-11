@@ -1,4 +1,20 @@
 # Shard Engine Changelog
+
+## [1.7.0] - 2026-11-11
+
+### Added
+
+- LAN sharding (Phase 1): several machines on a local network act as **one big server for one model**. The master hosts the API and the model; workers share their VRAM/RAM through llama.cpp RPC (`ggml-rpc-server.exe`, bundled with the runtime already in `~/.shard/runtime`), so models the fit advisor refuses on one machine can fit the pooled memory (same per-device reserves as the advisor: 400 MB VRAM / 2048 MB RAM; `ngl` forced to 999 when pooled).
+- UDP discovery (port `8001`, announce every 2 s, peer TTL 8 s), `XXXX-XXXX` pairing codes (no ambiguous chars), member tokens (`sk-shard-lan-` + 16 hex), idempotent re-pair per IP, 1 s worker heartbeats with auto-drop after 3 consecutive misses, and the kill switch `shard lan off` (drops every role, stops the RPC process and threads).
+- Dashboard tab "Сеть": create a network, join with IP + pairing code (+ "стать вычислительным узлом"), live status with member list (green/red dots), nearby peers, pairing-code copy, and the live `--rpc`/`-ts` values the master will launch llama-server with.
+- CLI `shard lan [status|create|join|off]` - HTTP proxy to a running Shard Server (`SHARD_BASE_URL` or `http://localhost:8000`), RU output.
+- `/api/lan/*` endpoints (create, join, off, status, pair, heartbeat, leave) and an auth gate on `/v1/*`: while the machine is a LAN server, non-loopback clients must present a member token.
+- 19 LAN unit tests (69 total): device budgets, split weights, pairing/heartbeat state machine, token-leak prevention, pooled-fit integration.
+
+### Notes
+
+- Honest limits of this phase: `/api/*` (dashboard + LAN management) is trusted-LAN - only `/v1/*` requires member tokens from non-loopback clients; no NAT traversal (for internet use run the machines in Radmin VPN / ZeroTier / Tailscale and use those IPs); `-ts` device order follows documented llama.cpp behavior and is not yet verified against live weight placement (Phase 1.1).
+
 ## [1.6.0] - 2026-11-11
 ### Added
 - First GitHub Release with prebuilt Windows x64 binaries (`shard.exe`, `shard-native.exe`, `shard_core.dll`) attached as a zip, so the desktop app works without MSVC Build Tools.

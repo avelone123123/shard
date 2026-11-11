@@ -1,102 +1,67 @@
-# LAN Sharding — Design Draft
+# LAN Sharding — as built (v1.7.0)
 
-> **Status: design, not implemented.** This document describes the intended architecture for splitting one model across 2+ PCs on a local network. Nothing here ships yet; `v1.5.0` single-machine behavior is unchanged. Cross-machine fit reality today is the fit advisor's `HYBRID` verdict (mmap paging from RAM/SSD).
+> **Status: Phase 1 shipped in v1.7.0.** Several machines on a LAN act as one big server for one model: memory is pooled with llama.cpp RPC, so large models fit even without one powerful GPU. Internet networks work through Radmin VPN / ZeroTier / Tailscale — no extra code, those tools give every PC a LAN-like IP. NAT traversal is not in the MVP.
 
-## 1. Motivation
+## 1. What it is
 
-Two mid-range PCs (e.g. 8 GB VRAM each) cannot each run a 32B model alone — but pooled VRAM (16 GB) can hold 32B Q2_K (~12.2 GB). Meanwhile a single GPU alone can stream it from RAM at ~1.3–2.2 tok/s (mmap), which is 30–50× slower than pure RAM — the same math the fit advisor already reports.
+Two mid-range PCs (e.g. 8 GB VRAM each) cannot each run a 32B model alone — but pooled memory can hold a 32B Q2_K (~12.2 GB). The fit advisor already refuses such models on one machine (`IMPOSSIBLE`); the LAN pool re-runs the same math with every device's budget summed.
 
-Layer sharding (pipeline parallelism) is the right fit for LAN because:
+The implementation reuses **llama.cpp's own RPC** (`ggml-rpc-server` + `--rpc` + `-ts`) instead of a custom forward protocol:
 
-- **Tensor parallelism needs per-token all-reduce** — that requires NVLink-class bandwidth (~300+ GB/s). A 1 Gbit/s LAN (~120 MB/s) would make every token a round-trip storm. Not viable.
-- **Layer sharding needs one small activation per hop**: the hidden state of one token = `hidden_size × bytes` (e.g. 4096 dims × FP16 = **8 KB**). At ~10 tok/s that is ~80 KB/s per hop — trivial even on Wi-Fi 5, negligible on Ethernet.
+- **No custom wire protocol to write, test, and break** — llama.cpp handles weight distribution, per-layer compute, KV-cache sharding and all token traffic inside its existing, mature RPC path.
+- **`-ts` (tensor split) assigns a proportional memory share to every device** — exactly the "pooled memory" model, and each device's share must fit there.
+- Layer sharding (one activation per hop) stays the right choice over tensor all-reduce: per-token all-reduce needs NVLink-class bandwidth; a hidden-state hop is ~8 KB — trivial even on Wi-Fi 5. llama.cpp RPC implements this internally.
 
-## 2. Architecture
-
-```
-                    LAN (Ethernet preferred)
-+------------------------+   +------------------------+   +------------------------+
-|  MASTER (host PC)      |   |  WORKER A              |   |  WORKER B              |
-|                        |   |                        |   |                        |
-|  - OpenAI/Anthropic API|   |  layers [12..24)       |   |  layers [24..36)       |
-|  - Tokenizer/decoder   |-->|  KV for its layers     |-->|  KV for its layers     |   ...
-|  - Scheduler / roles   |   |  (llama.cpp shard)     |   |  (llama.cpp shard)     |
-|  - KV for own layers   |   |                        |   |                        |
-|  - layers [0..12)      |   |                        |   |                        |
-+------------------------+   +------------------------+   +------------------------+
-        ^
-        | forward activation (8 KB/token, FP16/BF16 vector)
-```
-
-- **Master** owns: the public API (`/v1/chat/completions`, `/v1/messages`), tokenizer/detokenizer, sampling, the token scheduler, and the *first* layer range (embeddings + early layers). It does not own other devices' KV.
-- **Workers** own: a contiguous range of decoder layers and the **KV cache for those layers**. Attention at layer *L* needs KV for all previous tokens *at layer L* — which is exactly what its owner already holds. **KV never crosses the network.**
-- Per token: master computes its range → sends the hidden-state vector to worker A → A computes its range → sends to B → ... → last owner sends logits (or the final hidden state, if the lm_head lives on master; see §6) back to master → master samples and detokenizes.
-
-## 3. Discovery & pairing
-
-- **mDNS/DNS-SD** (`_shard._tcp.local`) is the primary discovery path; a worker with the dashboard running announces itself with `{hostname, gpu_name, vram_free_mb, ram_total_mb, shard_version, runtime_port}`.
-- **UDP broadcast fallback** (port 8001) for networks where mDNS is filtered (common on Windows guest networks).
-- The master dashboard lists discovered peers; pairing is an explicit user action ("Add this PC"), not automatic join.
-- On failure of both: manual `worker add <ip>:<port>` — always available.
-
-## 4. Auth & trust
-
-- Master generates a LAN token (`sk-shard-lan-...`); every worker call requires `Authorization: Bearer <token>`.
-- Worker identity is pinned by the master (its chosen IP + presented fingerprint); re-pairing requires the user.
-- Everything is bound to the LAN interfaces: discovery listeners bind to private ranges only (RFC1918 + link-local), never `0.0.0.0` on the public path.
-- TLS is **not** assumed inside a trusted home LAN; the design treats an untrusted LAN as out of scope for MVP and documents the risk. (Future: optional TLS with a shared cert generated by the master.)
-
-## 5. Partitioning
-
-Given the fit report for every device in the pool:
-
-1. Compute each device's usable budget (`vram_free` + `ram_avail` with the same 2 GB OS reserve the single-machine advisor uses).
-2. Assign layer ranges proportional to budget, respecting two constraints: embeddings + first layers on the master, lm_head + final layers on the last device (see §6).
-3. Prefer ranges that keep **per-device weights ≤ device VRAM** (GPU verdict) before allowing `HYBRID`-style overflow on any single device — one slow device throttles the whole pipeline, so the advisor's per-device verdict must be `GPU` for MVP.
-
-The assignment is computed by the existing `fit.py` math extended with a per-device pool input; no new estimation model is introduced.
-
-## 6. lm_head placement & sampling
-
-Two options, to be decided by measurement in M1:
-
-- **A. lm_head on the last worker** — final owner sends logits (vocab × dims, e.g. 128k vocab × 2 B ≈ 256 KB per token — still fine on Ethernet, noticeable on Wi-Fi).
-- **B. lm_head on the master** — final owner sends only the last hidden state (8 KB); master keeps the lm_head weights + dequant. Costs an extra hop back but keeps the wire payload constant.
-
-Default: **B** (constant payload, simpler sampling, keeps temperature/top-p logic on one device).
-
-## 7. Failure handling
-
-- Heartbeat (1 s) master↔worker; 3 misses ⇒ worker marked dead.
-- A dead worker with `GPU`-verdict coverage ⇒ request **degrades**: the master reports which shard is offline and refuses new requests for that model until the worker returns (no silent quality/cliff changes).
-- No dynamic re-sharding in MVP; re-assignment happens on model load.
-
-## 8. Protocol sketch (MVP: HTTP + SSE)
+## 2. Roles
 
 ```
-POST /shard/forward        {seq, pos, hidden:[floats]}  -> {hidden or logits}
-POST /shard/adopt          {layer_start, layer_end, model_ref, quant}
-GET  /shard/health         -> {vram_free_mb, kv_usage, layer_range}
+            LAN (Ethernet preferred; Wi-Fi works)
++------------------------+    +------------------------+   +------------------------+
+|  MASTER (shard server) |    |  WORKER                |   |  MEMBER (client)       |
+|                        |    |                        |   |                        |
+|  llama-server          |    |  ggml-rpc-server.exe   |   |  only consumes /v1     |
+|  --rpc ip:port,ip:port |<---|  --host 0.0.0.0        |   |  over HTTP             |
+|  -ts N0,N1,...         |    |  --port 50052          |   |  (no compute shared)   |
+|  owns model + API      |    |  heartbeats every 1 s  |   |                        |
++------------------------+    +------------------------+   +------------------------+
 ```
 
-- Streaming is not needed on the wire: each forward is a single request/response; the SSE stream the user sees is generated by the master.
-- MVP is HTTP/1.1 with keep-alive on the LAN; a binary framing (length-prefixed FP16 payload) is an M2 optimization if profiling shows HTTP overhead matters at >20 tok/s.
-- Serialization: raw little-endian FP16/BF16 vector in the body (JSON envelope) — avoids any new dependency.
+- **Master (server)** — runs the shard server: the public API, dashboard, the fit advisor, and `llama-server` with `--rpc <workers>` + `-ts <weights>`. It runs `ggml-rpc-server` implicitly through llama-server (the master is device 0 in the split).
+- **Worker** — a compute member: spawns `ggml-rpc-server.exe --host 0.0.0.0 --port P` (bundled with the llama.cpp runtime shard already downloads to `~/.shard/runtime`) and heartbeats every 1 s. 3 consecutive missed heartbeats → dropped automatically.
+- **Member** — client-only: consumes the master's model over HTTP, shares nothing.
 
-## 9. MVP scope (2 devices, static)
+## 3. Discovery, pairing, auth
 
-1. Discovery (mDNS + UDP broadcast) + explicit pairing + token auth.
-2. Static layer assignment computed from two fit reports at load time.
-3. Forward pipeline: master → worker → master, per-token, synchronous per hop.
-4. Benchmark harness: same model, same prompt, single-machine vs 2-machine tok/s — published in `benchmarks/` before any performance claim is made.
-5. Kill-switch: `shard lan off` returns to single-machine mode (mmap HYBRID) at any time.
+- **UDP beacon**: port `8001`, JSON announce every 2 s, peer TTL 8 s. Peers are shown in the dashboard ("рядом в сети") but never auto-join.
+- **Pairing code**: `XXXX-XXXX` from a 31-char alphabet (no `0/O/1/I/L`); shown on the master's dashboard/CLI, typed on the joining machine. `handle_pair` is idempotent per IP (re-pair reuses the issued token).
+- **Member token**: `sk-shard-lan-` + 16 hex chars, issued by the master at pair time. Heartbeats and leave requests carry it; the master matches **both IP and token**. `status()` never exposes member tokens (verified by test).
+- **Auth gate**: a FastAPI HTTP middleware on paths starting `/v1` — when the machine is a LAN server and the client is not loopback, a member token is required. Loopback stays open (the owner's own dashboard/CLI). **`/api/*` (dashboard + LAN management) stays trusted-LAN**: an MVP limitation, documented honestly — anything that can reach the master's port can manage the network.
 
-Explicit non-goals for MVP: N>2 auto-balancing, WAN (internet) sharding, dynamic rebalance, multi-model concurrency, redundancy/replication.
+## 4. Memory math (all values verified empirically)
 
-## 10. Risks / open questions
+Everything lives in `lan.py`:
 
-- **Windows firewall** prompts on first discovery — document a firewall rule recipe.
-- **Version drift** between master and workers (llama.cpp runtime version, shard version) — health endpoint must report versions and refuse mismatches.
-- **Model distribution**: does each device need the full GGUF on disk? MVP: yes (each device reads only its layer range from the same file via mmap — same file, different offsets). Optional future: per-device partial download.
-- **Jitter**: Wi-Fi adds 1–3 ms per hop; with ~8 hops/model at 20 tok/s (~2.5 ms/token budget at wire level) Ethernet is effectively required for quality targets — measure, then document.
-- **Quant per device**: same GGUF everywhere for MVP; mixed-quant per device is a future optimization the fit advisor could propose.
+- `device_budget(vram_free_mb, ram_free_mb)` — same hard reserves as the single-machine advisor (`fit.py`: `VRAM_RESERVE_MB=400`, `RAM_RESERVE_MB=2048`): `device_budget(4096,0) → (3696,0)`, `device_budget(0,16077) → (0,14029)`.
+- `split_weights(budgets)` — proportional `-ts` weights; all-zero → `[1,1]` honest equal fallback.
+- `rpc_targets()` — samples the **master's hardware live per call** (free VRAM/RAM *before* weights are pushed into the pool), appends each alive worker's `device_budget` from its last heartbeat `hw`, returns `{"servers": "ip:port,...", "split": "N0,N1,..."}`. Verified live: master VRAM 1885 → share 1485 (1885−400), worker RAM 9840 → share 7792 (9840−2048) → `-ts 1485,7792`.
+- `pool_capacity_mb()` — usable pooled memory: per device `vram_budget if >0 else ram_budget`, summed.
+
+Fit integration (`engine.py`): the single-machine refusal is bypassed **only** when pooling is active *and* `fit.get("disk_ok") is not False`; the pool fit check compares `pool_capacity_mb()` against the advisor's `recommended` quant `total_gb`. `ngl` is forced to 999 (weights are pre-split across devices). A pooled-but-not-fitting load still refuses, with the note "Модель не влезает даже в объединённую память shard-сети".
+
+## 5. User surface
+
+- **Dashboard**: "Сеть" tab — create a network (name optional), join with IP + code (+ "стать вычислительным узлом"), status box with mode badge, pairing code (click to copy), live member list (green/red dots), nearby peers, and the live `--rpc`/`-ts` values.
+- **CLI** (`shard lan`): `status | create | join | off` — thin HTTP proxy to `{BASE_URL}/api/lan/*` (`SHARD_BASE_URL` env or `http://localhost:8000`); RU output; server offline → "Shard Server не запущен".
+- **Kill switch**: `shard lan off` / dashboard button — drops every role, stops the RPC process and threads, notifies the master. Also the auto-off path when the master dies.
+
+## 6. Known assumptions & MVP limits (honest)
+
+- **`-ts` device order** follows documented llama.cpp behavior (local device first, then `--rpc` order) — verified against docs, not yet against live weight placement; live check planned for Phase 1.1.
+- **`/api/*` is trusted-LAN** (see §3) — protect the port at the network layer for now.
+- **Model file location**: the master downloads the GGUF once; workers only need the RPC binary, not the weights.
+- No NAT traversal: for internet use, run the machines in a Radmin VPN / ZeroTier / Tailscale network and use those IPs.
+- Heartbeats are the only liveness signal — a hung-but-alive RPC process is not detected (llama-server fails visibly on RPC loss).
+
+## 7. Tests
+
+19 LAN tests in `tests_shard.py` (69 total, all green) cover the pure math (budgets, splits, formats), the pairing/heartbeat state machine, token leak prevention (`status()` strips member tokens), and the live-sampled pooled split — every expected value verified in scratch runs before being written down.
