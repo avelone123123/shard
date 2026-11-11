@@ -600,12 +600,15 @@ macOS
 <div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
 <div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Создать сеть на этом ПК (мастер)</div>
 <input id="lanName" placeholder="Имя сети (необязательно)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="lanOpen"> Открытая сеть — вход по кнопке, без кода
+</label>
 <button class="btn-action" onclick="lanCreate()">Создать сеть</button>
 </div>
 <div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
 <div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Подключиться к сети мастера</div>
 <input id="lanJoinIp" placeholder="IP мастера (напр. 192.168.100.6)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
-<input id="lanJoinCode" placeholder="Код вида ABCD-EFGH" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
+<input id="lanJoinCode" placeholder="Код вида ABCD-EFGH (для открытой сети не нужен)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="lanShare"> Стать вычислительным узлом (отдать VRAM/RAM)
 </label>
@@ -689,16 +692,28 @@ async function lanRefresh() {
         box.innerHTML = '<div style="color:#f85149;font-size:13px;">Shard Server недоступен.</div>';
     }
 }
+let lastLanStatus = null;
 function renderLanStatus(st) {
     const box = document.getElementById('lanStatusBox');
     if (!st) { box.innerHTML = ''; return; }
+    lastLanStatus = st;
     const labels = {off:'выключена', server:'мастер', worker:'вычислительный узел', member:'участник (клиент)'};
     const colors = {off:'#8b949e', server:'#3fb950', worker:'#58a6ff', member:'#bc8cff'};
     const mode = st.mode || 'off';
-    let html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' +
+    let html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">' +
         '<span style="background:#0d1117;border:1px solid ' + colors[mode] + '44;color:' + colors[mode] +
         ';border-radius:20px;padding:2px 10px;font-size:12px;">' + lanEsc(labels[mode] || mode) + '</span>' +
-        '<span style="font-size:13px;color:#e6edf3;">Сеть: ' + lanEsc(st.name) + '</span></div>';
+        '<span style="font-size:13px;color:#e6edf3;">Сеть: ' + lanEsc(st.name) + '</span>';
+    if (mode === 'server') {
+        if (st.open) {
+            html += ' <span style="background:#0d1117;border:1px solid #10b98144;color:#10b981;border-radius:20px;padding:2px 10px;font-size:12px;">открытая</span>' +
+                '<button class="btn-action" style="font-size:11px;padding:2px 10px;" onclick="lanToggleOpen(false)">Закрыть сеть</button>';
+        } else {
+            html += ' <span style="background:#0d1117;border:1px solid #8b949e44;color:#8b949e;border-radius:20px;padding:2px 10px;font-size:12px;">закрытая (код)</span>' +
+                '<button class="btn-action" style="font-size:11px;padding:2px 10px;" onclick="lanToggleOpen(true)">Открыть сеть</button>';
+        }
+    }
+    html += '</div>';
     html += '<div style="font-size:12px;color:#8b949e;">IP этой машины: <b style="color:#e6edf3;">' + lanEsc(st.ip) + '</b>';
     if (st.pairing_code) {
         html += ' &middot; Код подключения: <b style="color:#e6edf3;cursor:pointer;" title="Скопировать" ' +
@@ -710,6 +725,7 @@ function renderLanStatus(st) {
             lanEsc(st.master.name || st.master.ip) + '</b> (' + lanEsc(st.master.ip) + ':' + lanEsc(st.master.port) + ')</div>';
     }
     const members = st.members || [];
+    const hasWorker = members.some(m => m.role === 'worker' && m.alive);
     if (members.length) {
         html += '<div style="font-size:12px;color:#8b949e;margin:10px 0 4px;">Участники (' + members.length + '):</div>';
         for (const m of members) {
@@ -722,13 +738,28 @@ function renderLanStatus(st) {
                 '<span style="color:#8b949e;">[' + lanEsc(m.role) + ']</span>' +
                 '<span style="color:' + (m.alive ? '#10b981' : '#ef4444') + ';">' + mark + '</span></div>';
         }
+        if (mode === 'server' && hasWorker) {
+            html += '<div style="font-size:12px;color:#d29922;margin-top:6px;">Вычислительный узел подключился — ' +
+                'перезагрузите модель, чтобы он получил свою часть весов (кнопка «Загрузить» на вкладке модели).</div>';
+        }
     }
-    const peers = st.peers || [];
+    const peers = (st.peers || []).filter(p => p.role === 'server');
     if (peers.length) {
-        html += '<div style="font-size:12px;color:#8b949e;margin:10px 0 4px;">Рядом в сети (UDP-маяк):</div>';
+        html += '<div style="font-size:12px;color:#8b949e;margin:10px 0 4px;">Серверы рядом (UDP-маяк):</div>';
         for (const p of peers) {
-            html += '<div style="font-size:12px;color:#8b949e;padding:1px 0;">' + lanEsc(p.ip) + ' — ' +
-                lanEsc(p.name) + ' [' + lanEsc(p.role) + '] порт ' + lanEsc(p.port) + '</div>';
+            const isOpen = !!p.open;
+            const openBadge = isOpen
+                ? '<span style="background:#0d1117;border:1px solid #10b98144;color:#10b981;border-radius:20px;padding:1px 8px;font-size:11px;">открытая</span>'
+                : '<span style="background:#0d1117;border:1px solid #8b949e44;color:#8b949e;border-radius:20px;padding:1px 8px;font-size:11px;">нужен код</span>';
+            const model = p.model ? (' модель: ' + lanEsc(p.model)) : '';
+            const joinBtn = isOpen
+                ? '<button class="btn-action" style="font-size:11px;padding:2px 10px;color:#3fb950;border-color:#3fb950;" onclick="lanJoinQuick(\'' + lanEsc(p.ip) + '\', ' + lanEsc(p.port) + ')">Войти на сервер</button>'
+                : '';
+            html += '<div style="display:flex;align-items:center;gap:10px;font-size:12px;padding:3px 0;flex-wrap:wrap;">' +
+                '<span style="color:#e6edf3;font-weight:600;">' + lanEsc(p.name) + '</span>' +
+                '<span style="color:#8b949e;">' + lanEsc(p.ip) + ':' + lanEsc(p.port) + '</span>' +
+                openBadge +
+                '<span style="color:#8b949e;">' + model + '</span>' + joinBtn + '</div>';
         }
     }
     if (st.rpc && st.rpc.servers) {
@@ -739,30 +770,54 @@ function renderLanStatus(st) {
 }
 async function lanCreate() {
     const name = document.getElementById('lanName').value.trim();
+    const open = document.getElementById('lanOpen').checked;
     const res = await fetch('/api/lan/create', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name: name})
+        body: JSON.stringify({name: name, open: open})
     });
     const data = await res.json();
     if (data.status === 'ok') {
-        showToast('Сеть создана', 'Код подключения: ' + (data.pairing_code || ''));
+        showToast('Сеть создана', open ? 'Открытая сеть: вход без кода' : 'Код подключения: ' + (data.pairing_code || ''));
         lanRefresh();
     } else {
         showToast('Ошибка', data.message || 'Не удалось создать сеть');
+    }
+}
+async function lanToggleOpen(open) {
+    const res = await fetch('/api/lan/open', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({open: !!open})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') showToast(open ? 'Сеть открыта' : 'Сеть закрыта', data.message || '');
+    else showToast('Ошибка', data.message || 'Не удалось изменить сеть');
+    lanRefresh();
+}
+async function lanJoinQuick(ip, port) {
+    const res = await fetch('/api/lan/join', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ip: ip, code: '', share: true, port: port})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('Подключено', 'К сети: ' + (data.master || ip) + (data.warning ? ' (без расшаривания: ' + data.warning + ')' : ' (ваше VRAM/RAM расшарено)'));
+        lanRefresh();
+    } else {
+        showToast('Ошибка подключения', data.message || 'Проверьте IP');
     }
 }
 async function lanJoin() {
     const ip = document.getElementById('lanJoinIp').value.trim();
     const code = document.getElementById('lanJoinCode').value.trim().toUpperCase();
     const share = document.getElementById('lanShare').checked;
-    if (!ip || !code) { showToast('Заполните поля', 'Нужны IP мастера и код подключения'); return; }
+    if (!ip) { showToast('Заполните поле', 'Нужен IP мастера'); return; }
     const res = await fetch('/api/lan/join', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ip: ip, code: code, share: share})
     });
     const data = await res.json();
     if (data.status === 'ok') {
-        showToast('Подключено', 'К сети: ' + (data.master || ip));
+        showToast('Подключено', 'К сети: ' + (data.master || ip) + (data.warning ? ' (без расшаривания)' : ''));
         lanRefresh();
     } else {
         showToast('Ошибка подключения', data.message || 'Проверьте IP и код');

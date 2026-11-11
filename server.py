@@ -13,7 +13,7 @@ from hf_hub import browse_models, fetch_model_metadata, fetch_model_card, get_lo
 import settings
 from fit import fit_report
 from lan import LAN, is_loopback, DEFAULT_MASTER_PORT
-app = FastAPI(title="Shard Local Model Engine and Server", version="1.7.0")
+app = FastAPI(title="Shard Local Model Engine and Server", version="1.8.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -655,8 +655,15 @@ def installer_script(tool: str = "claude", os: str = "linux", key: str = ""):
 @app.post("/api/lan/create")
 async def api_lan_create(req: Request):
     data = await req.json()
-    st = LAN.create((data.get("name") or "").strip() or None)
+    st = LAN.create((data.get("name") or "").strip() or None,
+                    open_net=bool(data.get("open")))
     return {"status": "ok", **st}
+
+@app.post("/api/lan/open")
+async def api_lan_open(req: Request):
+    """Toggle open network (join without a pairing code). Server only."""
+    data = await req.json()
+    return LAN.set_open(bool(data.get("open")))
 
 @app.post("/api/lan/join")
 async def api_lan_join(req: Request):

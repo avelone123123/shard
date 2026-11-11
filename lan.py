@@ -10,8 +10,15 @@ Modes (Radmin-VPN style: create a network or join one):
             heartbeats to the master every 1 s (3 misses = dropped).
   member  — client-only member: consumes the master's model over HTTP.
 
+The UDP listener runs permanently (daemon thread started in __init__), so
+the dashboard "server list" stays visible even when this machine's mode is
+"off" — that is what lets another person discover a network and click
+"Войти на сервер" without running anything themselves.
+
 Wire protocol (all empirically verified against live modules):
   - UDP beacon on :8001, JSON announce every 2 s, peer TTL 8 s.
+    The beacon carries an "open" flag: open networks accept an empty
+    pairing code (one-click join from the dashboard server list).
   - Pairing code XXXX-XXXX from a 31-char alphabet (no 0/O/1/I/L).
   - Member token "sk-shard-lan-" + 16 hex chars.
   - llama.cpp flags: --rpc "ip:port,..." and -ts "N0,N1,..." where index 0 is
@@ -141,9 +148,11 @@ def member_alive(member, now=None):
     return (now - last) <= HEARTBEAT_MISS_LIMIT * HEARTBEAT_INTERVAL_S
 
 
-def beacon_payload(name, role, model=None, port=DEFAULT_MASTER_PORT):
+def beacon_payload(name, role, model=None, port=DEFAULT_MASTER_PORT,
+                   open_net=False):
     return {"app": APP_TAG, "ver": PROTO_VER, "name": str(name),
-            "role": role, "model": model, "port": int(port), "ts": time.time()}
+            "role": role, "model": model, "port": int(port),
+            "open": bool(open_net), "ts": time.time()}
 
 
 def parse_beacon(raw):
@@ -214,6 +223,9 @@ class LanManager:
         self._rpc_proc = None      # worker: ggml-rpc-server subprocess
         self._hb_failures = 0
         self._state = self._load()
+        # permanent discovery listener: peers list stays visible even with
+        # mode=off so the dashboard server list works for everyone on LAN/VPN
+        threading.Thread(target=self._listen_loop, daemon=True).start()
         if self._state.get("mode") in ("server", "worker", "member"):
             # restart-safe: resume announced/heartbeat roles after reboot
             threading.Thread(target=self._resume, daemon=True).start()
@@ -229,13 +241,14 @@ class LanManager:
                 d.setdefault("pairing_code", None)
                 d.setdefault("master", None)
                 d.setdefault("members", [])
+                d.setdefault("open", False)
                 d.setdefault("created_at", None)
                 return d
         except Exception:
             pass
         return {"mode": "off", "name": socket.gethostname() or "shard",
                 "pairing_code": None, "master": None, "members": [],
-                "created_at": None}
+                "open": False, "created_at": None}
 
     def _save(self):
         with self._lock:
@@ -349,10 +362,12 @@ class LanManager:
                 self._peers.pop(ip, None)
                 continue
             peers.append({"ip": ip, **{k: p.get(k) for k in
-                                       ("name", "role", "model", "port")}})
+                                       ("name", "role", "model", "port",
+                                        "open")}})
         rpc = self.rpc_targets()
         return {"mode": st.get("mode"), "name": st.get("name"),
                 "ip": local_ip(), "pairing_code": st.get("pairing_code"),
+                "open": bool(st.get("open")),
                 "master": st.get("master"), "members": st.get("members"),
                 "peers": peers, "rpc": rpc,
                 "constants": {"beacon_port": BEACON_PORT,
@@ -361,7 +376,7 @@ class LanManager:
                               "heartbeat_miss_limit": HEARTBEAT_MISS_LIMIT}}
 
     # -- server mode ---------------------------------------------------------
-    def create(self, name=None):
+    def create(self, name=None, open_net=False):
         with self._lock:
             if self._state.get("mode") == "server":
                 return self.status()
@@ -373,19 +388,39 @@ class LanManager:
                 "pairing_code": gen_pairing_code(),
                 "members": [],
                 "master": None,
+                "open": bool(open_net),
                 "created_at": time.time(),
             })
             self._save()
         self._start_threads("server")
         return self.status()
 
+    def set_open(self, open_net):
+        """Toggle open network (join without a pairing code). Server only."""
+        with self._lock:
+            if self._state.get("mode") != "server":
+                return {"status": "error",
+                        "message": "Сеть не создана — открыть можно только свою сеть"}
+            self._state["open"] = bool(open_net)
+            self._save()
+        if open_net:
+            return {"status": "ok", "open": True,
+                    "message": "Сеть открыта: подключение без кода"}
+        return {"status": "ok", "open": False,
+                "message": "Сеть закрыта: нужен код подключения"}
+
     def handle_pair(self, code, ip, name=None, share=False):
-        """Server side of pairing: validate code, issue member token."""
+        """Server side of pairing: validate code, issue member token.
+
+        Open networks accept an empty/any code (one-click join); closed
+        networks still require the exact pairing code.
+        """
         code = normalize_code(code)
         with self._lock:
             if self._state.get("mode") != "server":
                 return None, "Эта машина не является сервером shard-сети"
-            if not code or code != self._state.get("pairing_code"):
+            if not self._state.get("open") and \
+                    (not code or code != self._state.get("pairing_code")):
                 return None, "Неверный код подключения"
             # re-pair same IP -> reuse token (idempotent join)
             for m in self._state.get("members", []):
@@ -433,22 +468,28 @@ class LanManager:
 
     # -- member / worker mode ------------------------------------------------
     def join(self, ip, code, share=False, port=DEFAULT_MASTER_PORT):
-        """Client side: pair with the master over HTTP, then assume role."""
+        """Client side: pair with the master over HTTP, then assume role.
+
+        The code is optional: open networks accept an empty code (one-click
+        join). With share=True and a missing/broken worker runtime we fall
+        back to member mode instead of failing the whole join — the model
+        still works, just without sharing VRAM/RAM.
+        """
         import requests
-        code = normalize_code(code)
-        if not ip or not code:
+        if not ip:
             return {"status": "error",
-                    "message": "Нужны IP мастера и код вида XXXX-XXXX"}
+                    "message": "Нужен IP мастера (или выберите сервер из списка)"}
         url = f"http://{ip}:{port}/api/lan/pair"
         try:
-            r = requests.post(url, json={"code": code,
+            r = requests.post(url, json={"code": str(code or ""),
                                          "name": self.name(), "share": share},
                               timeout=5)
         except Exception as e:
             return {"status": "error",
                     "message": f"Мастер {ip}:{port} недоступен: {str(e)[:120]}"}
         if r.status_code == 403:
-            return {"status": "error", "message": "Неверный код подключения"}
+            return {"status": "error",
+                    "message": "Сеть закрыта: нужен код подключения"}
         if r.status_code != 200:
             return {"status": "error",
                     "message": f"Мастер ответил {r.status_code}: {r.text[:120]}"}
@@ -463,11 +504,23 @@ class LanManager:
                 "created_at": time.time(),
             })
             self._save()
+        warn = None
         if share:
-            self._start_worker()
+            try:
+                self._start_worker()
+            except Exception as e:
+                # honest fallback: stay in the network as a plain member
+                warn = str(e)[:160]
+                with self._lock:
+                    self._state["mode"] = "member"
+                    self._state["rpc_port"] = None
+                    self._save()
         self._start_threads(self.mode())
-        return {"status": "ok", "mode": self.mode(),
-                "master": data.get("master") or ip}
+        res = {"status": "ok", "mode": self.mode(),
+               "master": data.get("master") or ip}
+        if warn:
+            res["warning"] = warn
+        return res
 
     def _start_worker(self):
         """Spawn ggml-rpc-server.exe on a free local port (this machine now
@@ -536,9 +589,10 @@ class LanManager:
         with self._lock:
             self._state.update({"mode": "off", "pairing_code": None,
                                 "members": [], "master": None,
-                                "created_at": None, "rpc_port": None})
+                                "created_at": None, "rpc_port": None,
+                                "open": False})
             self._save()
-            self._peers.clear()
+            # keep self._peers: the server list must survive going offline
             self._threads = {}
         if not quiet and mode != "off":
             print(f"[lan] сеть отключена (был режим {mode})")
@@ -568,7 +622,6 @@ class LanManager:
                 t.join(timeout=1.0)
         self._stop.clear()
         spawn = {
-            "listener": threading.Thread(target=self._listen_loop, daemon=True),
             "hb_monitor": threading.Thread(target=self._hb_monitor_loop,
                                            daemon=True),
         }
@@ -593,7 +646,11 @@ class LanManager:
         while not self._stop.is_set():
             if self.mode() != "server":
                 break
-            payload = beacon_payload(self.name(), "server", port=8000)
+            with self._lock:
+                open_net = bool(self._state.get("open"))
+            payload = beacon_payload(self.name(), "server",
+                                     model=self._loaded_model_name(),
+                                     port=8000, open_net=open_net)
             for target in ("<broadcast>", "255.255.255.255"):
                 try:
                     sock.sendto(json.dumps(payload).encode("utf-8"),
@@ -603,30 +660,52 @@ class LanManager:
             self._stop.wait(BEACON_INTERVAL_S)
         sock.close()
 
-    def _listen_loop(self):
-        """UDP listener: collect nearby shard networks (all non-off modes)."""
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    def _loaded_model_name(self):
+        """Model the server currently has loaded (for the beacon), or None.
+
+        engine imports lan at module level, so engine is imported lazily here
+        only, inside the announce thread.
+        """
         try:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            sock.bind(("", BEACON_PORT))
-            sock.settimeout(0.5)
-            while not self._stop.is_set():
-                try:
-                    raw, addr = sock.recvfrom(2048)
-                except socket.timeout:
-                    continue
-                except OSError:
-                    break
-                d = parse_beacon(raw)
-                if not d or d.get("name") == self.name():
-                    continue  # our own announce bounced back
-                self._peers[addr[0]] = {k: d.get(k) for k in
-                                        ("name", "role", "model", "port")}
-                self._peers[addr[0]]["_ts"] = time.time()
+            from engine import engine_instance
+            return engine_instance.get_status().get("current_loaded") or None
         except Exception:
-            pass
-        finally:
-            sock.close()
+            return None
+
+    def _listen_loop(self):
+        """UDP listener: collect nearby shard networks.
+
+        Runs permanently (daemon thread from __init__) so the dashboard
+        server list works even when this machine's mode is "off". If the
+        port is busy at startup (e.g. another shard instance on this PC),
+        retry re-binding once per second instead of dying.
+        """
+        sock = None
+        while sock is None:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(("", BEACON_PORT))
+                sock.settimeout(0.5)
+            except OSError:
+                sock.close()
+                sock = None
+                time.sleep(1.0)
+        while True:
+            try:
+                raw, addr = sock.recvfrom(2048)
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            d = parse_beacon(raw)
+            if not d or d.get("name") == self.name():
+                continue  # our own announce bounced back
+            self._peers[addr[0]] = {k: d.get(k) for k in
+                                    ("name", "role", "model", "port",
+                                     "open")}
+            self._peers[addr[0]]["_ts"] = time.time()
+        sock.close()
 
     def _hb_send_loop(self):
         """Member/worker -> master heartbeat every 1 s. 3 consecutive

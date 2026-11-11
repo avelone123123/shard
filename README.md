@@ -1,7 +1,7 @@
 # SHARD — Local AI engine that tells you *first* whether a model will run
 
 [![Tests](https://github.com/avelone123123/shard/actions/workflows/tests.yml/badge.svg)](https://github.com/avelone123123/shard/actions/workflows/tests.yml)
-[![Version](https://img.shields.io/badge/Version-v1.7.0-22a06b)](https://github.com/avelone123123/shard)
+[![Version](https://img.shields.io/badge/Version-v1.8.0-22a06b)](https://github.com/avelone123123/shard)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-38bdf8)](https://github.com/avelone123123/shard)
 [![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
 
@@ -101,7 +101,7 @@ Open `http://localhost:8000`:
 - download with live progress (multi-part GGUF included) to any drive,
 - load/unload with progress stages, chat with SSE streaming,
 - fit-advisor card per model *before* download,
-- "Сеть" tab: create/join a LAN shard network with pairing codes and live member status,
+- "Сеть" tab: create/join a LAN shard network, one-click «Войти на сервер» for open networks, live member status and nearby server list,
 - drives & storage manager, API-key management (`sk-shard-*`), 1-click CLI/IDE integration.
 
 ## LAN sharding
@@ -109,8 +109,10 @@ Open `http://localhost:8000`:
 Several machines act as **one big server for one model**: the master hosts the API and the model, workers share their VRAM/RAM through llama.cpp RPC, and the memory pool is filled with the same hard reserves as the single-machine advisor (400 MB VRAM / 2048 MB RAM). A model the fit advisor refuses on one machine can fit the pool.
 
 - Create a network on the master (dashboard "Сеть" tab or `shard lan create`), join from other machines with a `XXXX-XXXX` pairing code.
-- Worker machines run `ggml-rpc-server.exe` (bundled with the llama.cpp runtime, already in `~/.shard/runtime`) and heartbeat every 1 s; 3 misses drop them automatically.
-- Internet networks need no extra code: run the machines in a Radmin VPN / ZeroTier / Tailscale network and use those IPs. NAT traversal is not included.
+- **Open networks**: the master can mark the network open (checkbox on create, or the «Открыть сеть» toggle). Every shard instance listens for beacons permanently, so others see the master in the «Серверы рядом» list with its name, IP, loaded model — and click «Войти на сервер» to join in one click, sharing their VRAM/RAM by default. Closed networks keep the code requirement.
+- Worker machines run `ggml-rpc-server.exe` (bundled with the llama.cpp runtime, already in `~/.shard/runtime`) and heartbeat every 1 s; 3 misses drop them automatically. If the runtime is missing, joining still succeeds in plain member mode (no sharing).
+- LAN discovery (UDP beacon, port `8001`) covers the same subnet and usually Radmin VPN / ZeroTier; **Tailscale has no L2 broadcast**, so its users join by manual IP (that path always works). NAT traversal is not included.
+- Trust: open networks lower the join barrier on purpose — enable them only on a network you trust (home LAN / your Radmin VPN room). On an untrusted network keep the code.
 - Details, auth model and known limits: [docs/LAN_SHARDING_DESIGN.md](docs/LAN_SHARDING_DESIGN.md).
 
 ## API
@@ -124,8 +126,8 @@ Several machines act as **one big server for one model**: the master hosts the A
 | `POST /api/models/load`, `POST /api/models/unload` | Engine control |
 | `GET /api/hf/models`, `GET /api/hf/model/{id}` | HF catalog & metadata |
 | `GET /api/drives`, `GET/POST /api/settings`, `GET /api/keys` | Storage, settings, keys |
-| `POST /api/lan/create`, `POST /api/lan/join`, `POST /api/lan/off` | LAN network control (master / joining machine) |
-| `GET /api/lan/status` | LAN mode, members, pairing code, pooled `--rpc`/`-ts` |
+| `POST /api/lan/create`, `POST /api/lan/join`, `POST /api/lan/open`, `POST /api/lan/off` | LAN network control (master / joining machine) |
+| `GET /api/lan/status` | LAN mode, open flag, members, pairing code, nearby servers, pooled `--rpc`/`-ts` |
 
 ## CLI
 
@@ -140,7 +142,7 @@ Several machines act as **one big server for one model**: the master hosts the A
 | `shard status` | GPU, VRAM, RAM, CPU threads, native core state |
 | `shard test` | 12-family AVX2 + C++20 kernel benchmark |
 | `shard key --gen` | Generate a local API key |
-| `shard lan [status\|create\|join\|off]` | LAN shard network: create, join (IP + pairing code), status, kill switch |
+| `shard lan [status\|create\|join\|off]` | LAN shard network: create (`--open` for open networks), join (`IP [code]`, code optional), status (nearby servers), kill switch |
 
 ## Native core (optional)
 
@@ -168,7 +170,7 @@ Native Pipeline:          ALL 12 KERNEL FAMILIES VALIDATED [OK]
 
 ## Tests & CI
 
-- `python -m unittest tests_shard.py` — **69 focused unit tests** (fit-advisor math, GGUF candidate selection, settings, LAN pooling state machine and pooled-split math, module compilation). Every expected value in the suite was verified empirically before being written down.
+- `python -m unittest tests_shard.py` — **80 focused unit tests** (fit-advisor math, GGUF candidate selection, settings, LAN pooling state machine and pooled-split math, open networks / server list, module compilation). Every expected value in the suite was verified empirically before being written down.
 - CI runs the same suite on `windows-latest` for Python 3.12–3.14 (see the badge above).
 
 ## Honest limitations
@@ -184,6 +186,7 @@ Native Pipeline:          ALL 12 KERNEL FAMILIES VALIDATED [OK]
 ## Roadmap
 
 - ~~LAN sharding~~ — **shipped in v1.7.0** (llama.cpp RPC pooling, pairing codes, dashboard "Сеть" tab): [docs/LAN_SHARDING_DESIGN.md](docs/LAN_SHARDING_DESIGN.md).
+- ~~Server list + open networks~~ — **shipped in v1.8.0** (permanent UDP listener, one-click «Войти на сервер», open-network toggle).
 - Phase 1.1: live `-ts` device-order verification, measured single-machine vs pool benchmarks in `benchmarks/`.
 - Measured per-model benchmarks published in `benchmarks/`.
 - English UI, Linux/macOS builds.

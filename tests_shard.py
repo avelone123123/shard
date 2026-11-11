@@ -598,6 +598,98 @@ class TestLan(unittest.TestCase):
                 return_value={"vram_free_mb": 1885, "ram_avail_mb": 0}):
             self.assertEqual(self.lan.pool_capacity_mb(), 1485 + 7792)
 
+    # -- open networks (v1.8.0) ------------------------------------------------
+    def test_beacon_open_flag_default_false(self):
+        self.assertFalse(lan.beacon_payload("n", "server")["open"])
+        self.assertTrue(lan.beacon_payload("n", "server", open_net=True)["open"])
+
+    def test_status_includes_open_flag(self):
+        st = self.lan.create("open-net", open_net=True)
+        self.assertEqual(st["mode"], "server")
+        self.assertTrue(st["open"])
+        self.lan.off(quiet=True)
+        self.assertFalse(self.lan.status()["open"])
+
+    def test_open_network_pairs_with_empty_code(self):
+        self.lan.create(open_net=True)
+        payload, err = self.lan.handle_pair("", "9.9.9.9", name="pc2")
+        self.assertIsNone(err)
+        self.assertTrue(lan.is_member_token(payload["token"]))
+
+    def test_open_network_pairs_with_wrong_code(self):
+        self.lan.create(open_net=True)
+        payload, err = self.lan.handle_pair("ZZZZ-ZZZZ", "9.9.9.9")
+        self.assertIsNone(err)
+        self.assertTrue(payload)
+
+    def test_closed_network_rejects_empty_code(self):
+        self.lan.create()  # closed by default
+        payload, err = self.lan.handle_pair("", "9.9.9.9")
+        self.assertIsNone(payload)
+        self.assertEqual(err, "Неверный код подключения")
+
+    def test_set_open_toggles(self):
+        self.lan.create()
+        self.assertFalse(self.lan.status()["open"])
+        res = self.lan.set_open(True)
+        self.assertEqual(res["status"], "ok")
+        self.assertTrue(res["open"])
+        self.assertTrue(self.lan.status()["open"])
+        res = self.lan.set_open(False)
+        self.assertEqual(res["status"], "ok")
+        self.assertFalse(self.lan.status()["open"])
+
+    def test_set_open_requires_server(self):
+        res = self.lan.set_open(True)  # mode is off
+        self.assertEqual(res["status"], "error")
+        self.assertIn("Сеть не создана", res["message"])
+
+    def test_join_requires_ip(self):
+        res = self.lan.join("", "")
+        self.assertEqual(res["status"], "error")
+
+    @staticmethod
+    def _fake_pair_response(master="we"):
+        resp = unittest.mock.Mock()
+        resp.status_code = 200
+        resp.json.return_value = {"token": "sk-shard-lan-" + "a" * 16,
+                                  "master": master}
+        return resp
+
+    def test_join_open_network_worker(self):
+        resp = self._fake_pair_response()
+        with unittest.mock.patch("requests.post", return_value=resp), \
+                unittest.mock.patch.object(lan.LanManager, "_start_worker"), \
+                unittest.mock.patch.object(lan.LanManager, "_start_threads"):
+            res = self.lan.join("9.9.9.9", "", share=True)
+        self.assertEqual(res["status"], "ok")
+        self.assertEqual(res["mode"], "worker")
+        self.assertEqual(self.lan.mode(), "worker")
+        self.assertNotIn("warning", res)
+
+    def test_join_falls_back_to_member_without_runtime(self):
+        resp = self._fake_pair_response()
+        with unittest.mock.patch("requests.post", return_value=resp), \
+                unittest.mock.patch.object(
+                    lan.LanManager, "_start_worker",
+                    side_effect=RuntimeError(
+                        "ggml-rpc-server.exe не найден в ~/.shard/runtime")), \
+                unittest.mock.patch.object(lan.LanManager, "_start_threads"):
+            res = self.lan.join("9.9.9.9", "", share=True)
+        self.assertEqual(res["status"], "ok")
+        self.assertEqual(res["mode"], "member")
+        self.assertIn("ggml-rpc-server", res["warning"])
+        self.assertEqual(self.lan.mode(), "member")
+
+    def test_join_closed_network_reports_missing_code(self):
+        resp = unittest.mock.Mock()
+        resp.status_code = 403
+        resp.json.return_value = {"status": "error", "message": "x"}
+        with unittest.mock.patch("requests.post", return_value=resp):
+            res = self.lan.join("9.9.9.9", "")
+        self.assertEqual(res["status"], "error")
+        self.assertEqual(res["message"], "Сеть закрыта: нужен код подключения")
+
     # -- misc ------------------------------------------------------------------
     def test_worker_cmd(self):
         self.assertEqual(lan.worker_cmd(50052, exe="X:\\rpc.exe"),

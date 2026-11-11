@@ -367,7 +367,8 @@ def cmd_lan(args):
         if not isinstance(st, dict):
             print("Shard Server не запущен — запустите shard start и повторите.")
             sys.exit(1)
-        print(f"Режим: {st.get('mode') or 'выкл'} | имя сети: {st.get('name')}")
+        print(f"Режим: {st.get('mode') or 'выкл'} | имя сети: {st.get('name')}"
+              + (" | открытая сеть" if st.get("open") else ""))
         print(f"IP этой машины: {st.get('ip')}")
         if st.get("pairing_code"):
             print(f"Код подключения: {st.get('pairing_code')}")
@@ -377,35 +378,45 @@ def cmd_lan(args):
             for m in members:
                 mark = "на связи" if m.get("alive") else "не отвечает"
                 print(f"  {m.get('ip')}  {m.get('name')}  [{m.get('role')}] — {mark}")
-        peers = st.get("peers") or []
+        peers = [p for p in (st.get("peers") or []) if p.get("role") == "server"]
         if peers:
-            print("\nРядом в сети (обнаружены по UDP-маяку):")
+            print("\nСерверы рядом (обнаружены по UDP-маяку):")
             for p in peers:
-                print(f"  {p.get('ip')}  {p.get('name')}  [{p.get('role')}] порт {p.get('port')}")
+                tag = " [открытая]" if p.get("open") else ""
+                model = f" модель: {p.get('model')}" if p.get("model") else ""
+                print(f"  {p.get('ip')}  {p.get('name')}{tag}{model}  порт {p.get('port')}"
+                      f"  (войти: shard lan join {p.get('ip')})")
         rpc = st.get("rpc")
         if rpc:
             print(f"\nRPC-пул: --rpc {rpc.get('servers')} -ts {rpc.get('split')}")
         return
     if action == "create":
         name = " ".join(getattr(args, "extra", []) or []).strip() or None
+        open_net = bool(getattr(args, "open", False))
         try:
-            r = requests.post(f"{BASE_URL}/api/lan/create", json={"name": name}, timeout=10)
+            r = requests.post(f"{BASE_URL}/api/lan/create",
+                              json={"name": name, "open": open_net}, timeout=10)
         except Exception:
             r = None
         if r is None or r.status_code != 200:
             print("Не удалось создать сеть — Shard Server не запущен (shard start).")
             sys.exit(1)
         st = r.json()
-        print(f"Сеть «{st.get('name')}» создана. Код подключения: {st.get('pairing_code')}")
-        print(f"На второй машине: shard lan join {st.get('ip')} {st.get('pairing_code')}")
+        if open_net:
+            print(f"Открытая сеть «{st.get('name')}» создана — вход без кода.")
+            print(f"На второй машине: shard lan join {st.get('ip')} [--share]")
+        else:
+            print(f"Сеть «{st.get('name')}» создана. Код подключения: {st.get('pairing_code')}")
+            print(f"На второй машине: shard lan join {st.get('ip')} {st.get('pairing_code')}")
         print("С --share машина станет вычислительным узлом (отдаст VRAM/RAM).")
         return
     if action == "join":
         extra = getattr(args, "extra", []) or []
-        if len(extra) < 2:
-            print("Usage: shard lan join <IP мастера> <код XXXX-XXXX> [--share]")
+        if len(extra) < 1:
+            print("Usage: shard lan join <IP мастера> [код XXXX-XXXX] [--share]")
+            print("Код не нужен для открытой сети.")
             sys.exit(1)
-        ip, code = extra[0], extra[1]
+        ip, code = extra[0], (extra[1] if len(extra) > 1 else "")
         try:
             r = requests.post(f"{BASE_URL}/api/lan/join",
                               json={"ip": ip, "code": code,
@@ -419,6 +430,8 @@ def cmd_lan(args):
         data = r.json()
         if data.get("status") == "ok":
             print(f"Подключено к «{data.get('master')}». Режим: {data.get('mode')}")
+            if data.get("warning"):
+                print(f"Внимание: расшаривание не включено — {data.get('warning')}")
         else:
             print(f"Ошибка: {data.get('message')}")
             sys.exit(1)
@@ -458,9 +471,11 @@ def main():
     p_lan = sub.add_parser("lan")
     p_lan.add_argument("action", nargs="?", default="status",
                        choices=["status", "create", "join", "off"])
-    p_lan.add_argument("extra", nargs="*", help="create [name] | join <ip> <code>")
+    p_lan.add_argument("extra", nargs="*", help="create [name] | join <ip> [code]")
     p_lan.add_argument("--share", action="store_true",
                        help="join as compute worker (share VRAM/RAM)")
+    p_lan.add_argument("--open", action="store_true", dest="open",
+                       help="create an open network (join without a code)")
     sub.add_parser("help")
     if len(sys.argv) <= 1:
         if os.name == "nt":

@@ -1,5 +1,22 @@
 # Shard Engine Changelog
 
+## [1.8.0] - 2026-11-11
+
+### Added
+
+- **Server list + one-click join**: every shard instance now listens for UDP beacons permanently (even with mode `off`), so the dashboard shows «Серверы рядом» — other people's masters with their name, IP:port, loaded model and open/closed badge. An open network shows a green «Войти на сервер» button: one click joins you with sharing enabled (your VRAM/RAM becomes part of the pool). Manual join (`IP + code`) remains for closed networks and for Tailscale (no L2 broadcast).
+- **Open networks** («открытая сеть»): masters can create a network with the checkbox (dashboard) / `--open` (CLI) or toggle it later via «Открыть/Закрыть сеть» (dashboard) / `/api/lan/open`. Joining an open network skips the pairing code entirely — exactly the «другой чел увидел сервер в списке и нажал Войти» flow. Closed networks keep `XXXX-XXXX` codes and reject empty ones with «Сеть закрыта: нужен код подключения».
+- Resilient join: if `ggml-rpc-server.exe` is missing on the joining machine, it falls back to plain member mode instead of failing (warning shown in the dashboard toast and CLI output).
+- Beacons now announce the server's loaded model name (lazy engine lookup) so the list shows what's actually running.
+- Server list survives going offline (peers are kept on `shard lan off`), the open flag is reset with the role.
+- `shard lan create <name> --open`, `shard lan join <ip> [code] [--share]` (code optional — open networks need none), `shard lan status` shows open-network state and server-only nearby list with a hint `shard lan join <ip>`.
+- 11 new LAN tests (80 total): open-flag beacon payload, open pairing with empty/wrong codes, closed-network rejection, open toggle, join-without-IP guard, mocked open join → worker, runtime-missing fallback → member, 403 message.
+
+### Notes
+
+- Same trust model as v1.7.0: `/v1/*` still requires member tokens from non-loopback clients, while `/api/*` (dashboard + LAN management) remains trusted-LAN. Open networks deliberately lower the join barrier on a *trusted* LAN/VPN — anyone on the network can become a compute node of your server; do not enable it on untrusted networks (hotel Wi-Fi etc.).
+- Discovery covers same-subnet LAN and usually Radmin VPN / ZeroTier; Tailscale has no L2 broadcast, so its users join by manual IP (kept working, no fake claims).
+
 ## [1.7.0] - 2026-11-11
 
 ### Added
