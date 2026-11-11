@@ -1,4 +1,17 @@
 # Shard Engine Changelog
+## [1.5.0] - 2026-11-11
+### Added
+- Honest pre-flight fit advisor (`fit.py`; `shard fit <model>`, dashboard card): per-quant VRAM/RAM/speed plan for every model — GPU / HYBRID / IMPOSSIBLE verdict computed from your live hardware *before* download, including KV-cache sizing at your context length and a disk-space veto.
+- Custom models directory (`settings.py`): store models on any drive (dashboard setting, `shard models-dir <path>`); priority: UI setting > `SHARD_MODELS_DIR` env > `~/.shard/models`.
+- GGUF inference backend: llama.cpp `llama-server` subprocess (~50 MB, auto-downloaded once to `~/.shard/runtime`) driven by the fit advisor's quant/`ngl` recommendation; same OpenAI/Anthropic-compatible endpoints as the safetensors engine.
+- `.github/workflows/tests.yml`: unit tests on `windows-latest`, Python 3.12–3.14.
+### Fixed
+- `gguf_backend._QUANT_RE`: IQ-style quants (`IQ4_XS`, `IQ4_NL`, `IQ2_M`, `IQ1_S`, ...) were silently skipped when picking download candidates; bare `q4` and `Qwen2.5` remain rejected.
+- `gguf_backend._MULTIPART_RE`: non-first multipart parts (`-00002-of-...`) now group with their `-00001` sibling, so reported GGUF size covers all parts and downloads fetch every shard instead of only the first.
+### Changed
+- `tests_shard.py` rewritten to 50 focused unit tests (fit advisor math, GGUF selection, settings, module compile); every expected value verified empirically.
+- Build artifacts (`shard.exe`, `shard-native.exe`, `shard_core.dll`, `*.obj`, `*.lib`) are no longer tracked; build from source with `python native/build_native.py` (MSVC + ml64 required).
+- `/v1/ping` reports `"engine": "shard-local-engine"`.
 ## [1.4.79] - 2026-11-10
 ### Added
 - Registered native specification `KRN-098` (`mmap-missing-file-null-guard-v98`, `WIN32-MMAP`) in `native/shard_core.cpp`: Verified clean nullptr safety guard in shard_mmap_open on missing Safetensors paths.
