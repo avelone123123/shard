@@ -1,7 +1,7 @@
 # SHARD — Local AI engine that tells you *first* whether a model will run
 
 [![Tests](https://github.com/avelone123123/shard/actions/workflows/tests.yml/badge.svg)](https://github.com/avelone123123/shard/actions/workflows/tests.yml)
-[![Version](https://img.shields.io/badge/Version-v1.5.1-22a06b)](https://github.com/avelone123123/shard)
+[![Version](https://img.shields.io/badge/Version-v1.6.0-22a06b)](https://github.com/avelone123123/shard)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-38bdf8)](https://github.com/avelone123123/shard)
 [![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
 
@@ -17,7 +17,7 @@ A 100% local AI runtime for Windows: FastAPI server + GGUF (llama.cpp) backend +
 
 ## Quickstart
 
-Binaries are no longer tracked in the repo — run from Python (no GPU required to browse, download, or plan):
+The repo is needed either way — the desktop app drives a local Python server. Without a compiler, run from Python (no GPU required to browse, download, or plan):
 
 ```bash
 git clone https://github.com/avelone123123/shard.git
@@ -27,6 +27,8 @@ shard start          # opens the dashboard at http://localhost:8000
 ```
 
 `python main.py` does the same thing. The server listens on `0.0.0.0:8000` by default; set `SHARD_HOST=127.0.0.1` to keep it off your LAN.
+
+For the native desktop app (auto-starts the server and opens the dashboard), grab `shard-v1.6.0-windows-x64.zip` from [Releases](https://github.com/avelone123123/shard/releases) and unzip `shard.exe` + `shard_core.dll` into the repo root — no MSVC Build Tools needed.
 
 Check fit before downloading anything:
 

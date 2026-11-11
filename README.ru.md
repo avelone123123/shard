@@ -1,7 +1,7 @@
 # SHARD — локальный AI-движок, который *сначала* говорит, запустится ли модель
 
 [![Tests](https://github.com/avelone123123/shard/actions/workflows/tests.yml/badge.svg)](https://github.com/avelone123123/shard/actions/workflows/tests.yml)
-[![Version](https://img.shields.io/badge/Version-v1.5.1-22a06b)](https://github.com/avelone123123/shard)
+[![Version](https://img.shields.io/badge/Version-v1.6.0-22a06b)](https://github.com/avelone123123/shard)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-38bdf8)](https://github.com/avelone123123/shard)
 [![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
 
@@ -17,7 +17,7 @@
 
 ## Быстрый старт
 
-Бинарники больше не лежат в репозитории — запускаем из Python (GPU для просмотра каталога, скачивания и планирования не нужен):
+Репозиторий нужен в любом случае — десктоп-приложение управляет локальным Python-сервером. Без компилятора запускаем из Python (GPU для просмотра каталога, скачивания и планирования не нужен):
 
 ```bash
 git clone https://github.com/avelone123123/shard.git
@@ -27,6 +27,8 @@ shard start          # откроет дашборд на http://localhost:8000
 ```
 
 `python main.py` делает то же самое. По умолчанию сервер слушает `0.0.0.0:8000`; задайте `SHARD_HOST=127.0.0.1`, чтобы не светить его в локальной сети.
+
+Нативное десктоп-приложение (сам поднимает сервер и открывает дашборд): скачайте `shard-v1.6.0-windows-x64.zip` из [Releases](https://github.com/avelone123123/shard/releases) и распакуйте `shard.exe` + `shard_core.dll` в корень репозитория — MSVC Build Tools не нужны.
 
 Перед скачиванием проверяйте fit:
 

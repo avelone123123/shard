@@ -1,4 +1,12 @@
 # Shard Engine Changelog
+## [1.6.0] - 2026-11-11
+### Added
+- First GitHub Release with prebuilt Windows x64 binaries (`shard.exe`, `shard-native.exe`, `shard_core.dll`) attached as a zip, so the desktop app works without MSVC Build Tools.
+- `shard start` now auto-opens the browser at the server URL (1.2 s after launch), matching `main.py` behavior.
+### Fixed
+- `native/shard_core.cpp` and `native/shard_gui.cpp` were accidentally committed empty in v1.5.0; both restored intact from v1.4.79 (verified: rebuilt binaries match the last good sizes byte-for-byte, 98-kernel engine loads).
+### Changed
+- `shard start` / `main.py`: explicit `--host`/`--port` CLI flags take priority over `SHARD_HOST`/`SHARD_PORT` env vars (previously env could be silently ignored by the CLI path); the browser URL respects the configured port in both entry points; `SHARD_DOCKER=1` still disables auto-open everywhere.
 ## [1.5.1] - 2026-11-11
 ### Fixed
 - `hardware.py` imported `psutil` at module top level, so `fit.fit_report(hw=...)` crashed with `ModuleNotFoundError` in dependency-free environments (CI). `psutil` is now imported lazily inside `get_hardware_profile()` — the only place it is used; `estimate_model_params` never needed it. Full suite passes with psutil absent (50/50, verified locally with a blocked import).
