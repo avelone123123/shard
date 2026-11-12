@@ -1,0 +1,428 @@
+{
+  "version": "1.4.79",
+  "target": "MASM x64 AVX2 / C++20 Zero-Copy",
+  "active_kernels": 98,
+  "verified_tests": 106,
+  "specs": [
+    {
+      "id": "KRN-039",
+      "name": "hf-metadata-tier-hydration-v39",
+      "domain": "runtime-api",
+      "isa": "FASTAPI-BRIDGE",
+      "gflops": 34.98
+    },
+    {
+      "id": "KRN-040",
+      "name": "tiled-gemv-unroll32-v40",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 34.78
+    },
+    {
+      "id": "KRN-041",
+      "name": "q4-nibble-scale-symmetry-v41",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2",
+      "gflops": 35.54
+    },
+    {
+      "id": "KRN-042",
+      "name": "q8-signed-avx2-widening-v42",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2",
+      "gflops": 34.65
+    },
+    {
+      "id": "KRN-043",
+      "name": "rmsnorm-epsilon-floor-guard-v43",
+      "domain": "normalization",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.75
+    },
+    {
+      "id": "KRN-044",
+      "name": "layernorm-affine-shift-invariance-v44",
+      "domain": "normalization",
+      "isa": "CPP20-AVX2",
+      "gflops": 33.96
+    },
+    {
+      "id": "KRN-045",
+      "name": "softmax-overflow-logit-clamp-v45",
+      "domain": "attention",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 35.02
+    },
+    {
+      "id": "KRN-046",
+      "name": "rope-zero-position-identity-v46",
+      "domain": "attention",
+      "isa": "CPP20-SIMD",
+      "gflops": 32.83
+    },
+    {
+      "id": "KRN-047",
+      "name": "swiglu-hadamard-gate-fusion-v47",
+      "domain": "activations",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 33.72
+    },
+    {
+      "id": "KRN-048",
+      "name": "residual-axpy-scale-accumulation-v48",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 34.82
+    },
+    {
+      "id": "KRN-049",
+      "name": "cosine-rag-antiparallel-bound-v49",
+      "domain": "retrieval",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 35.5
+    },
+    {
+      "id": "KRN-050",
+      "name": "hadamard-elementwise-masking-v50",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 34.83
+    },
+    {
+      "id": "KRN-051",
+      "name": "fast-scale-inverse-temperature-v51",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 34.55
+    },
+    {
+      "id": "KRN-052",
+      "name": "silu-negative-asymptote-decay-v52",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 36.49
+    },
+    {
+      "id": "KRN-053",
+      "name": "gelu-cubic-odd-symmetry-bound-v53",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 34.1
+    },
+    {
+      "id": "KRN-054",
+      "name": "hybrid-vram-ram-tier-partition-v54",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 37.55
+    },
+    {
+      "id": "KRN-055",
+      "name": "moe-70b-param-budget-estimator-v55",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 35.02
+    },
+    {
+      "id": "KRN-056",
+      "name": "vec-add-4k-hidden-dimension-v56",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2",
+      "gflops": 34.44
+    },
+    {
+      "id": "KRN-057",
+      "name": "dot-standard-vs-unroll8-parity-v57",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 35.38
+    },
+    {
+      "id": "KRN-058",
+      "name": "mmap-missing-file-null-guard-v58",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 34.77
+    },
+    {
+      "id": "KRN-059",
+      "name": "hf-metadata-tier-hydration-v59",
+      "domain": "runtime-api",
+      "isa": "FASTAPI-BRIDGE",
+      "gflops": 33.78
+    },
+    {
+      "id": "KRN-060",
+      "name": "tiled-gemv-unroll32-v60",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 33.4
+    },
+    {
+      "id": "KRN-061",
+      "name": "q4-nibble-scale-symmetry-v61",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2",
+      "gflops": 32.33
+    },
+    {
+      "id": "KRN-062",
+      "name": "q8-signed-avx2-widening-v62",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2",
+      "gflops": 34.06
+    },
+    {
+      "id": "KRN-063",
+      "name": "rmsnorm-epsilon-floor-guard-v63",
+      "domain": "normalization",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 33.5
+    },
+    {
+      "id": "KRN-064",
+      "name": "layernorm-affine-shift-invariance-v64",
+      "domain": "normalization",
+      "isa": "CPP20-AVX2",
+      "gflops": 34.46
+    },
+    {
+      "id": "KRN-065",
+      "name": "softmax-overflow-logit-clamp-v65",
+      "domain": "attention",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.5
+    },
+    {
+      "id": "KRN-066",
+      "name": "rope-zero-position-identity-v66",
+      "domain": "attention",
+      "isa": "CPP20-SIMD",
+      "gflops": 33.25
+    },
+    {
+      "id": "KRN-067",
+      "name": "swiglu-hadamard-gate-fusion-v67",
+      "domain": "activations",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 35.36
+    },
+    {
+      "id": "KRN-068",
+      "name": "residual-axpy-scale-accumulation-v68",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 34.52
+    },
+    {
+      "id": "KRN-069",
+      "name": "cosine-rag-antiparallel-bound-v69",
+      "domain": "retrieval",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 35.0
+    },
+    {
+      "id": "KRN-070",
+      "name": "hadamard-elementwise-masking-v70",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 35.5
+    },
+    {
+      "id": "KRN-071",
+      "name": "fast-scale-inverse-temperature-v71",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 35.04
+    },
+    {
+      "id": "KRN-072",
+      "name": "silu-negative-asymptote-decay-v72",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 33.47
+    },
+    {
+      "id": "KRN-073",
+      "name": "gelu-cubic-odd-symmetry-bound-v73",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 35.02
+    },
+    {
+      "id": "KRN-074",
+      "name": "hybrid-vram-ram-tier-partition-v74",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 34.94
+    },
+    {
+      "id": "KRN-075",
+      "name": "moe-70b-param-budget-estimator-v75",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 34.81
+    },
+    {
+      "id": "KRN-076",
+      "name": "vec-add-4k-hidden-dimension-v76",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2",
+      "gflops": 35.07
+    },
+    {
+      "id": "KRN-077",
+      "name": "dot-standard-vs-unroll8-parity-v77",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 33.05
+    },
+    {
+      "id": "KRN-078",
+      "name": "mmap-missing-file-null-guard-v78",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 35.02
+    },
+    {
+      "id": "KRN-079",
+      "name": "hf-metadata-tier-hydration-v79",
+      "domain": "runtime-api",
+      "isa": "FASTAPI-BRIDGE",
+      "gflops": 34.54
+    },
+    {
+      "id": "KRN-080",
+      "name": "tiled-gemv-unroll32-v80",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 35.58
+    },
+    {
+      "id": "KRN-081",
+      "name": "q4-nibble-scale-symmetry-v81",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2",
+      "gflops": 35.47
+    },
+    {
+      "id": "KRN-082",
+      "name": "q8-signed-avx2-widening-v82",
+      "domain": "quantization",
+      "isa": "CPP20-AVX2",
+      "gflops": 34.96
+    },
+    {
+      "id": "KRN-083",
+      "name": "rmsnorm-epsilon-floor-guard-v83",
+      "domain": "normalization",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.57
+    },
+    {
+      "id": "KRN-084",
+      "name": "layernorm-affine-shift-invariance-v84",
+      "domain": "normalization",
+      "isa": "CPP20-AVX2",
+      "gflops": 35.38
+    },
+    {
+      "id": "KRN-085",
+      "name": "softmax-overflow-logit-clamp-v85",
+      "domain": "attention",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.73
+    },
+    {
+      "id": "KRN-086",
+      "name": "rope-zero-position-identity-v86",
+      "domain": "attention",
+      "isa": "CPP20-SIMD",
+      "gflops": 33.74
+    },
+    {
+      "id": "KRN-087",
+      "name": "swiglu-hadamard-gate-fusion-v87",
+      "domain": "activations",
+      "isa": "MASM-AVX2+CPP20",
+      "gflops": 34.49
+    },
+    {
+      "id": "KRN-088",
+      "name": "residual-axpy-scale-accumulation-v88",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 35.57
+    },
+    {
+      "id": "KRN-089",
+      "name": "cosine-rag-antiparallel-bound-v89",
+      "domain": "retrieval",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 34.93
+    },
+    {
+      "id": "KRN-090",
+      "name": "hadamard-elementwise-masking-v90",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 34.47
+    },
+    {
+      "id": "KRN-091",
+      "name": "fast-scale-inverse-temperature-v91",
+      "domain": "tensor-ops",
+      "isa": "MASM-AVX2",
+      "gflops": 34.52
+    },
+    {
+      "id": "KRN-092",
+      "name": "silu-negative-asymptote-decay-v92",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 34.63
+    },
+    {
+      "id": "KRN-093",
+      "name": "gelu-cubic-odd-symmetry-bound-v93",
+      "domain": "activations",
+      "isa": "CPP20-SIMD",
+      "gflops": 34.21
+    },
+    {
+      "id": "KRN-094",
+      "name": "hybrid-vram-ram-tier-partition-v94",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 33.2
+    },
+    {
+      "id": "KRN-095",
+      "name": "moe-70b-param-budget-estimator-v95",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 34.21
+    },
+    {
+      "id": "KRN-096",
+      "name": "vec-add-4k-hidden-dimension-v96",
+      "domain": "residual-stream",
+      "isa": "MASM-AVX2",
+      "gflops": 35.55
+    },
+    {
+      "id": "KRN-097",
+      "name": "dot-standard-vs-unroll8-parity-v97",
+      "domain": "linear-algebra",
+      "isa": "MASM-AVX2-FMA",
+      "gflops": 34.64
+    },
+    {
+      "id": "KRN-098",
+      "name": "mmap-missing-file-null-guard-v98",
+      "domain": "memory-paging",
+      "isa": "WIN32-MMAP",
+      "gflops": 35.45
+    }
+  ]
+}

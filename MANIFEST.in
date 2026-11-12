@@ -1,0 +1,16 @@
+include LICENSE
+include README.md
+include README.ru.md
+include README.kz.md
+include pyproject.toml
+include setup.py
+include shard_engine/dashboard.html
+include shard_engine/engine_optimizations.json
+prune assets
+prune website
+prune docs
+prune native
+prune dist
+prune build
+global-exclude *.pyc *.pyo __pycache__ *.exe *.dll *.so *.dylib *.lib *.exp *.obj keys_db.json
+

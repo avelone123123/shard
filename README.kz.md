@@ -29,10 +29,13 @@
   <a href="#орнату"><img src="https://img.shields.io/badge/БАПТАУ-Орнату-38BDF8?style=for-the-badge&labelColor=0A1022" alt="Installation"></a>
   <a href="https://github.com/avelone123123/shard/discussions"><img src="https://img.shields.io/badge/ҚАУЫМДАСТЫҚ-Discussions-A855F7?style=for-the-badge&labelColor=0A1022" alt="GitHub Discussions"></a>
   <a href="https://github.com/avelone123123/shard/issues"><img src="https://img.shields.io/badge/ТРЕКЕР-Issues-F59E0B?style=for-the-badge&labelColor=0A1022" alt="Issues"></a>
+  <a href="https://github.com/avelone123123/shard/releases"><img src="https://img.shields.io/github/downloads/avelone123123/shard/total?style=for-the-badge&labelColor=0A1022&color=34D399&label=%D0%96%D2%AE%D0%9A%D0%A2%D0%95%D0%A3%D0%9B%D0%95%D0%A0" alt="Жалпы жүктеулер"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/avelone123123/shard/releases"><img src="https://img.shields.io/badge/version-v1.8.0-00E5FF?style=flat-square&labelColor=0D1326" alt="Version v1.8.0"></a>
+  <a href="https://github.com/avelone123123/shard/releases"><img src="https://img.shields.io/github/v/release/avelone123123/shard?style=flat-square&labelColor=0D1326&color=00E5FF&label=release" alt="Соңғы шығарылым"></a>
+  <a href="https://github.com/avelone123123/shard/releases/latest"><img src="https://img.shields.io/github/downloads/avelone123123/shard/latest/total?style=flat-square&labelColor=0D1326&color=34D399&label=latest%20downloads&logo=github&logoColor=white" alt="Соңғы нұсқа жүктеулері"></a>
+  <a href="https://github.com/avelone123123/shard/stargazers"><img src="https://img.shields.io/github/stars/avelone123123/shard?style=flat-square&labelColor=0D1326&color=F59E0B&label=stars&logo=github&logoColor=white" alt="GitHub Stars"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.8%2B%20%7C%203.10%2B-38BDF8?style=flat-square&labelColor=0D1326&logo=python&logoColor=white" alt="Python 3.8+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-34D399?style=flat-square&labelColor=0D1326" alt="License: MIT"></a>
   <a href="https://github.com/avelone123123/shard/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/avelone123123/shard/tests.yml?branch=master&style=flat-square&labelColor=0D1326&label=tests" alt="Tests CI"></a>
@@ -164,48 +167,72 @@ SHARD жұмыс процесі төрт негізгі қадамнан тұр�
 
 ### Орнату
 
-#### 1-нұсқа: Бастапқы кодтан орнату (ұсынылады)
+#### 1-нұсқа: pip арқылы орнату (ұсынылады)
+Репозиторийді клондамай-ақ кез келген бумадан SHARD-ты іске қосыңыз:
+```bash
+# Негізгі орнату: CLI, FastAPI сервері, веб-тақта, GGUF (llama.cpp) және LAN-кластер
+pip install shard-engine
+
+# Толық орнату: PyTorch/Transformers safetensors және Hugging Face модульдерін қосады
+pip install "shard-engine[full]"
+```
+Орнатудан кейін бірден ортаны тексеріңіз:
+```bash
+shard doctor
+```
+> **GPU және runtime ескертпесі:** GGUF бэкенді алғашқы іске қосуда `llama-server` / `ggml-rpc-server` бинарлық файлдарын автоматты түрде жүктейді және қосымша ML пакеттерін қажет етпейді. CUDA-мен PyTorch қолдану үшін алдымен үйлесімді `torch` нұсқасын орнатыңыз, содан кейін `pip install "shard-engine[full]"` орындаңыз.
+
+#### 2-нұсқа: Әзірлеушілерге арналған бастапқы кодтан орнату
 ```bash
 git clone https://github.com/avelone123123/shard.git
 cd shard
-pip install -e .
+pip install -e ".[dev]"
 ```
-`pip install -e .` командасы жүйеге `shard` CLI утилитасын (`shard = "cli:main"`) тіркейді.
 
-#### 2-нұсқа: Docker Compose арқылы іске қосу (NVIDIA GPU қолдауымен)
+#### 3-нұсқа: Docker Compose арқылы іске қосу (NVIDIA GPU қолдауымен)
 ```bash
 git clone https://github.com/avelone123123/shard.git
 cd shard
 docker-compose up --build
 ```
 
-#### 3-нұсқа: Нативті C++20 / MASM AVX2 ядроларын компиляциялау (қосымша)
+#### 4-нұсқа: Нативті C++20 / MASM AVX2 ядроларын компиляциялау (қосымша)
 `shard_core.dll` (Windows MSVC `cl.exe` + `ml64.exe`) немесе `shard_core.so` (Linux GCC/Clang) жинау үшін:
 ```bash
 python native/build_native.py
 ```
 
+#### Жаңарту және жою
+```bash
+shard update --check
+pip install --upgrade shard-engine
+pip uninstall shard-engine
+```
+Python пакетін жойған кезде жүктелген модельдер, баптаулар және API кілттері пайдаланушы бумасында сақталады.
+
 ---
 
 ### Жылдам бастау қадамдары
 
-#### 1. SHARD серверін және веб-тақтасын іске қосу
+#### 1. Ортаны тексеріп, SHARD серверін іске қосыңыз
 ```bash
-# FastAPI серверін қосу және http://localhost:8000 веб-тақтасын браузерде ашу
+# Python, тәуелділіктер, GPU VRAM, LAN IP, порттар және бума құқықтарын тексеру
+shard doctor
+
+# Серверді фондық режимде қосу және күйін тексеру
+shard start --daemon
+shard status
+
+# Немесе http://localhost:8000 веб-тақтасын бірден браузерде ашу
 shard gui
 
-# Немесе белгілі бір хост пен портта іске қосу
-shard start --host 0.0.0.0 --port 8000
-
-# Немесе тікелей Python арқылы қосу
-python main.py
+# Фондық серверді қауіпсіз қайта қосу және тоқтату
+shard restart
+shard stop
 ```
 
 #### 2. Жабдық күйін және модель сыйымдылығын тексеру
 ```bash
-# CPU, RAM және GPU VRAM күйін көру
-shard status
-
 # Модельді жүктемес бұрын оның жүйеге сәйкестігін тексеру
 shard fit Qwen/Qwen2.5-Coder-7B-Instruct
 shard fit meta-llama/Llama-3.1-8B-Instruct
@@ -213,7 +240,7 @@ shard fit meta-llama/Llama-3.1-8B-Instruct
 
 #### 3. Модельді жүктеу және іске қосу
 ```bash
-# Модельді жүктеп, іске қосу (әдепкі: Qwen/Qwen2.5-Coder-1.5B-Instruct)
+# Модельді жүктеп, терминалдағы интерактивті чатты ашу
 shard run Qwen/Qwen2.5-Coder-7B-Instruct
 
 # Жергілікті және қолжетімді модельдер тізімін көру
@@ -221,21 +248,24 @@ shard list
 ```
 
 #### 4. Таратылған LAN-кластерді құру немесе оған қосылу
-**Басты компьютерде (Master)** (мысалы, `192.168.1.10`):
+**Басты компьютерде (Master)** `shard lan create` осы хосттың нақты локалды IPv4 адрестерін бірден көрсетеді:
 ```bash
-# Жергілікті желіде ашық пул құру және GPU ресурстарын бөлісу
-shard lan create --open --share
+# Ашық LAN пулын құрып, мақсатты модельді орнату
+shard lan create --open --share --model Qwen/Qwen2.5-Coder-7B-Instruct
 
 # Немесе кодпен қорғалған LAN пулын құру
 shard lan create --share
 ```
 
-Бір желідегі әрбір **жұмысшы компьютерде (Worker)**:
+Бір желідегі әрбір **жұмысшы компьютерде (Worker)** Мастер көрсеткен `<SERVER_IP>` адресін қойыңыз:
 ```bash
-# Мастер-түйін кластеріне қосылу және жергілікті GPU/RAM ресурсын бөлісу
-shard lan join 192.168.1.10 --share
+# Ашық желіге қосылып, GPU/RAM ресурсын ортақ пулға беру
+shard lan join <SERVER_IP> --share
 
-# Кластер түйіндерін және біріктірілген жад көлемін тексеру
+# Немесе жұптастыру коды арқылы қосылу
+shard lan join <SERVER_IP> <PAIR_CODE> --share
+
+# Кластер түйіндерін, IP адрестерін және жалпы жад көлемін тексеру
 shard lan status
 
 # LAN пулынан шығу
@@ -246,34 +276,44 @@ shard lan off
 
 ## CLI анықтамалығы және баптаулар
 
-### Тексерілген CLI командалары (`cli.py`)
+### CLI командалары (`shard_engine/cli.py`)
 
 | Команда | Аргументтер мен жалаушалар | Сипаттамасы |
 | :--- | :--- | :--- |
-| `shard start` | `[--host HOST] [--port PORT]` | SHARD FastAPI серверін және Uvicorn ортасын іске қосады (әдепкі `0.0.0.0:8000`). |
-| `shard gui` | *(жоқ)* | Серверді қосып, браузерде интерактивті веб-тақтаны (`dashboard.html`) ашады. |
-| `shard status` | *(жоқ)* | CPU ядроларын, жүйелік RAM, GPU моделі, VRAM жүктемесі мен қозғалтқыш күйін көрсетеді. |
-| `shard fit` | `[model_id]` | Модельге қажетті VRAM/RAM көлемін, кванттау түрін және жылдамдықты есептейді (`fit.py`). |
-| `shard run` | `[model_id]` | Көрсетілген модельді жүктеп (қажет болса), іске қосады. |
-| `shard list` | `[--category CAT]` | Жергілікті кэштелген және каталогтағы модельдерді тізімдейді (`all`, `coding`, `chat`). |
-| `shard lan` | `[status\|create\|join\|off] [extra] [--share] [--open]` | Жергілікті желідегі есептеу пулын құру, қосылу, тексеру немесе тоқтату. |
+| `shard start` | `[--host HOST] [--port PORT] [-d\|--daemon] [--no-browser]` | SHARD FastAPI серверін және Uvicorn ортасын іске қосады (әдепкі `0.0.0.0:8000`). |
+| `shard stop` | *(жоқ)* | PID тексеруімен фондық SHARD серверін қауіпсіз тоқтатады. |
+| `shard restart` | `[--host HOST] [--port PORT] [--foreground] [--no-browser]` | SHARD серверін тоқтатып, қайта іске қосады. |
+| `shard gui` | *(жоқ)* | Серверді қосып, браузерде веб-тақтаны (немесе Win32 GUI) ашады. |
+| `shard status` | *(жоқ)* | Сервер күйін, CPU, RAM, GPU VRAM, белсенді модельді және LAN IPv4 адрестерін көрсетеді. |
+| `shard doctor` | *(жоқ)* | Python, бума ресурстарын, тәуелділіктерді, GPU, желіні, порттарды және дискіні тексереді. |
+| `shard version` | `[-V\|--version]` | Орнатылған SHARD нұсқасын, Python жолын, ОЖ және деректер бумаларын шығарады. |
+| `shard update` | `[--check]` | PyPI-де `shard-engine` жаңа нұсқасын тексеріп, `pip` арқылы жаңартады. |
+| `shard fit` | `<model_id> [--ctx N] [--no-fetch]` | Жүктеу алдында VRAM/RAM талаптарын, кванттау деңгейін және жылдамдықты есептейді. |
+| `shard run` | `[model_id]` | Модельді жүктеп (қажет болса), терминалдағы REPL чатын іске қосады. |
+| `shard list` | `[--category CAT]` | Жергілікті және каталогтағы модельдерді тізімдейді (`all`, `ideal`, `coding`, `reasoning`, `compact`). |
+| `shard lan` | `[status\|create\|join\|model\|off] [extra] [--share] [--open] [--model ID] [--port N]` | Жергілікті желідегі есептеу пулын құру, қосылу, баптау, тексеру немесе тоқтату. |
 | `shard key` | `[--gen]` | Жергілікті API кілтін көрсетеді немесе жаңа токен жасайды (`--gen`). |
 | `shard models-dir` | `[path \| reset]` | Модель салмақтары сақталатын бума жолын көрсетеді, өзгертеді немесе бастапқы қалпына келтіреді. |
-| `shard test` | *(жоқ)* | Ішкі модульдік тесттер мен аппараттық бенчмарктарды орындайды (`tests_shard.py`). |
-| `shard help` | *(жоқ)* | Барлық CLI командалары бойынша толық анықтаманы шығарады. |
+| `shard test` | `[--strict-native]` | 12 тензорлық ядроны және AVX2 / Python fallback жылдамдығын тексереді. |
+| `shard help` | `[-h\|--help]` | Барлық CLI командалары бойынша толық анықтаманы шығарады. |
 
-### Қоршаған орта айнымалылары және баптау файлдары (`settings.py`, `main.py`, `docker-compose.yml`)
+### Жүйелік бумалар және қоршаған орта айнымалылары (`shard_engine/paths.py`)
+
+SHARD пайдаланушы деректерін `site-packages` бумасынан тыс сақтайды (және бұрынғы `~/.shard` файлдарын сақтайды):
+- **Windows:** `%LOCALAPPDATA%\SHARD` (баптаулар, `keys_db.json`, `logs/`, `run/`, `models/`)
+- **Linux:** `~/.local/share/shard`, `~/.config/shard`, `~/.cache/shard`, `~/.local/state/shard` (`XDG_*` қолдауымен)
+- **macOS:** `~/Library/Application Support/SHARD`, `~/Library/Caches/SHARD`, `~/Library/Logs/SHARD`
 
 | Айнымалы / Файл | Әдепкі мәні | Қызметі |
 | :--- | :--- | :--- |
 | `SHARD_HOST` | `0.0.0.0` | Сервер байланысатын желілік интерфейс IP-адресі. |
 | `SHARD_PORT` | `8000` | API сервері мен веб-тақтаға арналған HTTP порты. |
-| `SHARD_MODELS_DIR` | `~/.shard/models` (Docker-де `/data/models`) | Жүктелген Hugging Face SafeTensors және GGUF модельдерін сақтау бумасы. |
-| `SHARD_DATA_DIR` | `~/.shard` (Docker-де `/data/shard`) | `settings.json` және `lan.json` файлдары сақталатын бума. |
-| `SHARD_DOCKER` | *(орнатылмаған)* | Орнатылған кезде контейнер ішінде браузерді автоматты ашуды өшіреді. |
+| `SHARD_DATA_DIR` | Жүйелік бума (Docker-де `/data/shard`) | `settings.json`, `keys_db.json`, `lan.json`, журналдар мен PID түбір бумасын өзгертеді. |
+| `SHARD_MODELS_DIR` | `<data_dir>/models` (Docker-де `/data/models`) | Жүктелген Hugging Face SafeTensors және GGUF модельдерін сақтау бумасы. |
+| `SHARD_NO_BROWSER` / `SHARD_DOCKER` | *(орнатылмаған)* | Сервер қосылғанда браузерді автоматты ашуды өшіреді. |
+| `SHARD_NATIVE_LIB` | *(автоіздеу)* | `shard_core.dll`/`.so`/`.dylib` жолы (`none` — Python fallback режимі). |
 | `HF_HOME` / `TRANSFORMERS_CACHE` | `~/.cache/huggingface` | Hugging Face модельдерінің кэш бумасы. |
-| `~/.shard/settings.json` | Автоматты жасалады | Тұрақты JSON баптаулар файлы (`models_dir`, API кілттері және т.б.). |
-| `engine_optimizations.json` | Репозиторий түбірі | Орындалу уақытының оңтайландыру профилі (CPU ағындары, SIMD жалаушалары, батч өлшемдері). |
+| `engine_optimizations.json` | `shard_engine` пакет ресурсы | `importlib.resources` арқылы оқылатын оңтайландыру профилі. |
 
 ---
 

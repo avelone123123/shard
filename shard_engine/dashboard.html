@@ -1,0 +1,1948 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shard // On-Device Neural Engine</title>
+<style>
+:root{--bg:#0c0e14;--surface:#131620;--surface-elevated:#191d29;--border:#212736;--border-hover:#31394d;--accent:#2563eb;--accent-hover:#1d4ed8;--emerald:#10b981;--emerald-bg:rgba(16,185,129,0.08);--amber:#d97706;--amber-bg:rgba(217,119,6,0.08);--steel:#64748b;--steel-bg:rgba(100,116,139,0.08);--text:#f8fafc;--text-muted:#8892a4;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;}
+header{background:#0c0e14;border-bottom:1px solid var(--border);padding:14px 28px;display:flex;justify-content:space-between;align-items:center;}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-logo-icon{width:32px;height:32px;background:#151822;border:1px solid #262c3d;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.brand-badge{background:#191d29;border:1px solid #2d3548;color:#94a3b8;font-weight:700;font-size:10px;letter-spacing:1px;padding:2px 7px;border-radius:4px;}
+.brand-name{font-size:15px;font-weight:700;color:#fff;letter-spacing:1px;}
+.brand-desc{font-size:12px;color:var(--text-muted);}
+.hw-bar{display:flex;gap:20px;align-items:center;background:var(--surface);padding:7px 16px;border-radius:6px;border:1px solid var(--border);}
+.hw-item{display:flex;flex-direction:column;}
+.hw-item span{color:var(--text-muted);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;}
+.hw-item b{font-size:12px;color:#fff;font-weight:500;margin-top:1px;}
+.nav-tabs{display:flex;gap:4px;padding:0 28px;background:#0c0e14;border-bottom:1px solid var(--border);}
+.nav-btn{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text-muted);padding:11px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:all 0.15s;}
+.nav-btn.active{color:#fff;border-bottom-color:var(--accent);font-weight:500;}
+.nav-btn:hover:not(.active){color:#cbd5e1;}
+.global-loading-banner{background:linear-gradient(90deg,#0d1527 0%,#0f172a 50%,#0d1527 100%);border-bottom:1px solid #1e3a8a;padding:10px 28px;box-shadow:0 4px 20px rgba(0,0,0,0.4);position:relative;z-index:20;}
+.glb-content{max-width:1440px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:20px;}
+.glb-left{display:flex;align-items:center;gap:12px;min-width:0;}
+.glb-spinner{color:#38bdf8;animation:glbspin 1s linear infinite;flex-shrink:0;}
+@keyframes glbspin{100%{transform:rotate(360deg);}}
+.glb-text-group{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.glb-title{display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.glb-badge{background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:4px;letter-spacing:0.5px;}
+.glb-stage{color:#94a3b8;font-size:12px;}
+.glb-sub{display:flex;align-items:center;gap:8px;font-size:11px;color:#64748b;font-family:Consolas,monospace;}
+.glb-dot{color:#334155;}
+.glb-right{display:flex;align-items:center;gap:16px;flex-shrink:0;}
+.glb-progress-wrap{display:flex;align-items:center;gap:12px;width:280px;}
+.glb-percent-val{font-size:13px;font-weight:700;color:#38bdf8;font-family:Consolas,monospace;min-width:38px;text-align:right;}
+.glb-track{flex:1;height:7px;background:#1e293b;border-radius:99px;overflow:hidden;border:1px solid #334155;}
+.glb-fill{height:100%;background:linear-gradient(90deg,#2563eb,#38bdf8);border-radius:99px;transition:width 0.3s ease;}
+.chat-loading-tag{background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;display:inline-flex;align-items:center;gap:6px;}
+.chat-loading-card{background:linear-gradient(135deg,#0c1322 0%,#111827 100%);border:1px solid #1e3a8a;border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;gap:8px;box-shadow:0 2px 10px rgba(0,0,0,0.3);margin-bottom:12px;}
+.btn-action.loading{background:#1e293b;color:#38bdf8;border-color:rgba(56,189,248,0.4);cursor:wait;}
+main{flex:1;padding:24px 28px;max-width:1440px;margin:0 auto;width:100%;}
+.section{display:none;}
+.section.active{display:block;}
+.search-bar{display:flex;gap:12px;margin-bottom:20px;}
+.search-wrapper{flex:1;position:relative;}
+.search-icon{position:absolute;left:14px;top:11px;color:var(--text-muted);}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);color:#fff;padding:9px 12px 9px 38px;border-radius:6px;font-size:13px;outline:none;transition:border-color 0.15s;}
+.search-input:focus{border-color:var(--accent);}
+.filter-tabs{display:flex;gap:6px;}
+.filter-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);padding:0 14px;border-radius:6px;font-size:12px;cursor:pointer;transition:all 0.15s;}
+.filter-btn.active{background:#1e293b;color:#fff;border-color:#334155;font-weight:500;}
+.models-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;}
+.model-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;transition:border-color 0.15s,background 0.15s;}
+.model-card:hover{border-color:var(--border-hover);background:var(--surface-elevated);}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.model-title{font-size:14px;font-weight:600;color:#fff;letter-spacing:0.2px;}
+.model-author{font-size:11px;color:var(--text-muted);margin-top:2px;}
+.compat-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;border:1px solid transparent;white-space:nowrap;}
+.card-desc{font-size:12px;color:#94a3b8;line-height:1.5;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.card-specs{display:flex;gap:14px;font-size:11px;color:var(--text-muted);margin-bottom:14px;padding:8px 10px;background:#0c0e14;border-radius:5px;}
+.spec-item{display:flex;align-items:center;gap:5px;}
+.card-bottom{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--border);}
+.btn-action{background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:6px 14px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;}
+.btn-action:hover{background:#2a374a;border-color:#475569;}
+.btn-action.active{background:var(--emerald);border-color:var(--emerald);color:#041f14;font-weight:600;}
+.btn-delete{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);color:#f87171;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all 0.15s;}
+.btn-delete:hover{background:rgba(239,68,68,0.18);border-color:rgba(239,68,68,0.5);color:#fff;}
+.filter-count-badge{background:rgba(37,99,235,0.15);color:#60a5fa;border:1px solid rgba(37,99,235,0.3);font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;font-family:Consolas,monospace;margin-left:4px;}
+.connect-container{display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;}
+.connect-main{display:flex;flex-direction:column;gap:18px;}
+.step-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;}
+.step-title{font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.step-badge{background:#1e293b;color:#38bdf8;font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;}
+.tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}
+.tool-btn{background:#0c0e14;border:1px solid var(--border);border-radius:6px;padding:12px;cursor:pointer;text-align:left;transition:all 0.15s;display:flex;flex-direction:column;gap:4px;}
+.tool-btn:hover{border-color:#334155;background:#141824;}
+.tool-btn.active{border-color:#38bdf8;background:#101a2c;}
+.tool-name{font-size:13px;font-weight:600;color:#fff;display:flex;align-items:center;gap:6px;}
+.tool-desc{font-size:11px;color:#8492a6;}
+.os-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.os-btn{background:#0c0e14;border:1px solid var(--border);border-radius:6px;padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:12px;color:#cbd5e1;transition:all 0.15s;}
+.os-btn:hover{border-color:#334155;}
+.os-btn.active{border-color:#38bdf8;background:#101a2c;color:#fff;font-weight:600;}
+.mode-switch{display:flex;gap:4px;background:#0c0e14;padding:3px;border-radius:6px;border:1px solid var(--border);width:fit-content;margin-bottom:14px;}
+.mode-btn{background:transparent;border:none;color:#8492a6;padding:6px 14px;font-size:12px;border-radius:4px;cursor:pointer;}
+.mode-btn.active{background:#1e293b;color:#fff;font-weight:500;}
+.script-box{background:#090a0f;border:1px solid var(--border);border-radius:6px;padding:14px;font-family:Consolas,monospace;font-size:12px;color:#38bdf8;word-break:break-all;margin-bottom:12px;user-select:all;}
+.btn-primary-action{background:#2563eb;border:none;color:#fff;padding:10px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:background 0.15s;}
+.btn-primary-action:hover{background:#1d4ed8;}
+.guide-steps{margin-top:16px;font-size:12px;color:#94a3b8;line-height:1.8;}
+.guide-steps ol{padding-left:18px;margin-bottom:8px;}
+.guide-note{font-size:11px;color:#64748b;margin-top:8px;}
+.ping-box{background:#0c0e14;border:1px solid var(--border);border-radius:6px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;}
+.sidebar-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:16px;}
+.sidebar-title{font-size:13px;font-weight:600;color:#fff;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+.ep-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#0c0e14;border:1px solid #1a2233;border-radius:5px;margin-bottom:8px;font-family:Consolas,monospace;font-size:11px;}
+.ep-label{color:#8492a6;text-transform:uppercase;font-size:10px;}
+.ep-val{color:#cbd5e1;word-break:break-all;}
+.ep-copy{background:transparent;border:none;color:#38bdf8;cursor:pointer;padding:2px 6px;display:flex;align-items:center;}
+.model-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#0c0e14;border:1px solid #1a2233;border-radius:5px;margin-bottom:8px;font-size:12px;}
+.model-item:hover{border-color:#334155;}
+.chat-container{display:flex;height:720px;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.chat-sidebar{width:260px;background:#080a0f;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+.chat-sidebar-top{padding:12px;border-bottom:1px solid var(--border);}
+.btn-new-chat{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#151a26;border:1px solid var(--border);color:#fff;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s;}
+.btn-new-chat:hover{background:var(--accent);border-color:var(--accent);color:#fff;}
+.chat-sessions-list{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;}
+.chat-session-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;cursor:pointer;color:var(--text-muted);font-size:12px;border:1px solid transparent;transition:all 0.15s;}
+.chat-session-item:hover{background:#0e121a;color:#fff;}
+.chat-session-item.active{background:#131824;border-color:#1e293b;color:#38bdf8;font-weight:500;}
+.chat-session-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.chat-del-btn{opacity:0;background:none;border:none;color:#64748b;cursor:pointer;padding:2px 4px;border-radius:4px;display:flex;align-items:center;}
+.chat-session-item:hover .chat-del-btn{opacity:1;}
+.chat-del-btn:hover{color:#ef4444;}
+.chat-main{flex:1;display:flex;flex-direction:column;min-width:0;height:100%;}
+.chat-header{padding:10px 18px;background:#0c0e14;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text-muted);}
+.chat-header-model{display:flex;align-items:center;gap:8px;color:#fff;font-weight:500;}
+.chat-header-live{display:flex;align-items:center;gap:14px;font-family:Consolas,monospace;}
+.chat-body{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:18px;}
+.msg-wrapper{display:flex;flex-direction:column;gap:6px;}
+.msg-user{align-self:flex-end;max-width:70%;background:#1e293b;border:1px solid #334155;color:#fff;padding:10px 16px;border-radius:8px 8px 2px 8px;font-size:13px;line-height:1.5;}
+.msg-assistant{align-self:flex-start;max-width:88%;width:100%;background:var(--surface-elevated);border:1px solid var(--border);border-radius:8px 8px 8px 2px;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.think-panel{background:#0c0e14;border:1px solid #1e2638;border-radius:6px;overflow:hidden;transition:all 0.2s;}
+.think-header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;cursor:pointer;user-select:none;background:#0e111a;}
+.think-header:hover{background:#141824;}
+.think-title{font-size:11px;font-weight:600;color:#94a3b8;display:flex;align-items:center;gap:6px;}
+.think-pulse{width:7px;height:7px;border-radius:50%;background:#38bdf8;box-shadow:0 0 8px #38bdf8;animation:pulse 1.2s infinite ease-in-out;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.3;transform:scale(0.85);}}
+.think-content{padding:10px 12px;font-size:12px;color:#8492a6;line-height:1.6;font-family:Consolas,monospace;white-space:pre-wrap;border-top:1px solid #19202f;max-height:220px;overflow-y:auto;}
+.msg-content{font-size:13px;color:#f1f5f9;line-height:1.6;white-space:pre-wrap;}
+.msg-content pre{background:#090a0f;border:1px solid var(--border);padding:10px 12px;border-radius:5px;overflow-x:auto;font-family:Consolas,monospace;margin:10px 0;font-size:12px;color:#38bdf8;}
+.telemetry-row{display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding-top:10px;border-top:1px solid #1a2133;font-size:11px;color:#718096;font-family:Consolas,monospace;}
+.telemetry-item{display:flex;align-items:center;gap:5px;}
+.telemetry-item b{color:#cbd5e1;font-weight:600;}
+.chat-footer{display:flex;gap:10px;padding:14px;border-top:1px solid var(--border);background:#0c0e14;}
+.chat-input{flex:1;background:var(--surface);border:1px solid var(--border);color:#fff;padding:9px 14px;border-radius:6px;font-size:13px;outline:none;transition:border-color 0.15s;}
+.chat-input:focus{border-color:var(--accent);}
+.toast{position:fixed;top:20px;right:24px;background:#151a26;border:1px solid #334155;color:#f8fafc;padding:12px 18px;border-radius:6px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,0.5);transform:translateY(-10px);opacity:0;pointer-events:none;transition:all 0.25s cubic-bezier(0.16,1,0.3,1);z-index:9999;display:flex;align-items:center;gap:10px;}
+.toast.visible{transform:translateY(0);opacity:1;pointer-events:auto;}
+.toast-title{font-size:13px;font-weight:600;color:#fff;}
+.toast-sub{font-size:11px;color:var(--text-muted);margin-top:2px;}
+.modal-backdrop{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(4,7,12,0.85);backdrop-filter:blur(5px);z-index:9999;display:none;align-items:center;justify-content:center;padding:24px;}
+.modal-card{width:100%;max-width:1020px;max-height:90vh;background:#0d111a;border:1px solid #1e2638;border-radius:10px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.8);}
+.modal-header{padding:16px 22px;background:#090d14;border-bottom:1px solid #1e2638;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;}
+.modal-title-row{display:flex;align-items:center;gap:10px;}
+.modal-title{font-size:17px;font-weight:700;color:#fff;}
+.modal-author{font-size:12px;color:var(--text-muted);margin:2px 0 6px;}
+.modal-hf-btn{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#38bdf8;text-decoration:none;padding:2px 7px;background:#151d2d;border:1px solid #23314a;border-radius:4px;}
+.modal-stats-bar{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--text-muted);align-items:center;}
+.modal-actions{display:flex;align-items:center;gap:10px;}
+.modal-close-btn{background:transparent;border:none;color:#94a3b8;cursor:pointer;padding:6px;border-radius:5px;display:flex;align-items:center;transition:all 0.15s;}
+.modal-close-btn:hover{background:#1e2638;color:#fff;}
+.modal-body{flex:1;overflow-y:auto;padding:24px 28px;line-height:1.7;color:#cbd5e1;font-size:13px;}
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+<div id="modelModalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModelCard()">
+<div class="modal-card">
+<div class="modal-header">
+<div>
+<div class="modal-title-row">
+<div id="modalModelTitle" class="modal-title">Model Name</div>
+<span id="modalHfLink" class="modal-hf-btn" title="Спецификация архитектуры">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+Спецификация
+</a>
+</div>
+<div id="modalModelAuthor" class="modal-author">author</div>
+<div id="modalStats" class="modal-stats-bar"></div>
+</div>
+<div class="modal-actions">
+<button id="modalLaunchBtn" class="btn-action active" style="padding:7px 16px;">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+Запустить модель
+</button>
+<button class="modal-close-btn" onclick="closeModelCard()" title="Закрыть">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</button>
+</div>
+</div>
+<div id="modelModalBody" class="modal-body"></div>
+</div>
+</div>
+<div id="dirModalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeDirPicker()">
+<div class="modal-card" style="max-width:520px;">
+<div class="modal-header">
+<div>
+<div class="modal-title-row">
+<div class="modal-title">Папка загрузки моделей</div>
+</div>
+<div class="modal-author">Куда скачивать веса моделей (например, внешний SSD)</div>
+<div id="dirDiskInfo" class="modal-stats-bar"></div>
+</div>
+<div class="modal-actions">
+<button class="modal-close-btn" onclick="closeDirPicker()" title="Закрыть">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</button>
+</div>
+</div>
+<div class="modal-body" style="padding:18px 22px;">
+<label style="font-size:11px;letter-spacing:0.08em;color:var(--text-muted);display:block;margin-bottom:6px;">ПУТЬ К ПАПКЕ</label>
+<input type="text" id="dirPathInput" style="width:100%;background:#0a0d14;border:1px solid #1e2638;border-radius:6px;color:#e2e8f0;padding:9px 12px;font-size:12.5px;font-family:Consolas,monospace;outline:none;box-sizing:border-box;" placeholder="E:\shard-models" onkeydown="if(event.key==='Enter')saveModelsDir()">
+<div style="font-size:11px;color:var(--text-muted);margin:6px 0 14px;">Применится после перезапуска приложения. Папка будет создана автоматически.</div>
+<div id="dirDriveList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+<div style="display:flex;justify-content:space-between;gap:10px;">
+<button class="btn-action" onclick="resetModelsDir()" style="padding:7px 14px;font-size:12px;">Сбросить по умолчанию</button>
+<button class="btn-action active" onclick="saveModelsDir()" style="padding:7px 18px;font-size:12px;">Сохранить</button>
+</div>
+</div>
+</div>
+</div>
+<header>
+<div class="brand">
+<div class="brand-logo-icon">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+<path d="M12 2L21 7V17L12 22L3 17V7L12 2Z" stroke="#475569" stroke-width="1.8" stroke-linejoin="round"/>
+<path d="M12 2V22" stroke="#334155" stroke-width="1.2"/>
+<polygon points="12,4 19,8 12,12 5,8" fill="#2563eb" fill-opacity="0.25" stroke="#3b82f6" stroke-width="1"/>
+<polygon points="12,12 19,16 12,20 5,16" fill="#1e293b" fill-opacity="0.6" stroke="#475569" stroke-width="1"/>
+</svg>
+</div>
+<div>
+<div style="display:flex;align-items:center;gap:7px;">
+<span class="brand-name">SHARD</span>
+<span class="brand-badge">RUNTIME</span>
+</div>
+<div class="brand-desc">Локальная среда запуска нейросетей // C++20 Zero-Copy Engine</div>
+</div>
+</div>
+<div class="hw-bar">
+<div class="hw-item"><span>ЯДРО</span><b id="hwCore">C++20 / MASM AVX2</b></div>
+<div class="hw-item"><span>GPU</span><b id="hwGpu">Поиск...</b></div>
+<div class="hw-item"><span>VRAM</span><b id="hwVram">0 / 0 MB</b></div>
+<div class="hw-item"><span>RAM</span><b id="hwRam">0 / 0 GB</b></div>
+<div class="hw-item"><span>МОДЕЛЬ</span><b id="hwModel" style="color:#10b981;">Не загружена</b></div>
+</div>
+</header>
+<div class="nav-tabs">
+<button class="nav-btn active" onclick="showTab('market', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+Каталог
+</button>
+<button class="nav-btn" onclick="showTab('connect', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+Инструкции и Подключение
+</button>
+<button class="nav-btn" onclick="showTab('chat', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+Чат
+</button>
+<button class="nav-btn" onclick="showTab('keys', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg>
+API Ключи
+</button>
+<button class="nav-btn" onclick="showTab('network', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+Сеть
+</button>
+</div>
+<div id="globalLoadingBanner" class="global-loading-banner" style="display:none;">
+<div class="glb-content">
+<div class="glb-left">
+<svg class="glb-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+<div class="glb-text-group">
+<div class="glb-title">
+<span class="glb-badge">Загрузка модели</span>
+<b id="glbModelName">...</b>
+<span id="glbStageText" class="glb-stage">Подготовка весов...</span>
+</div>
+<div class="glb-sub">
+<span id="glbMetrics">0 / 0 МБ • 0 МБ/с</span>
+<span class="glb-dot">•</span>
+<span id="glbEta">Осталось: вычисление...</span>
+</div>
+</div>
+</div>
+<div class="glb-right">
+<div class="glb-progress-wrap">
+<div class="glb-percent-val" id="glbPercentVal">0%</div>
+<div class="glb-track"><div id="glbTrackFill" class="glb-fill" style="width:0%;"></div></div>
+</div>
+</div>
+</div>
+</div>
+<main>
+<div id="tab-market" class="section active">
+<div class="search-bar">
+<div class="search-wrapper">
+<svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+<input type="text" id="searchInput" class="search-input" placeholder="Поиск среди 3 000 000+ открытых моделей (или точный ID: owner/model)..." oninput="handleSearchDebounced()" onkeyup="handleSearch(event)">
+</div>
+<button class="filter-btn" onclick="openDirPicker()" title="Куда скачивать модели (можно подключить внешний SSD)" style="gap:6px;white-space:nowrap;flex-shrink:0;">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+<span id="modelsDirLabel">Папка моделей</span>
+</button>
+<div class="filter-tabs">
+<button class="filter-btn active" onclick="setCategory('all', this)">Все</button>
+<button class="filter-btn" onclick="setCategory('coding', this)">Кодинг</button>
+<button class="filter-btn" onclick="setCategory('reasoning', this)">Рассуждения</button>
+<button class="filter-btn" onclick="setCategory('compact', this)">Компактные (VRAM)</button>
+<button class="filter-btn" onclick="setCategory('general', this)">Универсальные</button>
+<button class="filter-btn" id="filterDownloadedBtn" onclick="setCategory('downloaded', this)" style="display:flex;align-items:center;gap:6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Скачанные на SSD<span id="downloadedBadgeCount" class="filter-count-badge">0</span></button>
+</div>
+</div>
+<div id="modelsCountBadge" style="font-size:12px;color:var(--text-muted);margin:8px 0 12px 2px;">Каталог открытых моделей...</div>
+<div class="models-grid" id="modelsGrid"></div>
+</div>
+<div id="tab-connect" class="section">
+<div class="connect-container">
+<div class="connect-main">
+<div class="step-card">
+<div class="step-title"><span class="step-badge">ШАГ 1</span> Выберите инструмент для интеграции</div>
+<div class="tools-grid">
+<div class="tool-btn active" onclick="selectTool('claude', this)">
+<div class="tool-name">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+Claude CLI
+</div>
+<div class="tool-desc">Anthropic-совместимый терминал</div>
+</div>
+<div class="tool-btn" onclick="selectTool('claude-desktop', this)">
+<div class="tool-name">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+Claude Desktop
+</div>
+<div class="tool-desc">Официальный клиент Anthropic</div>
+</div>
+<div class="tool-btn" onclick="selectTool('cursor', this)">
+<div class="tool-name">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><polygon points="3 3 10 21 14 14 21 10 3 3"/></svg>
+Cursor IDE
+</div>
+<div class="tool-desc">OpenAI Custom Gateway</div>
+</div>
+<div class="tool-btn" onclick="selectTool('opencode', this)">
+<div class="tool-name">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+OpenCode
+</div>
+<div class="tool-desc">Автономный кодинг-агент</div>
+</div>
+<div class="tool-btn" onclick="selectTool('continue', this)">
+<div class="tool-name">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+Continue
+</div>
+<div class="tool-desc">VS Code / JetBrains плагин</div>
+</div>
+<div class="tool-btn" onclick="selectTool('aider', this)">
+<div class="tool-name">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+Aider CLI
+</div>
+<div class="tool-desc">Терминальный парный программист</div>
+</div>
+<div class="tool-btn" onclick="selectTool('zed', this)">
+<div class="tool-name">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M4 4h16l-16 16h16"/></svg>
+Zed Editor
+</div>
+<div class="tool-desc">OpenAI-совместимый провайдер</div>
+</div>
+<div class="tool-btn" onclick="selectTool('jetbrains', this)">
+<div class="tool-name">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 17l10-10"/></svg>
+JetBrains AI
+</div>
+<div class="tool-desc">Custom OpenAI endpoint</div>
+</div>
+<div class="tool-btn" onclick="selectTool('sdk', this)">
+<div class="tool-name">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg>
+API / SDK
+</div>
+<div class="tool-desc">Python, TypeScript, cURL</div>
+</div>
+</div>
+</div>
+<div class="step-card">
+<div class="step-title"><span class="step-badge">ШАГ 2</span> Операционная система</div>
+<div class="os-grid">
+<div class="os-btn active" onclick="selectOS('windows', this)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+Windows
+</div>
+<div class="os-btn" onclick="selectOS('linux', this)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+Linux
+</div>
+<div class="os-btn" onclick="selectOS('macos', this)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.61-.75 1.04-1.8 1.01-2.87-.96.04-2.1.65-2.76 1.42-.58.67-1.09 1.74-1 2.8 1.08.08 2.14-.6 2.75-1.35z"/></svg>
+macOS
+</div>
+<div class="os-btn" onclick="selectOS('manual', this)">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+Ручной config
+</div>
+</div>
+</div>
+<div class="step-card">
+<div class="step-title">
+<span class="step-badge">ШАГ 3</span>
+<span id="guideTitle">Инструкция: Claude CLI + Windows</span>
+</div>
+<div class="mode-switch">
+<button id="modeBtnScript" class="mode-btn active" onclick="setGuideMode('script')">Скрипт (в 1 клик)</button>
+<button id="modeBtnManual" class="mode-btn" onclick="setGuideMode('manual')">Вручную (конфиг)</button>
+</div>
+<div id="guideKeyNotice"></div>
+<div id="guideScriptSection">
+<div class="script-box" id="guideScriptCode"></div>
+<button class="btn-primary-action" onclick="copyCurrentScript()">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+Скопировать команду
+</button>
+<div class="guide-steps">
+<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">Как открыть Терминал и выполнить:</div>
+<ol id="guideScriptSteps">
+<li>Откройте Терминал: Нажмите <b>Win + X</b>, выберите <b>Терминал</b> или <b>PowerShell</b>.</li>
+<li>Вставьте скопированную команду комбинацией <b>Ctrl + V</b> и нажмите <b>Enter</b>.</li>
+<li>Готово. Настройки применятся автоматически, локальные модели Shard сразу появятся в CLI.</li>
+</ol>
+<div class="guide-note">Установщик автоматически прописывает локальный endpoint Shard (http://localhost:8000/v1) и текущий API-ключ.</div>
+</div>
+</div>
+<div id="guideManualSection" style="display:none;">
+<div id="guideManualContent"></div>
+</div>
+</div>
+<div class="step-card">
+<div class="step-title"><span class="step-badge">ШАГ 4</span> Проверка локального соединения</div>
+<div class="ping-box">
+<div>
+<div style="font-size:13px;font-weight:600;color:#fff;">Тест доступности API</div>
+<div id="pingStatusText" style="font-size:12px;color:var(--text-muted);margin-top:2px;">Нажмите кнопку для проверки соединения с C++20 ядром Shard</div>
+</div>
+<button class="btn-action" onclick="runPingTest()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+Проверить соединение
+</button>
+</div>
+</div>
+</div>
+<div class="connect-sidebar">
+<div class="sidebar-card">
+<div class="sidebar-title">
+<span>Параметры эндпоинта</span>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyAllEndpoints()">Скопировать всё</button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">Base Endpoint</div>
+<div class="ep-val" id="epBase">http://localhost:8000/v1</div>
+</div>
+<button class="ep-copy" onclick="copyValue('http://localhost:8000/v1', 'Base Endpoint')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">Models Endpoint</div>
+<div class="ep-val">http://localhost:8000/v1/models</div>
+</div>
+<button class="ep-copy" onclick="copyValue('http://localhost:8000/v1/models', 'Models Endpoint')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">Chat Endpoint</div>
+<div class="ep-val">http://localhost:8000/v1/chat/completions</div>
+</div>
+<button class="ep-copy" onclick="copyValue('http://localhost:8000/v1/chat/completions', 'Chat Endpoint')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">Claude Messages</div>
+<div class="ep-val">http://localhost:8000/v1/messages</div>
+</div>
+<button class="ep-copy" onclick="copyValue('http://localhost:8000/v1/messages', 'Claude Messages')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">Claude Count Tokens</div>
+<div class="ep-val">http://localhost:8000/v1/messages/count_tokens</div>
+</div>
+<button class="ep-copy" onclick="copyValue('http://localhost:8000/v1/messages/count_tokens', 'Claude Tokens')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">API Key</div>
+<div class="ep-val" id="sidebarApiKey" style="color:#ef4444;">Не создан</div>
+</div>
+<button class="ep-copy" onclick="copyApiKeyFromSidebar()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+</div>
+<div class="sidebar-card">
+<div class="sidebar-title">
+<span>Доступные модели</span>
+<span style="font-size:11px;color:#10b981;">Локально</span>
+</div>
+<div class="model-item">
+<div>
+<div style="font-weight:600;color:#fff;">Qwen2.5-Coder-7B</div>
+<div style="font-size:10px;color:var(--text-muted);">Qwen/Qwen2.5-Coder-7B-Instruct</div>
+</div>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('Qwen/Qwen2.5-Coder-7B-Instruct', 'ID модели')">Копировать</button>
+</div>
+<div class="model-item">
+<div>
+<div style="font-weight:600;color:#fff;">Gemma-2-9B</div>
+<div style="font-size:10px;color:var(--text-muted);">google/gemma-2-9b-it</div>
+</div>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('google/gemma-2-9b-it', 'ID модели')">Копировать</button>
+</div>
+<div class="model-item">
+<div>
+<div style="font-weight:600;color:#fff;">DeepSeek-R1-Distill-7B</div>
+<div style="font-size:10px;color:var(--text-muted);">deepseek-ai/DeepSeek-R1-Distill-Qwen-7B</div>
+</div>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', 'ID модели')">Копировать</button>
+</div>
+<div class="model-item">
+<div>
+<div style="font-weight:600;color:#fff;">Llama-3.2-3B</div>
+<div style="font-size:10px;color:var(--text-muted);">meta-llama/Llama-3.2-3B-Instruct</div>
+</div>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('meta-llama/Llama-3.2-3B-Instruct', 'ID модели')">Копировать</button>
+</div>
+<div class="model-item">
+<div>
+<div style="font-weight:600;color:#fff;">Mistral-7B-v0.3</div>
+<div style="font-size:10px;color:var(--text-muted);">mistralai/Mistral-7B-Instruct-v0.3</div>
+</div>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('mistralai/Mistral-7B-Instruct-v0.3', 'ID модели')">Копировать</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tab-chat" class="section">
+<div class="chat-container">
+<div class="chat-sidebar">
+<div class="chat-sidebar-top">
+<button class="btn-new-chat" onclick="createNewChat(true)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+Новый диалог
+</button>
+</div>
+<div class="chat-sessions-list" id="chatSessionsList"></div>
+</div>
+<div class="chat-main">
+<div class="chat-header">
+<div class="chat-header-model">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+<span id="chatActiveModel">Qwen2.5-Coder-7B-Instruct</span>
+<span id="chatLoadingTag" class="chat-loading-tag" style="display:none;"></span>
+</div>
+<div class="chat-header-live">
+<span id="chatCoreBadge">C++20 Zero-Copy / AVX2 ASM</span>
+<span id="chatLiveSpeed" style="color:#38bdf8;">Готов к запросам</span>
+</div>
+</div>
+<div class="chat-body" id="chatBody">
+<div id="chatLoadingCard" class="chat-loading-card" style="display:none;"></div>
+</div>
+<div class="chat-footer">
+<input type="text" id="chatInput" class="chat-input" placeholder="Спросите о чем угодно..." onkeypress="if(event.key==='Enter')sendChat()">
+<button id="chatSendBtn" class="btn-action" onclick="sendChat()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+Отправить
+</button>
+</div>
+</div>
+</div>
+</div>
+<div id="tab-keys" class="section">
+<div class="info-card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+<div>
+<h3>Локальные API Ключи</h3>
+<p style="margin:0;">Ключи для авторизации Cursor, OpenCode, Claude Code и внешних клиентов.</p>
+</div>
+<button class="btn-action" onclick="generateKey()">+ Создать новый ключ</button>
+</div>
+<div id="keysList" style="display:flex;flex-direction:column;gap:8px;"></div>
+</div>
+</div>
+<div id="tab-network" class="section">
+<div class="info-card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+<div>
+<h3>Shard-сеть (LAN)</h3>
+<p style="margin:0;">Объединяйте машины в одну сеть — память устройств складывается, и большие модели влезают даже без одной мощной GPU. Работает поверх Radmin VPN / ZeroTier / Tailscale.</p>
+</div>
+<button class="btn-action" onclick="lanRefresh()">Обновить</button>
+</div>
+<div id="lanStatusBox" style="margin-bottom:16px;">Загрузка...</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Создать сеть на этом ПК (мастер)</div>
+<input id="lanName" placeholder="Имя сети (необязательно)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="lanOpen"> Открытая сеть — вход по кнопке, без кода
+</label>
+<button class="btn-action" onclick="lanCreate()">Создать сеть</button>
+</div>
+<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Подключиться к сети мастера</div>
+<input id="lanJoinIp" placeholder="IP мастера (из shard lan create)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
+<input id="lanJoinCode" placeholder="Код вида ABCD-EFGH (для открытой сети не нужен)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="lanShare"> Стать вычислительным узлом (отдать VRAM/RAM)
+</label>
+<button class="btn-action" onclick="lanJoin()">Подключиться</button>
+</div>
+</div>
+<div style="margin-top:10px;text-align:right;">
+<button class="btn-action" onclick="lanOff()" style="border-color:#f85149;color:#f85149;">Отключить сеть</button>
+</div>
+</div>
+</div>
+</main>
+<script>
+let currentCategory = 'all';
+let activeModelId = 'Qwen/Qwen2.5-Coder-7B-Instruct';
+let currentTool = 'claude';
+let currentOS = 'windows';
+let currentGuideMode = 'script';
+let toastTimeout = null;
+let isChatStreaming = false;
+let chatSessions = [];
+let activeChatId = null;
+let activeApiKey = '';
+function showToast(title, sub) {
+    const el = document.getElementById('toast');
+    if (toastTimeout) clearTimeout(toastTimeout);
+    el.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><div><div class="toast-title">' + title + '</div><div class="toast-sub">' + sub + '</div></div>';
+    el.classList.add('visible');
+    toastTimeout = setTimeout(() => { el.classList.remove('visible'); }, 3200);
+}
+function copyValue(val, label) {
+    navigator.clipboard.writeText(val);
+    showToast('Скопировано', label + ' скопирован в буфер обмена');
+}
+function copyApiKeyFromSidebar() {
+    if (!activeApiKey) {
+        showToast('Ключ отсутствует', 'Сначала создайте API ключ во вкладке «API Ключи»');
+        return;
+    }
+    copyValue(activeApiKey, 'API Key');
+}
+function copyAllEndpoints() {
+    const keyVal = activeApiKey || '(Создайте ключ во вкладке API Ключи)';
+    const all = 'BASE_URL: http://localhost:8000/v1\nAPI_KEY: ' + keyVal + '\nMODEL: ' + activeModelId;
+    navigator.clipboard.writeText(all);
+    showToast('Скопировано всё', 'Все параметры эндпоинта скопированы');
+}
+function copyClaudeManual() {
+    copyText('codeClaudeManual', 'Конфигурация Claude скопирована');
+}
+function copyCursorManual() {
+    copyText('codeCursorManual', 'Настройки Cursor скопированы');
+}
+function copyOpenCodeManual() {
+    copyText('codeOpenCodeManual', 'Конфиг OpenCode скопирован');
+}
+function copyEnvManual() {
+    copyText('codeEnvManual', 'Команды env скопированы');
+}
+function showTab(id, btn) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    btn.classList.add('active');
+    if (id === 'connect') updateGuide();
+    if (id === 'keys') loadKeys();
+    if (id === 'network') lanRefresh();
+}
+function lanEsc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g,
+        c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function lanRefresh() {
+    const box = document.getElementById('lanStatusBox');
+    if (!box) return;
+    try {
+        const res = await fetch('/api/lan/status');
+        const st = await res.json();
+        renderLanStatus(st);
+    } catch(e) {
+        box.innerHTML = '<div style="color:#f85149;font-size:13px;">Shard Server недоступен.</div>';
+    }
+}
+let lastLanStatus = null;
+function renderLanStatus(st) {
+    const box = document.getElementById('lanStatusBox');
+    if (!st) { box.innerHTML = ''; return; }
+    lastLanStatus = st;
+    const labels = {off:'выключена', server:'мастер', worker:'вычислительный узел', member:'участник (клиент)'};
+    const colors = {off:'#8b949e', server:'#3fb950', worker:'#58a6ff', member:'#bc8cff'};
+    const mode = st.mode || 'off';
+    let html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">' +
+        '<span style="background:#0d1117;border:1px solid ' + colors[mode] + '44;color:' + colors[mode] +
+        ';border-radius:20px;padding:2px 10px;font-size:12px;">' + lanEsc(labels[mode] || mode) + '</span>' +
+        '<span style="font-size:13px;color:#e6edf3;">Сеть: ' + lanEsc(st.name) + '</span>';
+    if (mode === 'server') {
+        if (st.open) {
+            html += ' <span style="background:#0d1117;border:1px solid #10b98144;color:#10b981;border-radius:20px;padding:2px 10px;font-size:12px;">открытая</span>' +
+                '<button class="btn-action" style="font-size:11px;padding:2px 10px;" onclick="lanToggleOpen(false)">Закрыть сеть</button>';
+        } else {
+            html += ' <span style="background:#0d1117;border:1px solid #8b949e44;color:#8b949e;border-radius:20px;padding:2px 10px;font-size:12px;">закрытая (код)</span>' +
+                '<button class="btn-action" style="font-size:11px;padding:2px 10px;" onclick="lanToggleOpen(true)">Открыть сеть</button>';
+        }
+    }
+    html += '</div>';
+    html += '<div style="font-size:12px;color:#8b949e;">IP этой машины: <b style="color:#e6edf3;">' + lanEsc(st.ip) + '</b>';
+    if (st.pairing_code) {
+        html += ' &middot; Код подключения: <b style="color:#e6edf3;cursor:pointer;" title="Скопировать" ' +
+            'onclick="copyValue(\'' + lanEsc(st.pairing_code) + '\', \'Код подключения\')">' + lanEsc(st.pairing_code) + '</b>';
+    }
+    html += '</div>';
+    if ((mode === 'worker' || mode === 'member') && st.master) {
+        html += '<div style="font-size:12px;color:#8b949e;margin-top:4px;">Подключён к мастеру: <b style="color:#e6edf3;">' +
+            lanEsc(st.master.name || st.master.ip) + '</b> (' + lanEsc(st.master.ip) + ':' + lanEsc(st.master.port) + ')</div>';
+    }
+    const members = st.members || [];
+    const hasWorker = members.some(m => m.role === 'worker' && m.alive);
+    if (members.length) {
+        html += '<div style="font-size:12px;color:#8b949e;margin:10px 0 4px;">Участники (' + members.length + '):</div>';
+        for (const m of members) {
+            const dot = m.alive ? '#10b981' : '#ef4444';
+            const mark = m.alive ? 'на связи' : 'не отвечает';
+            html += '<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:2px 0;">' +
+                '<span style="width:8px;height:8px;border-radius:50%;background:' + dot + ';flex:none;"></span>' +
+                '<span style="color:#e6edf3;min-width:120px;">' + lanEsc(m.ip) + '</span>' +
+                '<span style="color:#e6edf3;min-width:110px;">' + lanEsc(m.name) + '</span>' +
+                '<span style="color:#8b949e;">[' + lanEsc(m.role) + ']</span>' +
+                '<span style="color:' + (m.alive ? '#10b981' : '#ef4444') + ';">' + mark + '</span></div>';
+        }
+        if (mode === 'server' && hasWorker) {
+            html += '<div style="font-size:12px;color:#d29922;margin-top:6px;">Вычислительный узел подключился — ' +
+                'перезагрузите модель, чтобы он получил свою часть весов (кнопка «Загрузить» на вкладке модели).</div>';
+        }
+    }
+    const peers = (st.peers || []).filter(p => p.role === 'server');
+    if (peers.length) {
+        html += '<div style="font-size:12px;color:#8b949e;margin:10px 0 4px;">Серверы рядом (UDP-маяк):</div>';
+        for (const p of peers) {
+            const isOpen = !!p.open;
+            const openBadge = isOpen
+                ? '<span style="background:#0d1117;border:1px solid #10b98144;color:#10b981;border-radius:20px;padding:1px 8px;font-size:11px;">открытая</span>'
+                : '<span style="background:#0d1117;border:1px solid #8b949e44;color:#8b949e;border-radius:20px;padding:1px 8px;font-size:11px;">нужен код</span>';
+            const model = p.model ? (' модель: ' + lanEsc(p.model)) : '';
+            const joinBtn = isOpen
+                ? '<button class="btn-action" style="font-size:11px;padding:2px 10px;color:#3fb950;border-color:#3fb950;" onclick="lanJoinQuick(\'' + lanEsc(p.ip) + '\', ' + lanEsc(p.port) + ')">Войти на сервер</button>'
+                : '';
+            html += '<div style="display:flex;align-items:center;gap:10px;font-size:12px;padding:3px 0;flex-wrap:wrap;">' +
+                '<span style="color:#e6edf3;font-weight:600;">' + lanEsc(p.name) + '</span>' +
+                '<span style="color:#8b949e;">' + lanEsc(p.ip) + ':' + lanEsc(p.port) + '</span>' +
+                openBadge +
+                '<span style="color:#8b949e;">' + model + '</span>' + joinBtn + '</div>';
+        }
+    }
+    if (st.rpc && st.rpc.servers) {
+        html += '<div style="font-size:12px;color:#58a6ff;margin-top:8px;word-break:break-all;">RPC-пул: --rpc ' +
+            lanEsc(st.rpc.servers) + ' -ts ' + lanEsc(st.rpc.split) + '</div>';
+    }
+    box.innerHTML = html;
+}
+async function lanCreate() {
+    const name = document.getElementById('lanName').value.trim();
+    const open = document.getElementById('lanOpen').checked;
+    const res = await fetch('/api/lan/create', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name, open: open})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('Сеть создана', open ? 'Открытая сеть: вход без кода' : 'Код подключения: ' + (data.pairing_code || ''));
+        lanRefresh();
+    } else {
+        showToast('Ошибка', data.message || 'Не удалось создать сеть');
+    }
+}
+async function lanToggleOpen(open) {
+    const res = await fetch('/api/lan/open', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({open: !!open})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') showToast(open ? 'Сеть открыта' : 'Сеть закрыта', data.message || '');
+    else showToast('Ошибка', data.message || 'Не удалось изменить сеть');
+    lanRefresh();
+}
+async function lanJoinQuick(ip, port) {
+    const res = await fetch('/api/lan/join', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ip: ip, code: '', share: true, port: port})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('Подключено', 'К сети: ' + (data.master || ip) + (data.warning ? ' (без расшаривания: ' + data.warning + ')' : ' (ваше VRAM/RAM расшарено)'));
+        lanRefresh();
+    } else {
+        showToast('Ошибка подключения', data.message || 'Проверьте IP');
+    }
+}
+async function lanJoin() {
+    const ip = document.getElementById('lanJoinIp').value.trim();
+    const code = document.getElementById('lanJoinCode').value.trim().toUpperCase();
+    const share = document.getElementById('lanShare').checked;
+    if (!ip) { showToast('Заполните поле', 'Нужен IP мастера'); return; }
+    const res = await fetch('/api/lan/join', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ip: ip, code: code, share: share})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('Подключено', 'К сети: ' + (data.master || ip) + (data.warning ? ' (без расшаривания)' : ''));
+        lanRefresh();
+    } else {
+        showToast('Ошибка подключения', data.message || 'Проверьте IP и код');
+    }
+}
+async function lanOff() {
+    const res = await fetch('/api/lan/off', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    });
+    const data = await res.json();
+    showToast('Сеть отключена', 'Режим: ' + (data.mode || 'off'));
+    lanRefresh();
+}
+async function updateDownloadedBadge() {
+    try {
+        const res = await fetch('/api/models/downloaded');
+        const data = await res.json();
+        const badge = document.getElementById('downloadedBadgeCount');
+        if (badge && data.models) badge.innerText = data.models.length;
+    } catch(e) {}
+}
+async function loadDownloadedModels() {
+    currentCategory = 'downloaded';
+    const grid = document.getElementById('modelsGrid');
+    const badgeEl = document.getElementById('modelsCountBadge');
+    if (badgeEl) badgeEl.innerText = 'Сканирование весов на SSD...';
+    try {
+        const res = await fetch('/api/models/downloaded');
+        const data = await res.json();
+        const models = data.models || [];
+        const countBadge = document.getElementById('downloadedBadgeCount');
+        if (countBadge) countBadge.innerText = models.length;
+        if (badgeEl) {
+            badgeEl.innerHTML = '<span style="color:#60a5fa;font-weight:600;">Локальное хранилище SSD:</span> занято ' + data.total_size_gb + ' ГБ &bull; свободно ' + data.disk_free_gb + ' ГБ &bull; сохранено моделей: ' + models.length;
+        }
+        grid.innerHTML = '';
+        if (models.length === 0) {
+            grid.innerHTML = '<div style="color:var(--text-muted);padding:32px;font-size:13px;grid-column:1/-1;text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:8px;">На диске нет скачанных моделей. Выберите модель из каталога и нажмите «Запустить».</div>';
+            return;
+        }
+        models.forEach(m => {
+            const card = document.createElement('div');
+            card.className = 'model-card';
+            const isActive = m.is_active || (m.id === activeModelId && !isModelLoading);
+            const btnActiveHtml = isActive ? '<button class="btn-action active" disabled style="cursor:default;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Активна</button>' : '<button class="btn-action" onclick="loadModel(\'' + m.id + '\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Использовать</button>';
+            const deleteBtnHtml = '<button class="btn-delete" onclick="deleteDownloadedModel(\'' + m.id + '\', \'' + m.name + '\', \'' + m.size_str + '\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Удалить</button>';
+            card.innerHTML = '<div class="card-top">' +
+                '<div style="cursor:pointer;" onclick="openModelCard(\'' + m.id + '\')">' +
+                    '<div class="model-title" style="display:flex;align-items:center;gap:6px;">' + m.name + '</div>' +
+                    '<div class="model-author">' + m.author + '</div>' +
+                '</div>' +
+                '<div style="display:flex;gap:6px;align-items:center;">' +
+                    '<span class="compat-badge" style="background:rgba(37,99,235,0.1);color:#60a5fa;border:1px solid rgba(37,99,235,0.25);font-family:Consolas,monospace;">SSD: ' + m.size_str + '</span>' +
+                '</div>' +
+            '</div>' +
+            '<div class="card-desc" style="cursor:pointer;" onclick="openModelCard(\'' + m.id + '\')">Локальные веса модели сохранены на SSD. Доступны для мгновенного инференса без обращения к сети.</div>' +
+            '<div class="card-specs">' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ' + ((m.compatibility && m.compatibility.speed_est) || '45-75 ток/сек') + '</div>' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> ' + ((m.compatibility && m.compatibility.mode) || '100% GPU VRAM') + '</div>' +
+            '</div>' +
+            '<div class="card-bottom" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">' +
+                '<button class="btn-review" onclick="openModelCard(\'' + m.id + '\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Обзор</button>' +
+                '<div style="display:flex;gap:8px;align-items:center;">' +
+                    btnActiveHtml +
+                    deleteBtnHtml +
+                '</div>' +
+            '</div>';
+            grid.appendChild(card);
+        });
+    } catch(e) {
+        grid.innerHTML = '<div style="color:#ef4444;padding:24px;font-size:13px;grid-column:1/-1;">Не удалось загрузить список моделей на SSD.</div>';
+    }
+}
+async function deleteDownloadedModel(id, name, sizeStr) {
+    if (!confirm('Удалить веса модели ' + name + ' (' + sizeStr + ') с SSD диска?')) {
+        return;
+    }
+    showToast('Удаление модели ' + name + ' с SSD...');
+    try {
+        const res = await fetch('/api/models/downloaded', {
+            method: 'DELETE',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({model_id: id})
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            showToast('Модель ' + name + ' удалена. Освобождено: ' + data.freed_str);
+            updateDownloadedBadge();
+            if (currentCategory === 'downloaded') {
+                loadDownloadedModels();
+            } else {
+                loadModels();
+            }
+        } else {
+            showToast('Ошибка: ' + (data.message || 'Сбой'));
+        }
+    } catch(e) {
+        showToast('Сбой удаления модели');
+    }
+}
+function setCategory(cat, btn) {
+    currentCategory = cat;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (cat === 'downloaded') {
+        loadDownloadedModels();
+    } else {
+        loadModels();
+    }
+}
+let searchDebounceTimer = null;
+function handleSearchDebounced() {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        loadModels();
+    }, 320);
+}
+function handleSearch(e) {
+    if (e.key === 'Enter') {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        loadModels();
+    }
+}
+function selectTool(tool, el) {
+    currentTool = tool;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    updateGuide();
+}
+function selectOS(os, el) {
+    currentOS = os;
+    document.querySelectorAll('.os-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    if (os === 'manual') {
+        setGuideMode('manual');
+    } else {
+        updateGuide();
+    }
+}
+function setGuideMode(mode) {
+    currentGuideMode = mode;
+    document.getElementById('modeBtnScript').classList.toggle('active', mode === 'script');
+    document.getElementById('modeBtnManual').classList.toggle('active', mode === 'manual');
+    document.getElementById('guideScriptSection').style.display = (mode === 'script') ? 'block' : 'none';
+    document.getElementById('guideManualSection').style.display = (mode === 'manual') ? 'block' : 'none';
+    updateGuide();
+}
+function updateGuide() {
+    const toolNames = {
+        'claude': 'Claude CLI',
+        'claude-desktop': 'Claude Desktop',
+        'cursor': 'Cursor IDE',
+        'opencode': 'OpenCode',
+        'continue': 'Continue',
+        'aider': 'Aider CLI',
+        'zed': 'Zed Editor',
+        'jetbrains': 'JetBrains AI',
+        'sdk': 'API / SDK'
+    };
+    const osNames = {'windows': 'Windows', 'linux': 'Linux', 'macos': 'macOS', 'manual': 'Ручной config'};
+    const keyNoticeEl = document.getElementById('guideKeyNotice');
+    if (keyNoticeEl) {
+        if (activeApiKey) {
+            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#34d399;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Используется ваш API-ключ: <strong style="color:#fff;font-family:Consolas,monospace;background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">' + activeApiKey + '</strong></span></div>';
+        } else {
+            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#fca5a5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>У вас пока нет активного ключа. <a href="javascript:void(0)" onclick="switchTab(\'keys\', document.querySelectorAll(\'.nav-btn\')[3])" style="color:#38bdf8;text-decoration:underline;font-weight:600;">Создайте ключ</a> во вкладке «API Ключи», чтобы он автоматически подставился в команды.</span></div>';
+        }
+    }
+    document.getElementById('guideTitle').innerText = 'Инструкция: ' + (toolNames[currentTool] || currentTool) + ' + ' + (osNames[currentOS] || currentOS);
+    const scriptBox = document.getElementById('guideScriptCode');
+    const stepsList = document.getElementById('guideScriptSteps');
+    const keyParam = activeApiKey ? '&key=' + encodeURIComponent(activeApiKey) : '';
+    const keyFallback = activeApiKey || 'sk-shard-local';
+    if (currentOS === 'windows') {
+        scriptBox.innerText = 'powershell -ExecutionPolicy Bypass -Command "irm \'http://localhost:8000/i?os=windows&tool=' + currentTool + keyParam + '\' | iex"';
+        stepsList.innerHTML = '<li>Откройте Терминал: <b>Win + X</b> -> Терминал (или откройте <b>PowerShell / CMD</b>).</li>' +
+            '<li>Вставьте скопированную команду комбинацией <b>Ctrl + V</b> и нажмите <b>Enter</b>.</li>' +
+            '<li>Готово. Команда работает в PowerShell и CMD. Конфигурация инструмента обновится автоматически.</li>';
+    } else {
+        const toolArg = (currentTool === 'claude-desktop') ? 'claude' : currentTool;
+        const unixKeyArg = activeApiKey ? ' ' + activeApiKey : '';
+        scriptBox.innerText = 'bash <(curl -fsSL "http://localhost:8000/i?tool=' + toolArg + keyParam + '")' + unixKeyArg;
+        stepsList.innerHTML = '<li>Откройте Терминал: <b>Ctrl + Alt + T</b> (Linux) или <b>Cmd + Пробел -> Terminal</b> (macOS).</li>' +
+            '<li>Вставьте команду комбинацией <b>Ctrl + Shift + V</b> (или <b>Cmd + V</b>) и нажмите <b>Enter</b>.</li>' +
+            '<li>Готово. Конфигурация применена к окружению без перезагрузки системы.</li>';
+    }
+    const manualBox = document.getElementById('guideManualContent');
+    if (currentTool === 'claude' || currentTool === 'claude-desktop') {
+        const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.claude\\settings.json' : '~/.claude/settings.json';
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Создайте или замените settings.json блоком ниже:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeClaudeManual"></pre><button class="btn-copy" onclick="copyClaudeManual()">Скопировать</button></div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Перезапустите Claude CLI / Desktop:</div>' +
+            '<div>Claude читает ANTHROPIC_BASE_URL и ANTHROPIC_AUTH_TOKEN из settings.json. Endpoint единый — отдаёт и Claude, и OpenAI совместимые модели через локальный C++20 / AVX2 пайплайн.</div>' +
+        '</div>';
+        const pre = document.getElementById('codeClaudeManual');
+        if (pre) {
+            pre.innerText = JSON.stringify({
+                hasCompletedOnboarding: true,
+                env: {
+                    ANTHROPIC_BASE_URL: "http://localhost:8000/v1",
+                    ANTHROPIC_AUTH_TOKEN: keyFallback,
+                    ANTHROPIC_DEFAULT_OPUS_MODEL: activeModelId,
+                    ANTHROPIC_DEFAULT_SONNET_MODEL: activeModelId,
+                    ANTHROPIC_DEFAULT_HAIKU_MODEL: activeModelId
+                }
+            }, null, 2);
+        }
+    } else if (currentTool === 'cursor') {
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Откройте настройки Cursor:</div>' +
+            '<div>Нажмите <b>Ctrl + ,</b> -> выберите раздел <b>Models</b> -> включите <b>OpenAI API Key</b>.</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin:10px 0 6px;">2. Укажите локальный адрес и ключ Shard:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeCursorManual"></pre><button class="btn-copy" onclick="copyCursorManual()">Скопировать</button></div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Сохраните настройки:</div>' +
+            '<div>Cursor будет отправлять запросы напрямую на локальный сервер Shard без задержек сети.</div>' +
+        '</div>';
+        const pre = document.getElementById('codeCursorManual');
+        if (pre) {
+            pre.innerText = 'Base URL: http://localhost:8000/v1\nAPI Key:  ' + keyFallback + '\nModel:    ' + activeModelId;
+        }
+    } else if (currentTool === 'opencode') {
+        const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.config\\opencode\\config.json' : '~/.config/opencode/config.json';
+        const opencodeCfg = {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
+                "shard": {
+                    "npm": "@ai-sdk/openai-compatible",
+                    "name": "Shard",
+                    "options": {
+                        "baseURL": "http://localhost:8000/v1",
+                        "apiKey": keyFallback
+                    },
+                    "models": {
+                        "Qwen/Qwen2.5-Coder-7B-Instruct": { "name": "Qwen2.5 Coder 7B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
+                        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B": { "name": "DeepSeek R1 Distill 7B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
+                        "google/gemma-2-9b-it": { "name": "Gemma 2 9B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
+                        "meta-llama/Llama-3.2-3B-Instruct": { "name": "Llama 3.2 3B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
+                        "mistralai/Mistral-7B-Instruct-v0.3": { "name": "Mistral 7B v0.3", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} }
+                    }
+                }
+            },
+            "model": "shard/" + activeModelId
+        };
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации OpenCode:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Создайте или замените config.json официальным блоком OpenCode:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeOpenCodeManual"></pre><button class="btn-copy" onclick="copyOpenCodeManual()">Скопировать</button></div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Запустите OpenCode:</div>' +
+            '<div>OpenCode загрузит провайдер @ai-sdk/openai-compatible и подключится напрямую к локальному серверу Shard.</div>' +
+        '</div>';
+        const pre = document.getElementById('codeOpenCodeManual');
+        if (pre) pre.innerText = JSON.stringify(opencodeCfg, null, 2);
+    } else if (currentTool === 'continue') {
+        const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.continue\\config.json' : '~/.continue/config.json';
+        const continueCfg = {
+            "models": [
+                {
+                    "title": "Shard Local (" + activeModelId.split('/').pop() + ")",
+                    "provider": "openai",
+                    "model": activeModelId,
+                    "apiBase": "http://localhost:8000/v1",
+                    "apiKey": keyFallback
+                }
+            ],
+            "tabAutocompleteModel": {
+                "title": "Shard Autocomplete",
+                "provider": "openai",
+                "model": activeModelId,
+                "apiBase": "http://localhost:8000/v1",
+                "apiKey": keyFallback
+            }
+        };
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации Continue:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте Shard в секцию models в config.json:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeContinueManual"></pre><button class="btn-copy" onclick="copyText(\'codeContinueManual\', \'Конфиг Continue скопирован\')">Скопировать</button></div>' +
+        '</div>';
+        const pre = document.getElementById('codeContinueManual');
+        if (pre) pre.innerText = JSON.stringify(continueCfg, null, 2);
+    } else if (currentTool === 'aider') {
+        const cmd = 'aider --openai-api-base http://localhost:8000/v1 --openai-api-key ' + keyFallback + ' --model openai/' + activeModelId;
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Запуск Aider с подключением к Shard:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeAiderManual"></pre><button class="btn-copy" onclick="copyText(\'codeAiderManual\', \'Команда Aider скопирована\')">Скопировать</button></div>' +
+        '</div>';
+        const pre = document.getElementById('codeAiderManual');
+        if (pre) pre.innerText = cmd;
+    } else if (currentTool === 'zed') {
+        const filePath = (currentOS === 'windows') ? '%APPDATA%\\Zed\\settings.json' : '~/.config/zed/settings.json';
+        const zedCfg = {
+            "language_models": {
+                "openai": {
+                    "version": "1",
+                    "api_url": "http://localhost:8000/v1",
+                    "available_models": [
+                        {
+                            "name": activeModelId,
+                            "display_name": "Shard " + activeModelId.split('/').pop(),
+                            "max_tokens": 8192
+                        }
+                    ]
+                }
+            }
+        };
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к настройкам Zed:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте провайдер OpenAI с локальным URL в settings.json:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeZedManual"></pre><button class="btn-copy" onclick="copyText(\'codeZedManual\', \'Конфиг Zed скопирован\')">Скопировать</button></div>' +
+        '</div>';
+        const pre = document.getElementById('codeZedManual');
+        if (pre) pre.innerText = JSON.stringify(zedCfg, null, 2);
+    } else {
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Переменные окружения (Environment Variables):</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeEnvManual"></pre><button class="btn-copy" onclick="copyEnvManual()">Скопировать</button></div>' +
+            '<div>Любой совместимый инструмент подтянет локальный сервер автоматически.</div>' +
+        '</div>';
+        const pre = document.getElementById('codeEnvManual');
+        if (pre) {
+            pre.innerText = (currentOS === 'windows') ?
+                '$env:OPENAI_API_BASE="http://localhost:8000/v1"\n$env:OPENAI_API_KEY="' + keyFallback + '"' :
+                'export OPENAI_API_BASE="http://localhost:8000/v1"\nexport OPENAI_API_KEY="' + keyFallback + '"';
+        }
+    }
+}
+function copyCurrentScript() {
+    const text = document.getElementById('guideScriptCode').innerText;
+    navigator.clipboard.writeText(text);
+    showToast('Команда скопирована', 'Вставьте команду в Терминал и нажмите Enter');
+}
+function copyText(id, toastMsg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText);
+    showToast('Скопировано', toastMsg);
+}
+async function runPingTest() {
+    const el = document.getElementById('pingStatusText');
+    el.innerHTML = '<span style="color:#38bdf8;">Выполняется проверка соединения...</span>';
+    try {
+        const t0 = performance.now();
+        const res = await fetch('/v1/ping');
+        const dt = (performance.now() - t0).toFixed(1);
+        const data = await res.json();
+        el.innerHTML = '<span style="color:#10b981;font-weight:600;">200 OK — Эндпоинт активен!</span> Задержка: <b>' + dt + ' мс</b> | Ядро: <b>' + data.engine + '</b>';
+        showToast('Эндпоинт доступен', 'Отклик: ' + dt + ' мс');
+    } catch(e) {
+        el.innerHTML = '<span style="color:#ef4444;font-weight:600;">Ошибка соединения</span> Проверьте запущен ли локальный сервер Shard';
+    }
+}
+let isModelLoading = false;
+let loadingModelId = '';
+let currentLoadingPercent = 0;
+let hwPollTimer = null;
+function setPollRate(ms) {
+    if (hwPollTimer) clearInterval(hwPollTimer);
+    hwPollTimer = setInterval(fetchHardware, ms);
+}
+function updateLoadingUI(isLoading, lp) {
+    const banner = document.getElementById('globalLoadingBanner');
+    const chatTag = document.getElementById('chatLoadingTag');
+    const chatCard = document.getElementById('chatLoadingCard');
+    const chatSpeed = document.getElementById('chatLiveSpeed');
+    const hwModel = document.getElementById('hwModel');
+    if (!banner) return;
+    if (isLoading && lp) {
+        banner.style.display = 'block';
+        const modelId = lp.model_id || activeModelId || '';
+        const shortName = modelId.split('/').pop();
+        const pct = lp.percent || 0;
+        const eta = lp.eta_text || 'вычисление...';
+        const speed = lp.speed_mb || 0;
+        const currMb = lp.curr_mb || 0;
+        const totalMb = lp.total_mb || 0;
+        const stage = lp.stage || 'Подготовка тензоров...';
+        document.getElementById('glbModelName').innerText = shortName;
+        document.getElementById('glbStageText').innerText = stage;
+        document.getElementById('glbMetrics').innerText = currMb + ' / ' + totalMb + ' МБ • ' + speed + ' МБ/с';
+        document.getElementById('glbEta').innerText = 'Осталось: ' + eta;
+        document.getElementById('glbPercentVal').innerText = pct + '%';
+        document.getElementById('glbTrackFill').style.width = pct + '%';
+        if (chatTag) {
+            chatTag.style.display = 'inline-flex';
+            chatTag.innerHTML = '<svg class="glb-spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Загрузка: ' + pct + '% (' + eta + ')';
+        }
+        if (chatCard) {
+            chatCard.style.display = 'flex';
+            chatCard.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><svg class="glb-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><b style="font-size:13px;color:#fff;">Загрузка нейросети ' + shortName + '</b></div><span style="font-size:12px;font-weight:700;color:#38bdf8;font-family:Consolas,monospace;">' + pct + '%</span></div><div class="glb-track"><div class="glb-fill" style="width:' + pct + '%;"></div></div><div style="font-size:11px;color:#94a3b8;display:flex;justify-content:space-between;"><span>' + currMb + ' / ' + totalMb + ' МБ • ' + speed + ' МБ/с</span><span>Осталось: ' + eta + '</span></div>';
+        }
+        if (chatSpeed) {
+            chatSpeed.innerHTML = '<span style="color:#f59e0b;">Загрузка: ' + pct + '% (' + eta + ')</span>';
+        }
+        if (hwModel) {
+            hwModel.innerText = shortName + ' (' + pct + '% • ' + eta + ')';
+            hwModel.style.color = '#38bdf8';
+        }
+    } else {
+        banner.style.display = 'none';
+        if (chatTag) chatTag.style.display = 'none';
+        if (chatCard) chatCard.style.display = 'none';
+        if (chatSpeed) chatSpeed.innerHTML = '<span style="color:#38bdf8;">Готов к запросам</span>';
+        if (hwModel) {
+            const shortName = (activeModelId || '').split('/').pop() || 'Не загружена';
+            hwModel.innerText = shortName;
+            hwModel.style.color = '#10b981';
+        }
+    }
+}
+async function fetchHardware() {
+    try {
+        const res = await fetch('/api/system/hardware');
+        const data = await res.json();
+        const hw = data.hardware;
+        const eng = data.engine;
+        document.getElementById('hwGpu').innerText = (hw.gpu_name || 'GPU').replace(' Laptop GPU', '').replace('NVIDIA GeForce ', '');
+        document.getElementById('hwVram').innerText = (hw.vram_used_mb || 0) + ' / ' + (hw.vram_total_mb || 0) + ' MB';
+        const ramUsed = (hw.ram_used_gb !== undefined) ? hw.ram_used_gb : ((hw.ram_total_mb - hw.ram_avail_mb) / 1024).toFixed(1);
+        const ramTotal = (hw.ram_total_gb !== undefined) ? hw.ram_total_gb : (hw.ram_total_mb / 1024).toFixed(1);
+        document.getElementById('hwRam').innerText = ramUsed + ' / ' + ramTotal + ' GB';
+        const lp = eng.load_progress || {};
+        if (eng.status === 'loading' || lp.status === 'loading') {
+            const wasLoading = isModelLoading;
+            isModelLoading = true;
+            loadingModelId = lp.model_id || eng.active_model || activeModelId;
+            currentLoadingPercent = lp.percent || 0;
+            updateLoadingUI(true, lp);
+            if (!wasLoading) setPollRate(500);
+        } else {
+            if (isModelLoading) {
+                isModelLoading = false;
+                loadingModelId = '';
+                updateLoadingUI(false, lp);
+                setPollRate(5000);
+                if (lp.status === 'ready') {
+                    showToast('Модель готова', (eng.active_model || activeModelId).split('/').pop() + ' подключена к инференсу');
+                } else if (lp.status === 'error') {
+                    showToast('Ошибка загрузки', lp.message || 'Сбой инициализации весов');
+                }
+                loadModels();
+            } else if (eng.active_model) {
+                activeModelId = eng.active_model;
+                const shortName = eng.active_model.split('/').pop();
+                document.getElementById('hwModel').innerText = shortName;
+                document.getElementById('hwModel').style.color = '#10b981';
+                const chatModelEl = document.getElementById('chatActiveModel');
+                if (chatModelEl) chatModelEl.innerText = shortName;
+            }
+        }
+    } catch(e) {}
+}
+async function loadModels() {
+    if (currentCategory === 'downloaded') return loadDownloadedModels();
+    const q = document.getElementById('searchInput').value.trim();
+    const grid = document.getElementById('modelsGrid');
+    const badgeEl = document.getElementById('modelsCountBadge');
+    if (badgeEl) badgeEl.innerText = 'Загрузка каталога моделей...';
+    try {
+        const res = await fetch('/api/hf/models?category=' + currentCategory + (q ? '&query=' + encodeURIComponent(q) : ''));
+        const models = await res.json();
+        grid.innerHTML = '';
+        if (badgeEl) {
+            badgeEl.innerHTML = '<span style="color:#38bdf8;font-weight:600;">Каталог Hub (3 000 000+ открытых моделей)</span> &bull; Показано: ' + models.length + (q ? ' (по запросу: "' + escapeHtml(q) + '")' : ' популярных сборок');
+        }
+        if (!models || models.length === 0) {
+            grid.innerHTML = '<div style="color:var(--text-muted);padding:24px;font-size:13px;grid-column:1/-1;">Модели не найдены. Попробуйте другой запрос (например: qwen, deepseek, llama, gemma, mistral, phi).</div>';
+            return;
+        }
+        models.forEach(m => {
+            const card = document.createElement('div');
+            card.className = 'model-card';
+            let badge = (m.compat_badge || (m.compatibility && m.compatibility.tier_label) || 'РЕКОМЕНДУЕТСЯ (VRAM+RAM)');
+            let badgeBg = 'var(--amber-bg)';
+            let badgeColor = 'var(--amber)';
+            let badgeBorder = 'rgba(245,158,11,0.25)';
+            if (badge.indexOf('VRAM)') !== -1) {
+                badgeBg = 'var(--emerald-bg)';
+                badgeColor = 'var(--emerald)';
+                badgeBorder = 'rgba(16,185,129,0.25)';
+            } else if (badge.indexOf('SSD') !== -1) {
+                badgeBg = 'var(--purple-bg)';
+                badgeColor = 'var(--purple)';
+                badgeBorder = 'rgba(139,92,246,0.25)';
+            }
+            const desc = m.description || m.desc || '';
+            const speed = m.speed_tier || (m.compatibility && m.compatibility.speed_est) || '18-32 ток/сек';
+            const mem = m.memory_slot || (m.compatibility && m.compatibility.mode) || 'VRAM + RAM Hybrid';
+            const dCount = (typeof m.downloads === 'number') ? m.downloads.toLocaleString('ru-RU') : '—';
+            const isLoadingThis = (isModelLoading && (loadingModelId === m.id || loadingModelId === m.id.split('/').pop()));
+            const isActive = (m.id === activeModelId && !isModelLoading);
+            const btnClass = isLoadingThis ? 'btn-action loading' : (isActive ? 'btn-action active' : 'btn-action');
+            const btnText = isLoadingThis ? ('Загрузка ' + currentLoadingPercent + '%') : (isActive ? 'АКТИВНА' : 'Запустить');
+            const btnDisabled = isLoadingThis ? 'disabled' : '';
+            card.innerHTML = '<div class="card-top">' +
+                '<div style="cursor:pointer;" onclick="openModelCard(\'' + m.id + '\')">' +
+                    '<div class="model-title" style="display:flex;align-items:center;gap:6px;">' + m.name + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>' +
+                    '<div class="model-author">' + m.author + '</div>' +
+                '</div>' +
+                '<div class="compat-badge" style="background:' + badgeBg + ';color:' + badgeColor + ';border-color:' + badgeBorder + ';">' + badge + '</div>' +
+            '</div>' +
+            '<div class="card-desc" style="cursor:pointer;" onclick="openModelCard(\'' + m.id + '\')">' + desc + '</div>' +
+            '<div class="card-specs">' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: ' + speed + '</div>' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> ' + mem + '</div>' +
+            '</div>' +
+            '<div class="card-bottom">' +
+                '<button class="btn-action" style="padding:4px 9px;font-size:11px;" onclick="openModelCard(\'' + m.id + '\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Обзор</button>' +
+                '<button id="btn-' + m.id.replace(/[^a-zA-Z0-9]/g, '_') + '" class="' + btnClass + '" ' + btnDisabled + ' onclick="loadModel(\'' + m.id + '\')">' + btnText + '</button>' +
+            '</div>';
+            grid.appendChild(card);
+        });
+    } catch(e) {}
+}
+function inlineMd(str) {
+    if (!str) return '';
+    let s = str;
+    s = s.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:10px 0;display:block;border:1px solid #1e2638;" onerror="this.style.display=\'none\'">');
+    s = s.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;text-decoration:none;">$1</a>');
+    s = s.replace(/\*\*(.*?)\*\*/g, '<b style="color:#fff;">$1</b>');
+    s = s.replace(/\*(.*?)\*/g, '<i style="color:#cbd5e1;">$1</i>');
+    s = s.replace(/`([^`]+)`/g, '<code style="background:#090a0f;padding:2px 5px;border-radius:4px;border:1px solid #1e2638;color:#38bdf8;font-size:11px;">$1</code>');
+    return s;
+}
+function renderTable(rows) {
+    if (rows.length < 2) return '';
+    let out = '<table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;background:#090a0f;border:1px solid #1e2638;border-radius:6px;overflow:hidden;">';
+    const headerCols = rows[0].split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+    out += '<thead><tr style="background:#131824;">';
+    headerCols.forEach(c => { out += '<th style="padding:8px 12px;text-align:left;border:1px solid #1e2638;color:#fff;">' + inlineMd(c) + '</th>'; });
+    out += '</tr></thead><tbody>';
+    for (let r = 2; r < rows.length; r++) {
+        const rowCols = rows[r].split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+        out += '<tr style="border-bottom:1px solid #1a2233;">';
+        rowCols.forEach(c => { out += '<td style="padding:6px 12px;border:1px solid #1a2233;color:#cbd5e1;">' + inlineMd(c) + '</td>'; });
+        out += '</tr>';
+    }
+    out += '</tbody></table>';
+    return out;
+}
+function renderMarkdown(md) {
+    if (!md) return '<div style="color:var(--text-muted);padding:20px;">Описание модели недоступно.</div>';
+    let text = md.replace(/^---[\s\S]*?---\n*/, '');
+    let html = '';
+    const lines = text.split('\n');
+    let inCode = false;
+    let codeBuf = [];
+    let inTable = false;
+    let tableBuf = [];
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim().startsWith('```')) {
+            if (!inCode) {
+                inCode = true;
+                codeBuf = [];
+            } else {
+                inCode = false;
+                html += '<pre style="background:#090a0f;border:1px solid #1e2638;padding:12px 14px;border-radius:6px;overflow-x:auto;font-family:Consolas,monospace;font-size:12px;color:#38bdf8;margin:12px 0;"><code>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>';
+            }
+            continue;
+        }
+        if (inCode) {
+            codeBuf.push(line);
+            continue;
+        }
+        if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+            if (!inTable) {
+                inTable = true;
+                tableBuf = [];
+            }
+            tableBuf.push(line.trim());
+            continue;
+        } else if (inTable) {
+            inTable = false;
+            html += renderTable(tableBuf);
+            tableBuf = [];
+        }
+        if (line.startsWith('# ')) {
+            html += '<h1 style="font-size:20px;font-weight:700;color:#fff;margin:18px 0 10px;border-bottom:1px solid #1e2638;padding-bottom:6px;">' + inlineMd(line.slice(2)) + '</h1>';
+        } else if (line.startsWith('## ')) {
+            html += '<h2 style="font-size:16px;font-weight:700;color:#f1f5f9;margin:16px 0 8px;">' + inlineMd(line.slice(3)) + '</h2>';
+        } else if (line.startsWith('### ')) {
+            html += '<h3 style="font-size:14px;font-weight:600;color:#cbd5e1;margin:14px 0 6px;">' + inlineMd(line.slice(4)) + '</h3>';
+        } else if (line.startsWith('- ') || line.startsWith('* ')) {
+            html += '<li style="margin:4px 0 4px 20px;color:#cbd5e1;">' + inlineMd(line.slice(2)) + '</li>';
+        } else if (line.trim().length === 0) {
+            html += '<div style="height:8px;"></div>';
+        } else {
+            html += '<p style="margin:6px 0;line-height:1.6;color:#94a3b8;">' + inlineMd(line) + '</p>';
+        }
+    }
+    if (inTable && tableBuf.length > 0) {
+        html += renderTable(tableBuf);
+    }
+    return html;
+}
+async function openModelCard(modelId) {
+    const backdrop = document.getElementById('modelModalBackdrop');
+    const titleEl = document.getElementById('modalModelTitle');
+    const authorEl = document.getElementById('modalModelAuthor');
+    const bodyEl = document.getElementById('modelModalBody');
+    const launchBtn = document.getElementById('modalLaunchBtn');
+    const hfLink = document.getElementById('modalHfLink');
+    const statsEl = document.getElementById('modalStats');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+    titleEl.innerText = modelId.split('/').pop();
+    authorEl.innerText = modelId.split('/')[0] || 'Community';
+    hfLink.removeAttribute('href');
+    launchBtn.onclick = () => { loadModel(modelId); closeModelCard(); };
+    bodyEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text-muted);"><div class="think-pulse" style="width:14px;height:14px;"></div><div style="font-size:13px;color:#cbd5e1;">Загрузка спецификации и описания модели...</div></div>';
+    try {
+        const res = await fetch('/api/hf/model/' + encodeURIComponent(modelId));
+        const data = await res.json();
+        const dlSpan = (data.downloads != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ' + Number(data.downloads).toLocaleString('ru-RU') + ' скачиваний</span>' : '';
+        const likeSpan = (data.likes != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ' + Number(data.likes).toLocaleString('ru-RU') + ' лайков</span>' : '';
+        statsEl.innerHTML = '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> ' + data.pipeline_tag + '</span>' +
+            dlSpan + likeSpan +
+            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + (data.compatibility ? data.compatibility.tier_label : '') + '</span>';
+        bodyEl.innerHTML = renderMarkdown(data.readme);
+    } catch(e) {
+        bodyEl.innerHTML = '<div style="color:#ef4444;padding:30px;text-align:center;">Не удалось загрузить спецификацию модели.</div>';
+    }
+}
+function closeModelCard() {
+    const backdrop = document.getElementById('modelModalBackdrop');
+    if (backdrop) backdrop.style.display = 'none';
+}
+let _drivesCache = [];
+function openDirPicker() {
+    const backdrop = document.getElementById('dirModalBackdrop');
+    const input = document.getElementById('dirPathInput');
+    const listEl = document.getElementById('dirDriveList');
+    const diskEl = document.getElementById('dirDiskInfo');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+    input.value = '';
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Загрузка дисков...</div>';
+    diskEl.innerHTML = '';
+    fetch('/api/settings').then(r => r.json()).then(s => {
+        if (s.models_dir) input.value = s.models_dir;
+        const disk = s.disk || {};
+        diskEl.innerHTML = '<span class="spec-item">Свободно: ' + disk.free_gb + ' GB из ' + disk.total_gb + ' GB</span>' +
+            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + (s.is_custom ? 'CUSTOM' : 'ПО УМОЛЧАНИЮ') + '</span>';
+    }).catch(() => {});
+    fetch('/api/drives').then(r => r.json()).then(d => {
+        _drivesCache = (d && d.drives) || [];
+        listEl.innerHTML = _drivesCache.map((dr, i) =>
+            '<button class="filter-btn" onclick="pickDrive(' + i + ')" style="gap:6px;">' + dr.path +
+            '<span style="color:var(--text-muted);font-size:10px;">' + dr.free_gb + ' GB</span></button>'
+        ).join('') || '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
+    }).catch(() => {
+        listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
+    });
+}
+function pickDrive(i) {
+    const dr = (_drivesCache || [])[i];
+    const inp = document.getElementById('dirPathInput');
+    if (!dr || !inp) return;
+    const sep = String.fromCharCode(92);
+    inp.value = (dr.path.endsWith('/') || dr.path.endsWith(sep)) ? dr.path + 'shard-models' : dr.path + '/shard-models';
+}
+function closeDirPicker() {
+    const backdrop = document.getElementById('dirModalBackdrop');
+    if (backdrop) backdrop.style.display = 'none';
+}
+async function saveModelsDir() {
+    const path = ((document.getElementById('dirPathInput') || {}).value || '').trim();
+    if (!path) { showToast('Путь не указан', 'Введите путь к папке для моделей'); return; }
+    try {
+        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ models_dir: path }) });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 200) {
+            showToast('Папка сохранена', data.models_dir + ' — применится после перезапуска');
+            closeDirPicker();
+            refreshDirLabel();
+        } else {
+            showToast('Ошибка', data.message || 'Папка недоступна для записи');
+        }
+    } catch (e) {
+        showToast('Ошибка', 'Сервер недоступен');
+    }
+}
+async function resetModelsDir() {
+    try {
+        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: true }) });
+        if (res.status === 200) {
+            showToast('Папка сброшена', 'Вернётся стандартная папка после перезапуска');
+            document.getElementById('dirPathInput').value = '';
+            refreshDirLabel();
+        } else {
+            showToast('Ошибка', 'Сбой сброса');
+        }
+    } catch (e) {
+        showToast('Ошибка', 'Сервер недоступен');
+    }
+}
+function refreshDirLabel() {
+    fetch('/api/settings').then(r => r.json()).then(s => {
+        const el = document.getElementById('modelsDirLabel');
+        if (el && s.models_dir) {
+            el.textContent = s.models_dir.length > 24 ? '…' + s.models_dir.slice(-23) : s.models_dir;
+            el.parentElement.title = 'Загрузка моделей: ' + s.models_dir;
+        }
+    }).catch(() => {});
+}
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeDirPicker(); });
+async function loadModel(modelId) {
+    isModelLoading = true;
+    loadingModelId = modelId;
+    currentLoadingPercent = 6;
+    activeModelId = modelId;
+    updateLoadingUI(true, {
+        model_id: modelId,
+        percent: 6,
+        stage: 'Скачивание весов модели',
+        curr_mb: 0,
+        total_mb: 100,
+        speed_mb: 0,
+        eta_text: 'вычисление...',
+        message: 'Подключение к манифесту весов...'
+    });
+    setPollRate(500);
+    loadModels();
+    showToast('Загрузка модели', 'Начато развертывание ' + modelId.split('/').pop() + '...');
+    try {
+        const res = await fetch('/api/models/load', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({model_id: modelId})
+        });
+        const data = await res.json();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось отправить запрос на загрузку');
+    }
+}
+async function loadKeys() {
+    try {
+        const res = await fetch('/api/keys');
+        const data = await res.json();
+        const list = document.getElementById('keysList');
+        if (!list) return;
+        list.innerHTML = '';
+        const keys = data.keys || [];
+        if (keys.length > 0) {
+            if (!activeApiKey || !keys.includes(activeApiKey)) {
+                activeApiKey = keys[0];
+            }
+        } else {
+            activeApiKey = '';
+        }
+        const sidebarKeyEl = document.getElementById('sidebarApiKey');
+        if (sidebarKeyEl) {
+            if (activeApiKey) {
+                sidebarKeyEl.innerText = activeApiKey;
+                sidebarKeyEl.style.color = '#10b981';
+            } else {
+                sidebarKeyEl.innerText = 'Не создан';
+                sidebarKeyEl.style.color = '#ef4444';
+            }
+        }
+        updateGuide();
+        if (keys.length === 0) {
+            list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);background:#090a0f;border:1px dashed var(--border);border-radius:6px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" style="margin-bottom:8px;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg><div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:4px;">Ключи API еще не созданы</div><div style="font-size:12px;">Нажмите кнопку выше для генерации вашего уникального локального ключа</div></div>';
+            return;
+        }
+        keys.forEach(k => {
+            const item = document.createElement('div');
+            item.style.display = 'flex';
+            item.style.justifyContent = 'space-between';
+            item.style.alignItems = 'center';
+            item.style.padding = '8px 12px';
+            item.style.background = '#090a0f';
+            item.style.border = (k === activeApiKey) ? '1px solid #10b981' : '1px solid var(--border)';
+            item.style.borderRadius = '5px';
+            item.style.fontFamily = 'Consolas, monospace';
+            item.style.fontSize = '12px';
+            item.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#f1f5f9;">' + k + '</span>' + (k === activeApiKey ? '<span style="font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(16,185,129,0.15);color:#10b981;font-weight:600;">АКТИВЕН</span>' : '') + '</div><div style="display:flex;gap:6px;"><button class="btn-action" style="padding:4px 10px;font-size:11px;" onclick="copyValue(\'' + k + '\', \'Ключ API\')">Скопировать</button><button class="btn-action" style="padding:4px 10px;font-size:11px;border-color:#7f1d1d;color:#fca5a5;" onclick="deleteKey(\'' + k + '\')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить</button></div>';
+            list.appendChild(item);
+        });
+    } catch(e) {}
+}
+async function generateKey() {
+    try {
+        const res = await fetch('/api/keys/generate', {method: 'POST'});
+        const data = await res.json();
+        activeApiKey = data.key;
+        showToast('Ключ создан', data.key);
+        await loadKeys();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось создать ключ');
+    }
+}
+async function deleteKey(k) {
+    try {
+        const res = await fetch('/api/keys/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({key: k})
+        });
+        showToast('Ключ удален', k);
+        if (activeApiKey === k) activeApiKey = '';
+        await loadKeys();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось удалить ключ');
+    }
+}
+function formatDuration(sec) {
+    if (sec >= 60) {
+        const m = Math.floor(sec / 60);
+        const s = Math.round(sec % 60);
+        return m + ' мин ' + s + ' сек';
+    }
+    return sec.toFixed(2) + ' сек';
+}
+function toggleThink(id) {
+    const body = document.getElementById('think-body-' + id);
+    const arrow = document.getElementById('think-arrow-' + id);
+    if (!body) return;
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    } else {
+        body.style.display = 'none';
+        if (arrow) arrow.style.transform = 'rotate(-90deg)';
+    }
+}
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function saveChatSessions() {
+    try {
+        localStorage.setItem('shard_chat_sessions_v1', JSON.stringify(chatSessions));
+    } catch(e) {}
+}
+function initChatSessions() {
+    try {
+        const stored = localStorage.getItem('shard_chat_sessions_v1');
+        if (stored) chatSessions = JSON.parse(stored);
+    } catch(e) {
+        chatSessions = [];
+    }
+    if (!Array.isArray(chatSessions) || chatSessions.length === 0) {
+        const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+        chatSessions = [fresh];
+        activeChatId = fresh.id;
+        saveChatSessions();
+    } else {
+        activeChatId = chatSessions[0].id;
+    }
+    renderChatSessionsList();
+    renderActiveChatMessages();
+}
+function renderChatSessionsList() {
+    const list = document.getElementById('chatSessionsList');
+    if (!list) return;
+    list.innerHTML = '';
+    chatSessions.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'chat-session-item' + (s.id === activeChatId ? ' active' : '');
+        item.onclick = () => selectChat(s.id);
+        const iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-right:8px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'chat-session-title';
+        titleSpan.innerText = s.title || 'Новый диалог';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'chat-del-btn';
+        delBtn.title = 'Удалить диалог';
+        delBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+        delBtn.onclick = (e) => deleteChat(s.id, e);
+        item.innerHTML = iconSvg;
+        item.appendChild(titleSpan);
+        item.appendChild(delBtn);
+        list.appendChild(item);
+    });
+}
+function renderActiveChatMessages() {
+    const chatBody = document.getElementById('chatBody');
+    if (!chatBody) return;
+    chatBody.innerHTML = '';
+    const cur = chatSessions.find(s => s.id === activeChatId);
+    if (!cur || cur.messages.length === 0) {
+        chatBody.innerHTML = '<div id="chatEmptyState" style="margin:auto;text-align:center;color:var(--text-muted);padding:40px 20px;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="1.5" style="margin-bottom:12px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:14px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Диалог пуст</div><div style="font-size:12px;">Задайте любой вопрос или задачу активной модели</div></div>';
+        return;
+    }
+    cur.messages.forEach((msg, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'msg-wrapper';
+        if (msg.role === 'user') {
+            wrap.innerHTML = '<div class="msg-user">' + escapeHtml(msg.content) + '</div>';
+        } else {
+            const histId = 'hist-' + idx;
+            const hasThought = msg.reasoning && msg.reasoning.trim().length > 0;
+            let thinkHtml = '';
+            if (hasThought) {
+                thinkHtml = '<div id="think-panel-' + histId + '" class="think-panel"><div class="think-header" onclick="toggleThink(\'' + histId + '\')"><div class="think-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span id="think-label-' + histId + '">Думал ' + formatDuration(msg.thoughtSec || 0) + '</span></div><svg id="think-arrow-' + histId + '" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg></div><div id="think-body-' + histId + '" class="think-content">' + escapeHtml(msg.reasoning) + '</div></div>';
+            }
+            let telemHtml = '';
+            if (msg.totalSec || msg.speedVal) {
+                const timeStr = (hasThought && msg.thoughtSec > 0) ? formatDuration(msg.totalSec) + ' (размышления: ' + formatDuration(msg.thoughtSec) + ')' : formatDuration(msg.totalSec || 0);
+                const tokensVal = (msg.usage && msg.usage.total_tokens) ? msg.usage.total_tokens : (msg.tokensCount || '-');
+                telemHtml = '<div class="telemetry-row"><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + (msg.speedVal || 0) + ' токенов/сек</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + tokensVal + ' токенов</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div></div>';
+            }
+            wrap.innerHTML = '<div class="msg-assistant">' + thinkHtml + '<div class="msg-content">' + escapeHtml(msg.content) + '</div>' + telemHtml + '</div>';
+        }
+        chatBody.appendChild(wrap);
+    });
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+function selectChat(chatId) {
+    if (isChatStreaming) return;
+    activeChatId = chatId;
+    renderChatSessionsList();
+    renderActiveChatMessages();
+    const input = document.getElementById('chatInput');
+    if (input) input.focus();
+}
+function createNewChat(switchNow) {
+    if (isChatStreaming) return;
+    const cur = chatSessions.find(s => s.id === activeChatId);
+    if (cur && cur.messages.length === 0) {
+        renderChatSessionsList();
+        renderActiveChatMessages();
+        const input = document.getElementById('chatInput');
+        if (input) input.focus();
+        return;
+    }
+    const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+    chatSessions.unshift(fresh);
+    activeChatId = fresh.id;
+    saveChatSessions();
+    renderChatSessionsList();
+    renderActiveChatMessages();
+    const input = document.getElementById('chatInput');
+    if (input) input.focus();
+}
+function deleteChat(chatId, e) {
+    if (e) e.stopPropagation();
+    if (isChatStreaming) return;
+    chatSessions = chatSessions.filter(s => s.id !== chatId);
+    if (chatSessions.length === 0) {
+        const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+        chatSessions.push(fresh);
+        activeChatId = fresh.id;
+    } else if (activeChatId === chatId) {
+        activeChatId = chatSessions[0].id;
+    }
+    saveChatSessions();
+    renderChatSessionsList();
+    renderActiveChatMessages();
+}
+async function sendChat() {
+    if (isChatStreaming) return;
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    let currentChat = chatSessions.find(s => s.id === activeChatId);
+    if (!currentChat) {
+        currentChat = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+        chatSessions.unshift(currentChat);
+        activeChatId = currentChat.id;
+    }
+    if (currentChat.title === 'Новый диалог') {
+        currentChat.title = text.length > 26 ? text.slice(0, 26) + '...' : text;
+        renderChatSessionsList();
+    }
+    currentChat.messages.push({role: 'user', content: text});
+    saveChatSessions();
+    const emptyState = document.getElementById('chatEmptyState');
+    if (emptyState) emptyState.remove();
+    isChatStreaming = true;
+    document.getElementById('chatSendBtn').disabled = true;
+    const chatBody = document.getElementById('chatBody');
+    const userWrap = document.createElement('div');
+    userWrap.className = 'msg-wrapper';
+    userWrap.innerHTML = '<div class="msg-user">' + escapeHtml(text) + '</div>';
+    chatBody.appendChild(userWrap);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    const msgId = 'msg-' + Date.now();
+    const asstWrap = document.createElement('div');
+    asstWrap.className = 'msg-wrapper';
+    asstWrap.innerHTML = '<div class="msg-assistant"><div id="think-panel-' + msgId + '" class="think-panel" style="display:none;"><div class="think-header" onclick="toggleThink(\'' + msgId + '\')"><div class="think-title"><span id="think-pulse-' + msgId + '" class="think-pulse"></span><span id="think-label-' + msgId + '">Размышления...</span></div><svg id="think-arrow-' + msgId + '" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg></div><div id="think-body-' + msgId + '" class="think-content"></div></div><div id="content-' + msgId + '" class="msg-content"></div><div id="telemetry-' + msgId + '" class="telemetry-row" style="display:none;"></div></div>';
+    chatBody.appendChild(asstWrap);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    const thinkLabel = document.getElementById('think-label-' + msgId);
+    const thinkBody = document.getElementById('think-body-' + msgId);
+    const thinkPulse = document.getElementById('think-pulse-' + msgId);
+    const contentBox = document.getElementById('content-' + msgId);
+    const telemetryBox = document.getElementById('telemetry-' + msgId);
+    const liveSpeed = document.getElementById('chatLiveSpeed');
+    const tStart = performance.now();
+    let hasThoughtEnded = false;
+    let tokensCount = 0;
+    let fullReasoning = '';
+    let fullContent = '';
+    const thinkTimer = setInterval(() => {
+        if (!hasThoughtEnded) {
+            const elapsed = (performance.now() - tStart) / 1000;
+            thinkLabel.innerText = 'Думает (' + elapsed.toFixed(1) + ' сек)...';
+        }
+    }, 100);
+    try {
+        const historyPayload = currentChat.messages.map(m => ({role: m.role, content: m.content}));
+        const res = await fetch('/v1/chat/completions', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + activeApiKey},
+            body: JSON.stringify({model: activeModelId, messages: historyPayload, stream: true})
+        });
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let thoughtSec = 0;
+        let totalSec = 0;
+        let speedVal = 0;
+        let usageData = {prompt_tokens: 0, completion_tokens: 0, total_tokens: 0};
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, {stream: true});
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed === 'data: [DONE]') continue;
+                if (trimmed.startsWith('data: ')) {
+                    try {
+                        const payload = JSON.parse(trimmed.slice(6));
+                        const choice = payload.choices && payload.choices[0];
+                        if (choice && choice.delta) {
+                            if (choice.delta.reasoning_content) {
+                                document.getElementById('think-panel-' + msgId).style.display = 'block';
+                                thinkBody.innerText += choice.delta.reasoning_content;
+                                fullReasoning += choice.delta.reasoning_content;
+                                tokensCount++;
+                            }
+                            if (choice.delta.content !== undefined && choice.delta.content !== null) {
+                                if (!hasThoughtEnded) {
+                                    hasThoughtEnded = true;
+                                    clearInterval(thinkTimer);
+                                    thoughtSec = (performance.now() - tStart) / 1000;
+                                    thinkPulse.style.display = 'none';
+                                    if (thinkBody.innerText.trim().length > 0) {
+                                        thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
+                                    } else {
+                                        const tp = document.getElementById('think-panel-' + msgId);
+                                        if (tp) tp.style.display = 'none';
+                                    }
+                                }
+                                contentBox.innerText += choice.delta.content;
+                                fullContent += choice.delta.content;
+                                tokensCount++;
+                                const curElapsed = (performance.now() - tStart) / 1000;
+                                const curSpeed = (tokensCount / Math.max(0.1, curElapsed)).toFixed(1);
+                                if (liveSpeed) liveSpeed.innerText = curSpeed + ' ток/сек';
+                            }
+                        }
+                        if (payload.telemetry) {
+                            thoughtSec = payload.telemetry.thinking_seconds;
+                            totalSec = payload.telemetry.total_seconds;
+                            speedVal = payload.telemetry.tokens_per_sec;
+                        }
+                        if (payload.usage) {
+                            usageData = payload.usage;
+                        }
+                    } catch(e) {}
+                }
+            }
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+        clearInterval(thinkTimer);
+        hasThoughtEnded = true;
+        thinkPulse.style.display = 'none';
+        const hasRealThought = (thinkBody.innerText.trim().length > 0);
+        if (!hasRealThought) {
+            document.getElementById('think-panel-' + msgId).style.display = 'none';
+        } else if (thoughtSec > 0) {
+            thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
+        }
+        if (!totalSec) {
+            totalSec = (performance.now() - tStart) / 1000;
+        }
+        if (!speedVal) {
+            speedVal = (tokensCount / Math.max(0.1, totalSec)).toFixed(1);
+        }
+        if (liveSpeed) liveSpeed.innerText = speedVal + ' ток/сек';
+        telemetryBox.style.display = 'flex';
+        const timeStr = (hasRealThought && thoughtSec > 0) ? formatDuration(totalSec) + ' (размышления: ' + formatDuration(thoughtSec) + ')' : formatDuration(totalSec);
+        telemetryBox.innerHTML = '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + speedVal + ' токенов/сек</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + usageData.total_tokens + ' токенов</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div>';
+        chatBody.scrollTop = chatBody.scrollHeight;
+        currentChat.messages.push({
+            role: 'assistant',
+            content: fullContent,
+            reasoning: fullReasoning,
+            thoughtSec: thoughtSec,
+            totalSec: totalSec,
+            speedVal: speedVal,
+            usage: usageData
+        });
+        saveChatSessions();
+    } catch(err) {
+        clearInterval(thinkTimer);
+        contentBox.innerText = 'Ошибка соединения с локальным сервером Shard.';
+    } finally {
+        isChatStreaming = false;
+        document.getElementById('chatSendBtn').disabled = false;
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+}
+window.onload = function() {
+    fetchHardware();
+    loadKeys();
+    loadModels();
+    refreshDirLabel();
+    updateGuide();
+    initChatSessions();
+    setPollRate(5000);
+    updateDownloadedBadge();
+};
+</script>
+</body>
+</html>

@@ -6,6 +6,8 @@ __pycache__/
 .idea/
 *.egg-info/
 .venv/
+dist/
+build/
 social_config.json
 keys_db.json
 *.secret

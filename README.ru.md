@@ -29,10 +29,13 @@
   <a href="#установка"><img src="https://img.shields.io/badge/НАСТРОЙКА-Установка-38BDF8?style=for-the-badge&labelColor=0A1022" alt="Installation"></a>
   <a href="https://github.com/avelone123123/shard/discussions"><img src="https://img.shields.io/badge/СООБЩЕСТВО-Discussions-A855F7?style=for-the-badge&labelColor=0A1022" alt="GitHub Discussions"></a>
   <a href="https://github.com/avelone123123/shard/issues"><img src="https://img.shields.io/badge/ТРЕКЕР-Issues-F59E0B?style=for-the-badge&labelColor=0A1022" alt="Issues"></a>
+  <a href="https://github.com/avelone123123/shard/releases"><img src="https://img.shields.io/github/downloads/avelone123123/shard/total?style=for-the-badge&labelColor=0A1022&color=34D399&label=%D0%A1%D0%9A%D0%90%D0%A7%D0%98%D0%92%D0%90%D0%9D%D0%98%D0%AF" alt="Всего скачиваний"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/avelone123123/shard/releases"><img src="https://img.shields.io/badge/version-v1.8.0-00E5FF?style=flat-square&labelColor=0D1326" alt="Version v1.8.0"></a>
+  <a href="https://github.com/avelone123123/shard/releases"><img src="https://img.shields.io/github/v/release/avelone123123/shard?style=flat-square&labelColor=0D1326&color=00E5FF&label=release" alt="Последний релиз"></a>
+  <a href="https://github.com/avelone123123/shard/releases/latest"><img src="https://img.shields.io/github/downloads/avelone123123/shard/latest/total?style=flat-square&labelColor=0D1326&color=34D399&label=latest%20downloads&logo=github&logoColor=white" alt="Скачивания последнего релиза"></a>
+  <a href="https://github.com/avelone123123/shard/stargazers"><img src="https://img.shields.io/github/stars/avelone123123/shard?style=flat-square&labelColor=0D1326&color=F59E0B&label=stars&logo=github&logoColor=white" alt="GitHub Stars"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.8%2B%20%7C%203.10%2B-38BDF8?style=flat-square&labelColor=0D1326&logo=python&logoColor=white" alt="Python 3.8+"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-34D399?style=flat-square&labelColor=0D1326" alt="License: MIT"></a>
   <a href="https://github.com/avelone123123/shard/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/avelone123123/shard/tests.yml?branch=master&style=flat-square&labelColor=0D1326&label=tests" alt="Tests CI"></a>
@@ -164,48 +167,72 @@ SHARD объединяет свободные ресурсы GPU и RAM неск
 
 ### Установка
 
-#### Вариант 1: Установка из исходного кода (рекомендуется)
+#### Вариант 1: Установка через pip (рекомендуется)
+Запускайте SHARD из любой директории без клонирования репозитория:
+```bash
+# Базовая установка: CLI, FastAPI-сервер, веб-панель, GGUF (llama.cpp) и LAN-кластер
+pip install shard-engine
+
+# Полная установка: добавляет PyTorch/Transformers safetensors и модули Hugging Face
+pip install "shard-engine[full]"
+```
+Сразу после установки проверьте готовность среды:
+```bash
+shard doctor
+```
+> **Примечание по GPU и runtime:** бэкенд GGUF автоматически скачивает бинарники `llama-server` / `ggml-rpc-server` при первом запуске и не требует тяжёлых ML-пакетов. Для PyTorch с CUDA установите совместимую сборку `torch` перед `pip install "shard-engine[full]"`.
+
+#### Вариант 2: Установка из исходного кода для разработчиков
 ```bash
 git clone https://github.com/avelone123123/shard.git
 cd shard
-pip install -e .
+pip install -e ".[dev]"
 ```
-Команда `pip install -e .` регистрирует глобальную консольную утилиту `shard` (`shard = "cli:main"`).
 
-#### Вариант 2: Запуск через Docker Compose (с поддержкой GPU NVIDIA)
+#### Вариант 3: Запуск через Docker Compose (с поддержкой GPU NVIDIA)
 ```bash
 git clone https://github.com/avelone123123/shard.git
 cd shard
 docker-compose up --build
 ```
 
-#### Вариант 3: Сборка нативных ядер C++20 / MASM AVX2 (опционально)
+#### Вариант 4: Сборка нативных ядер C++20 / MASM AVX2 (опционально)
 Для компиляции `shard_core.dll` (Windows MSVC `cl.exe` + `ml64.exe`) или `shard_core.so` (Linux GCC/Clang):
 ```bash
 python native/build_native.py
 ```
 
+#### Обновление и удаление
+```bash
+shard update --check
+pip install --upgrade shard-engine
+pip uninstall shard-engine
+```
+Удаление Python-пакета не затрагивает скачанные модели, настройки и API-ключи в пользовательском каталоге.
+
 ---
 
 ### Быстрый старт
 
-#### 1. Запустите сервер и веб-панель SHARD
+#### 1. Проверьте среду и запустите SHARD
 ```bash
-# Запуск сервера и автоматическое открытие панели управления http://localhost:8000
+# Диагностика Python, зависимостей, GPU VRAM, LAN IP, портов и каталогов
+shard doctor
+
+# Фоновый запуск сервера и проверка состояния
+shard start --daemon
+shard status
+
+# Или мгновенное открытие веб-панели http://localhost:8000
 shard gui
 
-# Или запуск сервера на указанном хосте и порту
-shard start --host 0.0.0.0 --port 8000
-
-# Или прямой запуск через Python
-python main.py
+# Безопасный перезапуск и остановка фонового сервера
+shard restart
+shard stop
 ```
 
 #### 2. Проверьте ресурсы и совместимость модели
 ```bash
-# Показать состояние оборудования (CPU, RAM, GPU VRAM)
-shard status
-
 # Проверить совместимость модели с вашей системой перед скачиванием
 shard fit Qwen/Qwen2.5-Coder-7B-Instruct
 shard fit meta-llama/Llama-3.1-8B-Instruct
@@ -213,7 +240,7 @@ shard fit meta-llama/Llama-3.1-8B-Instruct
 
 #### 3. Скачайте и запустите модель
 ```bash
-# Загрузить и запустить модель (по умолчанию Qwen/Qwen2.5-Coder-1.5B-Instruct)
+# Загрузить модель и открыть интерактивный чат в терминале
 shard run Qwen/Qwen2.5-Coder-7B-Instruct
 
 # Вывести список доступных и кэшированных моделей
@@ -221,21 +248,24 @@ shard list
 ```
 
 #### 4. Создайте или подключитесь к LAN-кластеру
-На **главном компьютере (Master)** (например, `192.168.1.10`):
+На **главном компьютере (Master)** команда `shard lan create` сразу выведет активные локальные IPv4-адреса этой машины:
 ```bash
-# Создать открытый пул в локальной сети с предоставлением ресурсов GPU
-shard lan create --open --share
+# Создать открытый пул с целевой моделью и общим GPU
+shard lan create --open --share --model Qwen/Qwen2.5-Coder-7B-Instruct
 
 # Или создать пул с подключением по коду авторизации
 shard lan create --share
 ```
 
-На каждом **рабочем компьютере (Worker)** в той же сети:
+На каждом **рабочем компьютере (Worker)** подставьте `<SERVER_IP>` из вывода `shard lan create` на мастере:
 ```bash
-# Присоединиться к кластеру мастера и предоставить локальные ресурсы GPU/RAM
-shard lan join 192.168.1.10 --share
+# Подключиться к открытой сети и отдать локальные GPU/RAM в пул
+shard lan join <SERVER_IP> --share
 
-# Проверить статус узлов и объём общей памяти кластера
+# Либо подключиться по коду сопряжения
+shard lan join <SERVER_IP> <PAIR_CODE> --share
+
+# Проверить статус узлов, IP-адреса и общий объём памяти кластера
 shard lan status
 
 # Отключиться от LAN-пула
@@ -246,34 +276,44 @@ shard lan off
 
 ## Справочник CLI и конфигурация
 
-### Команды командной строки (`cli.py`)
+### Команды командной строки (`shard_engine/cli.py`)
 
 | Команда | Аргументы и флаги | Описание |
 | :--- | :--- | :--- |
-| `shard start` | `[--host HOST] [--port PORT]` | Запускает FastAPI-сервер SHARD на базе Uvicorn (по умолчанию `0.0.0.0:8000`). |
-| `shard gui` | *(нет)* | Запускает сервер и открывает веб-панель управления (`dashboard.html`) в браузере. |
-| `shard status` | *(нет)* | Выводит информацию о ядрах CPU, объёме RAM, модели GPU, занятой VRAM и статусе движка. |
-| `shard fit` | `[model_id]` | Запускает советник совместимости (`fit.py`) для расчёта требуемой памяти и скорости генерации. |
-| `shard run` | `[model_id]` | Скачивает (при необходимости) и запускает выбранную модель. |
-| `shard list` | `[--category CAT]` | Отображает список локальных и рекомендованных моделей (`all`, `coding`, `chat` и др.). |
-| `shard lan` | `[status\|create\|join\|off] [extra] [--share] [--open]` | Управление распределённым вычислительным пулом в локальной сети. |
+| `shard start` | `[--host HOST] [--port PORT] [-d\|--daemon] [--no-browser]` | Запускает FastAPI-сервер SHARD на базе Uvicorn (по умолчанию `0.0.0.0:8000`). |
+| `shard stop` | *(нет)* | Безопасно останавливает фоновый сервер SHARD с проверкой PID. |
+| `shard restart` | `[--host HOST] [--port PORT] [--foreground] [--no-browser]` | Останавливает и повторно запускает сервер SHARD. |
+| `shard gui` | *(нет)* | Запускает сервер и открывает веб-панель управления в браузере (или Win32 GUI). |
+| `shard status` | *(нет)* | Показывает статус сервера, CPU, RAM, GPU VRAM, активную модель и LAN IPv4-адреса. |
+| `shard doctor` | *(нет)* | Проверяет Python, упакованные ресурсы, зависимости, GPU, сеть, порты и права записи. |
+| `shard version` | `[-V\|--version]` | Показывает версию SHARD, путь к Python, ОС и каталоги данных. |
+| `shard update` | `[--check]` | Проверяет обновления `shard-engine` на PyPI и обновляет через `pip`. |
+| `shard fit` | `<model_id> [--ctx N] [--no-fetch]` | Рассчитывает требования к VRAM/RAM, квантование и оценку скорости до скачивания. |
+| `shard run` | `[model_id]` | Скачивает (при необходимости) модель и открывает терминальный чат REPL. |
+| `shard list` | `[--category CAT]` | Отображает локальные и рекомендованные модели (`all`, `ideal`, `coding`, `reasoning`, `compact`). |
+| `shard lan` | `[status\|create\|join\|model\|off] [extra] [--share] [--open] [--model ID] [--port N]` | Управление распределённым вычислительным пулом в локальной сети. |
 | `shard key` | `[--gen]` | Показывает текущий локальный API-ключ или генерирует новый (`--gen`). |
-| `shard models-dir` | `[path \| reset]` | Показывает, изменяет или сбрасывает путь к каталогу хранения весов моделей. |
-| `shard test` | *(нет)* | Запускает встроенный набор модульных тестов и бенчмарков (`tests_shard.py`). |
-| `shard help` | *(нет)* | Выводит подробную справку по всем командам CLI. |
+| `shard models-dir` | `[path \| reset]` | Показывает, изменяет или сбрасывает каталог хранения весов моделей. |
+| `shard test` | `[--strict-native]` | Запускает тест 12 тензорных ядер и бенчмарк AVX2 / pure-Python fallback. |
+| `shard help` | `[-h\|--help]` | Выводит подробную справку по всем командам CLI. |
 
-### Переменные окружения и файлы настроек (`settings.py`, `main.py`, `docker-compose.yml`)
+### Системные каталоги и переменные окружения (`shard_engine/paths.py`)
+
+SHARD хранит пользовательские данные строго вне `site-packages` (с автоматическим подхватом существующего `~/.shard`):
+- **Windows:** `%LOCALAPPDATA%\SHARD` (конфиги, `keys_db.json`, `logs/`, `run/`, `models/`)
+- **Linux:** `~/.local/share/shard`, `~/.config/shard`, `~/.cache/shard`, `~/.local/state/shard` (поддержка `XDG_*`)
+- **macOS:** `~/Library/Application Support/SHARD`, `~/Library/Caches/SHARD`, `~/Library/Logs/SHARD`
 
 | Переменная / Файл | Значение по умолчанию | Назначение |
 | :--- | :--- | :--- |
 | `SHARD_HOST` | `0.0.0.0` | IP-адрес сетевого интерфейса для привязки сервера. |
 | `SHARD_PORT` | `8000` | HTTP-порт API-сервера и веб-интерфейса. |
-| `SHARD_MODELS_DIR` | `~/.shard/models` (`/data/models` в Docker) | Каталог для хранения весов моделей Hugging Face и GGUF. |
-| `SHARD_DATA_DIR` | `~/.shard` (`/data/shard` в Docker) | Каталог хранения конфигурационных файлов `settings.json` и `lan.json`. |
-| `SHARD_DOCKER` | *(не задано)* | Отключает автоматическое открытие браузера при старте внутри контейнера. |
+| `SHARD_DATA_DIR` | Системный каталог (`/data/shard` в Docker) | Переопределяет корневую папку для `settings.json`, `keys_db.json`, `lan.json`, логов и PID. |
+| `SHARD_MODELS_DIR` | `<data_dir>/models` (`/data/models` в Docker) | Каталог для хранения весов моделей Hugging Face и GGUF. |
+| `SHARD_NO_BROWSER` / `SHARD_DOCKER` | *(не задано)* | Отключает автоматическое открытие браузера при старте сервера. |
+| `SHARD_NATIVE_LIB` | *(автопоиск)* | Явный путь к `shard_core.dll`/`.so`/`.dylib` (`none` включает Python fallback). |
 | `HF_HOME` / `TRANSFORMERS_CACHE` | `~/.cache/huggingface` | Каталог кэша моделей Hugging Face. |
-| `~/.shard/settings.json` | Создаётся автоматически | Постоянный JSON-файл настроек (путь к моделям, API-ключи, параметры запуска). |
-| `engine_optimizations.json` | Корень репозитория | Профиль низкоуровневых оптимизаций (потоки CPU, флаги SIMD, размеры батчей). |
+| `engine_optimizations.json` | Ресурс пакета `shard_engine` | Профиль оптимизаций (потоки CPU, флаги SIMD, батчи), читаемый через `importlib.resources`. |
 
 ---
 
