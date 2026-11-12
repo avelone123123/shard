@@ -1,4 +1,5 @@
 <p align="center">
+  <a href="https://avelone123123.github.io/shard/"><img src="https://img.shields.io/badge/САЙТ-Онлайн-00E5FF?style=for-the-badge&labelColor=0A1022" alt="Сайт"></a>
   <a href="README.md">English</a> &nbsp;|&nbsp;
   <strong>Русская версия</strong> &nbsp;|&nbsp;
   <a href="README.kz.md">Қазақша нұсқасы</a>

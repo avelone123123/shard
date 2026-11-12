@@ -20,6 +20,7 @@
 </p>
 
 <p align="center">
+  <a href="https://avelone123123.github.io/shard/"><img src="https://img.shields.io/badge/WEBSITE-Live-00E5FF?style=for-the-badge&labelColor=0A1022" alt="Website"></a>
   <a href="README.md"><img src="https://img.shields.io/badge/LANG-English-00E5FF?style=for-the-badge&labelColor=0A1022" alt="English README"></a>
   <a href="README.ru.md"><img src="https://img.shields.io/badge/ЯЗЫК-Русский-38BDF8?style=for-the-badge&labelColor=0A1022" alt="Русская версия"></a>
   <a href="README.kz.md"><img src="https://img.shields.io/badge/ТІЛ-Қазақша-A855F7?style=for-the-badge&labelColor=0A1022" alt="Қазақша версия"></a>
