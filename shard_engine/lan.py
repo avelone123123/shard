@@ -526,10 +526,10 @@ class LanManager:
                 self._save()
             return dropped
     def join(self, ip, code, share=False, port=DEFAULT_MASTER_PORT):
-        import requests
         clean_ip, ip_err = validate_master_host(ip)
         if ip_err:
             return {"status": "error", "message": ip_err}
+        import requests
         url = f"http://{clean_ip}:{int(port)}/api/lan/pair"
         try:
             r = requests.post(url, json={"code": str(code or ""),
