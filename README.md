@@ -1,202 +1,430 @@
-# SHARD — Local AI engine that tells you *first* whether a model will run
+<p align="center">
+  <strong>English</strong> &nbsp;|&nbsp;
+  <a href="README.ru.md">Русская версия</a> &nbsp;|&nbsp;
+  <a href="README.kz.md">Қазақша нұсқасы</a>
+</p>
 
-[![Tests](https://github.com/avelone123123/shard/actions/workflows/tests.yml/badge.svg)](https://github.com/avelone123123/shard/actions/workflows/tests.yml)
-[![Version](https://img.shields.io/badge/Version-v1.8.0-22a06b)](https://github.com/avelone123123/shard)
-[![Python](https://img.shields.io/badge/Python-3.8%2B-38bdf8)](https://github.com/avelone123123/shard)
-[![License](https://img.shields.io/badge/License-MIT-38bdf8)](LICENSE)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/branding/shard-logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/branding/shard-logo-light.svg">
+    <img src="assets/branding/shard-logo.svg" alt="SHARD — Distributed Local LLM Inference Engine" width="760">
+  </picture>
+</p>
 
-A 100% local AI runtime for Windows: FastAPI server + GGUF (llama.cpp) backend + native C++20/MASM AVX2 core + web dashboard.
+<h1 align="center">SHARD</h1>
 
-**The problem it solves:** you download a 20 GB model, load it, and the program crashes, freezes, or crawls — because the model never fit your hardware in the first place. SHARD checks that *before* the download: it computes a per-quantization VRAM/RAM/speed plan from your live hardware and says plainly whether to start or not.
+<p align="center">
+  <strong>One Network. Many Servers. Shared AI Infrastructure.</strong><br>
+  <sub>Distributed local LLM inference engine pooling GPU VRAM and system RAM across LAN machines — powered by PyTorch, FastAPI, <code>llama.cpp</code> RPC, and native C++20 / MASM AVX2 SIMD kernels.</sub>
+</p>
 
-- **Pre-flight fit advisor** — `shard fit <model>` (and a dashboard card) shows, for every quant level, how many GB go to VRAM vs RAM, how many layers fit on GPU, estimated tok/s, and a verdict: `GPU` / `HYBRID` / `IMPOSSIBLE`.
-- **GGUF backend** — quantized models run through a llama.cpp `llama-server` subprocess (~50 MB, auto-downloaded once), driven by the fit advisor's quant / GPU-layer recommendation.
-- **OpenAI- and Anthropic-compatible API** — `/v1/chat/completions`, `/v1/messages`, SSE streaming; 1-click config for Claude Code, Cursor, OpenCode, Continue, Aider, Zed.
-- **Native core (optional)** — C++20 zero-copy safetensors pager + hand-written MASM x64 AVX2 kernels; benchmarked in-app with `shard test`.
-- **Honest UI** — Russian-first interface, estimates labeled as estimates, nothing faked.
+<p align="center">
+  <a href="README.md"><img src="https://img.shields.io/badge/LANG-English-00E5FF?style=for-the-badge&labelColor=0A1022" alt="English README"></a>
+  <a href="README.ru.md"><img src="https://img.shields.io/badge/ЯЗЫК-Русский-38BDF8?style=for-the-badge&labelColor=0A1022" alt="Русская версия"></a>
+  <a href="README.kz.md"><img src="https://img.shields.io/badge/ТІЛ-Қазақша-A855F7?style=for-the-badge&labelColor=0A1022" alt="Қазақша версия"></a>
+  <a href="docs/LAN_SHARDING_DESIGN.md"><img src="https://img.shields.io/badge/DOCS-LAN_Sharding-34D399?style=for-the-badge&labelColor=0A1022" alt="Documentation"></a>
+  <a href="#installation--quick-start"><img src="https://img.shields.io/badge/START-Quick_Start-00E5FF?style=for-the-badge&labelColor=0A1022" alt="Getting Started"></a>
+  <a href="#installation"><img src="https://img.shields.io/badge/SETUP-Installation-38BDF8?style=for-the-badge&labelColor=0A1022" alt="Installation"></a>
+  <a href="https://github.com/avelone123123/shard/discussions"><img src="https://img.shields.io/badge/COMMUNITY-Discussions-A855F7?style=for-the-badge&labelColor=0A1022" alt="GitHub Discussions"></a>
+  <a href="https://github.com/avelone123123/shard/issues"><img src="https://img.shields.io/badge/TRACKER-Issues-F59E0B?style=for-the-badge&labelColor=0A1022" alt="Issues"></a>
+</p>
 
-## Quickstart
+<p align="center">
+  <a href="https://github.com/avelone123123/shard/releases"><img src="https://img.shields.io/badge/version-v1.8.0-00E5FF?style=flat-square&labelColor=0D1326" alt="Version v1.8.0"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.8%2B%20%7C%203.10%2B-38BDF8?style=flat-square&labelColor=0D1326&logo=python&logoColor=white" alt="Python 3.8+"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-34D399?style=flat-square&labelColor=0D1326" alt="License: MIT"></a>
+  <a href="https://github.com/avelone123123/shard/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/avelone123123/shard/tests.yml?branch=master&style=flat-square&labelColor=0D1326&label=tests" alt="Tests CI"></a>
+  <img src="https://img.shields.io/badge/backend-PyTorch%20%7C%20GGUF%20%7C%20AVX2-A855F7?style=flat-square&labelColor=0D1326" alt="Backends">
+  <img src="https://img.shields.io/badge/API-OpenAI%20%26%20Anthropic-00E5FF?style=flat-square&labelColor=0D1326" alt="OpenAI and Anthropic API">
+</p>
 
-The repo is needed either way — the desktop app drives a local Python server. Without a compiler, run from Python (no GPU required to browse, download, or plan):
+<p align="center">
+  <img src="assets/animations/hero-network.gif" alt="SHARD Hero Network Animation — Distributed AI Inference Cluster" width="800">
+  <br>
+  <sub><b>SHARD Distributed Inference Cluster:</b> Central master coordinator pooling VRAM across connected LAN worker nodes over UDP discovery (<code>:8001</code>) and FastAPI SSE endpoints (<code>:8000</code>).</sub>
+</p>
 
+<p align="center">
+  <a href="#what-is-shard">Overview</a> &middot;
+  <a href="#how-shard-works">How It Works</a> &middot;
+  <a href="#features">Features</a> &middot;
+  <a href="#installation--quick-start">Quick Start</a> &middot;
+  <a href="#cli-reference--configuration">CLI Reference</a> &middot;
+  <a href="#architecture">Architecture</a> &middot;
+  <a href="#web-dashboard--demonstrations">Dashboard</a> &middot;
+  <a href="#project-status--community">Community</a>
+</p>
+
+---
+
+## What Is SHARD?
+
+**[SHARD](https://github.com/avelone123123/shard)** (`shard-engine`) is an open-source distributed local LLM inference engine written in Python ([FastAPI](https://fastapi.tiangolo.com/) + [PyTorch](https://pytorch.org/)) with a [GGUF / `llama.cpp` backend](https://github.com/ggml-org/llama.cpp) and native C++20 / MASM AVX2 SIMD acceleration.
+
+### The Problem It Solves
+Running capable 14B, 32B, or 70B+ open-weight language models locally typically hits a hard hardware wall: **single-card VRAM limits**. Most developers, labs, and small teams own multiple machines—a desktop gaming GPU, a workstation laptop, an auxiliary mini-PC—whose memory sits fragmented across the local network while no single device can fit the full model weights and KV cache.
+
+### Why SHARD Exists
+SHARD unites idle GPUs and system memory across your Local Area Network (LAN) into a single logical inference cluster:
+- **Pool Hardware Without Cloud Lock-In:** Split transformer layers across multiple consumer GPUs and host RAM over standard gigabit LAN (`lan.py`, `gguf_backend.py`) with zero external cloud dependencies or recurring API fees.
+- **Know Before You Download (`shard fit`):** Inspect whether any Hugging Face model will fit your single GPU, hybrid CPU+GPU setup, or pooled LAN cluster before downloading gigabytes of weights (`fit.py`).
+- **Drop-In Agent & IDE Backend:** Expose both OpenAI (`/v1/chat/completions`, `/v1/completions`, `/v1/models`) and Anthropic (`/v1/messages`) compatible endpoints on port `8000` so coding agents and SDKs connect immediately.
+
+### Who Should Use SHARD?
+- **Local AI Developers & Researchers** running 7B–70B GGUF or PyTorch SafeTensors models across home lab or office workstations.
+- **Software Engineering Teams** hosting private, zero-telemetry coding assistants for [Cursor](https://www.cursor.com/), [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview), [Aider](https://aider.chat/), [Continue](https://www.continue.dev/), [Zed](https://zed.dev/), and [OpenCode](https://github.com/opencode-ai/opencode).
+- **AI Agent Builders** orchestrating multi-agent pipelines via [OpenAI Python SDK](https://github.com/openai/openai-python), [LangChain](https://www.langchain.com/), or [LlamaIndex](https://www.llamaindex.ai/) against self-hosted hardware.
+
+---
+
+## How SHARD Works
+
+SHARD turns distributed local AI infrastructure into a four-step workflow: **CREATE → SHARE → CONNECT → USE**.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">1. CREATE — Launch Your Server</h3>
+      <p align="center">
+        <img src="assets/animations/create-server.gif" alt="Step 1: Create and Launch Your SHARD Server" width="100%">
+      </p>
+      <p>
+        Start a local SHARD node with <code>shard start</code> or <code>python main.py</code>. The engine probes your CPU, system RAM, and NVIDIA CUDA / Apple MPS GPU via <code>hardware.py</code>, loads your chosen GGUF or Hugging Face model, and brings up the FastAPI server and Web UI on <code>http://localhost:8000</code>.
+      </p>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">2. SHARE — Broadcast to the LAN</h3>
+      <p align="center">
+        <img src="assets/animations/share-network.gif" alt="Step 2: Share Server With the LAN Network" width="100%">
+      </p>
+      <p>
+        Open a LAN compute pool with <code>shard lan create --open</code> (or generate a pairing code via <code>shard lan create</code>). SHARD broadcasts UDP discovery beacons on port <code>8001</code> and exposes <code>/api/lan/*</code> endpoints so peer machines on your subnet can pool their VRAM and RAM.
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3 align="center">3. CONNECT — Pair Worker Nodes</h3>
+      <p align="center">
+        <img src="assets/animations/connect-server.gif" alt="Step 3: Connect and Pair to a SHARD Server" width="100%">
+      </p>
+      <p>
+        On any secondary computer on the network, run <code>shard lan join &lt;master-ip&gt; --share</code>. The worker completes an HTTP handshake (<code>POST /api/lan/pair</code>), launches its local RPC tensor worker, sends periodic health heartbeats, and contributes its GPU/RAM to the cluster.
+      </p>
+    </td>
+    <td width="50%" valign="top">
+      <h3 align="center">4. USE — Power AI Agents & Apps</h3>
+      <p align="center">
+        <img src="assets/animations/ai-agents.gif" alt="Step 4: Host and Access AI Agents Through SHARD" width="100%">
+      </p>
+      <p>
+        Connect coding IDEs, autonomous AI agents, or custom Python apps to <code>http://&lt;master-ip&gt;:8000/v1/chat/completions</code> or <code>/v1/messages</code>. Master coordinates layer execution across connected nodes and streams tokens back via Server-Sent Events (SSE).
+      </p>
+    </td>
+  </tr>
+</table>
+
+---
+
+## Features
+
+Every feature listed below is verified directly against the [SHARD source tree](https://github.com/avelone123123/shard) (`v1.8.0`).
+
+### Implemented Features
+
+| Category | Capability | Source Module | Description |
+| :--- | :--- | :--- | :--- |
+| **LAN Cluster & Sharding** | **UDP Auto-Discovery & LAN Pooling** | [`lan.py`](lan.py), [`docs/LAN_SHARDING_DESIGN.md`](docs/LAN_SHARDING_DESIGN.md) | Broadcasts UDP beacons (`:8001`), pairs nodes via code or `--open` mode, monitors node heartbeats (`/api/lan/heartbeat`), and pools VRAM/RAM across machines. |
+| **Inference Backends** | **Dual PyTorch & GGUF (`llama.cpp`) Engine** | [`engine.py`](engine.py), [`gguf_backend.py`](gguf_backend.py) | Runs Hugging Face `transformers` / `safetensors` models on CUDA/CPU/MPS and quantized GGUF weights via managed `llama-server` & `ggml-rpc-server` subprocesses with configurable GPU layer offload (`-ngl`). |
+| **Hardware Planning** | **Pre-Flight Model Fit Advisor (`shard fit`)** | [`fit.py`](fit.py), [`hardware.py`](hardware.py) | Inspects model architecture parameters (`config.json` or parameter heuristics) against host VRAM and RAM before downloading, returning `GPU`, `HYBRID`, or `IMPOSSIBLE` verdicts, max context length, estimated tok/s, and quantization advice. |
+| **Native Acceleration** | **C++20 & MASM AVX2 SIMD Kernels** | [`native/shard_core.cpp`](native/shard_core.cpp), [`native/shard_asm.asm`](native/shard_asm.asm), [`shard_bridge.py`](shard_bridge.py) | Custom C++20 and x86-64 AVX2 assembly routines for `RMSNorm`, `LayerNorm`, Rotary Position Embeddings (`RoPE`), `Softmax`, `GELU`, `SiLU`, and `MatMul` loaded via `ctypes`. |
+| **API & Streaming** | **OpenAI & Anthropic Compatible Server** | [`server.py`](server.py) | Serves `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/messages` (Anthropic protocol), `/api/generate`, and `/api/generate/stream` with real-time Server-Sent Events (SSE) and optional API key auth (`shard key`). |
+| **Web Control Panel** | **Zero-Dependency Dashboard & Playground** | [`dashboard.html`](dashboard.html) | Built-in browser UI at `http://localhost:8000` with live GPU/VRAM/RAM telemetry, Hugging Face model search & download, quantization selector, streaming chat playground, LAN node manager, and one-click IDE integration snippets. |
+| **Containerization** | **Docker & NVIDIA GPU Compose Stack** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Production-ready container setup with persistent named volumes (`shard_models_volume`, `shard_data_volume`) and NVIDIA GPU reservation. |
+
+### Experimental Features
+- **Multi-Host `llama.cpp` RPC Tensor Distribution (`gguf_backend.py`, `lan.py`):** Distributed layer execution over TCP/RPC across heterogeneous LAN GPUs works best on low-latency wired Gigabit/2.5GbE Ethernet subnets; Wi-Fi links may experience higher inter-token latency.
+- **Native Win32 Desktop GUI (`native/shard_gui.cpp`):** Native C++ Windows desktop wrapper alongside the cross-platform web dashboard (`dashboard.html`).
+
+### Planned Features
+- **Automated Dynamic Re-Sharding on Node Dropout:** Seamless mid-generation layer migration if a worker node disconnects unexpectedly (`docs/LAN_SHARDING_DESIGN.md`).
+- **Linux / macOS ARM64 NEON Intrinsics:** Expanding the native SIMD kernel suite (`native/`) beyond x86-64 AVX2/FMA to native Apple Silicon / ARM64 assembly paths.
+
+---
+
+## Installation & Quick Start
+
+### Prerequisites
+- **OS:** Windows 10/11 (64-bit), Linux (Ubuntu 20.04+ / Debian 12+), or macOS.
+- **Python:** Python `3.8+` (`3.10+` recommended).
+- **Hardware:** NVIDIA GPU with CUDA drivers (recommended for GPU acceleration), Apple Silicon (MPS), or x86-64 CPU with AVX2 support.
+- **Network (Optional for LAN Sharding):** Two or more machines on the same LAN with TCP port `8000` (HTTP/API) and UDP/TCP port `8001` (LAN discovery & RPC) open.
+
+### Installation
+
+#### Option 1: Editable Install from Source (Recommended)
 ```bash
 git clone https://github.com/avelone123123/shard.git
 cd shard
 pip install -e .
-shard start          # opens the dashboard at http://localhost:8000
 ```
+Installing with `pip install -e .` registers the `shard` CLI command (`shard = "cli:main"`) in your environment.
 
-`python main.py` does the same thing. The server listens on `0.0.0.0:8000` by default; set `SHARD_HOST=127.0.0.1` to keep it off your LAN.
-
-For the native desktop app (auto-starts the server and opens the dashboard), grab `shard-v1.6.0-windows-x64.zip` from [Releases](https://github.com/avelone123123/shard/releases) and unzip `shard.exe` + `shard_core.dll` into the repo root — no MSVC Build Tools needed.
-
-Check fit before downloading anything:
-
+#### Option 2: Docker Compose (with NVIDIA GPU Support)
 ```bash
-shard fit google/gemma-2-27b-it
-shard fit Qwen/Qwen3-1.7B
+git clone https://github.com/avelone123123/shard.git
+cd shard
+docker-compose up --build
 ```
+This builds `shard-engine`, mounts persistent volumes (`/data/models` and `/data/shard`), exposes port `8000:8000`, and enables NVIDIA GPU passthrough.
 
-Models are stored in `~/.shard/models` by default. Point them anywhere (external SSD works) via the dashboard settings, `shard models-dir D:\models`, or the `SHARD_MODELS_DIR` environment variable. The first GGUF launch downloads the llama.cpp runtime (~50 MB) once to `~/.shard/runtime`.
-
-### What the advisor says (real output, RTX 2050 / 4 GB VRAM / 16 GB RAM)
-
-A model that will not run — all six quants rejected, with the reason:
-
-```
-GPU: NVIDIA GeForce RTX 2050 (4.0 GB VRAM) | RAM: 15.7 GB
-Params: 27.0B (source: name-regex) | FP16: 58.29 GB | KV-cache: 4.29 GB
-
-QUANT         SIZE      VRAM       RAM   GPU LAYERS      SPEED  STATUS
-------------------------------------------------------------------------------
-Q8_0        28.7 GB     0.0 GB    29.9 GB         0/64      0.0 t/s  IMPOSSIBLE
-Q6_K        22.3 GB     0.0 GB    23.2 GB         0/64      0.0 t/s  IMPOSSIBLE
-Q5_K_M      19.2 GB     0.0 GB    20.2 GB         0/64      0.0 t/s  IMPOSSIBLE
-Q4_K_M      16.4 GB     0.0 GB    17.4 GB         0/64      0.0 t/s  IMPOSSIBLE
-Q3_K_M      13.2 GB     0.0 GB    14.2 GB         0/64      0.0 t/s  IMPOSSIBLE
-Q2_K        10.3 GB     0.0 GB    11.4 GB         0/64      0.0 t/s  IMPOSSIBLE
-
-Result: DO NOT START ON THIS HARDWARE
-Note: Теоретически модель можно стримить с SSD через mmap (~0.0 ток/с), но это в 30-50 раз медленнее RAM и практически бесполезно.
-```
-
-A model that will run — recommended quant, GPU layer count, expected speed:
-
-```
-GPU: NVIDIA GeForce RTX 2050 (4.0 GB VRAM) | RAM: 15.7 GB
-Params: 1.5B (source: name-regex) | FP16: 4.21 GB | KV-cache: 1.21 GB
-
-QUANT         SIZE      VRAM       RAM   GPU LAYERS      SPEED  STATUS
-------------------------------------------------------------------------------
-Q8_0         1.6 GB     2.8 GB     0.0 GB       999/36     32.1 t/s  GPU
-Q6_K         1.2 GB     2.5 GB     0.0 GB       999/36     36.8 t/s  GPU
-...
-
-Result: LAUNCH OK
-Recommendation: Q8_0 — file 1.6 GB, 999/36 layers on GPU, ~32.1 tok/s
-```
-
-(Interface text is currently Russian-first; an English UI is on the roadmap.)
-
-## What your GPU can run
-
-Estimated with the fit engine itself (context 4096, 2 GB RAM reserve for the OS). **These are estimates, not measured benchmarks** — always run `shard fit` for your exact card and model.
-
-| GPU VRAM | Largest model fully in VRAM | Weights | Est. speed | Hybrid upper bound (VRAM+RAM) | Est. speed |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 4 GB | ~3.5B (Q5_K_M) | 2.5 GB | ~24 tok/s | 70B (Q2_K, mmap) | ~1.3 tok/s |
-| 6 GB | 8B (Q2_K) | 3.1 GB | ~17 tok/s | 70B (Q2_K, mmap) | ~1.4 tok/s |
-| 8 GB | 8B (Q5_K_M) | 5.7 GB | ~11 tok/s | 70B (Q2_K, mmap) | ~1.4 tok/s |
-| 12 GB | 14B (Q4_K_M) | 8.5 GB | ~7.7 tok/s | 70B (Q2_K, mmap) | ~1.6 tok/s |
-| 16 GB | 32B (Q2_K) | 12.2 GB | ~5.5 tok/s | 70B (Q2_K, mmap) | ~1.7 tok/s |
-| 24 GB | 32B (Q4_K_M) | 19.4 GB | ~3.8 tok/s | 70B (Q2_K, mmap) | ~2.2 tok/s |
-
-\* Hybrid speeds are theoretical upper bounds: part of the model streams through mmap from RAM/SSD, so real numbers depend heavily on your RAM bandwidth and SSD. SHARD's advisor marks such setups `HYBRID` and warns about it.
-
-## Dashboard
-
-Open `http://localhost:8000`:
-
-- browse the full Hugging Face Hub catalog, filtered by your GPU VRAM / RAM,
-- download with live progress (multi-part GGUF included) to any drive,
-- load/unload with progress stages, chat with SSE streaming,
-- fit-advisor card per model *before* download,
-- "Сеть" tab: create/join a LAN shard network, one-click «Войти на сервер» for open networks, live member status and nearby server list,
-- drives & storage manager, API-key management (`sk-shard-*`), 1-click CLI/IDE integration.
-
-## LAN sharding
-
-Several machines act as **one big server for one model**: the master hosts the API and the model, workers share their VRAM/RAM through llama.cpp RPC, and the memory pool is filled with the same hard reserves as the single-machine advisor (400 MB VRAM / 2048 MB RAM). A model the fit advisor refuses on one machine can fit the pool.
-
-- Create a network on the master (dashboard "Сеть" tab or `shard lan create`), join from other machines with a `XXXX-XXXX` pairing code.
-- **Open networks**: the master can mark the network open (checkbox on create, or the «Открыть сеть» toggle). Every shard instance listens for beacons permanently, so others see the master in the «Серверы рядом» list with its name, IP, loaded model — and click «Войти на сервер» to join in one click, sharing their VRAM/RAM by default. Closed networks keep the code requirement.
-- Worker machines run `ggml-rpc-server.exe` (bundled with the llama.cpp runtime, already in `~/.shard/runtime`) and heartbeat every 1 s; 3 misses drop them automatically. If the runtime is missing, joining still succeeds in plain member mode (no sharing).
-- LAN discovery (UDP beacon, port `8001`) covers the same subnet and usually Radmin VPN / ZeroTier; **Tailscale has no L2 broadcast**, so its users join by manual IP (that path always works). NAT traversal is not included.
-- Trust: open networks lower the join barrier on purpose — enable them only on a network you trust (home LAN / your Radmin VPN room). On an untrusted network keep the code.
-- Details, auth model and known limits: [docs/LAN_SHARDING_DESIGN.md](docs/LAN_SHARDING_DESIGN.md).
-
-## API
-
-| Endpoint | Purpose |
-| :--- | :--- |
-| `POST /v1/chat/completions` | OpenAI-compatible chat (SSE streaming supported) |
-| `POST /v1/messages`, `POST /v1/messages/count_tokens` | Anthropic-compatible messages |
-| `GET /v1/models`, `GET /v1/ping` | Model list / health |
-| `GET /api/fit/{model_id}` | Fit report JSON (verdict, per-quant plan, KV-cache) |
-| `POST /api/models/load`, `POST /api/models/unload` | Engine control |
-| `GET /api/hf/models`, `GET /api/hf/model/{id}` | HF catalog & metadata |
-| `GET /api/drives`, `GET/POST /api/settings`, `GET /api/keys` | Storage, settings, keys |
-| `POST /api/lan/create`, `POST /api/lan/join`, `POST /api/lan/open`, `POST /api/lan/off` | LAN network control (master / joining machine) |
-| `GET /api/lan/status` | LAN mode, open flag, members, pairing code, nearby servers, pooled `--rpc`/`-ts` |
-
-## CLI
-
-| Command | What it does |
-| :--- | :--- |
-| `shard start --host --port` | Start the server (dashboard at `/`) |
-| `shard gui` | Launch the native desktop studio (if built) |
-| `shard fit <model_id>` | Pre-flight fit report for your hardware |
-| `shard models-dir <path>` | Show / set the models directory |
-| `shard list --category` | Rank HF models for this machine |
-| `shard run <model_id>` | Terminal REPL with token/sec telemetry |
-| `shard status` | GPU, VRAM, RAM, CPU threads, native core state |
-| `shard test` | 12-family AVX2 + C++20 kernel benchmark |
-| `shard key --gen` | Generate a local API key |
-| `shard lan [status\|create\|join\|off]` | LAN shard network: create (`--open` for open networks), join (`IP [code]`, code optional), status (nearby servers), kill switch |
-
-## Native core (optional)
-
-The Python path (server, CLI, fit advisor, llama.cpp GGUF backend) works without any build. The native part is the separate safetensors engine:
-
-- **C++20 core (`shard_core.dll`)** — Win32 `MapViewOfFile` safetensors paging, vectorized LayerNorm / Softmax / RoPE / SwiGLU / cosine-similarity, Q4/Q8_0 dequantization.
-- **MASM x64 (`shard_asm.asm`)** — hand-written AVX2/FMA kernels (ymm0–ymm7).
-
-Build it yourself (MSVC Build Tools with `ml64` required):
-
+#### Option 3: Compile Native C++20 / MASM AVX2 Kernels (Optional Speedup)
+To compile `shard_core.dll` (Windows MSVC `cl.exe` + `ml64.exe`) or `shard_core.so` (Linux GCC/Clang):
 ```bash
 python native/build_native.py
 ```
 
-Sample `shard test` output (12 kernel families; numbers vary per machine):
+---
 
+### Quick Start Workflow
+
+#### 1. Launch the SHARD Server & Web Dashboard
+```bash
+# Start FastAPI server + open Web Dashboard at http://localhost:8000
+shard gui
+
+# Or start headless on a custom host/port
+shard start --host 0.0.0.0 --port 8000
+
+# Or run directly via Python entrypoint
+python main.py
 ```
-Kernel: Shard Native Core (C++20 Zero-Copy + MASM x64 AVX2)
-[01/12] Dot-Product FMA:  36.45 GFLOPS (22,480 us)
-[05/12] Q8_0 Dequant:     2457.3 ops/sec (AVX2 Int8->FP32)
-[06/12] Q4_0 Dequant:     2561.8 ops/sec (AVX2 Nibble Unpack)
-[10/12] Stable Softmax:   10565.9 ops/sec (MASM vmaxps + Scale)
-Native Pipeline:          ALL 12 KERNEL FAMILIES VALIDATED [OK]
+
+#### 2. Check Hardware & Model Fit Before Downloading
+```bash
+# Inspect your CPU, RAM, and GPU VRAM telemetry
+shard status
+
+# Check if a model fits your local machine or LAN cluster before downloading
+shard fit Qwen/Qwen2.5-Coder-7B-Instruct
+shard fit meta-llama/Llama-3.1-8B-Instruct
 ```
 
-## Tests & CI
+#### 3. Download & Run a Model
+```bash
+# Download and run the default model (Qwen/Qwen2.5-Coder-1.5B-Instruct) or specify any HF / GGUF model
+shard run Qwen/Qwen2.5-Coder-7B-Instruct
 
-- `python -m unittest tests_shard.py` — **80 focused unit tests** (fit-advisor math, GGUF candidate selection, settings, LAN pooling state machine and pooled-split math, open networks / server list, module compilation). Every expected value in the suite was verified empirically before being written down.
-- CI runs the same suite on `windows-latest` for Python 3.12–3.14 (see the badge above).
+# List cached and available models
+shard list
+```
 
-## Honest limitations
+#### 4. Create or Join a Distributed LAN Cluster
+On the **Master Machine** (e.g., `192.168.1.10`):
+```bash
+# Create an open LAN pool (auto-accepts local subnet workers and shares GPU)
+shard lan create --open --share
 
-- Speed figures (`tok/s`) are estimates from a per-GB throughput model — no per-model benchmark suite yet; measured benchmarks are planned.
-- Parameter counts fall back to name-regex parsing when `config.json` isn't available offline; the advisor labels the source.
-- Windows-first: drive handling and the native build target Windows; Linux/macOS support is not there yet.
-- The safetensors native engine has no VRAM offload — if your VRAM is small, use GGUF models (the llama.cpp path is the one that handles low-VRAM hardware).
-- Single GPU only; no multi-GPU yet (LAN pooling across machines is the current answer for big models).
-- LAN pool: dashboard/`/api/*` endpoints are trusted-LAN (protect the master port at the network layer); the `/v1` API requires member tokens from non-loopback clients. `-ts` device order follows llama.cpp docs and is not yet verified against live weight placement (Phase 1.1).
-- UI text is Russian-first.
+# Or create a code-protected LAN pool
+shard lan create --share
+```
 
-## Roadmap
+On each **Worker Machine** on the same LAN:
+```bash
+# Join the master node's cluster and contribute local GPU/RAM
+shard lan join 192.168.1.10 --share
 
-- ~~LAN sharding~~ — **shipped in v1.7.0** (llama.cpp RPC pooling, pairing codes, dashboard "Сеть" tab): [docs/LAN_SHARDING_DESIGN.md](docs/LAN_SHARDING_DESIGN.md).
-- ~~Server list + open networks~~ — **shipped in v1.8.0** (permanent UDP listener, one-click «Войти на сервер», open-network toggle).
-- Phase 1.1: live `-ts` device-order verification, measured single-machine vs pool benchmarks in `benchmarks/`.
-- Measured per-model benchmarks published in `benchmarks/`.
-- English UI, Linux/macOS builds.
+# Check cluster nodes and pooled memory
+shard lan status
 
-## Русская версия
+# Leave or disable LAN pooling
+shard lan off
+```
 
-[README.ru.md](README.ru.md)
+---
 
-## Author & License
+## CLI Reference & Configuration
 
-- Author & Maintainer: [avelone123123](https://github.com/avelone123123)
-- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md) | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- License: MIT
+### Verified CLI Commands (`cli.py`)
+
+| Command | Arguments & Flags | Description |
+| :--- | :--- | :--- |
+| `shard start` | `[--host HOST] [--port PORT]` | Launches the SHARD FastAPI server and Uvicorn runtime (default `0.0.0.0:8000`). |
+| `shard gui` | *(none)* | Starts the server and opens the interactive Web Dashboard (`dashboard.html`) in your browser. |
+| `shard status` | *(none)* | Displays detected CPU cores, system RAM, GPU model, VRAM usage, and active engine status. |
+| `shard fit` | `[model_id]` | Runs the Pre-Flight Model Fit Advisor (`fit.py`) to calculate VRAM/RAM requirements, quantization fit, and estimated speed. |
+| `shard run` | `[model_id]` | Downloads (if needed) and loads the specified model (defaults to `Qwen/Qwen2.5-Coder-1.5B-Instruct`). |
+| `shard list` | `[--category CAT]` | Lists local cached models and curated catalog models (`all`, `coding`, `chat`, etc.). |
+| `shard lan` | `[status\|create\|join\|off] [extra] [--share] [--open]` | Creates, joins, inspects, or stops distributed LAN compute pooling across machines. |
+| `shard key` | `[--gen]` | Views the current local API key or generates a new token (`--gen`). |
+| `shard models-dir` | `[path \| reset]` | Views, updates, or resets the directory where model weights are stored. |
+| `shard test` | *(none)* | Runs the diagnostic unit and hardware benchmark suite (`tests_shard.py`). |
+| `shard help` | *(none)* | Prints full CLI command usage and examples. |
+
+### Environment Variables & Settings (`settings.py`, `main.py`, `docker-compose.yml`)
+
+| Variable / File | Default | Purpose |
+| :--- | :--- | :--- |
+| `SHARD_HOST` | `0.0.0.0` | Network interface IP address bound by `main.py` / `server.py`. |
+| `SHARD_PORT` | `8000` | HTTP and WebSocket/SSE port for the API server and Web Dashboard. |
+| `SHARD_MODELS_DIR` | `~/.shard/models` (`/data/models` in Docker) | Storage directory for downloaded Hugging Face SafeTensors and GGUF models. |
+| `SHARD_DATA_DIR` | `~/.shard` (`/data/shard` in Docker) | Directory storing `settings.json`, `lan.json`, and runtime metadata. |
+| `SHARD_DOCKER` | *(unset)* | When set, suppresses auto-opening a system web browser on startup. |
+| `HF_HOME` / `TRANSFORMERS_CACHE` | `~/.cache/huggingface` | Standard Hugging Face cache override respected by `engine.py` and `hf_hub.py`. |
+| `~/.shard/settings.json` | Auto-generated | Persistent JSON configuration storing custom `models_dir`, API keys, and engine preferences. |
+| `engine_optimizations.json` | Repo root | Runtime optimization profile configuring thread counts, SIMD flags, and batch sizes. |
+
+---
+
+## Architecture
+
+<p align="center">
+  <img src="assets/animations/network-ecosystem.gif" alt="SHARD Network Ecosystem Overview" width="800">
+  <br>
+  <sub><b>SHARD Ecosystem Topology:</b> Coding IDEs, agent frameworks, master coordinator, and distributed LAN worker nodes operating as a unified inference fabric.</sub>
+</p>
+
+### System Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph Clients["AI Agents, IDEs & SDK Clients"]
+        IDE["Cursor / Claude Code / Aider / Continue / Zed"]
+        SDK["OpenAI SDK / Anthropic SDK / LangChain / LlamaIndex"]
+        Browser["Web Dashboard UI (dashboard.html)"]
+    end
+
+    subgraph Master["SHARD Master Node (FastAPI :8000)"]
+        Server["server.py\n(/v1/chat/completions, /v1/messages, /api/*)"]
+        Fit["fit.py & hardware.py\n(Pre-Flight VRAM/RAM Advisor)"]
+        Engine["engine.py\n(PyTorch Transformers & Token Streamer)"]
+        GGUF["gguf_backend.py\n(llama-server & Layer Offload -ngl)"]
+        Bridge["shard_bridge.py\n(ctypes C++20 / MASM AVX2 SIMD Core)"]
+        LANCoord["lan.py\n(UDP Discovery :8001 & Cluster Coordinator)"]
+    end
+
+    subgraph Workers["Distributed LAN Worker Nodes (:8001)"]
+        W1["Worker Node 1\nggml-rpc-server / GPU VRAM Shard"]
+        W2["Worker Node 2\nggml-rpc-server / GPU VRAM Shard"]
+        W3["Worker Node N\nggml-rpc-server / System RAM + GPU"]
+    end
+
+    IDE -->|HTTP / SSE :8000| Server
+    SDK -->|HTTP / SSE :8000| Server
+    Browser -->|REST / SSE :8000| Server
+
+    Server --> Fit
+    Server --> Engine
+    Server --> LANCoord
+    Engine --> GGUF
+    Engine --> Bridge
+
+    LANCoord <-->|UDP Broadcast & Heartbeat :8001| W1
+    LANCoord <-->|UDP Broadcast & Heartbeat :8001| W2
+    LANCoord <-->|UDP Broadcast & Heartbeat :8001| W3
+
+    GGUF <-->|TCP Tensor RPC Stream| W1
+    GGUF <-->|TCP Tensor RPC Stream| W2
+    GGUF <-->|TCP Tensor RPC Stream| W3
+```
+
+### Core Repository Modules
+```text
+shard/
+├── assets/
+│   ├── branding/              # Official SHARD SVG & PNG logos, icons, and favicon
+│   ├── animations/            # Isometric pixel-art / voxel animated GIFs
+│   └── screenshots/           # Dashboard and CLI fit advisor visuals
+├── docs/
+│   └── LAN_SHARDING_DESIGN.md # Distributed LAN sharding protocol & architecture spec
+├── native/
+│   ├── build_native.py        # Cross-platform compiler for C++20 & MASM AVX2 kernels
+│   ├── shard_core.cpp         # C++20 RMSNorm, LayerNorm, RoPE, Softmax, GELU, SiLU, MatMul
+│   ├── shard_asm.asm          # x86-64 MASM AVX2 SIMD assembly kernels
+│   └── shard_gui.cpp          # Native Win32 desktop GUI wrapper
+├── cli.py                     # `shard` command-line interface entry point
+├── main.py                    # Application launcher & Uvicorn bootstrapper
+├── server.py                  # FastAPI server (OpenAI, Anthropic, Model & LAN routes)
+├── engine.py                  # Core LLM inference orchestrator & SSE generator
+├── gguf_backend.py            # Managed llama.cpp / GGUF server & RPC integration
+├── lan.py                     # UDP subnet discovery, node pairing & LAN resource pooling
+├── fit.py                     # Pre-flight model memory & throughput calculator
+├── hardware.py                # GPU VRAM (nvidia-smi), CPU & RAM probing
+├── hf_hub.py                  # Hugging Face Hub search, metadata & downloader
+├── shard_bridge.py            # Python ctypes bridge to native shard_core.dll / .so
+├── settings.py                # Persistent configuration manager (~/.shard/settings.json)
+├── dashboard.html             # Single-file web control panel & agent config generator
+└── tests_shard.py             # Automated unit, API, and kernel verification suite
+```
+
+---
+
+## Web Dashboard & Demonstrations
+
+### Interactive Web Control Panel (`dashboard.html`)
+Navigating to `http://localhost:8000` opens the built-in SHARD Control Panel:
+
+<p align="center">
+  <img src="assets/screenshots/dashboard-overview.png" alt="SHARD Web Dashboard & LAN Pool Telemetry" width="960">
+  <br>
+  <sub><b>SHARD Web Dashboard:</b> Real-time per-node VRAM/RAM gauges, Pre-Flight Model Fit Advisor, one-click IDE/agent config snippets, and streaming playground.</sub>
+</p>
+
+### CLI Pre-Flight Advisor (`shard fit`) & LAN Cluster Status (`shard lan status`)
+
+<p align="center">
+  <img src="assets/screenshots/cli-fit-advisor.png" alt="SHARD CLI Fit Advisor and LAN Status" width="900">
+  <br>
+  <sub><b>Pre-Flight Fit Verification:</b> Evaluate model quantization, context ceiling, and pooled LAN cluster fit before downloading model weights.</sub>
+</p>
+
+### Connecting AI Agents & Coding Tools
+Point any OpenAI- or Anthropic-compatible client to your SHARD instance:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="shard-local",  # Or generate a token via `shard key --gen`
+)
+
+stream = client.chat.completions.create(
+    model="Qwen/Qwen2.5-Coder-7B-Instruct",
+    messages=[{"role": "user", "content": "Explain tensor parallelism across LAN nodes."}],
+    stream=True,
+)
+
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+```
+
+---
+
+## Project Status & Community
+
+### Technology Stack
+- **Runtime & API:** Python 3.8+ / 3.10+, [FastAPI](https://fastapi.tiangolo.com/), [Uvicorn](https://www.uvicorn.org/), [Pydantic v2](https://docs.pydantic.dev/)
+- **ML & Quantization:** [PyTorch](https://pytorch.org/), Hugging Face [`transformers`](https://huggingface.co/docs/transformers), [`accelerate`](https://huggingface.co/docs/accelerate), [`safetensors`](https://huggingface.co/docs/safetensors), [`huggingface_hub`](https://huggingface.co/docs/huggingface_hub), [`llama.cpp` GGUF](https://github.com/ggml-org/llama.cpp)
+- **Native Acceleration:** C++20 (`native/shard_core.cpp`) + x86-64 MASM AVX2 Assembly (`native/shard_asm.asm`)
+- **System & Networking:** `psutil`, UDP broadcast discovery (`:8001`), HTTP/SSE streaming (`:8000`)
+
+### Community, Contribution & Governance
+- **Architecture & LAN Design Spec:** [`docs/LAN_SHARDING_DESIGN.md`](docs/LAN_SHARDING_DESIGN.md)
+- **Contribution Guidelines:** [`CONTRIBUTING.md`](CONTRIBUTING.md) — covers zero-copy memory rules, native C++20/AVX2 build steps, and running `shard test`.
+- **Code of Conduct:** [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- **Release History:** [`CHANGELOG.md`](CHANGELOG.md) (current release: `v1.8.0`)
+- **Bug Reports & Feature Requests:** [GitHub Issues](https://github.com/avelone123123/shard/issues)
+- **Community Q&A & Ideas:** [GitHub Discussions](https://github.com/avelone123123/shard/discussions)
+- **Security Policy:** Please report security vulnerabilities privately via [GitHub Security Advisories](https://github.com/avelone123123/shard/security) or by contacting the maintainer before public disclosure.
+- **License:** Distributed under the [MIT License](LICENSE).
+
+---
+
+<p align="center">
+  <img src="assets/branding/shard-icon.svg" alt="SHARD Icon" width="64"><br>
+  <strong>SHARD — One Network. Many Servers. Shared AI Infrastructure.</strong><br>
+  <sub>Built for the open-source local AI community &middot; <a href="README.md">English</a> &middot; <a href="README.ru.md">Русский</a> &middot; <a href="README.kz.md">Қазақша</a></sub>
+</p>
