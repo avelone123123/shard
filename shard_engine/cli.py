@@ -811,7 +811,8 @@ def cmd_lan(args):
         lan_ifs = rep.get("lan_interfaces") or []
         vpn_ifs = rep.get("vpn_interfaces") or []
         virt_ifs = rep.get("virtual_excluded") or []
-        print(f"LAN Interfaces:      {', '.join(f'{x['ip']} ({x['interface']})' for x in lan_ifs) or 'None'}")
+        lan_ifs_str = ', '.join(f"{x['ip']} ({x['interface']})" for x in lan_ifs) or 'None'
+        print(f"LAN Interfaces:      {lan_ifs_str}")
         print(f"Overlay VPNs:        {', '.join(f'{x['ip']} [{x['provider']}]' for x in vpn_ifs) or 'None'}")
         if virt_ifs:
             print(f"Excluded Virtual:    {', '.join(f'{x['ip']} ({x['interface']})' for x in virt_ifs)}")
