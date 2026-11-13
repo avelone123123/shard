@@ -813,9 +813,11 @@ def cmd_lan(args):
         virt_ifs = rep.get("virtual_excluded") or []
         lan_ifs_str = ', '.join(f"{x['ip']} ({x['interface']})" for x in lan_ifs) or 'None'
         print(f"LAN Interfaces:      {lan_ifs_str}")
-        print(f"Overlay VPNs:        {', '.join(f'{x['ip']} [{x['provider']}]' for x in vpn_ifs) or 'None'}")
+        vpn_ifs_str = ', '.join(f"{x['ip']} [{x['provider']}]" for x in vpn_ifs) or 'None'
+        print(f"Overlay VPNs:        {vpn_ifs_str}")
         if virt_ifs:
-            print(f"Excluded Virtual:    {', '.join(f'{x['ip']} ({x['interface']})' for x in virt_ifs)}")
+            virt_ifs_str = ', '.join(f"{x['ip']} ({x['interface']})" for x in virt_ifs)
+            print(f"Excluded Virtual:    {virt_ifs_str}")
         ts = rep.get("tailscale") or {}
         print(f"Tailscale CLI:       {'running ' + str(ts.get('ip')) if ts.get('running') else ('installed/stopped' if ts.get('installed') else 'not installed')}")
         if probe_public:
