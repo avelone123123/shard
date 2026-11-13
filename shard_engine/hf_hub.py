@@ -1,6 +1,7 @@
 import os
 import re
 import time
+from . import paths
 from . import settings
 from .hardware import evaluate_compatibility, get_hardware_profile
 CURATED_MODELS = [
@@ -39,20 +40,52 @@ CURATED_MODELS = [
     {"id": "meta-llama/Llama-3.3-70B-Instruct", "category": "general", "desc": "Флагман 70B с контекстом 128k и поддержкой NVMe стриминга."}
 ]
 _hub_cache = {}
+def _all_hub_dirs():
+    dirs = []
+    candidates = [
+        os.environ.get("HF_HOME"),
+        settings.models_dir(),
+        paths.default_models_dir(),
+        os.path.join(os.path.expanduser("~"), ".shard", "models"),
+        os.path.join(os.path.expanduser("~"), ".cache", "huggingface"),
+        str(paths.data_dir() / "models"),
+    ]
+    for d in candidates:
+        if d:
+            h = os.path.join(d, "hub") if not str(d).endswith("hub") else d
+            norm = os.path.normcase(os.path.abspath(h))
+            if os.path.isdir(h) and norm not in [os.path.normcase(os.path.abspath(x)) for x in dirs]:
+                dirs.append(h)
+    return dirs
 def get_local_cached_ids():
     cached = set()
-    hf_home = os.environ.get("HF_HOME") or settings.models_dir()
-    hub_dir = os.path.join(hf_home, "hub")
-    if os.path.exists(hub_dir):
+    for hub_dir in _all_hub_dirs():
+        if not os.path.isdir(hub_dir):
+            continue
         try:
             for item in os.listdir(hub_dir):
                 if item.startswith("models--"):
                     snap_dir = os.path.join(hub_dir, item, "snapshots")
-                    if os.path.exists(snap_dir) and os.listdir(snap_dir):
-                        cached.add(item.replace("models--", "").replace("--", "/").lower())
+                    if os.path.isdir(snap_dir):
+                        has_weights = any(os.path.isfile(os.path.join(r, f)) and os.path.getsize(os.path.join(r, f)) > 0 for r, _, fs in os.walk(snap_dir) for f in fs if f.lower().endswith((".safetensors", ".bin", ".gguf")))
+                        if has_weights:
+                            raw_id = item.replace("models--", "").replace("--", "/").lower()
+                            cached.add(raw_id)
+                            clean = re.sub(r"(?i)[-_]?gguf$", "", raw_id)
+                            cached.add(clean)
+                            cached.add(raw_id.split("/")[-1])
+                            cached.add(clean.split("/")[-1])
         except Exception:
             pass
     return cached
+def is_id_downloaded(mid, cached):
+    if not mid or not cached:
+        return False
+    low = mid.lower()
+    clean = re.sub(r"(?i)[-_]?gguf$", "", low)
+    tail = low.split("/")[-1]
+    tail_clean = clean.split("/")[-1]
+    return low in cached or clean in cached or tail in cached or tail_clean in cached
 def fetch_model_metadata(model_id, hw=None):
     import requests
     if hw is None:
@@ -81,7 +114,7 @@ def fetch_model_metadata(model_id, hw=None):
         "speed_tier": comp["speed_est"],
         "memory_slot": comp["mode"],
         "size_est_mb": comp.get("size_est_mb", 1000),
-        "is_downloaded": model_id.lower() in cached,
+        "is_downloaded": is_id_downloaded(model_id, cached),
         "downloads": d_count,
         "likes": likes_count,
         "compatibility": comp
@@ -101,7 +134,7 @@ def _build_entry(mid, cat, desc, d_count, likes_count, hw, cached):
         "speed_tier": comp["speed_est"],
         "memory_slot": comp["mode"],
         "size_est_mb": comp.get("size_est_mb", 1000),
-        "is_downloaded": mid.lower() in cached,
+        "is_downloaded": is_id_downloaded(mid, cached),
         "downloads": d_count,
         "likes": likes_count,
         "compatibility": comp
@@ -118,7 +151,7 @@ def browse_models(query=None, category=None, limit=80, hw=None):
     if cache_key in _hub_cache and (now - _hub_cache[cache_key][0] < 60.0):
         items = _hub_cache[cache_key][1]
         for it in items:
-            it["is_downloaded"] = it["id"].lower() in cached
+            it["is_downloaded"] = is_id_downloaded(it["id"], cached)
         return items
     if category_clean == "ideal":
         ideal_list = []
@@ -255,4 +288,3 @@ def fetch_model_card(model_id, hw=None):
         "card_data": card_data,
         "compatibility": comp
     }
-
