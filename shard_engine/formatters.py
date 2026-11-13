@@ -22,3 +22,8 @@ def format_percentage(current: int, total: int) -> str:
         return "0%"
     pct = min(100.0, max(0.0, (float(current) / float(total)) * 100.0))
     return f"{pct:.1f}%"
+def format_timestamp_iso(ts: float = 0.0) -> str:
+    t = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc) if ts > 0 else datetime.datetime.now(datetime.timezone.utc)
+    return t.strftime("%Y-%m-%dT%H:%M:%SZ")
+def format_duration_ms(elapsed_sec: float) -> str:
+    return f"{int(elapsed_sec * 1000.0)}ms"
