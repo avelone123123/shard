@@ -29,7 +29,10 @@ def _save(data):
 def models_dir():
     custom = (_load().get("models_dir") or "").strip()
     if custom:
-        return custom
+        try:
+            return custom
+        except Exception:
+            pass
     return paths.default_models_dir()
 def is_custom_models_dir():
     return bool((_load().get("models_dir") or "").strip())
