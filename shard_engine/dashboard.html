@@ -2249,15 +2249,17 @@ async function loadModels() {
             const desc = m.description || m.desc || '';
             const speed = m.speed_tier || (m.compatibility && m.compatibility.speed_est) || '18-32 ток/сек';
             const mem = m.memory_slot || (m.compatibility && m.compatibility.mode) || 'VRAM + RAM Hybrid';
-            const isLoadingThis = (isModelLoading && (loadingModelId === m.id || loadingModelId === m.id.split('/').pop()));
-            const isActive = (m.id === activeModelId && !isModelLoading);
+            const normMid = (x) => (x || '').split('/').pop().toLowerCase().replace(/[-_]?(instruct)?[-_]?gguf$/, '');
+            const isLoadingThis = (isModelLoading && (loadingModelId === m.id || loadingModelId === m.id.split('/').pop() || normMid(loadingModelId) === normMid(m.id)));
+            const isActive = (!isModelLoading && (m.id === activeModelId || normMid(m.id) === normMid(activeModelId)));
             const btnClass = isLoadingThis ? 'btn-action loading' : (isActive ? 'btn-action active' : 'btn-action');
-            const btnText = isLoadingThis ? ('Загрузка ' + currentLoadingPercent + '%') : (isActive ? 'АКТИВНА' : 'Запустить');
-            const btnDisabled = isLoadingThis ? 'disabled' : '';
+            const btnText = isLoadingThis ? ('Загрузка ' + currentLoadingPercent + '%') : (isActive ? 'АКТИВНА' : (m.is_downloaded ? 'Запустить' : 'Скачать и запустить'));
+            const btnDisabled = (isLoadingThis || isActive) ? 'disabled' : '';
             const midEsc = escHtml(m.id);
+            const dlBadge = m.is_downloaded ? '<span style="font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);font-family:Consolas,monospace;">SSD КЭШ</span>' : '';
             card.innerHTML = '<div class="card-top">' +
                 '<div style="cursor:pointer;" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)">' +
-                    '<div class="model-title" style="display:flex;align-items:center;gap:6px;">' + escHtml(m.name) + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>' +
+                    '<div class="model-title" style="display:flex;align-items:center;gap:6px;">' + escHtml(m.name) + dlBadge + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>' +
                     '<div class="model-author">' + escHtml(m.author) + '</div>' +
                 '</div>' +
                 '<div class="compat-badge" style="background:' + badgeBg + ';color:' + badgeColor + ';border-color:' + badgeBorder + ';">' + escHtml(badge) + '</div>' +
@@ -2481,6 +2483,10 @@ function refreshDirLabel() {
 }
 window.addEventListener('keydown', e => { if (e.key === 'Escape') closeDirPicker(); });
 async function loadModel(modelId) {
+    if (isModelLoading) {
+        showToast('Загрузка активна', 'Дождитесь окончания загрузки текущей модели');
+        return;
+    }
     isModelLoading = true;
     loadingModelId = modelId;
     currentLoadingPercent = 6;
@@ -2488,12 +2494,12 @@ async function loadModel(modelId) {
     updateLoadingUI(true, {
         model_id: modelId,
         percent: 6,
-        stage: 'Скачивание весов модели',
+        stage: 'Инициализация весов модели',
         curr_mb: 0,
         total_mb: 100,
         speed_mb: 0,
         eta_text: 'вычисление...',
-        message: 'Подключение к манифесту весов...'
+        message: 'Проверка локального кэша...'
     });
     setPollRate(500);
     loadModels();
@@ -2505,6 +2511,13 @@ async function loadModel(modelId) {
             body: JSON.stringify({model_id: modelId})
         });
         const data = await res.json();
+        if (data && data.already_loaded) {
+            isModelLoading = false;
+            updateLoadingUI(false);
+            setPollRate(5000);
+            showToast('Модель активна', modelId.split('/').pop() + ' уже готова к работе');
+            loadModels();
+        }
     } catch(e) {
         showToast('Ошибка', 'Не удалось отправить запрос на загрузку');
     }
