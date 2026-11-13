@@ -1,0 +1,34 @@
+[Unit]
+Description=SHARD Inference Node User Service
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=shard
+Group=shard
+StateDirectory=shard/user
+StateDirectoryMode=0700
+RuntimeDirectory=shard-user
+RuntimeDirectoryMode=0700
+Environment=SHARD_DATA_DIR=/var/lib/shard/user
+Environment=SHARD_MODELS_DIR=/var/lib/shard/user/models
+Environment=SHARD_HOST=0.0.0.0
+Environment=SHARD_PORT=8000
+Environment=SHARD_NO_BROWSER=1
+EnvironmentFile=-/etc/default/shard-user
+ExecStart=/usr/local/bin/shard start --no-browser
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+UMask=0077
+ReadWritePaths=/var/lib/shard/user
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,37 @@
+[Unit]
+Description=SHARD Network Relay Service
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=shard
+Group=shard
+StateDirectory=shard/relay
+StateDirectoryMode=0700
+RuntimeDirectory=shard-relay
+RuntimeDirectoryMode=0700
+Environment=SHARD_DATA_DIR=/var/lib/shard/relay
+Environment=SHARD_HOST=0.0.0.0
+Environment=SHARD_PORT=8091
+Environment=SHARD_RELAY_PORT=8091
+Environment=SHARD_NO_BROWSER=1
+EnvironmentFile=-/etc/default/shard-relay
+ExecStart=/usr/local/bin/shard network relay-serve
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+ReadWritePaths=/var/lib/shard/relay
+[Install]
+WantedBy=multi-user.target
