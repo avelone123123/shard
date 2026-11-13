@@ -1,22 +1,31 @@
-import json
 import os
 import shutil
 from . import paths
-_DATA_DIR = str(paths.config_dir())
-_SETTINGS_FILE = paths.settings_file()
-DEFAULT_MODELS_DIR = paths.default_models_dir()
+from . import storage
+def __getattr__(name):
+    if name == "DEFAULT_MODELS_DIR":
+        return paths.default_models_dir()
+    if name == "_SETTINGS_FILE":
+        return paths.settings_file()
+    if name == "_DATA_DIR":
+        return str(paths.config_dir())
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 def _load():
-    try:
-        with open(paths.settings_file(), "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+    data = storage.read_json_safe(
+        paths.settings_file(),
+        default={},
+        expected_type=dict,
+        quarantine=True,
+        use_backup=True,
+    )
+    return data if isinstance(data, dict) else {}
 def _save(data):
-    sf = paths.settings_file()
-    os.makedirs(os.path.dirname(sf), exist_ok=True)
-    with open(sf, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    storage.atomic_write_json(
+        paths.settings_file(),
+        data if isinstance(data, dict) else {},
+        fsync=True,
+        backup=True,
+    )
 def models_dir():
     custom = (_load().get("models_dir") or "").strip()
     if custom:
@@ -31,12 +40,16 @@ def reset_models_dir():
     return models_dir()
 def set_models_dir(path):
     raw = str(path or "").strip()
-    if not raw:
+    if not raw or "\x00" in raw:
         raise ValueError("Путь не указан")
+    if raw.startswith("\\\\") or raw.startswith("//"):
+        raise ValueError("Сетевые UNC-пути запрещены")
     drive, tail = os.path.splitdrive(raw)
     if drive and not tail.strip(os.sep + "/"):
         raise ValueError("Укажите папку, а не только букву диска (например, E:\\models)")
-    resolved = os.path.abspath(os.path.expandvars(os.path.expanduser(raw)))
+    resolved = os.path.abspath(os.path.expanduser(raw))
+    if resolved.startswith("\\\\"):
+        raise ValueError("Сетевые UNC-пути запрещены")
     os.makedirs(resolved, exist_ok=True)
     probe = os.path.join(resolved, ".shard_write_test")
     try:
@@ -44,7 +57,7 @@ def set_models_dir(path):
             f.write("ok")
         os.remove(probe)
     except Exception as e:
-        raise ValueError(f"Папка недоступна для записи: {e}")
+        raise ValueError(f"Папка недоступна для записи ({type(e).__name__})")
     s = _load()
     s["models_dir"] = resolved
     _save(s)
@@ -97,4 +110,3 @@ def available_drives():
             out.append({"path": "/", "free_gb": info["free_gb"], "total_gb": info["total_gb"]})
     out.sort(key=lambda d: d["path"])
     return out
-
