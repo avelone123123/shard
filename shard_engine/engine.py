@@ -7,6 +7,7 @@ import time
 from . import hardware as _hardware
 from . import paths as _paths
 from . import settings as _shard_settings
+from . import storage as _storage
 from .shard_bridge import shard_native
 if "HF_HOME" not in os.environ:
     try:
@@ -90,13 +91,8 @@ class _ShardCancelCriteria(StoppingCriteria):
         self.engine_ref = engine_ref
     def __call__(self, input_ids, scores, **kwargs):
         return bool(self.engine_ref._cancel_gen)
-def _is_model_cached_complete(model_id):
-    if not model_id:
-        return False
-    repo = model_id if "/" in model_id else f"Qwen/{model_id}"
-    hf_home = os.environ.get("HF_HOME") or _shard_settings.models_dir()
-    hub_dir = os.path.join(hf_home, "hub", f"models--{repo.replace('/', '--')}")
-    if not os.path.exists(hub_dir):
+def _hub_dir_complete(hub_dir):
+    if not hub_dir or not os.path.exists(hub_dir):
         return False
     blobs_dir = os.path.join(hub_dir, "blobs")
     if os.path.exists(blobs_dir):
@@ -111,6 +107,38 @@ def _is_model_cached_complete(model_id):
             if fn.endswith((".safetensors", ".bin", ".gguf")):
                 return True
     return False
+def _is_model_cached_complete(model_id):
+    if not model_id:
+        return False
+    raw = str(model_id).strip()
+    if raw.startswith("\\\\") or raw.startswith("//"):
+        return False
+    if os.path.isfile(raw) and raw.lower().endswith(".gguf"):
+        return True
+    if os.path.isdir(raw):
+        has_cfg = os.path.isfile(os.path.join(raw, "config.json")) or os.path.isfile(os.path.join(raw, "adapter_config.json"))
+        if has_cfg:
+            return True
+    repo = raw if "/" in raw else f"Qwen/{raw}"
+    hf_home = os.environ.get("HF_HOME") or _shard_settings.models_dir()
+    hub_root = os.path.join(hf_home, "hub")
+    direct_dir = os.path.join(hub_root, f"models--{repo.replace('/', '--')}")
+    if _hub_dir_complete(direct_dir):
+        return True
+    tail = repo.split("/")[-1].lower()
+    tail_clean = tail[:-9] if tail.endswith("-instruct") else tail
+    if os.path.isdir(hub_root):
+        try:
+            for entry in os.listdir(hub_root):
+                low = entry.lower()
+                if not low.startswith("models--") or "-gguf" not in low:
+                    continue
+                if tail in low or (tail_clean and tail_clean in low):
+                    if _hub_dir_complete(os.path.join(hub_root, entry)):
+                        return True
+        except Exception:
+            pass
+    return False
 class ShardEngine:
     def __init__(self):
         global _active_engine
@@ -118,12 +146,15 @@ class ShardEngine:
         self.active_model_file = _paths.active_model_file()
         os.makedirs(os.path.dirname(self.active_model_file), exist_ok=True)
         saved_model = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
-        if os.path.exists(self.active_model_file):
-            try:
-                with open(self.active_model_file, "r", encoding="utf-8") as f:
-                    saved_model = json.load(f).get("model_id", saved_model)
-            except Exception:
-                pass
+        saved_obj = _storage.read_json_safe(
+            self.active_model_file,
+            default=None,
+            expected_type=dict,
+            quarantine=True,
+            use_backup=True,
+        )
+        if isinstance(saved_obj, dict) and saved_obj.get("model_id"):
+            saved_model = str(saved_obj.get("model_id")).strip() or saved_model
         self.active_model_id = saved_model
         self.status = "idle"
         self.loaded_info = {}
@@ -248,9 +279,10 @@ class ShardEngine:
             self.status = "error"
             self.load_progress = {"status": "error", "model_id": model_id, "percent": 0, "stage": "Ошибка", "eta_text": "Ошибка", "speed_mb": 0, "message": "PyTorch/Transformers не установлены. Выполните: pip install \"shard-engine[full]\""}
             return
-        target_repo = model_id if "/" in model_id else f"Qwen/{model_id}"
+        is_local_path = os.path.exists(str(model_id or ""))
+        target_repo = model_id if is_local_path else (model_id if "/" in model_id else f"Qwen/{model_id}")
         params_b = _hardware.estimate_model_params(model_id)
-        already_cached = _is_model_cached_complete(target_repo)
+        already_cached = is_local_path or _is_model_cached_complete(target_repo)
         est_mb = max(120, int(params_b * (1950 if params_b <= 3.0 else 650)))
         est_sec = 3 if already_cached else max(4, int(est_mb / 20))
         eta_init = f"~{est_sec} сек" if est_sec < 60 else f"~{est_sec // 60} мин {est_sec % 60} сек"
@@ -317,31 +349,44 @@ class ShardEngine:
         try:
             hw = _hardware.get_hardware_profile()
             chosen_dtype, dev_target = self._select_dtype_and_device(params_b, hw)
-            tok = AutoTokenizer.from_pretrained(target_repo, trust_remote_code=True)
+            adapter_cfg_path = os.path.join(target_repo, "adapter_config.json") if is_local_path and os.path.isdir(target_repo) else None
+            is_peft_adapter = bool(adapter_cfg_path and os.path.isfile(adapter_cfg_path) and not os.path.isfile(os.path.join(target_repo, "config.json")))
+            base_or_dir = target_repo
+            if is_peft_adapter:
+                with open(adapter_cfg_path, "r", encoding="utf-8") as af:
+                    base_or_dir = json.load(af).get("base_model_name_or_path") or target_repo
+            trust_remote = os.environ.get("SHARD_TRUST_REMOTE_CODE", "0") == "1"
+            tok = AutoTokenizer.from_pretrained(target_repo if os.path.isfile(os.path.join(target_repo, "tokenizer_config.json")) else base_or_dir, trust_remote_code=trust_remote)
             if self._cancel_load or seq_id != self._load_seq:
                 stop_ticker = True
                 return
-            load_kw = {"low_cpu_mem_usage": True, "trust_remote_code": True}
+            load_kw = {"low_cpu_mem_usage": True, "trust_remote_code": trust_remote}
             if chosen_dtype is not None:
                 load_kw["dtype"] = chosen_dtype
-            is_heavy = params_b >= 12.0
+            is_heavy = (not is_local_path) and params_b >= 12.0
             mdl = None
             if is_heavy:
                 try:
                     from airllm import AutoModel as AirAutoModel
-                    mdl = AirAutoModel.from_pretrained(target_repo)
+                    mdl = AirAutoModel.from_pretrained(base_or_dir)
                 except Exception:
                     mdl = None
             if mdl is None:
                 if dev_target == "auto":
                     try:
-                        mdl = AutoModelForCausalLM.from_pretrained(target_repo, device_map="auto", **load_kw)
+                        mdl = AutoModelForCausalLM.from_pretrained(base_or_dir, device_map="auto", **load_kw)
                     except Exception:
-                        mdl = AutoModelForCausalLM.from_pretrained(target_repo, **load_kw)
+                        mdl = AutoModelForCausalLM.from_pretrained(base_or_dir, **load_kw)
                 else:
-                    mdl = AutoModelForCausalLM.from_pretrained(target_repo, **load_kw)
+                    mdl = AutoModelForCausalLM.from_pretrained(base_or_dir, **load_kw)
                     if dev_target == "cuda" and torch.cuda.is_available():
                         mdl = mdl.to("cuda")
+            if is_peft_adapter:
+                try:
+                    from peft import PeftModel
+                    mdl = PeftModel.from_pretrained(mdl, target_repo)
+                except ImportError as peft_err:
+                    raise RuntimeError("LoRA-адаптер требует установленный peft или предварительное merge-объединение весов.") from peft_err
             if self._cancel_load or seq_id != self._load_seq:
                 stop_ticker = True
                 del mdl
@@ -370,8 +415,12 @@ class ShardEngine:
                 "message": f"Модель {model_id} активна и готова к работе."
             }
             try:
-                with open(self.active_model_file, "w", encoding="utf-8") as f:
-                    json.dump({"model_id": model_id}, f, ensure_ascii=False)
+                _storage.atomic_write_json(
+                    self.active_model_file,
+                    {"model_id": model_id, "updated_at": time.time()},
+                    fsync=True,
+                    backup=True,
+                )
             except Exception:
                 pass
         except Exception as e:
@@ -427,112 +476,126 @@ class ShardEngine:
             _fail("Модель не подходит", note)
             return
         try:
-            self.load_progress = {
-                "status": "loading",
-                "model_id": model_id,
-                "percent": 2,
-                "stage": "Поиск GGUF-репозитория",
-                "curr_mb": 0,
-                "total_mb": 0,
-                "speed_mb": 0,
-                "eta_seconds": 0,
-                "eta_text": "Поиск...",
-                "message": f"Ищу готовый GGUF для {model_id} (квант {fit.get('recommended')})..."
-            }
-            repo_id = gguf_mod.find_gguf_repo(model_id)
-            if self._cancel_load or seq_id != self._load_seq:
-                return
-            if not repo_id:
-                _fail("GGUF не найден", f"Для {model_id} не нашёл готовый GGUF-репозиторий на Hugging Face. Попробуйте модель с официально выложенным GGUF (например, Qwen или Gemma).")
-                return
-            files = gguf_mod.list_gguf_files(repo_id)
-            if self._cancel_load or seq_id != self._load_seq:
-                return
-            sel = gguf_mod.select_gguf_file(files, wanted_quant=fit.get("recommended"))
-            if not sel:
-                _fail("GGUF не найден", f"В {repo_id} нет подходящего GGUF-файла (квант {fit.get('recommended')}).")
-                return
-            total_mb = round(sel["size_bytes"] / (1024 * 1024), 1)
-            hf_home = os.environ.get("HF_HOME") or _shard_settings.models_dir()
-            hub_dir = os.path.join(hf_home, "hub", f"models--{repo_id.replace('/', '--')}")
-            sel_path = None
-            if os.path.isdir(hub_dir):
-                found_parts = {}
-                for root, _, fns in os.walk(hub_dir):
-                    for p in sel["parts"]:
-                        base = os.path.basename(p)
-                        if base in fns and base not in found_parts:
-                            found_parts[base] = os.path.join(root, base)
-                if len(found_parts) == len(sel["parts"]):
-                    sel_path = found_parts[os.path.basename(sel["parts"][0])]
-            if sel_path is None:
-                est_sec = max(5, int(total_mb / 20))
-                eta_init = f"~{est_sec} сек" if est_sec < 60 else f"~{est_sec // 60} мин {est_sec % 60} сек"
+            is_local_gguf = os.path.isfile(str(model_id or "")) and str(model_id).lower().endswith(".gguf")
+            if is_local_gguf:
+                sel_path = model_id
+                repo_id = "local"
+                f_sz = os.path.getsize(sel_path)
+                total_mb = round(f_sz / (1024 * 1024), 1)
+                sel = {
+                    "path": os.path.basename(sel_path),
+                    "size_bytes": f_sz,
+                    "quant": fit.get("recommended") or "CUSTOM",
+                    "multipart": False,
+                    "parts": [sel_path],
+                }
+            else:
                 self.load_progress = {
                     "status": "loading",
                     "model_id": model_id,
-                    "percent": 4,
-                    "stage": "Скачивание GGUF",
+                    "percent": 2,
+                    "stage": "Поиск GGUF-репозитория",
                     "curr_mb": 0,
-                    "total_mb": total_mb,
+                    "total_mb": 0,
                     "speed_mb": 0,
-                    "eta_seconds": est_sec,
-                    "eta_text": eta_init,
-                    "message": f"Скачивание {repo_id}/{sel['path']} ({total_mb:.0f} МБ, квант {sel['quant']})..."
+                    "eta_seconds": 0,
+                    "eta_text": "Поиск...",
+                    "message": f"Ищу готовый GGUF для {model_id} (квант {fit.get('recommended')})..."
                 }
-                t0 = time.time()
-                stop_ticker = False
-                def _ticker():
-                    nonlocal stop_ticker
-                    blobs_dir = os.path.join(hub_dir, "blobs")
-                    last_bytes = 0
-                    last_t = t0
-                    while not stop_ticker and self.status == "loading" and seq_id == self._load_seq:
-                        time.sleep(0.8)
-                        if stop_ticker or self._cancel_load:
-                            break
-                        if not os.path.isdir(blobs_dir):
-                            continue
-                        curr_bytes = 0
-                        try:
-                            for fn in os.listdir(blobs_dir):
-                                fp = os.path.join(blobs_dir, fn)
-                                if os.path.isfile(fp) and not fn.endswith(".incomplete"):
-                                    curr_bytes += os.path.getsize(fp)
-                        except Exception:
-                            pass
-                        if curr_bytes <= 0:
-                            continue
-                        cur_mb = round(curr_bytes / (1024 * 1024), 1)
-                        now_t = time.time()
-                        dt_int = max(0.2, now_t - last_t)
-                        spd = round(((curr_bytes - last_bytes) / (1024 * 1024)) / dt_int, 1)
-                        if spd <= 0.1:
-                            spd = round(cur_mb / max(0.5, now_t - t0), 1)
-                        last_bytes = curr_bytes
-                        last_t = now_t
-                        target_total = max(total_mb, int(cur_mb * 1.02))
-                        cur_p = min(88, max(4, int((cur_mb / target_total) * 88)))
-                        rem_sec = max(1, int((target_total - cur_mb) / max(0.5, spd)))
-                        eta_t = f"~{rem_sec} сек" if rem_sec < 60 else f"~{rem_sec // 60} мин {rem_sec % 60} сек"
-                        if self.load_progress.get("status") == "loading":
-                            self.load_progress.update({
-                                "percent": cur_p,
-                                "curr_mb": cur_mb,
-                                "total_mb": target_total,
-                                "speed_mb": spd,
-                                "eta_seconds": rem_sec,
-                                "eta_text": eta_t,
-                                "stage": "Скачивание GGUF",
-                                "message": f"Скачано {cur_mb} из {target_total} МБ ({cur_p}%) | {spd} МБ/с | Осталось: {eta_t}"
-                            })
-                threading.Thread(target=_ticker, daemon=True).start()
-                try:
-                    sel_path = gguf_mod.download_gguf(repo_id, sel)
-                finally:
-                    stop_ticker = True
+                repo_id = gguf_mod.find_gguf_repo(model_id)
                 if self._cancel_load or seq_id != self._load_seq:
                     return
+                if not repo_id:
+                    _fail("GGUF не найден", f"Для {model_id} не нашёл готовый GGUF-репозиторий на Hugging Face. Попробуйте модель с официально выложенным GGUF (например, Qwen или Gemma).")
+                    return
+                files = gguf_mod.list_gguf_files(repo_id)
+                if self._cancel_load or seq_id != self._load_seq:
+                    return
+                sel = gguf_mod.select_gguf_file(files, wanted_quant=fit.get("recommended"))
+                if not sel:
+                    _fail("GGUF не найден", f"В {repo_id} нет подходящего GGUF-файла (квант {fit.get('recommended')}).")
+                    return
+                total_mb = round(sel["size_bytes"] / (1024 * 1024), 1)
+                hf_home = os.environ.get("HF_HOME") or _shard_settings.models_dir()
+                hub_dir = os.path.join(hf_home, "hub", f"models--{repo_id.replace('/', '--')}")
+                sel_path = None
+                if os.path.isdir(hub_dir):
+                    found_parts = {}
+                    for root, _, fns in os.walk(hub_dir):
+                        for p in sel["parts"]:
+                            base = os.path.basename(p)
+                            if base in fns and base not in found_parts:
+                                found_parts[base] = os.path.join(root, base)
+                    if len(found_parts) == len(sel["parts"]):
+                        sel_path = found_parts[os.path.basename(sel["parts"][0])]
+                if sel_path is None:
+                    est_sec = max(5, int(total_mb / 20))
+                    eta_init = f"~{est_sec} сек" if est_sec < 60 else f"~{est_sec // 60} мин {est_sec % 60} сек"
+                    self.load_progress = {
+                        "status": "loading",
+                        "model_id": model_id,
+                        "percent": 4,
+                        "stage": "Скачивание GGUF",
+                        "curr_mb": 0,
+                        "total_mb": total_mb,
+                        "speed_mb": 0,
+                        "eta_seconds": est_sec,
+                        "eta_text": eta_init,
+                        "message": f"Скачивание {repo_id}/{sel['path']} ({total_mb:.0f} МБ, квант {sel['quant']})..."
+                    }
+                    t0 = time.time()
+                    stop_ticker = False
+                    def _ticker():
+                        nonlocal stop_ticker
+                        blobs_dir = os.path.join(hub_dir, "blobs")
+                        last_bytes = 0
+                        last_t = t0
+                        while not stop_ticker and self.status == "loading" and seq_id == self._load_seq:
+                            time.sleep(0.8)
+                            if stop_ticker or self._cancel_load:
+                                break
+                            if not os.path.isdir(blobs_dir):
+                                continue
+                            curr_bytes = 0
+                            try:
+                                for fn in os.listdir(blobs_dir):
+                                    fp = os.path.join(blobs_dir, fn)
+                                    if os.path.isfile(fp) and not fn.endswith(".incomplete"):
+                                        curr_bytes += os.path.getsize(fp)
+                            except Exception:
+                                pass
+                            if curr_bytes <= 0:
+                                continue
+                            cur_mb = round(curr_bytes / (1024 * 1024), 1)
+                            now_t = time.time()
+                            dt_int = max(0.2, now_t - last_t)
+                            spd = round(((curr_bytes - last_bytes) / (1024 * 1024)) / dt_int, 1)
+                            if spd <= 0.1:
+                                spd = round(cur_mb / max(0.5, now_t - t0), 1)
+                            last_bytes = curr_bytes
+                            last_t = now_t
+                            target_total = max(total_mb, int(cur_mb * 1.02))
+                            cur_p = min(88, max(4, int((cur_mb / target_total) * 88)))
+                            rem_sec = max(1, int((target_total - cur_mb) / max(0.5, spd)))
+                            eta_t = f"~{rem_sec} сек" if rem_sec < 60 else f"~{rem_sec // 60} мин {rem_sec % 60} сек"
+                            if self.load_progress.get("status") == "loading":
+                                self.load_progress.update({
+                                    "percent": cur_p,
+                                    "curr_mb": cur_mb,
+                                    "total_mb": target_total,
+                                    "speed_mb": spd,
+                                    "eta_seconds": rem_sec,
+                                    "eta_text": eta_t,
+                                    "stage": "Скачивание GGUF",
+                                    "message": f"Скачано {cur_mb} из {target_total} МБ ({cur_p}%) | {spd} МБ/с | Осталось: {eta_t}"
+                                })
+                    threading.Thread(target=_ticker, daemon=True).start()
+                    try:
+                        sel_path = gguf_mod.download_gguf(repo_id, sel)
+                    finally:
+                        stop_ticker = True
+                    if self._cancel_load or seq_id != self._load_seq:
+                        return
             def _runtime_progress(got, total, speed):
                 if not total:
                     if self.load_progress.get("status") == "loading":
@@ -597,8 +660,9 @@ class ShardEngine:
                             start_kw["tensor_split"] = rpc["split"]
                 except Exception:
                     start_kw = {}
+                wait_t = 360 if start_kw.get("rpc_servers") else 180
                 backend.start(sel_path, int(fit.get("ctx_tokens") or 4096), ngl, threads, model_id,
-                              server_path=server_path, wait_timeout=180, on_wait=_wait_beat,
+                              server_path=server_path, wait_timeout=wait_t, on_wait=_wait_beat,
                               **start_kw)
             except RuntimeError as e:
                 if self._cancel_load or seq_id != self._load_seq:
@@ -667,8 +731,12 @@ class ShardEngine:
                 "message": f"Модель {model_id} активна и готова к работе (GGUF {sel['quant']})."
             }
             try:
-                with open(self.active_model_file, "w", encoding="utf-8") as f:
-                    json.dump({"model_id": model_id}, f, ensure_ascii=False)
+                _storage.atomic_write_json(
+                    self.active_model_file,
+                    {"model_id": model_id, "updated_at": time.time()},
+                    fsync=True,
+                    backup=True,
+                )
             except Exception:
                 pass
         except Exception as e:
@@ -676,12 +744,38 @@ class ShardEngine:
                 return
             _fail("Ошибка загрузки GGUF", f"Сбой загрузки: {str(e)[:140]}")
     def load_model(self, model_id):
+        raw_mid = str(model_id or "").strip()
+        if not raw_mid or raw_mid.startswith("\\\\") or raw_mid.startswith("//"):
+            raise ValueError("Недопустимый идентификатор или UNC-путь модели")
         if self.model is not None and self.current_loaded_id == model_id and self.status == "ready":
             return self.loaded_info
         if self.gguf is not None and self.gguf.is_running() and self.gguf.model_id == model_id:
             return self.loaded_info
         self.active_model_id = model_id
-        fit = self._fit_for(model_id)
+        hw = _hardware.get_hardware_profile()
+        is_local_gguf = os.path.isfile(str(model_id or "")) and str(model_id).lower().endswith(".gguf")
+        is_local_dir = os.path.isdir(str(model_id or ""))
+        if is_local_gguf:
+            sz_gb = round(os.path.getsize(model_id) / (1024 ** 3), 2)
+            q_name = (gguf_mod.parse_quant_from_name(model_id) if gguf_mod else None) or "CUSTOM"
+            vram_ok = hw.get("cuda_available") and sz_gb * 1024 <= max(0, hw.get("vram_free_mb", 0))
+            verdict = "GPU" if vram_ok else "HYBRID"
+            fit = {
+                "verdict": verdict,
+                "recommended": q_name,
+                "layers": 32,
+                "ctx_tokens": 4096,
+                "ngl": 999 if vram_ok else 0,
+                "params_b": round(max(0.5, sz_gb * 1.3), 2),
+                "params_source": "local_gguf",
+                "torch_gpu_ok": False,
+                "tok_s_est": 25.0 if vram_ok else 8.0,
+                "quants": [{"quant": q_name, "ngl": 999 if vram_ok else 0, "vram_gb": sz_gb if vram_ok else 0.0, "ram_gb": 0.0 if vram_ok else sz_gb}],
+            }
+        elif is_local_dir:
+            fit = None
+        else:
+            fit = self._fit_for(model_id)
         if fit is not None and fit.get("verdict") == "IMPOSSIBLE" and not _lan_pool_fit_ok(fit):
             pres = self._verdict_presentation("IMPOSSIBLE")
             msg = fit.get("message_ru") or "Модель не подходит под ваше железо."
@@ -841,6 +935,16 @@ class ShardEngine:
         gc.collect()
         self.status = "idle"
         self.load_progress = {"status": "idle", "percent": 0, "stage": "Выгружена", "eta_text": "", "speed_mb": 0, "message": "Модель выгружена, ОЗУ и VRAM освобождены."}
+        if os.environ.get("SHARD_CLEAR_ACTIVE_ON_UNLOAD") == "1":
+            try:
+                _storage.atomic_write_json(
+                    self.active_model_file,
+                    {"model_id": "", "unloaded_at": time.time()},
+                    fsync=False,
+                    backup=True,
+                )
+            except Exception:
+                pass
         return {"status": "unloaded"}
     def _build_prompt(self, messages):
         if self.tokenizer is not None and hasattr(self.tokenizer, "apply_chat_template") and getattr(self.tokenizer, "chat_template", None):
@@ -1070,4 +1174,3 @@ class ShardEngine:
             "telemetry": telemetry
         }
 engine_instance = ShardEngine()
-
