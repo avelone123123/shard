@@ -29,3 +29,6 @@ class LocalCacheIndex:
         return self._entries
     def get_entry(self, identifier: str) -> Optional[LocalCacheEntry]:
         return self._entries.get(identifier)
+    def has_weights(self, identifier: str) -> bool:
+        entry = self.get_entry(identifier)
+        return entry is not None and entry.file_size > 0 and os.path.exists(entry.local_path)
