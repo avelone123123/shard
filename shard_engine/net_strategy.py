@@ -1448,3 +1448,688 @@ class NetworkManager:
         listing = {
             "node_id": self.identity.node_id,
             "pubkey": self.identity.pubkey_b64,
+            "name": (cfg.get("display_name") or lan.LAN.name() or socket.gethostname() or "shard")[:64],
+            "role": "server",
+            "visibility": "public",
+            "access_mode": acc,
+            "open": acc == "open",
+            "requires_invite": acc != "open",
+            "status": "online",
+            "region": cfg.get("region_hint") or "",
+            "port": lan.active_http_port(),
+            "participant_count": active_peers,
+            "max_participants": max_p,
+            "slots_available": max(0, max_p - active_peers),
+            "load": self._current_load_value(),
+            "relays": list(cfg.get("relay_urls") or []),
+            "direct_endpoints": self._collect_direct_endpoints_for_host(),
+        }
+        model = self._current_model_name()
+        if model:
+            listing["active_model"] = model
+            listing["model"] = model
+        if self._host_models_override:
+            listing["models"] = list(self._host_models_override)
+        return listing
+    def _publish_private_commitments(self, dc):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        if cfg.get("offline_only") or not cfg.get("discovery_urls"):
+            return None
+        ha = self._host_agent
+        p2p_port = ha.bound_p2p_port if ha is not None else None
+        hint = {
+            "relays": list(cfg.get("relay_urls") or []),
+            "endpoints": self._collect_direct_endpoints_for_host(),
+            "p2p_port": p2p_port,
+            "ts": round(time.time(), 3),
+        }
+        ttl_s = int(cfg.get("listing_ttl_s") or 60)
+        last_res = None
+        for inv in self.invite_manager.list_invites(include_revoked=False):
+            if inv.get("expired") or inv.get("revoked"):
+                continue
+            rem = inv.get("remaining_uses")
+            if rem is not None and int(rem) <= 0:
+                continue
+            cm = net_discovery.commitment_for_invite(inv["invite_id"])
+            last_res = dc.publish_private_commitment(self.identity, cm, hint, ttl_s=ttl_s)
+        return last_res
+    def create_invite(self, label="", ttl_s=86400, max_uses=1, relays=None, direct_endpoints=None, discovery_urls=None):
+        inv = self.invite_manager.create_invite(label=label, ttl_s=ttl_s, max_uses=max_uses, network_id=self.identity.node_id)
+        cm = net_discovery.commitment_for_invite(inv["invite_id"])
+        uri = self.build_invite_uri(
+            invite_token=inv["raw_token"],
+            relays=relays,
+            direct_endpoints=direct_endpoints,
+            discovery_urls=discovery_urls,
+        )
+        with self._lock:
+            pub = bool(self._config.get("published"))
+            vis = self._config.get("visibility")
+            offline = bool(self._config.get("offline_only"))
+            has_disc = bool(self._config.get("discovery_urls"))
+        if pub and vis == "private" and not offline and has_disc:
+            try:
+                dc = self._make_discovery_client()
+                self._host_last_disc_res = self._publish_private_commitments(dc)
+            except Exception:
+                pass
+        inv["commitment"] = cm
+        inv["uri"] = uri
+        return inv
+    def list_invites(self, include_revoked=False):
+        return self.invite_manager.list_invites(include_revoked=include_revoked)
+    def revoke_invite(self, invite_id):
+        res = self.invite_manager.revoke_invite(invite_id)
+        if res:
+            dropped = []
+            with self._lock:
+                auth_map = self._peers_state.get("authorized_peers") or {}
+                for pid, rec in list(auth_map.items()):
+                    if isinstance(rec, dict) and rec.get("invite_id") == invite_id and not rec.get("approved_manually"):
+                        auth_map.pop(pid, None)
+                        dropped.append(pid)
+                if dropped:
+                    self._save_peers()
+            for pid in dropped:
+                self._close_peer_channels_sync(pid, reason="invite_revoked")
+        return res
+    def build_invite_uri(self, invite_token=None, name=None, relays=None, direct_endpoints=None, discovery_urls=None):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        eff_name = name if name is not None else (cfg.get("display_name") or lan.LAN.name() or "")
+        eff_relays = list(relays) if relays is not None else list(cfg.get("relay_urls") or [])
+        eff_direct = list(direct_endpoints) if direct_endpoints is not None else self._collect_direct_endpoints_for_host()
+        eff_disc = list(discovery_urls) if discovery_urls is not None else list(cfg.get("discovery_urls") or [])
+        return net_identity.pack_invite_uri(
+            self.identity.node_id,
+            invite_token=invite_token,
+            name=eff_name,
+            relays=eff_relays,
+            direct_endpoints=eff_direct,
+            discovery_urls=eff_disc,
+        )
+    def _stop_host_heartbeat(self):
+        self._host_hb_stop.set()
+        th = self._host_hb_thread
+        self._host_hb_thread = None
+        if th is not None and th.is_alive() and th is not threading.current_thread():
+            th.join(timeout=2.5)
+    def _start_host_heartbeat(self):
+        self._stop_host_heartbeat()
+        self._host_hb_stop.clear()
+        th = threading.Thread(target=self._host_hb_loop, daemon=True)
+        self._host_hb_thread = th
+        th.start()
+    def _host_hb_loop(self):
+        while not self._host_hb_stop.is_set():
+            with self._lock:
+                cfg = copy.deepcopy(self._config)
+            interval = max(5.0, float(cfg.get("heartbeat_interval_s") or 25.0))
+            if self._host_hb_stop.wait(interval):
+                break
+            with self._lock:
+                cfg = copy.deepcopy(self._config)
+            if not cfg.get("published") or cfg.get("offline_only") or cfg.get("visibility") == "local" or not cfg.get("discovery_urls"):
+                continue
+            try:
+                dc = self._make_discovery_client()
+                if cfg.get("visibility") == "public":
+                    ha = self._host_agent
+                    active_peers = ha.active_peer_count if ha is not None else 0
+                    max_p = int(cfg.get("max_participants") or 16)
+                    res = dc.heartbeat_server(
+                        self.identity,
+                        active_model=self._current_model_name(),
+                        status="online",
+                        slots_available=max(0, max_p - active_peers),
+                        participant_count=active_peers,
+                        max_participants=max_p,
+                        load=self._current_load_value(),
+                        ttl_s=int(cfg.get("listing_ttl_s") or 60),
+                    )
+                    if not res.get("ok") and any(r.get("status_code") == 404 for r in res.get("results") or []):
+                        res = dc.register_server(self.identity, self._build_public_listing(), ttl_s=int(cfg.get("listing_ttl_s") or 60))
+                    self._host_last_disc_res = res
+                elif cfg.get("visibility") == "private":
+                    self._host_last_disc_res = self._publish_private_commitments(dc)
+                self._host_last_hb_at = time.time()
+            except Exception:
+                pass
+    def publish_server(
+        self,
+        name=None,
+        visibility=None,
+        access_mode=None,
+        max_participants=None,
+        direct_p2p_port=None,
+        region=None,
+        model=None,
+        models=None,
+        relays=None,
+        discovery_urls=None,
+        bandwidth_kbps=None,
+        offline_only=None,
+        allow_insecure_local=None,
+        asgi_app=None,
+        local_http_url=None,
+        access_policy=None,
+        max_peers=None,
+        direct_port=None,
+        **kwargs,
+    ):
+        if kwargs:
+            raise TypeError(f"publish_server() got unexpected keyword argument(s): {', '.join(sorted(kwargs.keys()))}")
+        if access_mode is None and access_policy is not None:
+            access_mode = access_policy
+        if max_participants is None and max_peers is not None:
+            max_participants = max_peers
+        if direct_p2p_port is None and direct_port is not None:
+            direct_p2p_port = direct_port
+        patch = {}
+        if name is not None:
+            patch["display_name"] = name
+        if visibility is not None:
+            patch["visibility"] = visibility
+        if access_mode is not None:
+            patch["access_mode"] = access_mode
+        if max_participants is not None:
+            patch["max_participants"] = max_participants
+        if direct_p2p_port is not None:
+            patch["direct_p2p_port"] = direct_p2p_port
+        if region is not None:
+            patch["region_hint"] = region
+        if relays is not None:
+            patch["relay_urls"] = relays
+        if discovery_urls is not None:
+            patch["discovery_urls"] = discovery_urls
+        if bandwidth_kbps is not None:
+            patch["bandwidth_kbps"] = bandwidth_kbps
+        if offline_only is not None:
+            patch["offline_only"] = offline_only
+        if allow_insecure_local is not None:
+            patch["allow_insecure_local"] = allow_insecure_local
+        if patch:
+            self.configure(patch)
+        if model is not None:
+            self._host_model_override = str(model).strip() or None
+        if models is not None:
+            self._host_models_override = list(models)
+        self._stop_host_heartbeat()
+        if self._host_agent is not None:
+            try:
+                self._runner.run_coro(self._host_agent.stop(), timeout=6.0)
+            except Exception:
+                pass
+            self._host_agent = None
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        vis = cfg.get("visibility")
+        offline = bool(cfg.get("offline_only"))
+        use_external = (vis != "local") and (not offline)
+        eff_relays = list(cfg.get("relay_urls") or []) if use_external else []
+        p2p_port = int(cfg.get("direct_p2p_port") or 0) if cfg.get("allow_p2p_direct", True) else None
+        eff_asgi = asgi_app if asgi_app is not None else self._asgi_app
+        eff_http = local_http_url or self._local_http_url_override or cfg.get("local_http_url") or None
+        if eff_asgi is None and not eff_http:
+            eff_http = f"http://127.0.0.1:{lan.active_http_port()}"
+        ha = net_tunnel.HostTunnelAgent(
+            identity=self.identity,
+            asgi_app=eff_asgi,
+            local_http_url=None if eff_asgi is not None else eff_http,
+            p2p_host="0.0.0.0",
+            p2p_port=p2p_port,
+            relay_urls=eff_relays,
+            relay_auth_token=(cfg.get("relay_auth_token") or None),
+            peer_authorizer=self._authorize_peer,
+            on_http_request=self._on_host_http_request,
+            rpc_allowed_ports=tuple(cfg.get("rpc_allowed_ports") or ()),
+            allow_insecure_local=bool(cfg.get("allow_insecure_local")),
+            max_tunnels=int(cfg.get("max_participants") or 16),
+        )
+        self._runner.run_coro(ha.start(), timeout=8.0)
+        self._host_agent = ha
+        if use_external and eff_relays:
+            deadline = time.monotonic() + 2.5
+            while time.monotonic() < deadline:
+                if any(ha._relay_connected.values()):
+                    break
+                time.sleep(0.05)
+        with self._lock:
+            self._config["published"] = True
+            self._save_config()
+        if use_external and cfg.get("discovery_urls"):
+            dc = self._make_discovery_client()
+            if vis == "public":
+                self._host_last_disc_res = dc.register_server(self.identity, self._build_public_listing(), ttl_s=int(cfg.get("listing_ttl_s") or 60))
+            elif vis == "private":
+                self._host_last_disc_res = self._publish_private_commitments(dc)
+            self._host_last_hb_at = time.time()
+            self._start_host_heartbeat()
+        else:
+            self._host_last_disc_res = {"status": "local_only" if vis == "local" else ("offline" if offline else "no_endpoints"), "ok": True}
+        return self.host_status()
+    def unpublish_server(self):
+        self._stop_host_heartbeat()
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        if cfg.get("visibility") == "public" and not cfg.get("offline_only") and cfg.get("discovery_urls"):
+            try:
+                dc = self._make_discovery_client()
+                self._host_last_disc_res = dc.unregister_server(self.identity)
+            except Exception:
+                pass
+        if self._host_agent is not None:
+            try:
+                self._runner.run_coro(self._host_agent.stop(), timeout=6.0)
+            except Exception:
+                pass
+            self._host_agent = None
+        with self._lock:
+            self._config["published"] = False
+            self._save_config()
+        return {"status": "ok", "published": False}
+    def host_status(self):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+            pend_cnt = len(self._peers_state.get("pending_peers") or {})
+            rev_cnt = len(self._peers_state.get("revoked_peers") or {})
+        ha = self._host_agent
+        ha_st = ha.status() if ha is not None else {"p2p_port": None, "relays": {}, "active_peers": 0, "last_error": None}
+        return {
+            "published": bool(cfg.get("published")),
+            "node_id": self.identity.node_id,
+            "pubkey_b64": self.identity.pubkey_b64,
+            "display_name": cfg.get("display_name") or lan.LAN.name(),
+            "visibility": cfg.get("visibility"),
+            "access_mode": cfg.get("access_mode"),
+            "access_policy": cfg.get("access_policy"),
+            "offline_only": bool(cfg.get("offline_only")),
+            "max_participants": cfg.get("max_participants"),
+            "direct_p2p_port": ha_st.get("p2p_port"),
+            "relay_urls": list(cfg.get("relay_urls") or []),
+            "relays_connected": ha_st.get("relays") or {},
+            "discovery_urls": list(cfg.get("discovery_urls") or []),
+            "active_peers": ha_st.get("active_peers", 0),
+            "connected_peers": self.list_connected_peers(),
+            "pending_peers": self.list_pending_peers(),
+            "pending_peers_count": pend_cnt,
+            "revoked_peers_count": rev_cnt,
+            "last_discovery_result": copy.deepcopy(self._host_last_disc_res),
+            "last_heartbeat_at": self._host_last_hb_at,
+            "last_error": ha_st.get("last_error"),
+        }
+    def discover_servers(self, q="", model="", region="", access="", sort="activity", limit=100, online_only=True):
+        with self._lock:
+            offline = bool(self._config.get("offline_only"))
+        if offline:
+            return {"status": "offline", "servers": [], "count": 0, "dropped": 0, "endpoints": [], "offline_only": True}
+        dc = self._make_discovery_client()
+        return dc.fetch_servers(q=q, model=model, region=region, access=access, sort=sort, limit=limit, online_only=online_only)
+    def lookup_server(self, node_id, invite_token=None, discovery_urls=None):
+        with self._lock:
+            offline = bool(self._config.get("offline_only"))
+        if offline:
+            return None
+        dc = self._make_discovery_client(extra_urls=discovery_urls)
+        result = {"node_id": str(node_id or "").strip(), "public": None, "private": None}
+        if invite_token:
+            m = _INVITE_ID_RE.match(str(invite_token).strip())
+            if m:
+                cm = net_discovery.commitment_for_invite(m.group(1))
+                result["private"] = dc.lookup_private_commitment(cm, expected_node_id=result["node_id"] or None)
+        if result["node_id"] and net_identity.NODE_ID_RE.match(result["node_id"]):
+            result["public"] = dc.lookup_node(result["node_id"])
+        if result["public"] is None and result["private"] is None:
+            return None
+        return result
+    def connect(
+        self,
+        target,
+        invite_token=None,
+        preferred_mode="auto",
+        direct_port=None,
+        verify_node_id=None,
+        auth_proof=None,
+        discovery_urls=None,
+        relay_urls=None,
+        reconnect=True,
+        mode=None,
+        **kwargs,
+    ):
+        if kwargs:
+            raise TypeError(f"connect() got unexpected keyword argument(s): {', '.join(sorted(kwargs.keys()))}")
+        if mode is not None:
+            preferred_mode = mode
+        parsed = parse_connect_target(target, default_port=direct_port)
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        offline = bool(cfg.get("offline_only"))
+        allow_local = bool(cfg.get("allow_insecure_local"))
+        eff_token = invite_token if invite_token is not None else auth_proof
+        if eff_token is None and parsed.get("invite_token"):
+            eff_token = parsed["invite_token"]
+        target_nid = verify_node_id or parsed.get("node_id")
+        direct_eps = []
+        http_eps = []
+        relays = list(relay_urls or ())
+        server_info = {"target": str(target)}
+        if parsed["kind"] == "shard_uri":
+            server_info["name"] = parsed.get("name") or ""
+            for ep in parsed.get("direct_endpoints") or ():
+                if ep not in direct_eps:
+                    direct_eps.append(ep)
+            for r in parsed.get("relays") or ():
+                if r not in relays:
+                    relays.append(r)
+            uri_disc = list(parsed.get("discovery_urls") or ())
+            if not offline and (uri_disc or discovery_urls or cfg.get("discovery_urls")):
+                lu = self.lookup_server(target_nid, invite_token=eff_token, discovery_urls=list(discovery_urls or ()) + uri_disc)
+                if lu:
+                    priv = lu.get("private") or {}
+                    hint = priv.get("hint") if isinstance(priv.get("hint"), dict) else {}
+                    for ep in hint.get("endpoints") or ():
+                        if ep not in direct_eps:
+                            direct_eps.append(ep)
+                    for r in hint.get("relays") or ():
+                        if r not in relays:
+                            relays.append(r)
+                    pub = lu.get("public") or {}
+                    listing = pub.get("listing") if isinstance(pub.get("listing"), dict) else {}
+                    if listing:
+                        server_info["name"] = server_info.get("name") or listing.get("name")
+                        server_info["model"] = listing.get("active_model") or listing.get("model")
+                        for ep in listing.get("direct_endpoints") or listing.get("endpoints") or ():
+                            if ep not in direct_eps:
+                                direct_eps.append(ep)
+                        for r in listing.get("relays") or ():
+                            if r not in relays:
+                                relays.append(r)
+        elif parsed["kind"] == "node_id":
+            if not offline and (discovery_urls or cfg.get("discovery_urls")):
+                lu = self.lookup_server(target_nid, invite_token=eff_token, discovery_urls=discovery_urls)
+                if lu:
+                    priv = lu.get("private") or {}
+                    hint = priv.get("hint") if isinstance(priv.get("hint"), dict) else {}
+                    for ep in hint.get("endpoints") or ():
+                        if ep not in direct_eps:
+                            direct_eps.append(ep)
+                    for r in hint.get("relays") or ():
+                        if r not in relays:
+                            relays.append(r)
+                    pub = lu.get("public") or {}
+                    listing = pub.get("listing") if isinstance(pub.get("listing"), dict) else {}
+                    if listing:
+                        server_info["name"] = listing.get("name")
+                        server_info["model"] = listing.get("active_model") or listing.get("model")
+                        for ep in listing.get("direct_endpoints") or listing.get("endpoints") or ():
+                            if ep not in direct_eps:
+                                direct_eps.append(ep)
+                        for r in listing.get("relays") or ():
+                            if r not in relays:
+                                relays.append(r)
+                        if listing.get("ip") and listing.get("port"):
+                            http_eps.append(f"http://{listing['ip']}:{listing['port']}")
+        elif parsed["kind"] == "relay":
+            if parsed["relay_url"] not in relays:
+                relays.append(parsed["relay_url"])
+        elif parsed["kind"] == "http":
+            http_eps.append(parsed["url"])
+            if direct_port and parsed.get("host"):
+                direct_eps.append(f"{parsed['host']}:{int(direct_port)}")
+        elif parsed["kind"] == "host_port":
+            host = parsed["host"]
+            port = parsed["port"] or (int(direct_port) if direct_port else lan.active_http_port())
+            ep = f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+            if target_nid:
+                direct_eps.append(ep)
+            http_eps.append(f"http://{ep}")
+        for cfg_r in cfg.get("relay_urls") or ():
+            if cfg_r not in relays:
+                relays.append(cfg_r)
+        if direct_port and target_nid and not direct_eps and parsed.get("host"):
+            h = parsed["host"]
+            direct_eps.append(f"[{h}]:{int(direct_port)}" if ":" in h else f"{h}:{int(direct_port)}")
+        self.disconnect()
+        self._client_state = TunnelState.CONNECTING.value
+        res = resolve_and_connect(
+            identity=self.identity,
+            target_host_id=target_nid,
+            direct_endpoints=direct_eps,
+            http_endpoints=http_eps,
+            relay_urls=relays,
+            auth_proof=eff_token,
+            preferred_mode=preferred_mode,
+            offline_only=offline,
+            allow_relay_fallback=bool(cfg.get("allow_relay_fallback", True)),
+            allow_p2p_direct=bool(cfg.get("allow_p2p_direct", True)),
+            allow_insecure_local=allow_local,
+            reconnect=bool(reconnect),
+            verify_node_id=verify_node_id,
+            runner=self._runner,
+        )
+        now = time.time()
+        if res.get("ok"):
+            peer_nid = res.get("peer_node_id") or target_nid
+            peer_pub = None
+            if res.get("agent") is not None and res["agent"]._channel is not None:
+                peer_pub = res["agent"]._channel.peer_pubkey_b64
+            if peer_nid:
+                try:
+                    self._record_tofu_pin(
+                        peer_nid,
+                        pubkey_b64=peer_pub,
+                        name=server_info.get("name"),
+                        mode=res.get("mode"),
+                        endpoint=res.get("endpoint"),
+                    )
+                except net_tunnel.TunnelAuthError as exc:
+                    if res.get("agent") is not None:
+                        try:
+                            self._runner.run_coro(res["agent"].disconnect(), timeout=4.0)
+                        except Exception:
+                            pass
+                    self._client_state = TunnelState.FAILED.value
+                    self._client_last_error = str(exc)
+                    return {"ok": False, "state": TunnelState.FAILED.value, "reason": str(exc), "attempts": res.get("attempts", [])}
+            self._client_agent = res.get("agent")
+            self._client_state = res["state"]
+            self._client_mode = res["mode"]
+            self._client_path_type = res["path_type"]
+            self._client_endpoint = res["endpoint"]
+            self._client_relay_url = res.get("relay_url")
+            self._client_local_url = res.get("local_url")
+            self._client_rtt_ms = res.get("rtt_ms")
+            self._client_peer_node_id = peer_nid
+            boot = res.get("bootstrap")
+            if isinstance(boot, dict):
+                server_info["name"] = server_info.get("name") or boot.get("server_name")
+                server_info["model"] = server_info.get("model") or boot.get("active_model")
+                server_info["is_loaded"] = boot.get("is_loaded")
+            server_info["node_id"] = peer_nid
+            server_info["endpoint"] = res["endpoint"]
+            self._client_server_info = server_info
+            self._client_attempts = list(res.get("attempts") or [])
+            self._client_last_error = None
+            self._client_alternatives = []
+            self._append_history({
+                "target": str(target),
+                "node_id": peer_nid,
+                "name": server_info.get("name") or "",
+                "mode": res["mode"],
+                "path_type": res["path_type"],
+                "endpoint": res["endpoint"],
+                "relay_url": res.get("relay_url"),
+                "rtt_ms": res.get("rtt_ms"),
+                "ok": True,
+                "connected_at": now,
+                "disconnected_at": None,
+                "reason": "ok",
+            })
+            return self.status()
+        self._client_agent = None
+        self._client_state = TunnelState.FAILED.value
+        self._client_mode = None
+        self._client_path_type = None
+        self._client_endpoint = None
+        self._client_relay_url = None
+        self._client_local_url = None
+        self._client_rtt_ms = None
+        self._client_peer_node_id = target_nid
+        self._client_server_info = server_info
+        self._client_attempts = list(res.get("attempts") or [])
+        self._client_last_error = res.get("reason")
+        self._client_alternatives = list(res.get("alternatives") or [])
+        self._append_history({
+            "target": str(target),
+            "node_id": target_nid,
+            "name": server_info.get("name") or "",
+            "mode": None,
+            "path_type": None,
+            "endpoint": None,
+            "relay_url": None,
+            "rtt_ms": None,
+            "ok": False,
+            "connected_at": now,
+            "disconnected_at": now,
+            "reason": res.get("reason"),
+        })
+        st = self.status()
+        st["ok"] = False
+        return st
+    def disconnect(self):
+        ag = self._client_agent
+        self._client_agent = None
+        if ag is not None:
+            try:
+                self._runner.run_coro(ag.disconnect(), timeout=5.0)
+            except Exception:
+                pass
+        was_conn = self._client_state in (TunnelState.CONNECTED.value, TunnelState.RELAY_CONNECTED.value, TunnelState.RECONNECTING.value)
+        if was_conn:
+            with self._lock:
+                hist = self._peers_state.get("connection_history") or []
+                for item in reversed(hist):
+                    if isinstance(item, dict) and item.get("ok") and item.get("disconnected_at") is None:
+                        item["disconnected_at"] = time.time()
+                        break
+                self._save_peers()
+        self._client_state = TunnelState.DISCONNECTED.value
+        self._client_mode = None
+        self._client_path_type = None
+        self._client_endpoint = None
+        self._client_relay_url = None
+        self._client_local_url = None
+        self._client_rtt_ms = None
+        return self.status()
+    def status(self):
+        with self._lock:
+            cfg = self.get_config(include_secrets=False)
+            hist = copy.deepcopy(self._peers_state.get("connection_history") or [])
+            pins = copy.deepcopy(self._peers_state.get("tofu_pins") or {})
+        ag = self._client_agent
+        bytes_tx = 0
+        bytes_rx = 0
+        state = self._client_state
+        mode = self._client_mode
+        local_url = self._client_local_url
+        rtt_ms = self._client_rtt_ms
+        relay_url = self._client_relay_url
+        last_err = self._client_last_error
+        if ag is not None:
+            ast = ag.status()
+            state = ast.get("state") or state
+            mode = ast.get("mode") or mode
+            local_url = ast.get("local_url") or local_url
+            rtt_ms = ast.get("rtt_ms") if ast.get("rtt_ms") is not None else rtt_ms
+            relay_url = ast.get("relay_url") or relay_url
+            bytes_tx = int(ast.get("bytes_tx") or 0)
+            bytes_rx = int(ast.get("bytes_rx") or 0)
+            if ast.get("last_error"):
+                last_err = ast["last_error"]
+        ok = state in (TunnelState.CONNECTED.value, TunnelState.RELAY_CONNECTED.value)
+        return {
+            "ok": ok,
+            "state": state,
+            "mode": mode,
+            "path_type": self._client_path_type,
+            "active_path": {
+                "path_type": self._client_path_type,
+                "endpoint": self._client_endpoint,
+                "mode": mode,
+                "relay_url": relay_url,
+            },
+            "local_url": local_url,
+            "rtt_ms": rtt_ms,
+            "bytes_tx": bytes_tx,
+            "bytes_rx": bytes_rx,
+            "server": copy.deepcopy(self._client_server_info),
+            "relay_url": relay_url,
+            "attempts": copy.deepcopy(self._client_attempts),
+            "peer_node_id": self._client_peer_node_id,
+            "node_id": self.identity.node_id,
+            "offline_only": bool(cfg.get("offline_only")),
+            "last_error": last_err,
+            "reason": last_err if not ok else "ok",
+            "alternatives": copy.deepcopy(self._client_alternatives),
+            "history": hist[-20:],
+            "tofu_pins": pins,
+            "host": {
+                "published": bool(cfg.get("published")),
+                "visibility": cfg.get("visibility"),
+                "access_mode": cfg.get("access_mode"),
+                "p2p_port": self._host_agent.bound_p2p_port if self._host_agent is not None else None,
+                "active_peers": self._host_agent.active_peer_count if self._host_agent is not None else 0,
+                "pending_peers_count": len(self._peers_state.get("pending_peers") or {}),
+                "relays": dict(self._host_agent._relay_connected) if self._host_agent is not None else {},
+            },
+            "config": cfg,
+        }
+    def diagnostics(self, probe_public=False, include_platform=True, include_wireguard=True):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        return network_diagnostics(
+            probe_public=probe_public,
+            offline_only=bool(cfg.get("offline_only")),
+            stun_servers=cfg.get("stun_servers"),
+            include_platform=include_platform,
+            include_wireguard=include_wireguard,
+        )
+    def shutdown(self):
+        try:
+            self.disconnect()
+        except Exception:
+            pass
+        try:
+            self.unpublish_server()
+        except Exception:
+            pass
+        self._runner.stop()
+_DEFAULT_MANAGER_LOCK = threading.Lock()
+_DEFAULT_MANAGER = None
+def get_network_manager(**kwargs):
+    global _DEFAULT_MANAGER
+    with _DEFAULT_MANAGER_LOCK:
+        if _DEFAULT_MANAGER is None:
+            _DEFAULT_MANAGER = NetworkManager(**kwargs)
+        return _DEFAULT_MANAGER
+__all__ = [
+    "DEFAULT_STUN_SERVERS",
+    "PATH_PRIORITY",
+    "VALID_VISIBILITY",
+    "VALID_ACCESS_MODES",
+    "VALID_CONNECT_MODES",
+    "TunnelState",
+    "default_network_config",
+    "classify_endpoint_path",
+    "parse_connect_target",
+    "stun_nat_profile",
+    "udp_punch_exchange",
+    "probe_direct_http",
+    "probe_direct_e2e_tcp",
+    "resolve_and_connect",
+    "network_diagnostics",
+    "NetworkManager",
+    "get_network_manager",
+]
