@@ -30,6 +30,7 @@ def models_dir():
     custom = (_load().get("models_dir") or "").strip()
     if custom:
         try:
+            os.makedirs(custom, exist_ok=True)
             return custom
         except Exception:
             pass
