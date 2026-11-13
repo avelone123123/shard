@@ -848,3 +848,603 @@ class NetworkManager:
         load_provider=None,
         status_provider=None,
     ):
+        self._lock = threading.RLock()
+        self._config_path_override = os.path.abspath(os.fspath(config_path)) if config_path else None
+        self._peers_path_override = os.path.abspath(os.fspath(peers_path)) if peers_path else None
+        self._identity_path_override = os.path.abspath(os.fspath(identity_path)) if identity_path else None
+        self._invites_path_override = os.path.abspath(os.fspath(invites_path)) if invites_path else None
+        self._asgi_app = asgi_app
+        self._local_http_url_override = local_http_url
+        self._model_provider = model_provider
+        self._load_provider = load_provider
+        self._status_provider = status_provider
+        self._identity = None
+        self._invites = None
+        self._runner = _LoopRunner()
+        self._config = self._load_config()
+        self._peers_state = self._load_peers()
+        self._host_agent = None
+        self._host_hb_stop = threading.Event()
+        self._host_hb_thread = None
+        self._host_last_disc_res = None
+        self._host_last_hb_at = None
+        self._host_model_override = None
+        self._host_models_override = None
+        self._client_agent = None
+        self._client_state = TunnelState.READY.value
+        self._client_mode = None
+        self._client_path_type = None
+        self._client_endpoint = None
+        self._client_relay_url = None
+        self._client_local_url = None
+        self._client_rtt_ms = None
+        self._client_peer_node_id = None
+        self._client_server_info = None
+        self._client_attempts = []
+        self._client_last_error = None
+        self._client_alternatives = []
+        self._peer_req_windows = {}
+        self._peer_bw_windows = {}
+    def _config_path(self):
+        return self._config_path_override or paths.network_config_file()
+    def _peers_path(self):
+        return self._peers_path_override or paths.network_peers_file()
+    @property
+    def identity(self):
+        with self._lock:
+            if self._identity is None:
+                self._identity = net_identity.NodeIdentity(identity_path=self._identity_path_override)
+            return self._identity
+    @property
+    def invite_manager(self):
+        with self._lock:
+            if self._invites is None:
+                self._invites = net_identity.InviteManager(invites_path=self._invites_path_override)
+            return self._invites
+    def _load_config(self):
+        p = self._config_path()
+        default = default_network_config()
+        data = storage.read_json_safe(p, default=default, expected_type=dict, quarantine=True, use_backup=True)
+        if not isinstance(data, dict):
+            return default
+        merged = copy.deepcopy(default)
+        merged.update(data)
+        try:
+            merged["visibility"] = _normalize_visibility(merged.get("visibility"))
+        except ValueError:
+            merged["visibility"] = "private"
+        try:
+            acc = _normalize_access_mode(merged.get("access_mode") or merged.get("access_policy"))
+        except ValueError:
+            acc = "invite_only"
+        merged["access_mode"] = acc
+        merged["access_policy"] = acc
+        mp = int(merged.get("max_participants") or merged.get("max_peers") or 16)
+        mp = max(1, min(128, mp))
+        merged["max_participants"] = mp
+        merged["max_peers"] = mp
+        merged["published"] = False
+        return merged
+    def _save_config(self):
+        with self._lock:
+            snap = copy.deepcopy(self._config)
+        p = self._config_path()
+        storage.atomic_write_json(p, snap, indent=2, fsync=True, backup=True, restrict=True)
+    def _load_peers(self):
+        p = self._peers_path()
+        default = _default_peers_state()
+        data = storage.read_json_safe(p, default=default, expected_type=dict, quarantine=True, use_backup=True)
+        if not isinstance(data, dict):
+            return default
+        out = copy.deepcopy(default)
+        for key in ("tofu_pins", "authorized_peers", "pending_peers", "revoked_peers"):
+            if isinstance(data.get(key), dict):
+                out[key] = data[key]
+        if isinstance(data.get("connection_history"), list):
+            out["connection_history"] = data["connection_history"][-100:]
+        return out
+    def _save_peers(self):
+        with self._lock:
+            snap = copy.deepcopy(self._peers_state)
+        p = self._peers_path()
+        storage.atomic_write_json(p, snap, indent=2, fsync=True, backup=True, restrict=True)
+    def _validate_service_urls(self, urls, kind, allow_insecure_local):
+        valid = []
+        rejected = []
+        seen = set()
+        for raw in urls or ():
+            s = str(raw or "").strip()
+            if not s:
+                continue
+            ok, reason, info = net_identity.validate_external_service_url(s, kind=kind, allow_insecure_local=allow_insecure_local)
+            if not ok:
+                rejected.append({"url": s, "reason": reason})
+                continue
+            norm = (info.get("url") or s).strip().rstrip("/")
+            if norm not in seen:
+                seen.add(norm)
+                valid.append(norm)
+        return valid, rejected
+    def _make_discovery_client(self, extra_urls=None):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        allow_local = bool(cfg.get("allow_insecure_local"))
+        offline = bool(cfg.get("offline_only"))
+        raw_urls = list(cfg.get("discovery_urls") or [])
+        for u in extra_urls or ():
+            if u and u not in raw_urls:
+                raw_urls.append(u)
+        valid_urls, _ = self._validate_service_urls(raw_urls, "discovery", allow_local)
+        tokens = dict(cfg.get("discovery_auth_tokens") or {})
+        dc = net_discovery.DiscoveryClient(urls=[], offline_only=offline, auth_tokens=tokens)
+        if not offline:
+            dc.urls = valid_urls
+        return dc
+    def get_config(self, include_secrets=False):
+        with self._lock:
+            out = copy.deepcopy(self._config)
+        if not include_secrets:
+            out["discovery_auth_tokens"] = {}
+            out["relay_auth_token"] = ""
+        return out
+    def set_discovery_urls(self, urls, auth_tokens=None):
+        with self._lock:
+            allow_local = bool(self._config.get("allow_insecure_local"))
+        valid, rejected = self._validate_service_urls(urls, "discovery", allow_local)
+        with self._lock:
+            self._config["discovery_urls"] = valid
+            if isinstance(auth_tokens, dict):
+                self._config["discovery_auth_tokens"] = {str(k).strip().rstrip("/"): str(v).strip() for k, v in auth_tokens.items() if str(v or "").strip()}
+            self._save_config()
+            cfg = copy.deepcopy(self._config)
+        return {"status": "ok", "discovery_urls": valid, "rejected_urls": rejected, "config": cfg}
+    def set_relay_urls(self, urls, auth_token=None):
+        with self._lock:
+            allow_local = bool(self._config.get("allow_insecure_local"))
+        valid, rejected = self._validate_service_urls(urls, "relay", allow_local)
+        with self._lock:
+            self._config["relay_urls"] = valid
+            if auth_token is not None:
+                self._config["relay_auth_token"] = str(auth_token or "").strip()
+            self._save_config()
+            cfg = copy.deepcopy(self._config)
+        return {"status": "ok", "relay_urls": valid, "rejected_urls": rejected, "config": cfg}
+    def configure(self, patch=None, **kwargs):
+        updates = {}
+        if isinstance(patch, dict):
+            updates.update(patch)
+        updates.update(kwargs)
+        rejected = []
+        with self._lock:
+            cand = copy.deepcopy(self._config)
+            if "allow_insecure_local" in updates and updates["allow_insecure_local"] is not None:
+                cand["allow_insecure_local"] = bool(updates["allow_insecure_local"])
+            allow_local = bool(cand.get("allow_insecure_local"))
+            if "discovery_urls" in updates and updates["discovery_urls"] is not None:
+                valid_d, rej_d = self._validate_service_urls(updates["discovery_urls"], "discovery", allow_local)
+                cand["discovery_urls"] = valid_d
+                rejected.extend(rej_d)
+            if "relay_urls" in updates and updates["relay_urls"] is not None:
+                valid_r, rej_r = self._validate_service_urls(updates["relay_urls"], "relay", allow_local)
+                cand["relay_urls"] = valid_r
+                rejected.extend(rej_r)
+            if "discovery_auth_tokens" in updates and isinstance(updates["discovery_auth_tokens"], dict):
+                cand["discovery_auth_tokens"] = {str(k).strip().rstrip("/"): str(v).strip() for k, v in updates["discovery_auth_tokens"].items() if str(v or "").strip()}
+            if "relay_auth_token" in updates and updates["relay_auth_token"] is not None:
+                cand["relay_auth_token"] = str(updates["relay_auth_token"] or "").strip()
+            if "stun_servers" in updates and updates["stun_servers"] is not None:
+                parsed_stun = _parse_stun_servers(updates["stun_servers"])
+                cand["stun_servers"] = [f"{h}:{p}" for h, p in parsed_stun]
+            for bkey in ("offline_only", "allow_relay_fallback", "allow_p2p_direct", "wg_enabled"):
+                if bkey in updates and updates[bkey] is not None:
+                    cand[bkey] = bool(updates[bkey])
+            if "direct_p2p_port" in updates and updates["direct_p2p_port"] is not None:
+                p = int(updates["direct_p2p_port"])
+                if not (0 <= p <= 65535):
+                    raise ValueError("direct_p2p_port must be 0..65535")
+                cand["direct_p2p_port"] = p
+            if "local_http_url" in updates and updates["local_http_url"] is not None:
+                cand["local_http_url"] = str(updates["local_http_url"] or "").strip()
+            if "region_hint" in updates and updates["region_hint"] is not None:
+                cand["region_hint"] = str(updates["region_hint"] or "").strip()[:32]
+            if "display_name" in updates and updates["display_name"] is not None:
+                cand["display_name"] = str(updates["display_name"] or "").strip()[:64]
+            if "visibility" in updates and updates["visibility"] is not None:
+                cand["visibility"] = _normalize_visibility(updates["visibility"])
+            if "access_mode" in updates and updates["access_mode"] is not None:
+                acc = _normalize_access_mode(updates["access_mode"])
+                cand["access_mode"] = acc
+                cand["access_policy"] = acc
+            elif "access_policy" in updates and updates["access_policy"] is not None:
+                acc = _normalize_access_mode(updates["access_policy"])
+                cand["access_mode"] = acc
+                cand["access_policy"] = acc
+            if "max_participants" in updates and updates["max_participants"] is not None:
+                mp = int(updates["max_participants"])
+                if not (1 <= mp <= 128):
+                    raise ValueError("max_participants must be 1..128")
+                cand["max_participants"] = mp
+                cand["max_peers"] = mp
+            elif "max_peers" in updates and updates["max_peers"] is not None:
+                mp = int(updates["max_peers"])
+                if not (1 <= mp <= 128):
+                    raise ValueError("max_peers must be 1..128")
+                cand["max_participants"] = mp
+                cand["max_peers"] = mp
+            if "bandwidth_kbps" in updates and updates["bandwidth_kbps"] is not None:
+                cand["bandwidth_kbps"] = max(0, int(updates["bandwidth_kbps"]))
+            if "per_peer_rpm" in updates and updates["per_peer_rpm"] is not None:
+                cand["per_peer_rpm"] = max(0, int(updates["per_peer_rpm"]))
+            if "wg_interface" in updates and updates["wg_interface"] is not None:
+                cand["wg_interface"] = net_wireguard.validate_profile_name(str(updates["wg_interface"]).strip())
+            if "heartbeat_interval_s" in updates and updates["heartbeat_interval_s"] is not None:
+                cand["heartbeat_interval_s"] = max(5.0, min(120.0, float(updates["heartbeat_interval_s"])))
+            if "listing_ttl_s" in updates and updates["listing_ttl_s"] is not None:
+                cand["listing_ttl_s"] = max(15, min(120, int(updates["listing_ttl_s"])))
+            if "rpc_allowed_ports" in updates and updates["rpc_allowed_ports"] is not None:
+                cand["rpc_allowed_ports"] = [int(p) for p in updates["rpc_allowed_ports"] if 1 <= int(p) <= 65535]
+            self._config = cand
+            self._save_config()
+            out_cfg = copy.deepcopy(self._config)
+        return {"status": "ok", "config": out_cfg, "rejected_urls": rejected}
+    def _record_tofu_pin(self, node_id, pubkey_b64=None, name=None, mode=None, endpoint=None):
+        if not node_id or not net_identity.NODE_ID_RE.match(str(node_id)):
+            return
+        now = time.time()
+        with self._lock:
+            pins = self._peers_state.setdefault("tofu_pins", {})
+            prev = pins.get(node_id)
+            if isinstance(prev, dict) and prev.get("pubkey_b64") and pubkey_b64 and not hmac.compare_digest(prev["pubkey_b64"], pubkey_b64):
+                raise net_tunnel.TunnelAuthError(f"TOFU pubkey mismatch for {node_id}")
+            entry = prev if isinstance(prev, dict) else {"node_id": node_id, "first_seen": now}
+            if pubkey_b64:
+                entry["pubkey_b64"] = pubkey_b64
+            if name:
+                entry["name"] = str(name)[:64]
+            if mode:
+                entry["last_mode"] = str(mode)
+            if endpoint:
+                entry["last_endpoint"] = str(endpoint)[:256]
+            entry["last_seen"] = now
+            pins[node_id] = entry
+            self._save_peers()
+    def _append_history(self, record):
+        with self._lock:
+            hist = self._peers_state.setdefault("connection_history", [])
+            hist.append(record)
+            if len(hist) > 100:
+                self._peers_state["connection_history"] = hist[-100:]
+            self._save_peers()
+    def _authorize_peer(self, peer_node_id, peer_pubkey_b64, auth_proof):
+        if not isinstance(peer_node_id, str) or not net_identity.NODE_ID_RE.match(peer_node_id):
+            return False
+        now = time.time()
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+            revoked = self._peers_state.get("revoked_peers") or {}
+            if peer_node_id in revoked:
+                return False
+            auth_map = self._peers_state.setdefault("authorized_peers", {})
+            pend_map = self._peers_state.setdefault("pending_peers", {})
+            if self._host_agent is not None:
+                other_active = {
+                    ch.peer_node_id
+                    for ch in list(self._host_agent._active_channels)
+                    if ch.is_established and ch.peer_node_id and ch.peer_node_id != peer_node_id
+                }
+                if len(other_active) >= int(cfg.get("max_participants") or 16):
+                    return False
+            existing = auth_map.get(peer_node_id)
+            if isinstance(existing, dict):
+                if existing.get("pubkey_b64") and peer_pubkey_b64 and not hmac.compare_digest(existing["pubkey_b64"], peer_pubkey_b64):
+                    return False
+            acc = _normalize_access_mode(cfg.get("access_mode"))
+            if acc == "open":
+                if isinstance(existing, dict):
+                    existing["last_seen"] = now
+                    if not existing.get("pubkey_b64") and peer_pubkey_b64:
+                        existing["pubkey_b64"] = peer_pubkey_b64
+                else:
+                    auth_map[peer_node_id] = {
+                        "node_id": peer_node_id,
+                        "pubkey_b64": peer_pubkey_b64,
+                        "approved_at": now,
+                        "invite_id": None,
+                        "grant_mode": "open",
+                        "approved_manually": False,
+                        "label": "open",
+                        "last_seen": now,
+                        "requests": 0,
+                        "max_requests_per_min": None,
+                        "bandwidth_kbps": None,
+                    }
+                pend_map.pop(peer_node_id, None)
+                self._save_peers()
+                return True
+            if acc == "owner_confirm":
+                if isinstance(existing, dict) and existing.get("approved_manually") is True:
+                    existing["last_seen"] = now
+                    self._save_peers()
+                    return True
+                p_rec = pend_map.get(peer_node_id)
+                if isinstance(p_rec, dict):
+                    p_rec["last_attempt_at"] = now
+                    p_rec["attempts"] = int(p_rec.get("attempts") or 0) + 1
+                    p_rec["pubkey_b64"] = peer_pubkey_b64
+                    p_rec["auth_proof_present"] = bool(auth_proof)
+                else:
+                    pend_map[peer_node_id] = {
+                        "node_id": peer_node_id,
+                        "pubkey_b64": peer_pubkey_b64,
+                        "requested_at": now,
+                        "last_attempt_at": now,
+                        "attempts": 1,
+                        "auth_proof_present": bool(auth_proof),
+                    }
+                self._save_peers()
+                return False
+            ex_approved_manual = isinstance(existing, dict) and existing.get("approved_manually") is True
+            ex_invite_id = existing.get("invite_id") if isinstance(existing, dict) else None
+        proof_s = str(auth_proof or "")
+        if not proof_s:
+            if ex_approved_manual:
+                with self._lock:
+                    cur = self._peers_state.get("authorized_peers", {}).get(peer_node_id)
+                    if isinstance(cur, dict):
+                        cur["last_seen"] = now
+                        self._save_peers()
+                return True
+            if ex_invite_id:
+                for inv in self.invite_manager.list_invites(include_revoked=True):
+                    if inv.get("invite_id") == ex_invite_id and not inv.get("revoked") and not inv.get("expired"):
+                        with self._lock:
+                            cur = self._peers_state.get("authorized_peers", {}).get(peer_node_id)
+                            if isinstance(cur, dict):
+                                cur["last_seen"] = now
+                                self._save_peers()
+                        return True
+            return False
+        ok, reason, inv_rec = self.invite_manager.verify_and_consume(proof_s, peer_node_id=peer_node_id)
+        if not ok:
+            if reason == "invite_exhausted" and ex_invite_id:
+                m = _INVITE_ID_RE.match(proof_s.strip())
+                if m and m.group(1) == ex_invite_id:
+                    with self._lock:
+                        cur = self._peers_state.get("authorized_peers", {}).get(peer_node_id)
+                        if isinstance(cur, dict):
+                            cur["last_seen"] = now
+                            self._save_peers()
+                    return True
+            return False
+        with self._lock:
+            auth_map = self._peers_state.setdefault("authorized_peers", {})
+            pend_map = self._peers_state.setdefault("pending_peers", {})
+            prev = auth_map.get(peer_node_id) if isinstance(auth_map.get(peer_node_id), dict) else {}
+            auth_map[peer_node_id] = {
+                "node_id": peer_node_id,
+                "pubkey_b64": peer_pubkey_b64,
+                "approved_at": now,
+                "invite_id": inv_rec.get("invite_id") if isinstance(inv_rec, dict) else None,
+                "grant_mode": "invite_only",
+                "approved_manually": bool(prev.get("approved_manually")),
+                "label": inv_rec.get("label") if isinstance(inv_rec, dict) else "",
+                "last_seen": now,
+                "requests": int(prev.get("requests") or 0),
+                "max_requests_per_min": prev.get("max_requests_per_min"),
+                "bandwidth_kbps": prev.get("bandwidth_kbps"),
+            }
+            pend_map.pop(peer_node_id, None)
+            self._save_peers()
+        return True
+    def _on_host_http_request(self, info):
+        peer_id = str((info or {}).get("peer_node_id") or "").strip()
+        if not peer_id:
+            return
+        now_m = time.monotonic()
+        with self._lock:
+            if peer_id in (self._peers_state.get("revoked_peers") or {}):
+                raise PermissionError("Peer revoked")
+            auth_rec = (self._peers_state.get("authorized_peers") or {}).get(peer_id)
+            if isinstance(auth_rec, dict):
+                auth_rec["last_seen"] = time.time()
+                auth_rec["requests"] = int(auth_rec.get("requests") or 0) + 1
+            rpm_limit = None
+            bw_kbps = None
+            if isinstance(auth_rec, dict):
+                rpm_limit = auth_rec.get("max_requests_per_min")
+                bw_kbps = auth_rec.get("bandwidth_kbps")
+            if rpm_limit is None:
+                rpm_limit = int(self._config.get("per_peer_rpm") or 0) or None
+            if bw_kbps is None:
+                bw_kbps = int(self._config.get("bandwidth_kbps") or 0) or None
+            if rpm_limit is not None and int(rpm_limit) > 0:
+                win = self._peer_req_windows.setdefault(peer_id, [])
+                cutoff = now_m - 60.0
+                win[:] = [t for t in win if t >= cutoff]
+                if len(win) >= int(rpm_limit):
+                    raise PermissionError("Peer request quota exceeded")
+                win.append(now_m)
+            if bw_kbps is not None and int(bw_kbps) > 0 and self._host_agent is not None:
+                total_bytes = 0
+                for ch in list(self._host_agent._active_channels):
+                    if ch.peer_node_id == peer_id:
+                        total_bytes += int(ch.bytes_tx + ch.bytes_rx)
+                prev_t, prev_b = self._peer_bw_windows.get(peer_id, (now_m, total_bytes))
+                dt = now_m - prev_t
+                if dt >= 1.0:
+                    rate_kbps = ((max(0, total_bytes - prev_b)) * 8.0 / 1000.0) / dt
+                    self._peer_bw_windows[peer_id] = (now_m, total_bytes)
+                    if rate_kbps > float(bw_kbps):
+                        raise PermissionError("Peer bandwidth quota exceeded")
+                elif peer_id not in self._peer_bw_windows:
+                    self._peer_bw_windows[peer_id] = (now_m, total_bytes)
+    def _close_peer_channels_sync(self, peer_node_id, reason="kicked"):
+        ha = self._host_agent
+        if ha is None:
+            return 0
+        async def _close():
+            closed = 0
+            for ch in list(ha._active_channels):
+                if ch.peer_node_id == peer_node_id:
+                    closed += 1
+                    ha._active_channels.discard(ch)
+                    try:
+                        await ch.send_close(reason)
+                    except Exception:
+                        pass
+                    try:
+                        await ch.close()
+                    except Exception:
+                        pass
+            return closed
+        try:
+            return int(self._runner.run_coro(_close(), timeout=5.0) or 0)
+        except Exception:
+            return 0
+    def list_connected_peers(self):
+        out = []
+        ha = self._host_agent
+        if ha is None:
+            return out
+        with self._lock:
+            auth_map = copy.deepcopy(self._peers_state.get("authorized_peers") or {})
+        for ch in list(ha._active_channels):
+            if not ch.is_established:
+                continue
+            pid = ch.peer_node_id
+            meta = auth_map.get(pid) if pid else None
+            out.append({
+                "node_id": pid,
+                "pubkey_b64": ch.peer_pubkey_b64,
+                "peer_info": ch.transport.peer_info(),
+                "bytes_tx": int(ch.bytes_tx),
+                "bytes_rx": int(ch.bytes_rx),
+                "approved_at": meta.get("approved_at") if isinstance(meta, dict) else None,
+                "invite_id": meta.get("invite_id") if isinstance(meta, dict) else None,
+                "label": meta.get("label") if isinstance(meta, dict) else "",
+                "requests": meta.get("requests", 0) if isinstance(meta, dict) else 0,
+                "last_seen": meta.get("last_seen") if isinstance(meta, dict) else None,
+                "max_requests_per_min": meta.get("max_requests_per_min") if isinstance(meta, dict) else None,
+                "bandwidth_kbps": meta.get("bandwidth_kbps") if isinstance(meta, dict) else None,
+            })
+        return out
+    def list_pending_peers(self):
+        with self._lock:
+            return list(copy.deepcopy(list((self._peers_state.get("pending_peers") or {}).values())))
+    def list_authorized_peers(self):
+        with self._lock:
+            return list(copy.deepcopy(list((self._peers_state.get("authorized_peers") or {}).values())))
+    def list_revoked_peers(self):
+        with self._lock:
+            return list(copy.deepcopy(list((self._peers_state.get("revoked_peers") or {}).values())))
+    def approve_peer(self, peer_node_id, label="", max_requests_per_min=None, bandwidth_kbps=None):
+        pid = str(peer_node_id or "").strip()
+        if not net_identity.NODE_ID_RE.match(pid):
+            raise ValueError("Invalid peer_node_id")
+        now = time.time()
+        with self._lock:
+            pend = self._peers_state.setdefault("pending_peers", {}).pop(pid, None)
+            self._peers_state.setdefault("revoked_peers", {}).pop(pid, None)
+            auth_map = self._peers_state.setdefault("authorized_peers", {})
+            prev = auth_map.get(pid) if isinstance(auth_map.get(pid), dict) else {}
+            rec = {
+                "node_id": pid,
+                "pubkey_b64": (pend or {}).get("pubkey_b64") or prev.get("pubkey_b64"),
+                "approved_at": now,
+                "invite_id": prev.get("invite_id"),
+                "grant_mode": "owner_confirm",
+                "approved_manually": True,
+                "label": str(label or prev.get("label") or "approved")[:64],
+                "last_seen": now,
+                "requests": int(prev.get("requests") or 0),
+                "max_requests_per_min": int(max_requests_per_min) if max_requests_per_min is not None else prev.get("max_requests_per_min"),
+                "bandwidth_kbps": int(bandwidth_kbps) if bandwidth_kbps is not None else prev.get("bandwidth_kbps"),
+            }
+            auth_map[pid] = rec
+            self._save_peers()
+            return {"status": "ok", "peer": copy.deepcopy(rec)}
+    def reject_peer(self, peer_node_id, reason="rejected", block=False):
+        pid = str(peer_node_id or "").strip()
+        if not net_identity.NODE_ID_RE.match(pid):
+            raise ValueError("Invalid peer_node_id")
+        now = time.time()
+        with self._lock:
+            self._peers_state.setdefault("pending_peers", {}).pop(pid, None)
+            self._peers_state.setdefault("authorized_peers", {}).pop(pid, None)
+            self._peers_state.setdefault("revoked_peers", {})[pid] = {
+                "node_id": pid,
+                "revoked_at": now,
+                "reason": str(reason or "rejected")[:64],
+                "blocked": bool(block),
+            }
+            self._save_peers()
+        closed = self._close_peer_channels_sync(pid, reason=str(reason or "rejected"))
+        return {"status": "ok", "node_id": pid, "closed_tunnels": closed, "blocked": bool(block)}
+    def kick_peer(self, peer_node_id, reason="kicked", block=True):
+        return self.reject_peer(peer_node_id, reason=reason, block=block)
+    def block_peer(self, peer_node_id, reason="blocked"):
+        return self.reject_peer(peer_node_id, reason=reason, block=True)
+    def unblock_peer(self, peer_node_id):
+        pid = str(peer_node_id or "").strip()
+        if not net_identity.NODE_ID_RE.match(pid):
+            raise ValueError("Invalid peer_node_id")
+        with self._lock:
+            removed = self._peers_state.setdefault("revoked_peers", {}).pop(pid, None)
+            self._save_peers()
+        return {"status": "ok", "node_id": pid, "unblocked": removed is not None}
+    def set_peer_quota(self, peer_node_id, max_requests_per_min=None, bandwidth_kbps=None):
+        pid = str(peer_node_id or "").strip()
+        if not net_identity.NODE_ID_RE.match(pid):
+            raise ValueError("Invalid peer_node_id")
+        with self._lock:
+            auth_map = self._peers_state.setdefault("authorized_peers", {})
+            rec = auth_map.get(pid)
+            if not isinstance(rec, dict):
+                return {"status": "error", "message": "Peer not authorized"}
+            rec["max_requests_per_min"] = int(max_requests_per_min) if max_requests_per_min is not None else None
+            rec["bandwidth_kbps"] = int(bandwidth_kbps) if bandwidth_kbps is not None else None
+            self._save_peers()
+            return {"status": "ok", "peer": copy.deepcopy(rec)}
+    def _current_model_name(self):
+        if self._host_model_override:
+            return self._host_model_override
+        if callable(self._model_provider):
+            try:
+                return self._model_provider() or None
+            except Exception:
+                pass
+        try:
+            st = lan.LAN.status(include_secrets=False)
+            if st.get("target_model"):
+                return st.get("target_model")
+        except Exception:
+            pass
+        return None
+    def _current_load_value(self):
+        if callable(self._load_provider):
+            try:
+                return float(self._load_provider())
+            except Exception:
+                pass
+        return 0.0
+    def _collect_direct_endpoints_for_host(self):
+        eps = []
+        ha = self._host_agent
+        port = ha.bound_p2p_port if ha is not None else None
+        if not port:
+            return eps
+        for ip_s in lan.local_ips():
+            ep = f"{ip_s}:{port}"
+            if ep not in eps:
+                eps.append(ep)
+        return eps
+    def _build_public_listing(self):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        ha = self._host_agent
+        acc = _normalize_access_mode(cfg.get("access_mode"))
+        active_peers = ha.active_peer_count if ha is not None else 0
+        max_p = int(cfg.get("max_participants") or 16)
+        listing = {
+            "node_id": self.identity.node_id,
+            "pubkey": self.identity.pubkey_b64,
