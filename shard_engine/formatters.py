@@ -17,3 +17,8 @@ def format_eta(seconds: float) -> str:
         return f"{m}m {rem}s"
     h, m = divmod(m, 60)
     return f"{h}h {m}m"
+def format_percentage(current: int, total: int) -> str:
+    if total <= 0:
+        return "0%"
+    pct = min(100.0, max(0.0, (float(current) / float(total)) * 100.0))
+    return f"{pct:.1f}%"
