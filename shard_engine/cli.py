@@ -1378,3 +1378,323 @@ def cmd_training(args):
         if r is not None and r.status_code == 200:
             res = r.json()
         else:
+            res = feedback.prune_expired_feedback()
+        print(f"Feedback prune completed: removed={res.get('removed', res.get('pruned', 0))} remaining={res.get('remaining')} retention_days={res.get('retention_days')}")
+        return
+    _print_training_help()
+    sys.exit(1)
+def cmd_network(args):
+    import hashlib
+    import requests
+    from . import net_identity, net_strategy, net_discovery, net_tunnel, net_wireguard
+    action = getattr(args, "net_action", None)
+    if not action:
+        print_banner()
+        print("Usage: shard network <command> [options]\n")
+        print("Commands:")
+        print("  status             Show Node ID, hosting/client state, and peers")
+        print("  identity           Show cryptographic node identity and fingerprint")
+        print("  config             View or update discovery/relay/policy config")
+        print("  servers            Browse public AI servers on Discovery")
+        print("  publish            Publish active server to Discovery & Relay")
+        print("  unpublish          Stop publishing to Discovery & Relay")
+        print("  create             Create and publish a global SHARD Network server")
+        print("  join <target>      Connect to remote server (shard://, shn_*, or IP:port)")
+        print("  connect <target>   Alias for join")
+        print("  leave / disconnect Disconnect from remote SHARD server")
+        print("  invite             Manage cryptographic invite links (create/list/revoke)")
+        print("  peers              List connected, pending, and authorized peers")
+        print("  approve / reject   Authorize or deny pending peer connection requests")
+        print("  kick / block       Disconnect or ban peers from host")
+        print("  quota <peer>       Set per-peer RPM or bandwidth quotas")
+        print("  discovery-serve    Run a self-hosted SHARD Discovery server")
+        print("  relay-serve        Run a self-hosted SHARD Blind Relay server")
+        print("  wg                 Show WireGuard status and configuration plans")
+        print("  doctor             Run SHARD Network platform, NAT, and firewall audit")
+        return
+    as_json = bool(getattr(args, "as_json", False))
+    base = _base_url()
+    hdrs = _owner_headers()
+    def _call_api(method, path, **kwargs):
+        try:
+            fn = getattr(requests, method.lower())
+            r = fn(f"{base}{path}", headers=hdrs, timeout=kwargs.pop("timeout", 5), **kwargs)
+            if r.status_code == 200:
+                return r.json()
+            return None
+        except Exception:
+            return None
+    mgr = net_strategy.get_network_manager()
+    if action == "status":
+        st = _call_api("get", "/api/net/status") or mgr.status()
+        if as_json:
+            print(json.dumps(st, indent=2, ensure_ascii=False))
+            return
+        print_banner()
+        print("SHARD Network Status\n")
+        print(f"Node ID:             {st.get('node_id')}")
+        print(f"State:               {st.get('state')}")
+        print(f"Mode:                {st.get('mode')}")
+        print(f"Local URL:           {st.get('local_url') or 'None'}")
+        print(f"Offline Only:        {st.get('offline_only')}")
+        host = st.get("host") or {}
+        print(f"Host Published:      {host.get('published')} (visibility: {host.get('visibility')}, access: {host.get('access_policy')})")
+        if host.get("active_model"):
+            print(f"Host Model:          {host.get('active_model')}")
+        cli = st.get("client") or {}
+        if cli.get("state") and cli.get("state") != "disconnected":
+            print(f"Client Connection:   {cli.get('state')} via {cli.get('mode')} -> {cli.get('target')}")
+            if cli.get("rtt_ms"):
+                print(f"RTT:                 {cli.get('rtt_ms')} ms")
+            print(f"Traffic:             TX {cli.get('bytes_tx', 0)} B / RX {cli.get('bytes_rx', 0)} B")
+        peers = st.get("peers") or {}
+        print(f"Peers:               {peers.get('connected_count', 0)} connected, {peers.get('pending_count', 0)} pending")
+        disc = st.get("discovery_urls") or []
+        relay = st.get("relay_urls") or []
+        print(f"Discovery Servers:   {', '.join(disc) if disc else 'Default'}")
+        print(f"Relay Servers:       {', '.join(relay) if relay else 'Default'}")
+    elif action == "identity":
+        ident = _call_api("get", "/api/net/identity")
+        if not ident:
+            pub_bytes = mgr.identity.pubkey_bytes()
+            fp = hashlib.sha256(pub_bytes).hexdigest()
+            ident = {"node_id": mgr.identity.node_id, "pubkey_b64u": net_identity.b64u_encode(pub_bytes), "fingerprint_sha256": fp}
+        if as_json:
+            print(json.dumps(ident, indent=2, ensure_ascii=False))
+            return
+        print_banner()
+        print("SHARD Cryptographic Identity\n")
+        print(f"Node ID:             {ident.get('node_id')}")
+        print(f"Public Key (Ed25519):{ident.get('pubkey_b64u')}")
+        print(f"Fingerprint:         {ident.get('fingerprint_sha256')}")
+    elif action == "config":
+        patch = {}
+        if getattr(args, "discovery", None) is not None:
+            patch["discovery_urls"] = args.discovery
+        if getattr(args, "reset_discovery", False):
+            patch["discovery_urls"] = []
+        if getattr(args, "relay", None) is not None:
+            patch["relay_urls"] = args.relay
+        if getattr(args, "reset_relay", False):
+            patch["relay_urls"] = []
+        if getattr(args, "offline_only", None) is not None:
+            patch["offline_only"] = (args.offline_only.lower() == "true")
+        if getattr(args, "mode", None) is not None:
+            patch["connect_mode"] = args.mode
+        if getattr(args, "visibility", None) is not None:
+            patch["visibility"] = args.visibility
+        if getattr(args, "access", None) is not None:
+            patch["access_policy"] = args.access
+        if patch:
+            res = _call_api("post", "/api/net/config", json=patch)
+            cfg = res.get("config") if isinstance(res, dict) else mgr.configure(patch)
+        else:
+            cfg = _call_api("get", "/api/net/config") or mgr.get_config()
+        if as_json:
+            print(json.dumps(cfg, indent=2, ensure_ascii=False))
+            return
+        print_banner()
+        print("SHARD Network Configuration\n")
+        print(f"Offline Only:        {cfg.get('offline_only')}")
+        print(f"Connect Mode:        {cfg.get('connect_mode')}")
+        print(f"Visibility:          {cfg.get('visibility')}")
+        print(f"Access Policy:       {cfg.get('access_policy')}")
+        print(f"Max Peers:           {cfg.get('max_peers')}")
+        print(f"Bandwidth Cap:       {cfg.get('bandwidth_kbps')} kbps")
+        print(f"Discovery URLs:      {cfg.get('discovery_urls')}")
+        print(f"Relay URLs:          {cfg.get('relay_urls')}")
+    elif action == "servers":
+        res = _call_api("get", "/api/net/servers", params={"q": getattr(args, "q", ""), "model": getattr(args, "model", ""), "region": getattr(args, "region", ""), "access": getattr(args, "access", ""), "sort": getattr(args, "sort", "activity")})
+        if not res:
+            res = mgr.discover_servers(q=getattr(args, "q", ""), model=getattr(args, "model", ""), region=getattr(args, "region", ""), access=getattr(args, "access", ""), sort=getattr(args, "sort", "activity"))
+        if as_json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return
+        print_banner()
+        srvs = res.get("servers", [])
+        print(f"Discovered {len(srvs)} server(s) on SHARD Network\n")
+        for s in srvs:
+            meta = s.get("metadata", {})
+            print(f"- {meta.get('name', 'Anonymous')} ({s.get('node_id')})")
+            print(f"  Model: {meta.get('active_model', 'None')} | Region: {meta.get('region', 'global')} | Access: {meta.get('access_policy', 'open')}")
+            print(f"  Direct Endpoints: {', '.join(meta.get('direct_endpoints', [])) or 'None'} | Relays: {len(meta.get('relay_endpoints', []))}")
+    elif action == "publish":
+        patch = {}
+        if getattr(args, "name", None):
+            patch["name"] = args.name
+        if getattr(args, "visibility", None):
+            patch["visibility"] = args.visibility
+        if getattr(args, "access", None):
+            patch["access_policy"] = args.access
+        if getattr(args, "open", False):
+            patch["access_policy"] = "open"
+        if getattr(args, "region", None):
+            patch["region"] = args.region
+        if getattr(args, "port", None):
+            patch["direct_port"] = args.port
+        if getattr(args, "max_peers", None):
+            patch["max_peers"] = args.max_peers
+        if getattr(args, "bandwidth_kbps", None):
+            patch["bandwidth_kbps"] = args.bandwidth_kbps
+        res = _call_api("post", "/api/net/publish", json=patch)
+        if not res:
+            res = mgr.publish_server(**patch)
+        print_banner()
+        print(f"Server published to SHARD Network: {res}")
+    elif action == "unpublish":
+        res = _call_api("post", "/api/net/unpublish") or mgr.unpublish_server()
+        print_banner()
+        print("Server unpublished from SHARD Network.")
+    elif action == "create":
+        access_pol = "open" if getattr(args, "open", False) else getattr(args, "access", "open")
+        patch = {
+            "name": getattr(args, "name", None),
+            "visibility": getattr(args, "visibility", "public"),
+            "access_policy": access_pol,
+            "region": getattr(args, "region", None),
+            "direct_port": getattr(args, "port", None),
+        }
+        res = _call_api("post", "/api/net/publish", json=patch) or mgr.publish_server(**patch)
+        print_banner()
+        print(f"SHARD Network server created: {res}")
+        if getattr(args, "serve", False):
+            info = process.running_status()
+            if not (info and info.get("running")):
+                cmd_start(args)
+    elif action in ("join", "connect"):
+        target = getattr(args, "target", "")
+        mode = getattr(args, "mode", "auto")
+        res = _call_api("post", "/api/net/connect", json={"target": target, "mode": mode}, timeout=15)
+        if not res:
+            res = mgr.connect(target, mode=mode)
+        print_banner()
+        st = res.get("state")
+        print(f"Connection result: {st} via {res.get('mode')} -> {res.get('target')}")
+        if res.get("local_url"):
+            print(f"Local Proxy URL:   {res.get('local_url')}")
+        if res.get("rtt_ms"):
+            print(f"Verified RTT:      {res.get('rtt_ms')} ms")
+    elif action in ("leave", "disconnect"):
+        res = _call_api("post", "/api/net/disconnect") or mgr.disconnect()
+        print_banner()
+        print("Disconnected from SHARD Network.")
+    elif action == "invite":
+        inv_act = getattr(args, "inv_action", "list")
+        if inv_act == "create":
+            ttl = int(getattr(args, "ttl", 86400))
+            max_uses = int(getattr(args, "max_uses", 1))
+            label = str(getattr(args, "label", ""))
+            res = _call_api("post", "/api/net/invites", json={"ttl_s": ttl, "max_uses": max_uses, "label": label})
+            if not res:
+                inv = mgr.create_invite(ttl_s=ttl, max_uses=max_uses, label=label)
+                uri = mgr.build_invite_uri(inv["id"])
+                res = {"status": "ok", "invite": inv, "uri": uri}
+            if as_json:
+                print(json.dumps(res, indent=2, ensure_ascii=False))
+                return
+            print_banner()
+            print(f"Invite Created: {res.get('invite', {}).get('id')}")
+            print(f"URI:            {res.get('uri')}")
+        elif inv_act == "revoke":
+            iid = getattr(args, "invite_id", None)
+            res = _call_api("post", "/api/net/invites/revoke", json={"invite_id": iid}) or {"status": "ok", "revoked": mgr.revoke_invite(iid)}
+            print_banner()
+            print(f"Invite {iid} revoked: {res.get('revoked')}")
+        else:
+            res = _call_api("get", "/api/net/invites")
+            if not res:
+                invites = mgr.list_invites()
+                out = []
+                for inv in invites:
+                    item = dict(inv)
+                    item["uri"] = mgr.build_invite_uri(inv["id"])
+                    out.append(item)
+                res = {"status": "ok", "invites": out}
+            if as_json:
+                print(json.dumps(res, indent=2, ensure_ascii=False))
+                return
+            print_banner()
+            invs = res.get("invites", [])
+            print(f"Active Invites ({len(invs)}):\n")
+            for inv in invs:
+                print(f"- ID: {inv.get('id')} | Uses: {inv.get('uses_count')}/{inv.get('max_uses')} | Expires: {inv.get('expires_at')}")
+                print(f"  URI: {inv.get('uri')}")
+    elif action == "peers":
+        res = _call_api("get", "/api/net/peers")
+        if not res:
+            res = {
+                "status": "ok",
+                "connected": mgr.list_connected_peers(),
+                "pending": mgr.list_pending_peers(),
+                "authorized": mgr.list_authorized_peers(),
+                "revoked": mgr.list_revoked_peers(),
+            }
+        if as_json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return
+        print_banner()
+        print("SHARD Network Peers\n")
+        print(f"Connected ({len(res.get('connected', []))}):")
+        for p in res.get("connected", []):
+            print(f"  - {p.get('peer_node_id')} via {p.get('transport_kind')} (RPM: {p.get('rpm_limit')})")
+        print(f"Pending ({len(res.get('pending', []))}):")
+        for p in res.get("pending", []):
+            print(f"  - {p.get('peer_node_id')}")
+        print(f"Authorized: {len(res.get('authorized', []))} peer(s)")
+        print(f"Revoked/Blocked: {len(res.get('revoked', []))} peer(s)")
+    elif action == "approve":
+        pid = getattr(args, "peer_id", "")
+        res = _call_api("post", f"/api/net/peers/{pid}/approve") or {"status": "ok", "approved": mgr.approve_peer(pid)}
+        print(f"Peer {pid} approved: {res.get('approved')}")
+    elif action == "reject":
+        pid = getattr(args, "peer_id", "")
+        res = _call_api("post", f"/api/net/peers/{pid}/reject") or {"status": "ok", "rejected": mgr.reject_peer(pid)}
+        print(f"Peer {pid} rejected: {res.get('rejected')}")
+    elif action == "kick":
+        pid = getattr(args, "peer_id", "")
+        res = _call_api("post", f"/api/net/peers/{pid}/kick") or {"status": "ok", "kicked": mgr.kick_peer(pid)}
+        print(f"Peer {pid} kicked: {res.get('kicked')}")
+    elif action == "block":
+        pid = getattr(args, "peer_id", "")
+        res = _call_api("post", f"/api/net/peers/{pid}/block") or {"status": "ok", "blocked": mgr.block_peer(pid)}
+        print(f"Peer {pid} blocked: {res.get('blocked')}")
+    elif action == "unblock":
+        pid = getattr(args, "peer_id", "")
+        res = _call_api("post", f"/api/net/peers/{pid}/unblock") or {"status": "ok", "unblocked": mgr.unblock_peer(pid)}
+        print(f"Peer {pid} unblocked: {res.get('unblocked')}")
+    elif action == "quota":
+        pid = getattr(args, "peer_id", "")
+        rpm = getattr(args, "rpm", None)
+        kbps = getattr(args, "kbps", None)
+        res = _call_api("post", f"/api/net/peers/{pid}/quota", json={"rpm": rpm, "kbps": kbps}) or {"status": "ok", "peer": mgr.set_peer_quota(pid, max_requests_per_min=rpm, bandwidth_kbps=kbps)}
+        print(f"Peer {pid} quota updated: {res}")
+    elif action == "discovery-serve":
+        host = getattr(args, "host", None) or os.environ.get("SHARD_HOST", "0.0.0.0")
+        port = int(getattr(args, "port", None) or os.environ.get("SHARD_DISCOVERY_PORT") or 8090)
+        token = getattr(args, "token", None)
+        rl = int(getattr(args, "rate_limit", 120))
+        print_banner()
+        print(f"Starting SHARD Discovery Server on {host}:{port} ...")
+        net_discovery.serve_discovery(host=host, port=port, auth_token=token, rate_limit=rl)
+    elif action == "relay-serve":
+        host = getattr(args, "host", None) or os.environ.get("SHARD_HOST", "0.0.0.0")
+        port = int(getattr(args, "port", None) or os.environ.get("SHARD_RELAY_PORT") or 8091)
+        token = getattr(args, "token", None)
+        max_tun = int(getattr(args, "max_tunnels_per_host", 32))
+        max_kbps = int(getattr(args, "max_kbps", 10240))
+        print_banner()
+        print(f"Starting SHARD Blind Relay Server on {host}:{port} ...")
+        net_tunnel.serve_relay(host=host, port=port, auth_token=token, max_tunnels_per_host=max_tun, max_bandwidth_kbps=max_kbps)
+    elif action == "wg":
+        diag = net_wireguard.diagnostics()
+        if as_json:
+            print(json.dumps(diag, indent=2, ensure_ascii=False))
+            return
+        print_banner()
+        print("WireGuard Subsystem Status\n")
+        print(f"Installed:           {diag.get('installed')}")
+        print(f"Implementation:      {diag.get('implementation')}")
+        print(f"CLI Path:            {diag.get('cli_path') or 'Not found'}")
+        print(f"Active Tunnels:      {diag.get('active_tunnels')}")
+    elif action == "doctor":
+        probe_nat = bool(getattr(args, "nat", False))
