@@ -74,7 +74,7 @@ def default_models_dir():
     env_m = _env_path("SHARD_MODELS_DIR")
     if env_m is not None:
         return str(env_m)
-    if Path("/data/models").exists():
+    if Path("/data/models").is_dir() and os.access("/data/models", os.W_OK):
         return "/data/models"
     primary = data_dir() / "models"
     legacy = _legacy_dir() / "models"
@@ -93,7 +93,14 @@ def resolve_user_file(name, kind="config"):
         if legacy.is_file():
             try:
                 base.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(str(legacy), str(target))
+                tmp = str(target) + f".{os.getpid()}.mig.tmp"
+                shutil.copy2(str(legacy), tmp)
+                if name in ("keys_db.json", "owner_token.txt", "node_identity.json", "network_invites.json"):
+                    try:
+                        os.chmod(tmp, 0o600)
+                    except Exception:
+                        pass
+                os.replace(tmp, str(target))
             except Exception:
                 return str(legacy)
     return str(target)
@@ -105,6 +112,28 @@ def active_model_file():
     return resolve_user_file("active_model.json", kind="data")
 def lan_file():
     return resolve_user_file("lan.json", kind="data")
+def network_identity_file():
+    return resolve_user_file("node_identity.json", kind="config")
+def network_config_file():
+    return resolve_user_file("network.json", kind="config")
+def network_invites_file():
+    return resolve_user_file("network_invites.json", kind="config")
+def network_peers_file():
+    return resolve_user_file("network_peers.json", kind="data")
+def wireguard_dir():
+    return str(config_dir() / "wireguard")
+def training_dir():
+    return str(data_dir() / "training")
+def training_datasets_dir():
+    return str(data_dir() / "training" / "datasets")
+def training_runs_dir():
+    return str(data_dir() / "training" / "runs")
+def owner_token_file():
+    return resolve_user_file("owner_token.txt", kind="config")
+def training_salt_file():
+    return str(data_dir() / "training" / ".privacy_salt")
+def backups_dir():
+    return str(data_dir() / "backups")
 def pid_file():
     return str(run_dir() / "shard.pid.json")
 def log_file():
@@ -132,4 +161,3 @@ def package_resource_exists(filename):
         return ref.is_file()
     except Exception:
         return (Path(__file__).resolve().parent / filename).is_file()
-
