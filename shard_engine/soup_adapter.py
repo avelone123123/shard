@@ -1,0 +1,581 @@
+import importlib.util
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from . import hardware
+from . import paths
+from . import settings
+from . import storage
+SOUP_VALID_TASKS = ("sft", "dpo", "orpo", "kto", "simpo", "ipo", "grpo")
+SOUP_VALID_FORMATS = ("chatml", "dpo", "alpaca", "sharegpt", "kto", "plaintext", "auto")
+SOUP_VALID_BACKENDS = ("transformers", "unsloth", "mlx")
+SOUP_VALID_QUANTS = ("4bit", "8bit", "none")
+SOUP_VALID_GGUF_QUANTS = ("q4_0", "q4_k_m", "q5_k_m", "q8_0", "f16", "f32")
+_WIN_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+def _split_cmd(raw):
+    if isinstance(raw, (list, tuple)):
+        return [str(x) for x in raw if str(x).strip()]
+    txt = str(raw or "").strip()
+    if not txt:
+        return []
+    if os.path.isfile(txt):
+        return [txt]
+    try:
+        tokens = shlex.split(txt, posix=(os.name != "nt"))
+        cleaned = []
+        for tok in tokens:
+            t = tok.strip()
+            if len(t) >= 2 and ((t[0] == '"' and t[-1] == '"') or (t[0] == "'" and t[-1] == "'")):
+                t = t[1:-1]
+            if t:
+                cleaned.append(t)
+        return cleaned
+    except ValueError:
+        return txt.split()
+def _probe_python_env(py_exe, check_deps=True, timeout=8):
+    if not py_exe or not os.path.isfile(py_exe):
+        return None
+    script = (
+        "import importlib.util, importlib.metadata, json, sys;"
+        "mods=['soup_cli','torch','transformers','peft','trl','datasets','accelerate','bitsandbytes'];"
+        "present={m: (importlib.util.find_spec(m) is not None) for m in mods};"
+        "sv=None;\n"
+        "try:\n"
+        " sv=importlib.metadata.version('soup-cli')\n"
+        "except Exception:\n"
+        " pass\n"
+        "cuda=False\n"
+        "if present.get('torch') and %r:\n"
+        " try:\n"
+        "  import torch; cuda=bool(torch.cuda.is_available())\n"
+        " except Exception:\n"
+        "  pass\n"
+        "print(json.dumps({'py': list(sys.version_info[:3]), 'soup_version': sv, 'present': present, 'cuda': cuda}))"
+    ) % (bool(check_deps),)
+    try:
+        res = subprocess.run(
+            [py_exe, "-c", script],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            creationflags=_WIN_NO_WINDOW,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            data = json.loads(res.stdout.strip().splitlines()[-1])
+            return data
+    except Exception:
+        return None
+    return None
+def _in_process_probe(check_deps=True):
+    mods = ("soup_cli", "torch", "transformers", "peft", "trl", "datasets", "accelerate", "bitsandbytes")
+    present = {m: (importlib.util.find_spec(m) is not None) for m in mods}
+    sv = None
+    try:
+        import importlib.metadata as _md
+        sv = _md.version("soup-cli")
+    except Exception:
+        sv = None
+    cuda = False
+    if present.get("torch") and check_deps:
+        try:
+            import torch
+            cuda = bool(torch.cuda.is_available())
+        except Exception:
+            cuda = False
+    return {
+        "py": list(sys.version_info[:3]),
+        "soup_version": sv,
+        "present": present,
+        "cuda": cuda,
+    }
+def _candidate_python_paths():
+    cands = []
+    env_py = os.environ.get("SHARD_SOUP_PYTHON", "").strip()
+    if env_py:
+        cands.append(env_py)
+    saved = settings._load()
+    if saved.get("soup_python"):
+        cands.append(str(saved["soup_python"]).strip())
+    cands.append(sys.executable)
+    sub = ("Scripts", "python.exe") if os.name == "nt" else ("bin", "python")
+    for base in (
+        Path(paths.data_dir()) / "soup-venv",
+        Path.home() / ".soup-venv",
+        Path.home() / ".soup" / "venv",
+    ):
+        cands.append(str(base.joinpath(*sub)))
+    out = []
+    seen = set()
+    for p in cands:
+        if not p:
+            continue
+        norm = os.path.normcase(os.path.abspath(p))
+        if norm not in seen and os.path.isfile(p):
+            seen.add(norm)
+            out.append(p)
+    return out
+def _py_compatible(py_tuple):
+    if not py_tuple or len(py_tuple) < 2:
+        return False
+    major, minor = int(py_tuple[0]), int(py_tuple[1])
+    return (major == 3) and (11 <= minor < 14)
+def detect_soup(custom_cmd=None, probe_deps=True):
+    cmd = []
+    source = None
+    py_exe = None
+    probe = None
+    env_cmd = custom_cmd or os.environ.get("SHARD_SOUP_CMD", "").strip() or settings._load().get("soup_command")
+    if env_cmd:
+        parts = _split_cmd(env_cmd)
+        if parts:
+            exe = parts[0]
+            if os.path.isfile(exe) or shutil.which(exe):
+                cmd = parts
+                source = "configured"
+    if not cmd:
+        for cand_py in _candidate_python_paths():
+            is_cur = os.path.normcase(os.path.abspath(cand_py)) == os.path.normcase(os.path.abspath(sys.executable))
+            info = _in_process_probe(check_deps=probe_deps) if is_cur else _probe_python_env(cand_py, check_deps=probe_deps)
+            if info and info.get("present", {}).get("soup_cli"):
+                cmd = [cand_py, "-m", "soup_cli"]
+                py_exe = cand_py
+                probe = info
+                source = "current_env" if is_cur else "venv"
+                break
+    if not cmd:
+        soup_bin = shutil.which("soup")
+        if soup_bin:
+            cmd = [soup_bin]
+            source = "path_bin"
+    soup_version = probe.get("soup_version") if probe else None
+    if cmd and not soup_version:
+        try:
+            ver_res = subprocess.run(
+                cmd + ["--version"],
+                capture_output=True,
+                text=True,
+                timeout=8,
+                creationflags=_WIN_NO_WINDOW,
+            )
+            txt = (ver_res.stdout or ver_res.stderr or "").strip()
+            m = re.search(r"(\d+\.\d+\.\d+(?:[a-zA-Z0-9._-]*)?)", txt)
+            soup_version = m.group(1) if m else (txt[:48] if ver_res.returncode == 0 else None)
+        except Exception:
+            soup_version = None
+    if probe is None:
+        probe = _in_process_probe(check_deps=False)
+        py_exe = sys.executable
+    py_ver = probe.get("py") or list(sys.version_info[:3])
+    py_str = ".".join(str(x) for x in py_ver[:3])
+    py_ok = _py_compatible(py_ver)
+    present = probe.get("present") or {}
+    train_req = ("torch", "transformers", "peft", "trl", "datasets", "accelerate")
+    missing_train = [k for k in train_req if not present.get(k)]
+    hw = hardware.get_hardware_profile()
+    hw_cuda = bool(hw.get("cuda_available")) or bool(probe.get("cuda"))
+    warnings = []
+    if not cmd:
+        if not py_ok:
+            warnings.append(
+                f"Active Python is {py_str}; upstream soup-cli requires Python >=3.11,<3.14. Create a Python 3.12 venv and set SHARD_SOUP_PYTHON."
+            )
+        else:
+            warnings.append("soup-cli is not installed in PATH or SHARD environments.")
+    elif not present.get("soup_cli") and source == "configured":
+        warnings.append("Using configured custom SOUP command; Python dependencies inside external target were not directly verified.")
+    elif missing_train:
+        warnings.append(f"soup-cli found, but training dependencies are missing: {', '.join(missing_train)}. Install with pip install \"soup-cli[train]\".")
+    if cmd and not hw_cuda:
+        warnings.append("No CUDA GPU detected; real LoRA/QLoRA fine-tuning is GPU-bound and may fail or be extremely slow on CPU-only runtimes.")
+    available = bool(cmd)
+    can_train = bool(available and (source in ("configured", "path_bin") or not missing_train))
+    return {
+        "available": available,
+        "source": source,
+        "command": cmd,
+        "python_executable": py_exe,
+        "python_version": py_str,
+        "python_compatible": py_ok,
+        "soup_version": soup_version,
+        "dependencies": present,
+        "missing_train_deps": missing_train,
+        "cuda_available": hw_cuda,
+        "gpu_name": hw.get("gpu_name"),
+        "vram_total_mb": hw.get("vram_total_mb", 0),
+        "capabilities": {
+            "validate_data": available,
+            "train": can_train,
+            "eval": can_train,
+            "merge": can_train,
+            "export_gguf": available,
+        },
+        "warnings": warnings,
+        "install_hint": "python3.12 -m venv ~/.soup-venv && pip install \"soup-cli[train]\"",
+    }
+def _yaml_scalar(value):
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return repr(value)
+    s = str(value)
+    return json.dumps(s, ensure_ascii=False)
+def dump_yaml(data, indent=0):
+    lines = []
+    prefix = "  " * indent
+    if isinstance(data, dict):
+        for k, v in data.items():
+            key_str = str(k)
+            if isinstance(v, dict):
+                if v:
+                    lines.append(f"{prefix}{key_str}:")
+                    lines.append(dump_yaml(v, indent + 1))
+                else:
+                    lines.append(f"{prefix}{key_str}: {{}}")
+            elif isinstance(v, list):
+                if v:
+                    lines.append(f"{prefix}{key_str}:")
+                    lines.append(dump_yaml(v, indent + 1))
+                else:
+                    lines.append(f"{prefix}{key_str}: []")
+            else:
+                lines.append(f"{prefix}{key_str}: {_yaml_scalar(v)}")
+    elif isinstance(data, list):
+        for item in data:
+            if isinstance(item, dict):
+                first = True
+                for ik, iv in item.items():
+                    if first:
+                        if isinstance(iv, (dict, list)):
+                            lines.append(f"{prefix}- {ik}:")
+                            lines.append(dump_yaml(iv, indent + 2))
+                        else:
+                            lines.append(f"{prefix}- {ik}: {_yaml_scalar(iv)}")
+                        first = False
+                    else:
+                        if isinstance(iv, (dict, list)):
+                            lines.append(f"{prefix}  {ik}:")
+                            lines.append(dump_yaml(iv, indent + 2))
+                        else:
+                            lines.append(f"{prefix}  {ik}: {_yaml_scalar(iv)}")
+            elif isinstance(item, list):
+                lines.append(f"{prefix}-")
+                lines.append(dump_yaml(item, indent + 1))
+            else:
+                lines.append(f"{prefix}- {_yaml_scalar(item)}")
+    else:
+        lines.append(f"{prefix}{_yaml_scalar(data)}")
+    return "\n".join(lines)
+def _sanitize_experiment_name(name):
+    if name is None:
+        return None
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", str(name).strip()).strip("-")
+    return cleaned[:64] or None
+def build_soup_config(base_model, dataset_path, output_dir, task="sft", fmt=None, experiment_name=None, params=None):
+    errors = []
+    params = dict(params or {})
+    base = str(base_model or "").strip()
+    if not base or "\x00" in base:
+        errors.append("base_model must be a non-empty Hugging Face model ID or local path.")
+    train_path = str(dataset_path or "").strip()
+    if not train_path or "\x00" in train_path:
+        errors.append("dataset_path must be non-empty.")
+    out_dir = str(output_dir or "").strip()
+    if not out_dir or "\x00" in out_dir:
+        errors.append("output_dir must be non-empty.")
+    task_norm = str(task or "sft").strip().lower()
+    if task_norm not in SOUP_VALID_TASKS:
+        errors.append(f"Unsupported task '{task_norm}'. Allowed: {', '.join(SOUP_VALID_TASKS)}.")
+    default_fmt = "dpo" if task_norm == "dpo" else "chatml"
+    fmt_norm = str(fmt or params.get("data_format") or default_fmt).strip().lower()
+    if fmt_norm not in SOUP_VALID_FORMATS:
+        errors.append(f"Unsupported data.format '{fmt_norm}'. Allowed: {', '.join(SOUP_VALID_FORMATS)}.")
+    backend = str(params.get("backend") or "transformers").strip().lower()
+    if backend not in SOUP_VALID_BACKENDS:
+        errors.append(f"Unsupported backend '{backend}'. Allowed: {', '.join(SOUP_VALID_BACKENDS)}.")
+    try:
+        epochs = int(params.get("epochs", 3))
+        if epochs < 1 or epochs > 50:
+            errors.append("epochs must be between 1 and 50.")
+    except (TypeError, ValueError):
+        epochs = 3
+        errors.append("epochs must be an integer.")
+    try:
+        lr = float(params.get("lr", 2e-5))
+        if lr <= 0 or lr > 0.1:
+            errors.append("lr must be > 0 and <= 0.1.")
+    except (TypeError, ValueError):
+        lr = 2e-5
+        errors.append("lr must be a positive number.")
+    batch_size = params.get("batch_size", "auto")
+    if batch_size != "auto":
+        try:
+            batch_size = int(batch_size)
+            if batch_size < 1:
+                errors.append("batch_size must be 'auto' or >= 1.")
+        except (TypeError, ValueError):
+            errors.append("batch_size must be 'auto' or positive integer.")
+    try:
+        grad_accum = int(params.get("gradient_accumulation_steps", 4))
+        if grad_accum < 1:
+            errors.append("gradient_accumulation_steps must be >= 1.")
+    except (TypeError, ValueError):
+        grad_accum = 4
+        errors.append("gradient_accumulation_steps must be an integer.")
+    try:
+        max_length = int(params.get("max_length", 2048))
+        if max_length < 64 or max_length > 1048576:
+            errors.append("max_length must be between 64 and 1048576.")
+    except (TypeError, ValueError):
+        max_length = 2048
+        errors.append("max_length must be an integer.")
+    try:
+        val_split = float(params.get("val_split", 0.1))
+        if val_split < 0.0 or val_split > 0.5:
+            errors.append("val_split must be between 0.0 and 0.5.")
+    except (TypeError, ValueError):
+        val_split = 0.1
+        errors.append("val_split must be a float.")
+    try:
+        lora_r = int(params.get("lora_r", 16))
+        lora_alpha = int(params.get("lora_alpha", 32))
+        lora_dropout = float(params.get("lora_dropout", 0.05))
+        if lora_r < 0 or lora_alpha < 1 or lora_dropout < 0.0 or lora_dropout >= 1.0:
+            errors.append("Invalid LoRA parameters (r >= 0, alpha >= 1, 0 <= dropout < 1).")
+    except (TypeError, ValueError):
+        lora_r, lora_alpha, lora_dropout = 16, 32, 0.05
+        errors.append("LoRA parameters must be numeric.")
+    quant = str(params.get("quantization") or "4bit").strip().lower()
+    if quant not in SOUP_VALID_QUANTS:
+        errors.append(f"quantization must be one of {', '.join(SOUP_VALID_QUANTS)}.")
+    data_cfg = {
+        "train": train_path,
+        "format": fmt_norm,
+        "val_split": val_split,
+        "max_length": max_length,
+    }
+    if task_norm == "sft":
+        data_cfg["train_on_responses_only"] = bool(params.get("train_on_responses_only", True))
+    cfg = {
+        "base": base,
+        "task": task_norm,
+        "modality": "text",
+        "backend": backend,
+        "data": data_cfg,
+        "training": {
+            "epochs": epochs,
+            "lr": lr,
+            "batch_size": batch_size,
+            "gradient_accumulation_steps": grad_accum,
+            "quantization": quant,
+            "lora": {
+                "r": lora_r,
+                "alpha": lora_alpha,
+                "dropout": lora_dropout,
+            },
+        },
+        "output": out_dir,
+    }
+    exp = _sanitize_experiment_name(experiment_name)
+    if exp:
+        cfg["experiment_name"] = exp
+    return cfg, errors
+def write_soup_config(cfg_dict, config_path):
+    target = Path(config_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    yaml_text = dump_yaml(cfg_dict) + "\n"
+    storage.atomic_write_text(target, yaml_text, fsync=True, backup=False)
+    return str(target)
+def _run_soup_cmd(soup_info, args, timeout=120, env_extra=None):
+    cmd_base = list((soup_info or {}).get("command") or [])
+    if not cmd_base:
+        return {"ok": False, "returncode": -1, "stdout": "", "stderr": "soup-cli command not available"}
+    env = os.environ.copy()
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    if env_extra:
+        env.update({str(k): str(v) for k, v in env_extra.items()})
+    try:
+        res = subprocess.run(
+            cmd_base + list(args),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+            creationflags=_WIN_NO_WINDOW,
+        )
+        return {
+            "ok": res.returncode == 0,
+            "returncode": res.returncode,
+            "stdout": res.stdout or "",
+            "stderr": res.stderr or "",
+        }
+    except subprocess.TimeoutExpired as e:
+        return {
+            "ok": False,
+            "returncode": -2,
+            "stdout": (e.stdout or "") if isinstance(e.stdout, str) else "",
+            "stderr": f"Command timed out after {timeout}s",
+        }
+    except Exception as e:
+        return {"ok": False, "returncode": -1, "stdout": "", "stderr": str(e)}
+def validate_dataset(soup_info, dataset_path, fmt="auto", min_valid_fraction=0.8):
+    return _run_soup_cmd(
+        soup_info,
+        ["data", "validate", str(dataset_path), "--format", str(fmt), "--min-valid-fraction", str(min_valid_fraction)],
+        timeout=90,
+    )
+def clean_dataset(soup_info, input_path, output_path):
+    return _run_soup_cmd(
+        soup_info,
+        ["data", "clean", str(input_path), "-o", str(output_path)],
+        timeout=120,
+    )
+def dry_run_train(soup_info, config_path, timeout=90):
+    return _run_soup_cmd(
+        soup_info,
+        ["train", "--config", str(config_path), "--dry-run", "--yes"],
+        timeout=timeout,
+    )
+def launch_train_popen(soup_info, config_path, log_path, resume=None, run_name=None, env_extra=None):
+    cmd_base = list((soup_info or {}).get("command") or [])
+    if not cmd_base:
+        raise RuntimeError("soup-cli is not installed or configured.")
+    args = ["train", "--config", str(config_path), "--yes"]
+    if run_name:
+        safe_name = _sanitize_experiment_name(run_name)
+        if safe_name:
+            args.extend(["--name", safe_name])
+    if resume:
+        args.extend(["--resume", str(resume)])
+    Path(log_path).parent.mkdir(parents=True, exist_ok=True)
+    log_fh = open(log_path, "a", encoding="utf-8")
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    if env_extra:
+        env.update({str(k): str(v) for k, v in env_extra.items()})
+    proc = subprocess.Popen(
+        cmd_base + args,
+        stdout=log_fh,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=env,
+        creationflags=_WIN_NO_WINDOW,
+    )
+    return proc, log_fh
+def terminate_process(proc):
+    if proc is None:
+        return
+    try:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+    except Exception:
+        pass
+def parse_train_progress(log_path):
+    if not log_path or not os.path.isfile(log_path):
+        return {"lines": [], "last_loss": None, "last_epoch": None, "current_step": None, "total_steps": None}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except Exception:
+        return {"lines": [], "last_loss": None, "last_epoch": None, "current_step": None, "total_steps": None}
+    last_loss = None
+    last_epoch = None
+    current_step = None
+    total_steps = None
+    for line in lines[-200:]:
+        m_loss = re.search(r"['\"]?loss['\"]?\s*:\s*([0-9]+(?:\.[0-9]+)?)", line)
+        if m_loss:
+            last_loss = float(m_loss.group(1))
+        m_ep = re.search(r"['\"]?epoch['\"]?\s*:\s*([0-9]+(?:\.[0-9]+)?)", line)
+        if m_ep:
+            last_epoch = float(m_ep.group(1))
+        m_step = re.search(r"\b(\d+)\s*/\s*(\d+)\b", line)
+        if m_step and ("%" in line or "it/s" in line or "s/it" in line or "step" in line.lower()):
+            current_step = int(m_step.group(1))
+            total_steps = int(m_step.group(2))
+    return {
+        "lines": lines[-120:],
+        "last_loss": last_loss,
+        "last_epoch": last_epoch,
+        "current_step": current_step,
+        "total_steps": total_steps,
+    }
+def scan_output_artifacts(output_dir):
+    out = Path(output_dir)
+    if not out.exists():
+        return {"checkpoints": [], "adapter_dir": None, "adapter_files": [], "merged_dir": None, "gguf_files": []}
+    checkpoints = []
+    gguf_files = []
+    adapter_dir = None
+    adapter_files = []
+    merged_dir = None
+    for child in sorted(out.iterdir()):
+        if child.is_dir() and child.name.startswith("checkpoint-"):
+            checkpoints.append(str(child))
+        elif child.is_file() and child.suffix.lower() == ".gguf":
+            gguf_files.append(str(child))
+    if (out / "adapter_config.json").is_file():
+        adapter_dir = str(out)
+        adapter_files = sorted(str(p) for p in out.iterdir() if p.is_file())
+    if (out / "config.json").is_file() and any(out.glob("*.safetensors")) and not adapter_dir:
+        merged_dir = str(out)
+    elif (out / "merged" / "config.json").is_file():
+        merged_dir = str(out / "merged")
+    for p in sorted(out.glob("**/*.gguf")):
+        sp = str(p)
+        if sp not in gguf_files:
+            gguf_files.append(sp)
+    return {
+        "checkpoints": checkpoints,
+        "adapter_dir": adapter_dir,
+        "adapter_files": adapter_files,
+        "merged_dir": merged_dir,
+        "gguf_files": gguf_files,
+    }
+def run_custom_eval(soup_info, model_path, tasks_jsonl, output_json_path, timeout=600):
+    Path(output_json_path).parent.mkdir(parents=True, exist_ok=True)
+    res = _run_soup_cmd(
+        soup_info,
+        ["eval", "custom", "--tasks", str(tasks_jsonl), "--model", str(model_path), "--output", str(output_json_path)],
+        timeout=timeout,
+    )
+    metrics = None
+    if os.path.isfile(output_json_path):
+        try:
+            with open(output_json_path, "r", encoding="utf-8") as f:
+                metrics = json.load(f)
+        except Exception:
+            metrics = None
+    res["metrics"] = metrics
+    return res
+def run_merge(soup_info, adapter_path, output_dir, base_model=None, dtype="float16", low_memory=True, timeout=600):
+    args = ["merge", "--adapter", str(adapter_path), "--output", str(output_dir), "--dtype", str(dtype)]
+    if base_model:
+        args.extend(["--base", str(base_model)])
+    if low_memory:
+        args.append("--low-memory")
+    res = _run_soup_cmd(soup_info, args, timeout=timeout)
+    res["output_dir"] = str(output_dir) if os.path.isdir(output_dir) else None
+    return res
+def run_export_gguf(soup_info, model_path, output_file, quant="q4_k_m", base_model=None, timeout=900):
+    q = str(quant or "q4_k_m").strip().lower()
+    if q not in SOUP_VALID_GGUF_QUANTS:
+        return {"ok": False, "returncode": -1, "stdout": "", "stderr": f"Unsupported GGUF quant '{q}'", "output_file": None}
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+    args = ["export", "--model", str(model_path), "--format", "gguf", "--quant", q, "-o", str(output_file)]
+    if base_model:
+        args.extend(["--base", str(base_model)])
+    res = _run_soup_cmd(soup_info, args, timeout=timeout)
+    res["output_file"] = str(output_file) if os.path.isfile(output_file) else None
+    return res
