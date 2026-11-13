@@ -69,18 +69,111 @@ def _repo_exists(repo_id, timeout=4.0):
         return r.status_code == 200
     except Exception:
         return False
+def all_hub_dirs():
+    dirs = []
+    candidates = [
+        os.environ.get("HF_HOME"),
+        settings.models_dir(),
+        paths.default_models_dir(),
+        os.path.join(os.path.expanduser("~"), ".shard", "models"),
+        os.path.join(os.path.expanduser("~"), ".cache", "huggingface"),
+        str(paths.data_dir() / "models"),
+    ]
+    for d in candidates:
+        if d:
+            h = os.path.join(d, "hub") if not str(d).endswith("hub") else d
+            norm = os.path.normcase(os.path.abspath(h))
+            if os.path.isdir(h) and norm not in [os.path.normcase(os.path.abspath(x)) for x in dirs]:
+                dirs.append(h)
+    return dirs
+def find_local_gguf(model_id, wanted_quant=None):
+    if not model_id:
+        return None
+    raw = str(model_id).strip()
+    if os.path.isfile(raw) and raw.lower().endswith(".gguf") and os.path.getsize(raw) > 0:
+        return {
+            "path": os.path.abspath(raw),
+            "size_bytes": os.path.getsize(raw),
+            "quant": parse_quant_from_name(raw) or wanted_quant or "CUSTOM",
+            "repo_id": "local",
+            "multipart": False,
+            "parts": [os.path.basename(raw)],
+        }
+    bare = raw.split("/")[-1].lower()
+    clean = re.sub(r"(?i)[-_]?(instruct)?[-_]?gguf$", "", bare)
+    name_core = re.sub(r"(?i)[-_]?instruct$", "", bare)
+    candidates = []
+    for hub_dir in all_hub_dirs():
+        if not os.path.isdir(hub_dir):
+            continue
+        try:
+            entries = os.listdir(hub_dir)
+        except Exception:
+            continue
+        for entry in entries:
+            low = entry.lower()
+            if not low.startswith("models--"):
+                continue
+            if not (bare in low or clean in low or name_core in low):
+                continue
+            snap_dir = os.path.join(hub_dir, entry, "snapshots")
+            if not os.path.isdir(snap_dir):
+                continue
+            repo_id = entry.replace("models--", "").replace("--", "/")
+            try:
+                for r, _, fns in os.walk(snap_dir):
+                    for fn in fns:
+                        if fn.lower().endswith(".gguf") and not fn.endswith(".incomplete"):
+                            fp = os.path.join(r, fn)
+                            try:
+                                sz = os.path.getsize(fp)
+                                if sz > 0:
+                                    q = parse_quant_from_name(fn) or "CUSTOM"
+                                    candidates.append({
+                                        "path": fp,
+                                        "size_bytes": sz,
+                                        "quant": q,
+                                        "repo_id": repo_id,
+                                        "multipart": False,
+                                        "parts": [fn],
+                                    })
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+    if not candidates:
+        return None
+    if wanted_quant:
+        wq_norm = normalize_quant(wanted_quant) or wanted_quant.upper()
+        for c in candidates:
+            if c["quant"] and (c["quant"].upper() == wq_norm or c["quant"].upper() == wanted_quant.upper()):
+                return c
+    return max(candidates, key=lambda c: (QUANT_BPW.get(c["quant"], 0), c["size_bytes"]))
 def find_gguf_repo(model_id, timeout=4.0):
     if not model_id:
         return None
-    if model_id.lower().endswith("-gguf") or ".gguf" in model_id.lower():
-        return model_id
+    loc = find_local_gguf(model_id)
+    if loc and loc.get("repo_id") and loc["repo_id"] != "local":
+        return loc["repo_id"]
     if model_id in _repo_cache:
         return _repo_cache[model_id]
+    if "/" in model_id:
+        if model_id.lower().endswith("-gguf") or ".gguf" in model_id.lower():
+            if _repo_exists(model_id, timeout):
+                _repo_cache[model_id] = model_id
+                return model_id
     author = model_id.split("/")[0] if "/" in model_id else ""
     name = model_id.split("/")[-1]
     name_clean = re.sub(r"(?i)[-_]?instruct$", "", name)
+    name_no_gguf = re.sub(r"(?i)[-_]?gguf$", "", name)
     candidates = [
-        f"{author}/{name}-GGUF" if author else f"{name}-GGUF",
+        f"{author}/{name}" if author and author != name else None,
+        f"{author}/{name}-GGUF" if author else None,
+        f"Qwen/{name_no_gguf}-GGUF" if "qwen" in name.lower() else None,
+        f"Qwen/{name}" if "qwen" in name.lower() and not name.lower().endswith("-gguf") else None,
+        f"Qwen/{name}-GGUF" if "qwen" in name.lower() else None,
+        f"bartowski/{name_no_gguf}-GGUF",
+        f"TheBloke/{name_no_gguf}-GGUF",
         f"gg-hf-g/{name_clean}-GGUF",
         f"unsloth/{name_clean}-GGUF",
         f"MaziyarPanahi/{name_clean}-GGUF",
@@ -92,6 +185,8 @@ def find_gguf_repo(model_id, timeout=4.0):
             break
     if not found:
         found = _search_gguf_repo(name_clean, timeout)
+    if not found and "/" in model_id:
+        found = model_id
     _repo_cache[model_id] = found
     return found
 def _search_gguf_repo(name_clean, timeout=5.0):
@@ -192,26 +287,32 @@ def _prefer_single(cands):
     singles = [c for c in cands if not c["multipart"] and c["quant"] == best["quant"]]
     return singles[0] if singles else best
 def download_gguf(repo_id, selection):
+    loc = find_local_gguf(repo_id, selection.get("quant") if isinstance(selection, dict) else None)
+    if loc and os.path.isfile(loc.get("path", "")) and loc.get("size_bytes", 0) > 0:
+        return loc["path"]
+    canonical_repo = find_gguf_repo(repo_id) or repo_id
     try:
         from huggingface_hub import snapshot_download
-        patterns = list(selection["parts"])
-        snap = snapshot_download(repo_id, allow_patterns=patterns)
-        for sub in selection["parts"]:
-            cand = os.path.join(snap, *sub.split("/"))
-            if os.path.isfile(cand):
-                return cand
+        patterns = list(selection["parts"]) if (isinstance(selection, dict) and "parts" in selection) else ["*.gguf"]
+        snap = snapshot_download(canonical_repo, allow_patterns=patterns)
+        if isinstance(selection, dict) and "parts" in selection:
+            for sub in selection["parts"]:
+                cand = os.path.join(snap, *sub.split("/"))
+                if os.path.isfile(cand):
+                    return cand
         hits = glob.glob(os.path.join(snap, "**", "*.gguf"), recursive=True)
         if hits:
             return hits[0]
     except ImportError:
         hf_home = os.environ.get("HF_HOME") or settings.models_dir()
-        snap = os.path.join(hf_home, "hub", f"models--{repo_id.replace('/', '--')}", "snapshots", "main")
+        snap = os.path.join(hf_home, "hub", f"models--{canonical_repo.replace('/', '--')}", "snapshots", "main")
         first_path = None
-        for sub in selection["parts"]:
+        parts = selection["parts"] if (isinstance(selection, dict) and "parts" in selection) else [selection.get("path", "model.gguf")]
+        for sub in parts:
             dest = os.path.join(snap, *sub.split("/"))
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             if not os.path.isfile(dest):
-                _download_file(f"https://huggingface.co/{repo_id}/resolve/main/{sub}", dest)
+                _download_file(f"https://huggingface.co/{canonical_repo}/resolve/main/{sub}", dest)
             if first_path is None:
                 first_path = dest
         if first_path and os.path.isfile(first_path):
