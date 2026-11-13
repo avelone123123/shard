@@ -1179,3 +1179,486 @@ def serve_relay(host: str = "0.0.0.0", port: int = 8091, hub: RelayHub | None = 
     if ssl_certfile:
         kwargs["ssl_certfile"] = ssl_certfile
     if ssl_keyfile:
+        kwargs["ssl_keyfile"] = ssl_keyfile
+    uvicorn.run(app, **kwargs)
+class HostTunnelAgent:
+    def __init__(
+        self,
+        identity: net_identity.NodeIdentity,
+        asgi_app=None,
+        local_http_url: str | None = None,
+        p2p_host: str = "0.0.0.0",
+        p2p_port: int | None = None,
+        relay_urls=(),
+        relay_auth_token: str | None = None,
+        peer_authorizer=None,
+        on_http_request=None,
+        rpc_allowed_ports=(),
+        bridge_secret: str | None = None,
+        allow_insecure_local: bool | None = None,
+        handshake_timeout_s: float = 10.0,
+        max_req_body_bytes: int = MAX_REQ_BODY_BYTES,
+        max_tunnels: int = DEFAULT_RELAY_MAX_TUNNELS_PER_HOST,
+    ):
+        self.identity = identity
+        self.asgi_app = asgi_app
+        self.local_http_url = _validate_local_http_url(local_http_url) if local_http_url else None
+        if self.asgi_app is None and self.local_http_url is None:
+            raise ValueError("HostTunnelAgent requires asgi_app or local_http_url")
+        self.p2p_host = str(p2p_host or "0.0.0.0")
+        self.p2p_port = p2p_port
+        self.bound_p2p_port: int | None = None
+        self.relay_urls = [str(u).strip() for u in (relay_urls or ()) if str(u).strip()]
+        self.relay_auth_token = str(relay_auth_token) if relay_auth_token else None
+        self.peer_authorizer = peer_authorizer
+        self.on_http_request = on_http_request
+        self.rpc_allowed_ports = frozenset(int(p) for p in (rpc_allowed_ports or ()) if 1 <= int(p) <= 65535)
+        self._bridge_secret = str(bridge_secret) if bridge_secret else _BRIDGE_SECRET
+        self.allow_insecure_local = allow_insecure_local
+        self.handshake_timeout_s = float(handshake_timeout_s)
+        self.max_req_body_bytes = int(max_req_body_bytes)
+        self.max_tunnels = max(1, int(max_tunnels))
+        self._stop = False
+        self._tcp_server: asyncio.AbstractServer | None = None
+        self._relay_tasks: list[asyncio.Task] = []
+        self._peer_tasks: set[asyncio.Task] = set()
+        self._active_channels: set[EncryptedChannel] = set()
+        self._relay_connected: dict[str, bool] = {}
+        self._http_client: httpx.AsyncClient | None = None
+        self._last_error: str | None = None
+    @property
+    def active_peer_count(self) -> int:
+        return len(self._active_channels)
+    def status(self) -> dict:
+        return {
+            "node_id": self.identity.node_id,
+            "p2p_port": self.bound_p2p_port,
+            "relays": dict(self._relay_connected),
+            "active_peers": len(self._active_channels),
+            "last_error": self._last_error,
+        }
+    async def start(self) -> None:
+        self._stop = False
+        if self.local_http_url and self._http_client is None:
+            self._http_client = httpx.AsyncClient(base_url=self.local_http_url, trust_env=False, timeout=httpx.Timeout(60.0, connect=5.0))
+        if self.p2p_port is not None and self._tcp_server is None:
+            self._tcp_server = await asyncio.start_server(self._handle_tcp_conn, self.p2p_host, int(self.p2p_port))
+            if self._tcp_server.sockets:
+                self.bound_p2p_port = self._tcp_server.sockets[0].getsockname()[1]
+        for rurl in self.relay_urls:
+            self._relay_connected[rurl] = False
+            task = asyncio.create_task(self._relay_mux_loop(rurl))
+            self._relay_tasks.append(task)
+    async def stop(self) -> None:
+        self._stop = True
+        if self._tcp_server is not None:
+            self._tcp_server.close()
+            try:
+                await asyncio.wait_for(self._tcp_server.wait_closed(), timeout=1.5)
+            except Exception:
+                pass
+            self._tcp_server = None
+        for ch in list(self._active_channels):
+            await ch.send_close("host_shutdown")
+            await ch.close()
+        self._active_channels.clear()
+        for t in list(self._relay_tasks):
+            t.cancel()
+        for t in list(self._peer_tasks):
+            t.cancel()
+        for t in list(self._relay_tasks) + list(self._peer_tasks):
+            try:
+                await t
+            except BaseException:
+                pass
+        self._relay_tasks.clear()
+        self._peer_tasks.clear()
+        if self._http_client is not None:
+            try:
+                await self._http_client.aclose()
+            except Exception:
+                pass
+            self._http_client = None
+    def _spawn_peer_task(self, coro) -> asyncio.Task:
+        t = asyncio.create_task(coro)
+        self._peer_tasks.add(t)
+        t.add_done_callback(self._peer_tasks.discard)
+        return t
+    async def _handle_tcp_conn(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        if self._stop or len(self._active_channels) >= self.max_tunnels:
+            writer.close()
+            return
+        tr = TcpFrameTransport(reader, writer)
+        self._spawn_peer_task(self._serve_transport(tr))
+    async def _relay_mux_loop(self, relay_url: str) -> None:
+        backoff = 1.0
+        while not self._stop:
+            mux_peers: dict[str, MuxPeerTransport] = {}
+            ws = None
+            try:
+                ws_url = _build_relay_ws_url(relay_url, "host", self.identity.node_id, allow_insecure_local=self.allow_insecure_local)
+                async with websockets.connect(
+                    ws_url,
+                    max_size=MAX_FRAME_BYTES + 64,
+                    compression=None,
+                    proxy=None,
+                    open_timeout=10.0,
+                    ping_interval=20.0,
+                    ping_timeout=20.0,
+                ) as ws:
+                    raw_chal = await asyncio.wait_for(ws.recv(), timeout=self.handshake_timeout_s)
+                    chal_obj = json.loads(raw_chal)
+                    challenge = str(chal_obj.get("challenge") or "")
+                    if not challenge:
+                        raise TunnelAuthError("Missing relay challenge")
+                    ts = int(time.time())
+                    sign_bytes = f"relay-reg:{self.identity.node_id}:{challenge}:{ts}".encode("utf-8")
+                    sig = self.identity.sign_bytes(net_identity.DOMAIN_RELAY_REG, sign_bytes)
+                    reg_payload = {
+                        "host_id": self.identity.node_id,
+                        "pubkey": self.identity.pubkey_b64,
+                        "ts": ts,
+                        "sig": sig,
+                    }
+                    if self.relay_auth_token:
+                        reg_payload["auth_token"] = self.relay_auth_token
+                    await ws.send(json.dumps(reg_payload, separators=(",", ":")))
+                    raw_ack = await asyncio.wait_for(ws.recv(), timeout=self.handshake_timeout_s)
+                    ack_obj = json.loads(raw_ack)
+                    if ack_obj.get("type") != "registered":
+                        raise TunnelAuthError("Relay registration failed")
+                    self._relay_connected[relay_url] = True
+                    backoff = 1.0
+                    send_lock = asyncio.Lock()
+                    async def _send_mux(data: bytes) -> None:
+                        async with send_lock:
+                            await ws.send(data)
+                    async def _close_mux(tid: str) -> None:
+                        mux_peers.pop(tid, None)
+                        try:
+                            async with send_lock:
+                                await ws.send(json.dumps({"type": "peer_close", "tunnel_id": tid}, separators=(",", ":")))
+                        except Exception:
+                            pass
+                    while not self._stop:
+                        frame = await ws.recv()
+                        if isinstance(frame, str):
+                            ev = json.loads(frame)
+                            etype = ev.get("type")
+                            if etype == "peer_connect":
+                                tid = str(ev.get("tunnel_id") or "")
+                                if len(tid) == 16 and len(self._active_channels) < self.max_tunnels and tid not in mux_peers:
+                                    mtr = MuxPeerTransport(tid, _send_mux, close_cb=_close_mux)
+                                    mux_peers[tid] = mtr
+                                    self._spawn_peer_task(self._serve_transport(mtr))
+                            elif etype == "peer_close":
+                                tid = str(ev.get("tunnel_id") or "")
+                                mtr = mux_peers.pop(tid, None)
+                                if mtr is not None:
+                                    mtr.mark_closed()
+                        elif isinstance(frame, (bytes, bytearray)):
+                            if len(frame) < 16:
+                                continue
+                            tid = bytes(frame[:16]).decode("ascii", errors="ignore")
+                            mtr = mux_peers.get(tid)
+                            if mtr is not None:
+                                ok = await mtr.feed(bytes(frame[16:]))
+                                if not ok:
+                                    mux_peers.pop(tid, None)
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                self._last_error = str(exc)
+            finally:
+                self._relay_connected[relay_url] = False
+                for mtr in list(mux_peers.values()):
+                    mtr.mark_closed()
+                mux_peers.clear()
+            if self._stop:
+                break
+            await asyncio.sleep(backoff)
+            backoff = min(10.0, backoff * 2.0)
+    async def _serve_transport(self, transport: AsyncTransport) -> None:
+        channel = EncryptedChannel(transport, role="host")
+        http_bodies: dict[int, tuple[dict, bytearray]] = {}
+        http_tasks: set[asyncio.Task] = set()
+        rpc_writers: dict[int, asyncio.StreamWriter] = {}
+        rpc_tasks: set[asyncio.Task] = set()
+        try:
+            await channel.perform_host_handshake(self.identity, peer_authorizer=self.peer_authorizer, timeout=self.handshake_timeout_s)
+            self._active_channels.add(channel)
+            while not self._stop and channel.is_established:
+                try:
+                    msg_type, flags, stream_id, payload = await channel.recv_frame()
+                except TunnelClosedError:
+                    break
+                if msg_type == net_identity.MSG_PING:
+                    await channel.send_frame(net_identity.MSG_PONG, payload=payload, stream_id=0, flags=0)
+                elif msg_type == net_identity.MSG_CLOSE:
+                    break
+                elif msg_type == net_identity.MSG_HTTP_REQ:
+                    try:
+                        req_meta = json.loads(payload.decode("utf-8"))
+                    except Exception:
+                        await self._send_http_error(channel, stream_id, 400, "Invalid HTTP request frame")
+                        continue
+                    if flags & net_identity.FLAG_FIN:
+                        t = asyncio.create_task(self._dispatch_http_request(channel, stream_id, req_meta, b""))
+                        http_tasks.add(t)
+                        t.add_done_callback(http_tasks.discard)
+                    else:
+                        if len(http_bodies) >= 64:
+                            await self._send_http_error(channel, stream_id, 429, "Too many concurrent requests")
+                            continue
+                        http_bodies[stream_id] = (req_meta, bytearray())
+                elif msg_type == net_identity.MSG_HTTP_BODY_CHUNK:
+                    entry = http_bodies.get(stream_id)
+                    if entry is None:
+                        continue
+                    req_meta, buf = entry
+                    if len(buf) + len(payload) > self.max_req_body_bytes:
+                        http_bodies.pop(stream_id, None)
+                        await self._send_http_error(channel, stream_id, 413, "Request body too large")
+                        continue
+                    buf.extend(payload)
+                    if flags & net_identity.FLAG_FIN:
+                        http_bodies.pop(stream_id, None)
+                        t = asyncio.create_task(self._dispatch_http_request(channel, stream_id, req_meta, bytes(buf)))
+                        http_tasks.add(t)
+                        t.add_done_callback(http_tasks.discard)
+                elif msg_type == net_identity.MSG_RPC_OPEN:
+                    await self._handle_rpc_open(channel, stream_id, payload, rpc_writers, rpc_tasks)
+                elif msg_type == net_identity.MSG_RPC_DATA:
+                    writer = rpc_writers.get(stream_id)
+                    if writer is not None:
+                        try:
+                            writer.write(payload)
+                            await writer.drain()
+                        except Exception:
+                            rpc_writers.pop(stream_id, None)
+                            try:
+                                writer.close()
+                                await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
+                            except Exception:
+                                pass
+                            await self._safe_send_rpc_close(channel, stream_id)
+                elif msg_type == net_identity.MSG_RPC_CLOSE:
+                    writer = rpc_writers.pop(stream_id, None)
+                    if writer is not None:
+                        try:
+                            writer.close()
+                            await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
+                        except Exception:
+                            pass
+        except asyncio.CancelledError:
+            pass
+        except Exception as exc:
+            self._last_error = str(exc)
+        finally:
+            self._active_channels.discard(channel)
+            for t in list(http_tasks) + list(rpc_tasks):
+                t.cancel()
+            for w in list(rpc_writers.values()):
+                try:
+                    w.close()
+                    await asyncio.wait_for(w.wait_closed(), timeout=0.5)
+                except Exception:
+                    pass
+            await channel.close()
+    async def _safe_send_rpc_close(self, channel: EncryptedChannel, stream_id: int, msg: str = "") -> None:
+        try:
+            if channel.is_established:
+                payload = json.dumps({"error": msg}, separators=(",", ":")).encode("utf-8") if msg else b""
+                await channel.send_frame(net_identity.MSG_RPC_CLOSE, payload=payload, stream_id=stream_id, flags=net_identity.FLAG_FIN)
+        except Exception:
+            pass
+    async def _handle_rpc_open(self, channel: EncryptedChannel, stream_id: int, payload: bytes, rpc_writers: dict, rpc_tasks: set) -> None:
+        try:
+            info = json.loads(payload.decode("utf-8"))
+            port = info.get("port")
+        except Exception:
+            await self._safe_send_rpc_close(channel, stream_id, "invalid_rpc_open")
+            return
+        if isinstance(port, bool) or not isinstance(port, int) or port not in self.rpc_allowed_ports:
+            await self._safe_send_rpc_close(channel, stream_id, "rpc_port_not_allowed")
+            return
+        try:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection("127.0.0.1", port), timeout=5.0)
+        except Exception:
+            await self._safe_send_rpc_close(channel, stream_id, "rpc_connect_failed")
+            return
+        rpc_writers[stream_id] = writer
+        async def _pump():
+            try:
+                while channel.is_established:
+                    chunk = await reader.read(MAX_CHUNK_BYTES)
+                    if not chunk:
+                        break
+                    await channel.send_frame(net_identity.MSG_RPC_DATA, payload=chunk, stream_id=stream_id, flags=0)
+            except Exception:
+                pass
+            finally:
+                rpc_writers.pop(stream_id, None)
+                try:
+                    writer.close()
+                    await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
+                except Exception:
+                    pass
+                await self._safe_send_rpc_close(channel, stream_id)
+        t = asyncio.create_task(_pump())
+        rpc_tasks.add(t)
+        t.add_done_callback(rpc_tasks.discard)
+    async def _send_http_error(self, channel: EncryptedChannel, stream_id: int, status: int, message: str) -> None:
+        if not channel.is_established:
+            return
+        body = json.dumps({"status": "error", "message": message}, ensure_ascii=False).encode("utf-8")
+        head = json.dumps({"status": int(status), "headers": [["content-type", "application/json"], ["content-length", str(len(body))]]}, separators=(",", ":")).encode("utf-8")
+        try:
+            await channel.send_frame(net_identity.MSG_HTTP_RESP_HEAD, payload=head, stream_id=stream_id, flags=0)
+            await channel.send_frame(net_identity.MSG_HTTP_BODY_CHUNK, payload=body, stream_id=stream_id, flags=net_identity.FLAG_FIN)
+        except Exception:
+            pass
+    async def _dispatch_http_request(self, channel: EncryptedChannel, stream_id: int, req_meta: dict, body: bytes) -> None:
+        method = str(req_meta.get("method") or "GET").upper().strip()
+        if method not in ALLOWED_TUNNEL_METHODS:
+            await self._send_http_error(channel, stream_id, 403, "Method not allowed via tunnel")
+            return
+        raw_path = req_meta.get("path") or ""
+        norm_path = normalize_tunnel_path(raw_path)
+        if norm_path is None:
+            await self._send_http_error(channel, stream_id, 403, "Path not allowed via tunnel")
+            return
+        query = str(req_meta.get("query") or "")
+        if len(query) > 4096 or any(ord(c) < 32 or ord(c) == 127 for c in query):
+            await self._send_http_error(channel, stream_id, 400, "Invalid query string")
+            return
+        clean_headers = sanitize_tunnel_headers(req_meta.get("headers"))
+        if self.on_http_request is not None:
+            try:
+                cb_res = self.on_http_request({
+                    "peer_node_id": channel.peer_node_id,
+                    "method": method,
+                    "path": norm_path,
+                    "query": query,
+                })
+                if asyncio.iscoroutine(cb_res):
+                    await cb_res
+            except PermissionError as exc:
+                await self._send_http_error(channel, stream_id, 403, str(exc))
+                return
+            except Exception:
+                pass
+        if self.asgi_app is not None:
+            await self._dispatch_asgi(channel, stream_id, method, norm_path, query, clean_headers, body)
+        else:
+            await self._dispatch_loopback_http(channel, stream_id, method, norm_path, query, clean_headers, body)
+    async def _dispatch_asgi(self, channel: EncryptedChannel, stream_id: int, method: str, path: str, query: str, clean_headers: list[tuple[str, str]], body: bytes) -> None:
+        asgi_headers = [(k.encode("latin-1"), v.encode("latin-1")) for k, v in clean_headers]
+        asgi_headers.append((b"host", b"127.0.0.1"))
+        if body:
+            asgi_headers.append((b"content-length", str(len(body)).encode("ascii")))
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1",
+            "method": method,
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode("ascii"),
+            "query_string": query.encode("latin-1"),
+            "root_path": "",
+            "headers": asgi_headers,
+            "client": ("127.0.0.1", 0),
+            "server": ("127.0.0.1", 8000),
+            "shard_tunnel": {"peer_node_id": channel.peer_node_id},
+        }
+        req_sent = False
+        disconnect_ev = asyncio.Event()
+        head_sent = False
+        fin_sent = False
+        async def receive():
+            nonlocal req_sent
+            if not req_sent:
+                req_sent = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            await disconnect_ev.wait()
+            return {"type": "http.disconnect"}
+        async def send(message: dict):
+            nonlocal head_sent, fin_sent
+            mtype = message.get("type")
+            if mtype == "http.response.start":
+                head_sent = True
+                status = int(message.get("status") or 200)
+                hdrs = _sanitize_response_headers(message.get("headers") or ())
+                head_bytes = json.dumps({"status": status, "headers": [[k, v] for k, v in hdrs]}, separators=(",", ":")).encode("utf-8")
+                await channel.send_frame(net_identity.MSG_HTTP_RESP_HEAD, payload=head_bytes, stream_id=stream_id, flags=0)
+            elif mtype == "http.response.body":
+                chunk = bytes(message.get("body") or b"")
+                more = bool(message.get("more_body", False))
+                if not chunk:
+                    if not more and not fin_sent:
+                        fin_sent = True
+                        await channel.send_frame(net_identity.MSG_HTTP_BODY_CHUNK, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+                        disconnect_ev.set()
+                    return
+                offset = 0
+                while offset < len(chunk):
+                    part = chunk[offset:offset + MAX_CHUNK_BYTES]
+                    offset += len(part)
+                    is_last = (offset >= len(chunk)) and (not more)
+                    fl = net_identity.FLAG_FIN if is_last else 0
+                    if is_last:
+                        fin_sent = True
+                        disconnect_ev.set()
+                    await channel.send_frame(net_identity.MSG_HTTP_BODY_CHUNK, payload=part, stream_id=stream_id, flags=fl)
+        try:
+            await self.asgi_app(scope, receive, send)
+            if head_sent and not fin_sent and channel.is_established:
+                fin_sent = True
+                await channel.send_frame(net_identity.MSG_HTTP_BODY_CHUNK, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+            elif not head_sent:
+                await self._send_http_error(channel, stream_id, 502, "Empty ASGI response")
+        except Exception:
+            if not head_sent:
+                await self._send_http_error(channel, stream_id, 502, "Local ASGI dispatch failed")
+            elif not fin_sent and channel.is_established:
+                try:
+                    await channel.send_frame(net_identity.MSG_HTTP_BODY_CHUNK, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+                except Exception:
+                    pass
+        finally:
+            disconnect_ev.set()
+    async def _dispatch_loopback_http(self, channel: EncryptedChannel, stream_id: int, method: str, path: str, query: str, clean_headers: list[tuple[str, str]], body: bytes) -> None:
+        if self._http_client is None:
+            await self._send_http_error(channel, stream_id, 503, "Local HTTP client unavailable")
+            return
+        fwd_headers = [(k, v) for k, v in clean_headers if k != "accept-encoding"]
+        fwd_headers.append(("accept-encoding", "identity"))
+        fwd_headers.append(("x-shard-bridge-token", self._bridge_secret))
+        if channel.peer_node_id:
+            fwd_headers.append(("x-shard-tunnel-peer", channel.peer_node_id))
+        target = f"{path}?{query}" if query else path
+        head_sent = False
+        fin_sent = False
+        try:
+            async with self._http_client.stream(method, target, headers=fwd_headers, content=body if body else None) as resp:
+                hdrs = _sanitize_response_headers(resp.headers.raw)
+                head_bytes = json.dumps({"status": int(resp.status_code), "headers": [[k, v] for k, v in hdrs]}, separators=(",", ":")).encode("utf-8")
+                head_sent = True
+                await channel.send_frame(net_identity.MSG_HTTP_RESP_HEAD, payload=head_bytes, stream_id=stream_id, flags=0)
+                async for chunk in resp.aiter_raw():
+                    if not chunk:
+                        continue
+                    offset = 0
+                    while offset < len(chunk):
+                        part = chunk[offset:offset + MAX_CHUNK_BYTES]
+                        offset += len(part)
+                        await channel.send_frame(net_identity.MSG_HTTP_BODY_CHUNK, payload=part, stream_id=stream_id, flags=0)
+                fin_sent = True
+                await channel.send_frame(net_identity.MSG_HTTP_BODY_CHUNK, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+        except Exception:
+            if not head_sent:
+                await self._send_http_error(channel, stream_id, 502, "Local loopback HTTP target error")
+            elif not fin_sent and channel.is_established:
+                try:
+                    await channel.send_frame(net_identity.MSG_HTTP_BODY_CHUNK, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
