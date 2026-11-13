@@ -168,19 +168,22 @@ SHARD объединяет свободные ресурсы GPU и RAM неск
 
 ### Установка
 
-#### Вариант 1: Установка через pip (рекомендуется)
-Запускайте SHARD из любой директории без клонирования репозитория:
+#### Вариант 1: Установка через pip из GitHub (рекомендуется)
+Запускайте SHARD из любой директории без ручного клонирования репозитория:
 ```bash
 # Базовая установка: CLI, FastAPI-сервер, веб-панель, GGUF (llama.cpp) и LAN-кластер
-pip install shard-engine
+pip install "git+https://github.com/avelone123123/shard.git"
 
 # Полная установка: добавляет PyTorch/Transformers safetensors и модули Hugging Face
-pip install "shard-engine[full]"
+pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
+*Примечание по PyPI:* Пакет `shard-engine` ожидает первичной публикации в индексе PyPI. После релиза на PyPI команды `pip install shard-engine` и `pip install "shard-engine[full]"` будут доступны напрямую из PyPI.
+
 Сразу после установки проверьте готовность среды:
 ```bash
 shard doctor
 ```
+> **Примечание по Windows PATH:** Если в Windows сообщается, что `shard.exe` не найден в PATH, вы можете запускать SHARD напрямую через Python: `python -m shard_engine <команда>` (например, `python -m shard_engine help` или `python -m shard_engine start`).
 > **Примечание по GPU и runtime:** бэкенд GGUF автоматически скачивает бинарники `llama-server` / `ggml-rpc-server` при первом запуске и не требует тяжёлых ML-пакетов. Для PyTorch с CUDA установите совместимую сборку `torch` перед `pip install "shard-engine[full]"`.
 
 #### Вариант 2: Установка из исходного кода для разработчиков
