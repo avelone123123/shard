@@ -500,3 +500,353 @@ class MuxPeerTransport(AsyncTransport):
                 pass
     def peer_info(self) -> str:
         return f"relay-mux:{self.tunnel_id}"
+class EncryptedChannel:
+    def __init__(self, transport: AsyncTransport, role: str = "client", max_frame_bytes: int = MAX_FRAME_BYTES):
+        if role not in ("client", "host"):
+            raise ValueError("role must be 'client' or 'host'")
+        self.transport = transport
+        self.role = role
+        self.max_frame_bytes = int(max_frame_bytes)
+        self.send_seq = 0
+        self.expected_recv_seq = 0
+        self.bytes_tx = 0
+        self.bytes_rx = 0
+        self.peer_node_id: str | None = None
+        self.peer_pubkey_b64: str | None = None
+        self.auth_proof: str | None = None
+        self._send_key: bytes | None = None
+        self._recv_key: bytes | None = None
+        self._send_iv: bytes | None = None
+        self._recv_iv: bytes | None = None
+        self._established = False
+        self._closed = False
+        self._send_lock = asyncio.Lock()
+        self._recv_lock = asyncio.Lock()
+    @property
+    def is_established(self) -> bool:
+        return self._established and not self._closed
+    @property
+    def is_closed(self) -> bool:
+        return self._closed
+    async def _recv_wire_exact(self, timeout: float | None = None) -> bytes:
+        if timeout is None:
+            wire = await self.transport.recv_bytes()
+        else:
+            wire = await asyncio.wait_for(self.transport.recv_bytes(), timeout=timeout)
+        if len(wire) < 16 or len(wire) > self.max_frame_bytes:
+            await self.close()
+            raise TunnelFrameError(f"Wire frame size invalid: {len(wire)}")
+        self.bytes_rx += len(wire)
+        return wire
+    async def _send_wire(self, wire: bytes) -> None:
+        if len(wire) < 16 or len(wire) > self.max_frame_bytes:
+            raise TunnelFrameError(f"Wire frame size invalid: {len(wire)}")
+        await self.transport.send_bytes(wire)
+        self.bytes_tx += len(wire)
+    async def perform_client_handshake(
+        self,
+        identity: net_identity.NodeIdentity,
+        target_host_id: str,
+        auth_proof: str | None = None,
+        timeout: float = 10.0,
+    ) -> tuple[str, str, str | None]:
+        if self.role != "client":
+            raise TunnelError("perform_client_handshake requires client role")
+        if self._established or self._closed:
+            raise TunnelError("Channel already initialized or closed")
+        if not isinstance(target_host_id, str) or not net_identity.NODE_ID_RE.match(target_host_id):
+            raise TunnelAuthError("Invalid target_host_id")
+        if auth_proof is not None and not isinstance(auth_proof, str):
+            raise TypeError("auth_proof must be str or None")
+        c_x_priv = None
+        k_hs_c2s = None
+        k_hs_s2c = None
+        shared = None
+        try:
+            c_x_priv, c_x_pub = net_identity.x25519_keypair()
+            c_nonce = secrets.token_bytes(32)
+            aad1 = net_identity.pack_frame_aad(net_identity.PROTOCOL_TUNNEL_V1, net_identity.MSG_HS_INIT, 0, 0, 0)
+            await self._send_wire(aad1 + c_x_pub + c_nonce)
+            wire2 = await self._recv_wire_exact(timeout=timeout)
+            aad2 = wire2[:16]
+            body2 = wire2[16:]
+            ver2, mt2, _, sid2, seq2 = net_identity.unpack_frame_aad(aad2)
+            if ver2 != net_identity.PROTOCOL_TUNNEL_V1 or mt2 != net_identity.MSG_HS_RESP or sid2 != 0 or seq2 != 0:
+                raise TunnelFrameError("Invalid handshake response frame header")
+            if len(body2) <= 64:
+                raise TunnelFrameError("Truncated handshake response")
+            h_x_pub = body2[:32]
+            h_nonce = body2[32:64]
+            enc_host_auth = body2[64:]
+            try:
+                shared = net_identity.x25519_shared_secret(c_x_priv, h_x_pub)
+            except Exception as exc:
+                raise TunnelCryptoError("Invalid host X25519 key") from exc
+            h1 = hashlib.sha256(
+                b"SHARD-TUNNEL-H1\x00" + aad1 + c_x_pub + c_nonce + h_x_pub + h_nonce + target_host_id.encode("ascii")
+            ).digest()
+            k_hs_c2s, k_hs_s2c = net_identity.derive_handshake_keys(shared, h1)
+            hs_iv_s2c = hashlib.sha256(b"hs-iv-s2c:" + h1).digest()[:4]
+            try:
+                host_plain = net_identity.aead_decrypt(k_hs_s2c, hs_iv_s2c, 0, aad2 + h_x_pub + h_nonce, enc_host_auth)
+                host_obj = json.loads(host_plain.decode("utf-8"))
+            except Exception as exc:
+                raise TunnelCryptoError("Host handshake authentication decryption failed") from exc
+            if not isinstance(host_obj, dict):
+                raise TunnelAuthError("Invalid host auth payload")
+            resp_nid = host_obj.get("node_id")
+            resp_pub = host_obj.get("pubkey")
+            resp_sig = host_obj.get("sig")
+            if not isinstance(resp_nid, str) or not hmac.compare_digest(resp_nid, target_host_id):
+                raise TunnelAuthError("Target host node_id mismatch")
+            if not net_identity.verify_sig(resp_pub, target_host_id, net_identity.DOMAIN_TUNNEL_HOST, h1, resp_sig):
+                raise TunnelAuthError("Host Ed25519 signature verification failed")
+            h2 = hashlib.sha256(b"SHARD-TUNNEL-H2\x00" + h1 + enc_host_auth).digest()
+            peer_sig = identity.sign_bytes(net_identity.DOMAIN_TUNNEL_PEER, h2)
+            auth_obj = {
+                "node_id": identity.node_id,
+                "pubkey": identity.pubkey_b64,
+                "sig": peer_sig,
+                "auth_proof": auth_proof,
+            }
+            aad3 = net_identity.pack_frame_aad(net_identity.PROTOCOL_TUNNEL_V1, net_identity.MSG_HS_AUTH, 0, 0, 0)
+            hs_iv_c2s = hashlib.sha256(b"hs-iv-c2s:" + h1).digest()[:4]
+            enc_peer_auth = net_identity.aead_encrypt(k_hs_c2s, hs_iv_c2s, 0, aad3, net_identity.canonical_json(auth_obj))
+            await self._send_wire(aad3 + enc_peer_auth)
+            h_final = hashlib.sha256(b"SHARD-TUNNEL-HFINAL\x00" + h2 + enc_peer_auth).digest()
+            k_c2s, k_s2c, iv_c2s, iv_s2c = net_identity.derive_session_keys(shared, h_final)
+            self._send_key = k_c2s
+            self._recv_key = k_s2c
+            self._send_iv = iv_c2s
+            self._recv_iv = iv_s2c
+            self.send_seq = 0
+            self.expected_recv_seq = 0
+            self.peer_node_id = target_host_id
+            self.peer_pubkey_b64 = resp_pub
+            self.auth_proof = auth_proof
+            self._established = True
+            return target_host_id, resp_pub, auth_proof
+        except Exception:
+            await self.close()
+            raise
+        finally:
+            c_x_priv = None
+            k_hs_c2s = None
+            k_hs_s2c = None
+            shared = None
+    async def perform_host_handshake(
+        self,
+        identity: net_identity.NodeIdentity,
+        peer_authorizer=None,
+        timeout: float = 10.0,
+    ) -> tuple[str, str, str | None]:
+        if self.role != "host":
+            raise TunnelError("perform_host_handshake requires host role")
+        if self._established or self._closed:
+            raise TunnelError("Channel already initialized or closed")
+        h_x_priv = None
+        k_hs_c2s = None
+        k_hs_s2c = None
+        shared = None
+        try:
+            wire1 = await self._recv_wire_exact(timeout=timeout)
+            aad1 = wire1[:16]
+            body1 = wire1[16:]
+            ver1, mt1, _, sid1, seq1 = net_identity.unpack_frame_aad(aad1)
+            if ver1 != net_identity.PROTOCOL_TUNNEL_V1 or mt1 != net_identity.MSG_HS_INIT or sid1 != 0 or seq1 != 0:
+                raise TunnelFrameError("Invalid handshake init frame header")
+            if len(body1) != 64:
+                raise TunnelFrameError("Invalid handshake init body length")
+            c_x_pub = body1[:32]
+            c_nonce = body1[32:64]
+            h_x_priv, h_x_pub = net_identity.x25519_keypair()
+            h_nonce = secrets.token_bytes(32)
+            try:
+                shared = net_identity.x25519_shared_secret(h_x_priv, c_x_pub)
+            except Exception as exc:
+                raise TunnelCryptoError("Invalid client X25519 key") from exc
+            h1 = hashlib.sha256(
+                b"SHARD-TUNNEL-H1\x00" + aad1 + c_x_pub + c_nonce + h_x_pub + h_nonce + identity.node_id.encode("ascii")
+            ).digest()
+            k_hs_c2s, k_hs_s2c = net_identity.derive_handshake_keys(shared, h1)
+            host_sig = identity.sign_bytes(net_identity.DOMAIN_TUNNEL_HOST, h1)
+            host_payload = net_identity.canonical_json({
+                "node_id": identity.node_id,
+                "pubkey": identity.pubkey_b64,
+                "sig": host_sig,
+            })
+            aad2 = net_identity.pack_frame_aad(net_identity.PROTOCOL_TUNNEL_V1, net_identity.MSG_HS_RESP, 0, 0, 0)
+            hs_iv_s2c = hashlib.sha256(b"hs-iv-s2c:" + h1).digest()[:4]
+            enc_host_auth = net_identity.aead_encrypt(k_hs_s2c, hs_iv_s2c, 0, aad2 + h_x_pub + h_nonce, host_payload)
+            await self._send_wire(aad2 + h_x_pub + h_nonce + enc_host_auth)
+            wire3 = await self._recv_wire_exact(timeout=timeout)
+            aad3 = wire3[:16]
+            enc_peer_auth = wire3[16:]
+            ver3, mt3, _, sid3, seq3 = net_identity.unpack_frame_aad(aad3)
+            if ver3 != net_identity.PROTOCOL_TUNNEL_V1 or mt3 != net_identity.MSG_HS_AUTH or sid3 != 0 or seq3 != 0:
+                raise TunnelFrameError("Invalid handshake auth frame header")
+            hs_iv_c2s = hashlib.sha256(b"hs-iv-c2s:" + h1).digest()[:4]
+            try:
+                peer_plain = net_identity.aead_decrypt(k_hs_c2s, hs_iv_c2s, 0, aad3, enc_peer_auth)
+                peer_obj = json.loads(peer_plain.decode("utf-8"))
+            except Exception as exc:
+                raise TunnelCryptoError("Peer handshake authentication decryption failed") from exc
+            if not isinstance(peer_obj, dict):
+                raise TunnelAuthError("Invalid peer auth payload")
+            peer_nid = peer_obj.get("node_id")
+            peer_pub = peer_obj.get("pubkey")
+            peer_sig = peer_obj.get("sig")
+            auth_proof = peer_obj.get("auth_proof")
+            if auth_proof is not None and not isinstance(auth_proof, str):
+                raise TunnelAuthError("Invalid auth_proof type")
+            h2 = hashlib.sha256(b"SHARD-TUNNEL-H2\x00" + h1 + enc_host_auth).digest()
+            if not isinstance(peer_nid, str) or not net_identity.NODE_ID_RE.match(peer_nid):
+                raise TunnelAuthError("Invalid peer node_id")
+            if not net_identity.verify_sig(peer_pub, peer_nid, net_identity.DOMAIN_TUNNEL_PEER, h2, peer_sig):
+                raise TunnelAuthError("Peer Ed25519 signature verification failed")
+            h_final = hashlib.sha256(b"SHARD-TUNNEL-HFINAL\x00" + h2 + enc_peer_auth).digest()
+            k_c2s, k_s2c, iv_c2s, iv_s2c = net_identity.derive_session_keys(shared, h_final)
+            if peer_authorizer is not None:
+                ok_res = peer_authorizer(peer_nid, peer_pub, auth_proof)
+                if asyncio.iscoroutine(ok_res):
+                    ok_res = await ok_res
+                if not ok_res:
+                    try:
+                        err_aad = net_identity.pack_frame_aad(net_identity.PROTOCOL_TUNNEL_V1, net_identity.MSG_AUTH_ERR, net_identity.FLAG_FIN, 0, 0)
+                        err_ct = net_identity.aead_encrypt(k_s2c, iv_s2c, 0, err_aad, b"auth_rejected")
+                        await self._send_wire(err_aad + err_ct)
+                    except Exception:
+                        pass
+                    raise TunnelAuthError("Peer rejected by authorizer")
+            self._send_key = k_s2c
+            self._recv_key = k_c2s
+            self._send_iv = iv_s2c
+            self._recv_iv = iv_c2s
+            self.send_seq = 0
+            self.expected_recv_seq = 0
+            self.peer_node_id = peer_nid
+            self.peer_pubkey_b64 = peer_pub
+            self.auth_proof = auth_proof
+            self._established = True
+            return peer_nid, peer_pub, auth_proof
+        except Exception:
+            await self.close()
+            raise
+        finally:
+            h_x_priv = None
+            k_hs_c2s = None
+            k_hs_s2c = None
+            shared = None
+    async def send_frame(
+        self,
+        msg_type: int,
+        payload: bytes = b"",
+        stream_id: int = 0,
+        flags: int = 0,
+        pad_to: int = 0,
+    ) -> None:
+        if not self._established or self._closed:
+            raise TunnelClosedError("Encrypted channel not open")
+        raw_payload = bytes(payload)
+        eff_flags = int(flags)
+        if pad_to > 0 or (eff_flags & net_identity.FLAG_PADDED):
+            eff_flags |= net_identity.FLAG_PADDED
+            pad_len = max(0, int(pad_to) - 4 - len(raw_payload))
+            plaintext = struct.pack(">I", len(raw_payload)) + raw_payload + (b"\x00" * pad_len)
+        else:
+            plaintext = raw_payload
+        async with self._send_lock:
+            if not self._established or self._closed:
+                raise TunnelClosedError("Encrypted channel not open")
+            seq = self.send_seq
+            if seq > 0xFFFFFFFFFFFFFFFF:
+                await self.close()
+                raise TunnelFrameError("Send sequence space exhausted")
+            aad16 = net_identity.pack_frame_aad(net_identity.PROTOCOL_TUNNEL_V1, int(msg_type), eff_flags, int(stream_id), seq)
+            ct = net_identity.aead_encrypt(self._send_key, self._send_iv, seq, aad16, plaintext)
+            wire = aad16 + ct
+            if len(wire) > self.max_frame_bytes:
+                raise TunnelFrameError(f"Encrypted frame exceeds max size ({len(wire)} > {self.max_frame_bytes})")
+            self.send_seq = seq + 1
+            await self._send_wire(wire)
+    async def recv_frame(self, timeout: float | None = None) -> tuple[int, int, int, bytes]:
+        if not self._established or self._closed:
+            raise TunnelClosedError("Encrypted channel not open")
+        async with self._recv_lock:
+            if not self._established or self._closed:
+                raise TunnelClosedError("Encrypted channel not open")
+            wire = await self._recv_wire_exact(timeout=timeout)
+            aad16 = wire[:16]
+            ct = wire[16:]
+            try:
+                ver, msg_type, flags, stream_id, seq = net_identity.unpack_frame_aad(aad16)
+            except Exception as exc:
+                await self.close()
+                raise TunnelFrameError("Malformed AAD header") from exc
+            if ver != net_identity.PROTOCOL_TUNNEL_V1:
+                await self.close()
+                raise TunnelFrameError(f"Unsupported tunnel version: {ver}")
+            if seq != self.expected_recv_seq:
+                await self.close()
+                raise TunnelReplayError(f"Unexpected frame seq {seq}, expected {self.expected_recv_seq}")
+            try:
+                plaintext = net_identity.aead_decrypt(self._recv_key, self._recv_iv, seq, aad16, ct)
+            except Exception as exc:
+                await self.close()
+                raise TunnelCryptoError("AEAD authentication failed") from exc
+            self.expected_recv_seq = seq + 1
+            if flags & net_identity.FLAG_PADDED:
+                if len(plaintext) < 4:
+                    await self.close()
+                    raise TunnelFrameError("Malformed padded frame")
+                plen = struct.unpack(">I", plaintext[:4])[0]
+                if 4 + plen > len(plaintext):
+                    await self.close()
+                    raise TunnelFrameError("Padded length out of bounds")
+                plaintext = plaintext[4:4 + plen]
+            return msg_type, flags, stream_id, plaintext
+    async def send_ping(self, payload: bytes = b"") -> None:
+        await self.send_frame(net_identity.MSG_PING, payload=payload, stream_id=0, flags=0)
+    async def send_close(self, reason: str = "") -> None:
+        try:
+            if self._established and not self._closed:
+                await self.send_frame(net_identity.MSG_CLOSE, payload=reason.encode("utf-8")[:256], stream_id=0, flags=net_identity.FLAG_FIN)
+        except Exception:
+            pass
+    async def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._established = False
+        self._send_key = None
+        self._recv_key = None
+        self._send_iv = None
+        self._recv_iv = None
+        await self.transport.close()
+class _RelayPeerTunnel:
+    def __init__(self, tunnel_id: str, host_id: str, peer_ws: WebSocket, peer_ip: str, max_bytes_per_sec: float, max_frame_bytes: int):
+        self.tunnel_id = tunnel_id
+        self.tunnel_id_bytes = tunnel_id.encode("ascii")
+        self.host_id = host_id
+        self.peer_ws = peer_ws
+        self.peer_ip = peer_ip
+        self.bucket_up = TokenBucket(max_bytes_per_sec, burst_bytes=max(max_frame_bytes, int(max_bytes_per_sec * 0.5)) if max_bytes_per_sec > 0 else None)
+        self.bucket_down = TokenBucket(max_bytes_per_sec, burst_bytes=max(max_frame_bytes, int(max_bytes_per_sec * 0.5)) if max_bytes_per_sec > 0 else None)
+        self.last_activity = time.monotonic()
+        self.closed = False
+class _RelayHostEntry:
+    def __init__(self, host_id: str, ws: WebSocket, ip: str):
+        self.host_id = host_id
+        self.ws = ws
+        self.ip = ip
+        self.tunnels: dict[str, _RelayPeerTunnel] = {}
+        self.last_activity = time.monotonic()
+        self.send_lock = asyncio.Lock()
+        self.closed = False
+    async def send_text(self, obj: dict) -> None:
+        raw = json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
+        async with self.send_lock:
+            await self.ws.send_text(raw)
+    async def send_bytes(self, data: bytes) -> None:
+        async with self.send_lock:
+            await self.ws.send_bytes(data)
