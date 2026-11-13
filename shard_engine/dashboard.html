@@ -1498,3 +1498,1854 @@ async function netLoadInvites() {
     }
 }
 function copyNetUri(uri) {
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(uri).then(() => showToast('Скопировано', 'URI инвайта в буфере обмена'));
+    }
+}
+async function netRevokeInvite(iid) {
+    try {
+        const res = await fetch('/api/net/invites/revoke', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({invite_id: iid})
+        });
+        showToast('Отозван', 'Инвайт закрыт');
+        netLoadInvites();
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netLoadHostConfig() {
+    try {
+        const res = await fetch('/api/net/config', {headers: getAuthHeaders()});
+        const cfg = await res.json();
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; };
+        setVal('netHostName', cfg.display_name || '');
+        setVal('netHostRegion', cfg.region_hint || '');
+        setVal('netHostVisibility', cfg.visibility || 'public');
+        setVal('netHostAccess', cfg.access_policy || cfg.access_mode || 'open');
+        setVal('netHostMaxPeers', cfg.max_peers || cfg.max_participants || 8);
+        setVal('netHostBandwidth', cfg.bandwidth_kbps || 0);
+    } catch(e) {}
+}
+async function netSaveHostConfig() {
+    const payload = {
+        display_name: (document.getElementById('netHostName') || {}).value || '',
+        region_hint: (document.getElementById('netHostRegion') || {}).value || '',
+        visibility: (document.getElementById('netHostVisibility') || {}).value || 'public',
+        access_policy: (document.getElementById('netHostAccess') || {}).value || 'open',
+        max_peers: parseInt((document.getElementById('netHostMaxPeers') || {}).value || '8', 10),
+        bandwidth_kbps: parseInt((document.getElementById('netHostBandwidth') || {}).value || '0', 10)
+    };
+    try {
+        const res = await fetch('/api/net/config', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify(payload)
+        });
+        showToast('Сохранено', 'Настройки хоста обновлены');
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netTogglePublish() {
+    const isPub = lastNetStatus && lastNetStatus.host && lastNetStatus.host.published;
+    const url = isPub ? '/api/net/unpublish' : '/api/net/publish';
+    const body = isPub ? {} : {
+        name: (document.getElementById('netHostName') || {}).value || '',
+        visibility: (document.getElementById('netHostVisibility') || {}).value || 'public',
+        access_policy: (document.getElementById('netHostAccess') || {}).value || 'open',
+        region: (document.getElementById('netHostRegion') || {}).value || ''
+    };
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify(body)
+        });
+        showToast('Статус обновлён', isPub ? 'Сервер снят с публикации' : 'Сервер опубликован в SHARD Network');
+        netRefresh(true);
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netLoadPeers() {
+    const el = document.getElementById('netPeersList');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/net/peers', {headers: getAuthHeaders()});
+        const data = await res.json();
+        const conn = data.connected || [];
+        const pend = data.pending || [];
+        const blk = data.revoked || [];
+        let html = '';
+        if (pend.length > 0) {
+            html += '<div style="font-size:12px;font-weight:600;color:#fbbf24;margin-bottom:6px;">Запросы на подключение (' + pend.length + '):</div>';
+            html += pend.map(p => {
+                const pid = escHtml(p.peer_node_id || '');
+                return '<div style="background:#0d1117;border:1px solid #d29922;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span style="font-size:11px;font-family:monospace;color:#fff;">' + pid + '</span>' +
+                    '<div style="display:flex;gap:6px;">' +
+                    '<button class="btn-action active" data-pid="' + pid + '" onclick="netApprovePeer(this.dataset.pid)">Одобрить</button>' +
+                    '<button class="btn-action" style="border-color:#f85149;color:#f85149;" data-pid="' + pid + '" onclick="netRejectPeer(this.dataset.pid)">Отклонить</button>' +
+                    '</div></div>';
+            }).join('');
+        }
+        if (conn.length > 0) {
+            html += '<div style="font-size:12px;font-weight:600;color:#238636;margin:10px 0 6px;">Активные пиры (' + conn.length + '):</div>';
+            html += conn.map(p => {
+                const pid = escHtml(p.peer_node_id || '');
+                const tkind = escHtml(p.transport_kind || 'tunnel');
+                const rpm = p.rpm_limit ? ('RPM: ' + p.rpm_limit) : 'без лимита RPM';
+                return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+                    '<div><div style="font-size:11px;font-family:monospace;color:#fff;">' + pid + '</div>' +
+                    '<div style="font-size:10px;color:var(--text-muted);">' + tkind + ' &bull; ' + rpm + '</div></div>' +
+                    '<div style="display:flex;gap:6px;">' +
+                    '<button class="btn-action" data-pid="' + pid + '" onclick="netKickPeer(this.dataset.pid)">Кикнуть</button>' +
+                    '<button class="btn-action" style="border-color:#f85149;color:#f85149;" data-pid="' + pid + '" onclick="netBlockPeer(this.dataset.pid)">Забанить</button>' +
+                    '</div></div>';
+            }).join('');
+        }
+        if (blk.length > 0) {
+            html += '<div style="font-size:12px;font-weight:600;color:#f85149;margin:10px 0 6px;">Заблокированные узлы (' + blk.length + '):</div>';
+            html += blk.map(b => {
+                const pid = escHtml(b.peer_node_id || b || '');
+                return '<div style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:6px 10px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span style="font-size:11px;font-family:monospace;color:#8b949e;">' + pid + '</span>' +
+                    '<button class="btn-action" data-pid="' + pid + '" onclick="netUnblockPeer(this.dataset.pid)">Разблокировать</button>' +
+                    '</div>';
+            }).join('');
+        }
+        if (!html) {
+            html = '<div style="padding:16px;color:var(--text-muted);font-size:12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;text-align:center;">Нет активных пиров и запросов.</div>';
+        }
+        el.innerHTML = html;
+    } catch(e) {
+        el.innerHTML = '<div style="color:#f85149;font-size:12px;">Ошибка загрузки списка пиров.</div>';
+    }
+}
+async function netApprovePeer(pid) {
+    await fetch('/api/net/peers/' + encodeURIComponent(pid) + '/approve', {method: 'POST', headers: getAuthHeaders()});
+    netLoadPeers();
+}
+async function netRejectPeer(pid) {
+    await fetch('/api/net/peers/' + encodeURIComponent(pid) + '/reject', {method: 'POST', headers: getAuthHeaders()});
+    netLoadPeers();
+}
+async function netKickPeer(pid) {
+    await fetch('/api/net/peers/' + encodeURIComponent(pid) + '/kick', {method: 'POST', headers: getAuthHeaders()});
+    netLoadPeers();
+}
+async function netBlockPeer(pid) {
+    await fetch('/api/net/peers/' + encodeURIComponent(pid) + '/block', {method: 'POST', headers: getAuthHeaders()});
+    netLoadPeers();
+}
+async function netUnblockPeer(pid) {
+    await fetch('/api/net/peers/' + encodeURIComponent(pid) + '/unblock', {method: 'POST', headers: getAuthHeaders()});
+    netLoadPeers();
+}
+async function netLoadConfig() {
+    try {
+        const res = await fetch('/api/net/config', {headers: getAuthHeaders()});
+        const cfg = await res.json();
+        const discEl = document.getElementById('netCfgDiscoveryUrls');
+        if (discEl) discEl.value = (cfg.discovery_urls || []).join('\n');
+        const relayEl = document.getElementById('netCfgRelayUrls');
+        if (relayEl) relayEl.value = (cfg.relay_urls || []).join('\n');
+        const offEl = document.getElementById('netCfgOfflineOnly');
+        if (offEl) offEl.checked = Boolean(cfg.offline_only);
+    } catch(e) {}
+}
+async function netSaveServersConfig() {
+    const discRaw = (document.getElementById('netCfgDiscoveryUrls') || {}).value || '';
+    const relayRaw = (document.getElementById('netCfgRelayUrls') || {}).value || '';
+    const off = Boolean((document.getElementById('netCfgOfflineOnly') || {}).checked);
+    const discUrls = discRaw.split('\n').map(s => s.trim()).filter(Boolean);
+    const relayUrls = relayRaw.split('\n').map(s => s.trim()).filter(Boolean);
+    try {
+        const res = await fetch('/api/net/config', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({discovery_urls: discUrls, relay_urls: relayUrls, offline_only: off})
+        });
+        showToast('Сохранено', 'Настройки серверов сохранены');
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netRunDiag() {
+    const el = document.getElementById('netDiagOutput');
+    if (!el) return;
+    el.innerText = 'Запуск диагностики (платформа, WireGuard, STUN NAT)...';
+    try {
+        const res = await fetch('/api/net/diagnostics?nat=1', {headers: getAuthHeaders()});
+        const data = await res.json();
+        el.innerText = JSON.stringify(data, null, 2);
+    } catch(e) {
+        el.innerText = 'Ошибка выполнения диагностики: ' + e.message;
+    }
+}
+async function lanJoinQuick(ip, port) {
+    const res = await fetch('/api/lan/join', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ip: ip, code: '', share: true, port: port})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('Подключено', 'К сети: ' + (data.master || ip) + (data.warning ? ' (без расшаривания: ' + data.warning + ')' : ' (ваше VRAM/RAM расшарено)'));
+        lanRefresh();
+    } else {
+        showToast('Ошибка подключения', data.message || 'Проверьте IP');
+    }
+}
+async function lanJoin() {
+    const ip = document.getElementById('lanJoinIp').value.trim();
+    const port = parseInt((document.getElementById('lanJoinPort') || {}).value || '8000', 10) || 8000;
+    const code = document.getElementById('lanJoinCode').value.trim().toUpperCase();
+    const share = document.getElementById('lanShare').checked;
+    if (!ip) { showToast('Заполните поле', 'Нужен IP мастера'); return; }
+    const res = await fetch('/api/lan/join', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ip: ip, port: port, code: code, share: share})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('Подключено', 'К сети: ' + (data.master || ip) + (data.warning ? ' (без расшаривания)' : ''));
+        lanRefresh();
+    } else {
+        showToast('Ошибка подключения', data.message || 'Проверьте IP и код');
+    }
+}
+async function lanOff() {
+    const res = await fetch('/api/lan/off', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    });
+    const data = await res.json();
+    showToast('Сеть отключена', 'Режим: ' + (data.mode || 'off'));
+    lanRefresh();
+}
+async function updateDownloadedBadge() {
+    try {
+        const res = await fetch('/api/models/downloaded');
+        const data = await res.json();
+        const badge = document.getElementById('downloadedBadgeCount');
+        if (badge && data.models) badge.innerText = data.models.length;
+    } catch(e) {}
+}
+async function loadDownloadedModels() {
+    currentCategory = 'downloaded';
+    const grid = document.getElementById('modelsGrid');
+    const badgeEl = document.getElementById('modelsCountBadge');
+    if (badgeEl) badgeEl.innerText = 'Сканирование весов на SSD...';
+    try {
+        const res = await fetch('/api/models/downloaded');
+        const data = await res.json();
+        const models = data.models || [];
+        const countBadge = document.getElementById('downloadedBadgeCount');
+        if (countBadge) countBadge.innerText = models.length;
+        if (badgeEl) {
+            badgeEl.innerHTML = '<span style="color:#60a5fa;font-weight:600;">Локальное хранилище SSD:</span> занято ' + data.total_size_gb + ' ГБ &bull; свободно ' + data.disk_free_gb + ' ГБ &bull; сохранено моделей: ' + models.length;
+        }
+        grid.innerHTML = '';
+        if (models.length === 0) {
+            grid.innerHTML = '<div style="color:var(--text-muted);padding:32px;font-size:13px;grid-column:1/-1;text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:8px;">На диске нет скачанных моделей. Выберите модель из каталога и нажмите «Запустить».</div>';
+            return;
+        }
+        models.forEach(m => {
+            const card = document.createElement('div');
+            card.className = 'model-card';
+            const isActive = m.is_active || (m.id === activeModelId && !isModelLoading);
+            const midEsc = escHtml(m.id);
+            const mnameEsc = escHtml(m.name);
+            const msizeEsc = escHtml(m.size_str);
+            const btnActiveHtml = isActive ? '<button class="btn-action active" disabled style="cursor:default;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Активна</button>' : '<button class="btn-action" data-id="' + midEsc + '" onclick="loadModel(this.dataset.id)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Использовать</button>';
+            const deleteBtnHtml = '<button class="btn-delete" data-id="' + midEsc + '" data-name="' + mnameEsc + '" data-size="' + msizeEsc + '" onclick="deleteDownloadedModel(this.dataset.id, this.dataset.name, this.dataset.size)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Удалить</button>';
+            card.innerHTML = '<div class="card-top">' +
+                '<div style="cursor:pointer;" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)">' +
+                    '<div class="model-title" style="display:flex;align-items:center;gap:6px;">' + mnameEsc + '</div>' +
+                    '<div class="model-author">' + escHtml(m.author) + '</div>' +
+                '</div>' +
+                '<div style="display:flex;gap:6px;align-items:center;">' +
+                    '<span class="compat-badge" style="background:rgba(37,99,235,0.1);color:#60a5fa;border:1px solid rgba(37,99,235,0.25);font-family:Consolas,monospace;">SSD: ' + msizeEsc + '</span>' +
+                '</div>' +
+            '</div>' +
+            '<div class="card-desc" style="cursor:pointer;" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)">Локальные веса модели сохранены на SSD. Доступны для мгновенного инференса без обращения к сети.</div>' +
+            '<div class="card-specs">' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ' + escHtml((m.compatibility && m.compatibility.speed_est) || '45-75 ток/сек') + '</div>' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> ' + escHtml((m.compatibility && m.compatibility.mode) || '100% GPU VRAM') + '</div>' +
+            '</div>' +
+            '<div class="card-bottom" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">' +
+                '<button class="btn-review" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Обзор</button>' +
+                '<div style="display:flex;gap:8px;align-items:center;">' +
+                    btnActiveHtml +
+                    deleteBtnHtml +
+                '</div>' +
+            '</div>';
+            grid.appendChild(card);
+        });
+    } catch(e) {
+        grid.innerHTML = '<div style="color:#ef4444;padding:24px;font-size:13px;grid-column:1/-1;">Не удалось загрузить список моделей на SSD.</div>';
+    }
+}
+async function deleteDownloadedModel(id, name, sizeStr) {
+    if (!confirm('Удалить веса модели ' + name + ' (' + sizeStr + ') с SSD диска?')) {
+        return;
+    }
+    showToast('Удаление модели ' + name + ' с SSD...');
+    try {
+        const res = await fetch('/api/models/downloaded', {
+            method: 'DELETE',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({model_id: id})
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            showToast('Модель ' + name + ' удалена. Освобождено: ' + data.freed_str);
+            updateDownloadedBadge();
+            if (currentCategory === 'downloaded') {
+                loadDownloadedModels();
+            } else {
+                loadModels();
+            }
+        } else {
+            showToast('Ошибка: ' + (data.message || 'Сбой'));
+        }
+    } catch(e) {
+        showToast('Сбой удаления модели');
+    }
+}
+function setCategory(cat, btn) {
+    currentCategory = cat;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (cat === 'downloaded') {
+        loadDownloadedModels();
+    } else {
+        loadModels();
+    }
+}
+let searchDebounceTimer = null;
+function handleSearchDebounced() {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        loadModels();
+    }, 320);
+}
+function handleSearch(e) {
+    if (e.key === 'Enter') {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        loadModels();
+    }
+}
+function selectTool(tool, el) {
+    currentTool = tool;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    updateGuide();
+}
+function selectOS(os, el) {
+    currentOS = os;
+    document.querySelectorAll('.os-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    if (os === 'manual') {
+        setGuideMode('manual');
+    } else {
+        updateGuide();
+    }
+}
+function setGuideMode(mode) {
+    currentGuideMode = mode;
+    document.getElementById('modeBtnScript').classList.toggle('active', mode === 'script');
+    document.getElementById('modeBtnManual').classList.toggle('active', mode === 'manual');
+    document.getElementById('guideScriptSection').style.display = (mode === 'script') ? 'block' : 'none';
+    document.getElementById('guideManualSection').style.display = (mode === 'manual') ? 'block' : 'none';
+    updateGuide();
+}
+function updateGuide() {
+    const toolNames = {
+        'claude': 'Claude CLI',
+        'claude-desktop': 'Claude Desktop',
+        'cursor': 'Cursor IDE',
+        'opencode': 'OpenCode',
+        'continue': 'Continue',
+        'aider': 'Aider CLI',
+        'zed': 'Zed Editor',
+        'jetbrains': 'JetBrains AI',
+        'sdk': 'API / SDK'
+    };
+    const osNames = {'windows': 'Windows', 'linux': 'Linux', 'macos': 'macOS', 'manual': 'Ручной config'};
+    const keyNoticeEl = document.getElementById('guideKeyNotice');
+    if (keyNoticeEl) {
+        if (activeApiKey) {
+            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#34d399;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Используется ваш API-ключ: <strong style="color:#fff;font-family:Consolas,monospace;background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">' + activeApiKey + '</strong></span></div>';
+        } else {
+            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#fca5a5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>У вас пока нет активного ключа. <a href="javascript:void(0)" onclick="switchTab(\'keys\', document.querySelectorAll(\'.nav-btn\')[3])" style="color:#38bdf8;text-decoration:underline;font-weight:600;">Создайте ключ</a> во вкладке «API Ключи», чтобы он автоматически подставился в команды.</span></div>';
+        }
+    }
+    document.getElementById('guideTitle').innerText = 'Инструкция: ' + (toolNames[currentTool] || currentTool) + ' + ' + (osNames[currentOS] || currentOS);
+    const scriptBox = document.getElementById('guideScriptCode');
+    const stepsList = document.getElementById('guideScriptSteps');
+    const keyParam = activeApiKey ? '&key=' + encodeURIComponent(activeApiKey) : '';
+    const keyFallback = activeApiKey || 'sk-shard-local';
+    if (currentOS === 'windows') {
+        scriptBox.innerText = 'powershell -ExecutionPolicy Bypass -Command "irm \'http://localhost:8000/i?os=windows&tool=' + currentTool + keyParam + '\' | iex"';
+        stepsList.innerHTML = '<li>Откройте Терминал: <b>Win + X</b> -> Терминал (или откройте <b>PowerShell / CMD</b>).</li>' +
+            '<li>Вставьте скопированную команду комбинацией <b>Ctrl + V</b> и нажмите <b>Enter</b>.</li>' +
+            '<li>Готово. Команда работает в PowerShell и CMD. Конфигурация инструмента обновится автоматически.</li>';
+    } else {
+        const toolArg = (currentTool === 'claude-desktop') ? 'claude' : currentTool;
+        const unixKeyArg = activeApiKey ? ' ' + activeApiKey : '';
+        scriptBox.innerText = 'bash <(curl -fsSL "http://localhost:8000/i?tool=' + toolArg + keyParam + '")' + unixKeyArg;
+        stepsList.innerHTML = '<li>Откройте Терминал: <b>Ctrl + Alt + T</b> (Linux) или <b>Cmd + Пробел -> Terminal</b> (macOS).</li>' +
+            '<li>Вставьте команду комбинацией <b>Ctrl + Shift + V</b> (или <b>Cmd + V</b>) и нажмите <b>Enter</b>.</li>' +
+            '<li>Готово. Конфигурация применена к окружению без перезагрузки системы.</li>';
+    }
+    const manualBox = document.getElementById('guideManualContent');
+    if (currentTool === 'claude' || currentTool === 'claude-desktop') {
+        const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.claude\\settings.json' : '~/.claude/settings.json';
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Создайте или замените settings.json блоком ниже:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeClaudeManual"></pre><button class="btn-copy" onclick="copyClaudeManual()">Скопировать</button></div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Перезапустите Claude CLI / Desktop:</div>' +
+            '<div>Claude читает ANTHROPIC_BASE_URL и ANTHROPIC_AUTH_TOKEN из settings.json. Endpoint единый — отдаёт и Claude, и OpenAI совместимые модели через локальный C++20 / AVX2 пайплайн.</div>' +
+        '</div>';
+        const pre = document.getElementById('codeClaudeManual');
+        if (pre) {
+            pre.innerText = JSON.stringify({
+                hasCompletedOnboarding: true,
+                env: {
+                    ANTHROPIC_BASE_URL: "http://localhost:8000/v1",
+                    ANTHROPIC_AUTH_TOKEN: keyFallback,
+                    ANTHROPIC_DEFAULT_OPUS_MODEL: activeModelId,
+                    ANTHROPIC_DEFAULT_SONNET_MODEL: activeModelId,
+                    ANTHROPIC_DEFAULT_HAIKU_MODEL: activeModelId
+                }
+            }, null, 2);
+        }
+    } else if (currentTool === 'cursor') {
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Откройте настройки Cursor:</div>' +
+            '<div>Нажмите <b>Ctrl + ,</b> -> выберите раздел <b>Models</b> -> включите <b>OpenAI API Key</b>.</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin:10px 0 6px;">2. Укажите локальный адрес и ключ Shard:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeCursorManual"></pre><button class="btn-copy" onclick="copyCursorManual()">Скопировать</button></div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Сохраните настройки:</div>' +
+            '<div>Cursor будет отправлять запросы напрямую на локальный сервер Shard без задержек сети.</div>' +
+        '</div>';
+        const pre = document.getElementById('codeCursorManual');
+        if (pre) {
+            pre.innerText = 'Base URL: http://localhost:8000/v1\nAPI Key:  ' + keyFallback + '\nModel:    ' + activeModelId;
+        }
+    } else if (currentTool === 'opencode') {
+        const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.config\\opencode\\config.json' : '~/.config/opencode/config.json';
+        const opencodeCfg = {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
+                "shard": {
+                    "npm": "@ai-sdk/openai-compatible",
+                    "name": "Shard",
+                    "options": {
+                        "baseURL": "http://localhost:8000/v1",
+                        "apiKey": keyFallback
+                    },
+                    "models": {
+                        "Qwen/Qwen2.5-Coder-7B-Instruct": { "name": "Qwen2.5 Coder 7B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
+                        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B": { "name": "DeepSeek R1 Distill 7B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
+                        "google/gemma-2-9b-it": { "name": "Gemma 2 9B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
+                        "meta-llama/Llama-3.2-3B-Instruct": { "name": "Llama 3.2 3B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
+                        "mistralai/Mistral-7B-Instruct-v0.3": { "name": "Mistral 7B v0.3", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} }
+                    }
+                }
+            },
+            "model": "shard/" + activeModelId
+        };
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации OpenCode:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Создайте или замените config.json официальным блоком OpenCode:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeOpenCodeManual"></pre><button class="btn-copy" onclick="copyOpenCodeManual()">Скопировать</button></div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Запустите OpenCode:</div>' +
+            '<div>OpenCode загрузит провайдер @ai-sdk/openai-compatible и подключится напрямую к локальному серверу Shard.</div>' +
+        '</div>';
+        const pre = document.getElementById('codeOpenCodeManual');
+        if (pre) pre.innerText = JSON.stringify(opencodeCfg, null, 2);
+    } else if (currentTool === 'continue') {
+        const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.continue\\config.json' : '~/.continue/config.json';
+        const continueCfg = {
+            "models": [
+                {
+                    "title": "Shard Local (" + activeModelId.split('/').pop() + ")",
+                    "provider": "openai",
+                    "model": activeModelId,
+                    "apiBase": "http://localhost:8000/v1",
+                    "apiKey": keyFallback
+                }
+            ],
+            "tabAutocompleteModel": {
+                "title": "Shard Autocomplete",
+                "provider": "openai",
+                "model": activeModelId,
+                "apiBase": "http://localhost:8000/v1",
+                "apiKey": keyFallback
+            }
+        };
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации Continue:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте Shard в секцию models в config.json:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeContinueManual"></pre><button class="btn-copy" onclick="copyText(\'codeContinueManual\', \'Конфиг Continue скопирован\')">Скопировать</button></div>' +
+        '</div>';
+        const pre = document.getElementById('codeContinueManual');
+        if (pre) pre.innerText = JSON.stringify(continueCfg, null, 2);
+    } else if (currentTool === 'aider') {
+        const cmd = 'aider --openai-api-base http://localhost:8000/v1 --openai-api-key ' + keyFallback + ' --model openai/' + activeModelId;
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Запуск Aider с подключением к Shard:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeAiderManual"></pre><button class="btn-copy" onclick="copyText(\'codeAiderManual\', \'Команда Aider скопирована\')">Скопировать</button></div>' +
+        '</div>';
+        const pre = document.getElementById('codeAiderManual');
+        if (pre) pre.innerText = cmd;
+    } else if (currentTool === 'zed') {
+        const filePath = (currentOS === 'windows') ? '%APPDATA%\\Zed\\settings.json' : '~/.config/zed/settings.json';
+        const zedCfg = {
+            "language_models": {
+                "openai": {
+                    "version": "1",
+                    "api_url": "http://localhost:8000/v1",
+                    "available_models": [
+                        {
+                            "name": activeModelId,
+                            "display_name": "Shard " + activeModelId.split('/').pop(),
+                            "max_tokens": 8192
+                        }
+                    ]
+                }
+            }
+        };
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к настройкам Zed:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте провайдер OpenAI с локальным URL в settings.json:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeZedManual"></pre><button class="btn-copy" onclick="copyText(\'codeZedManual\', \'Конфиг Zed скопирован\')">Скопировать</button></div>' +
+        '</div>';
+        const pre = document.getElementById('codeZedManual');
+        if (pre) pre.innerText = JSON.stringify(zedCfg, null, 2);
+    } else {
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Переменные окружения (Environment Variables):</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeEnvManual"></pre><button class="btn-copy" onclick="copyEnvManual()">Скопировать</button></div>' +
+            '<div>Любой совместимый инструмент подтянет локальный сервер автоматически.</div>' +
+        '</div>';
+        const pre = document.getElementById('codeEnvManual');
+        if (pre) {
+            pre.innerText = (currentOS === 'windows') ?
+                '$env:OPENAI_API_BASE="http://localhost:8000/v1"\n$env:OPENAI_API_KEY="' + keyFallback + '"' :
+                'export OPENAI_API_BASE="http://localhost:8000/v1"\nexport OPENAI_API_KEY="' + keyFallback + '"';
+        }
+    }
+}
+function copyCurrentScript() {
+    const text = document.getElementById('guideScriptCode').innerText;
+    navigator.clipboard.writeText(text);
+    showToast('Команда скопирована', 'Вставьте команду в Терминал и нажмите Enter');
+}
+function copyText(id, toastMsg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText);
+    showToast('Скопировано', toastMsg);
+}
+async function runPingTest() {
+    const el = document.getElementById('pingStatusText');
+    el.innerHTML = '<span style="color:#38bdf8;">Выполняется проверка соединения...</span>';
+    try {
+        const t0 = performance.now();
+        const res = await fetch('/v1/ping');
+        const dt = (performance.now() - t0).toFixed(1);
+        const data = await res.json();
+        el.innerHTML = '<span style="color:#10b981;font-weight:600;">200 OK — Эндпоинт активен!</span> Задержка: <b>' + dt + ' мс</b> | Ядро: <b>' + data.engine + '</b>';
+        showToast('Эндпоинт доступен', 'Отклик: ' + dt + ' мс');
+    } catch(e) {
+        el.innerHTML = '<span style="color:#ef4444;font-weight:600;">Ошибка соединения</span> Проверьте запущен ли локальный сервер Shard';
+    }
+}
+let isModelLoading = false;
+let loadingModelId = '';
+let currentLoadingPercent = 0;
+let hwPollTimer = null;
+function setPollRate(ms) {
+    if (hwPollTimer) clearInterval(hwPollTimer);
+    hwPollTimer = setInterval(shardBoot.client_mode ? fetchClientBootstrap : fetchHardware, ms);
+}
+async function fetchClientBootstrap() {
+    try {
+        const res = await fetch('/api/client/bootstrap', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const d = await res.json();
+        shardBoot = Object.assign({}, shardBoot, d);
+        if (d.active_model) {
+            activeModelId = d.active_model;
+            const shortName = d.active_model.split('/').pop();
+            const hwModelEl = document.getElementById('hwModel');
+            if (hwModelEl) {
+                hwModelEl.innerText = shortName;
+                hwModelEl.style.color = '#10b981';
+            }
+            const chatModelEl = document.getElementById('chatActiveModel');
+            if (chatModelEl) chatModelEl.innerText = shortName;
+        }
+    } catch(e) {}
+}
+function updateLoadingUI(isLoading, lp) {
+    const banner = document.getElementById('globalLoadingBanner');
+    const chatTag = document.getElementById('chatLoadingTag');
+    const chatCard = document.getElementById('chatLoadingCard');
+    const chatSpeed = document.getElementById('chatLiveSpeed');
+    const hwModel = document.getElementById('hwModel');
+    if (!banner) return;
+    if (isLoading && lp) {
+        banner.style.display = 'block';
+        const modelId = lp.model_id || activeModelId || '';
+        const shortName = modelId.split('/').pop();
+        const pct = lp.percent || 0;
+        const eta = lp.eta_text || 'вычисление...';
+        const speed = lp.speed_mb || 0;
+        const currMb = lp.curr_mb || 0;
+        const totalMb = lp.total_mb || 0;
+        const stage = lp.stage || 'Подготовка тензоров...';
+        document.getElementById('glbModelName').innerText = shortName;
+        document.getElementById('glbStageText').innerText = stage;
+        document.getElementById('glbMetrics').innerText = currMb + ' / ' + totalMb + ' МБ • ' + speed + ' МБ/с';
+        document.getElementById('glbEta').innerText = 'Осталось: ' + eta;
+        document.getElementById('glbPercentVal').innerText = pct + '%';
+        document.getElementById('glbTrackFill').style.width = pct + '%';
+        if (chatTag) {
+            chatTag.style.display = 'inline-flex';
+            chatTag.innerHTML = '<svg class="glb-spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Загрузка: ' + pct + '% (' + eta + ')';
+        }
+        if (chatCard) {
+            chatCard.style.display = 'flex';
+            chatCard.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><svg class="glb-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><b style="font-size:13px;color:#fff;">Загрузка нейросети ' + shortName + '</b></div><span style="font-size:12px;font-weight:700;color:#38bdf8;font-family:Consolas,monospace;">' + pct + '%</span></div><div class="glb-track"><div class="glb-fill" style="width:' + pct + '%;"></div></div><div style="font-size:11px;color:#94a3b8;display:flex;justify-content:space-between;"><span>' + currMb + ' / ' + totalMb + ' МБ • ' + speed + ' МБ/с</span><span>Осталось: ' + eta + '</span></div>';
+        }
+        if (chatSpeed) {
+            chatSpeed.innerHTML = '<span style="color:#f59e0b;">Загрузка: ' + pct + '% (' + eta + ')</span>';
+        }
+        if (hwModel) {
+            hwModel.innerText = shortName + ' (' + pct + '% • ' + eta + ')';
+            hwModel.style.color = '#38bdf8';
+        }
+    } else {
+        banner.style.display = 'none';
+        if (chatTag) chatTag.style.display = 'none';
+        if (chatCard) chatCard.style.display = 'none';
+        if (chatSpeed) chatSpeed.innerHTML = '<span style="color:#38bdf8;">Готов к запросам</span>';
+        if (hwModel) {
+            const shortName = (activeModelId || '').split('/').pop() || 'Не загружена';
+            hwModel.innerText = shortName;
+            hwModel.style.color = '#10b981';
+        }
+    }
+}
+async function fetchHardware() {
+    try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 4000);
+        const res = await fetch('/api/system/hardware', {signal: ctrl.signal, headers: getAuthHeaders()});
+        clearTimeout(tid);
+        if (!res.ok) {
+            if (res.status === 403 || res.status === 401) applyClientIsolationUi();
+            return;
+        }
+        const data = await res.json();
+        const hw = data.hardware || {};
+        const eng = data.engine || {};
+        const gpuEl = document.getElementById('hwGpu');
+        if (gpuEl) gpuEl.innerText = (hw.gpu_name || 'CPU Only').replace(' Laptop GPU', '').replace('NVIDIA GeForce ', '');
+        const vramEl = document.getElementById('hwVram');
+        if (vramEl) vramEl.innerText = (hw.vram_total_mb && hw.vram_total_mb > 0) ? ((hw.vram_used_mb || 0) + ' / ' + hw.vram_total_mb + ' MB') : 'N/A (CPU)';
+        const ramUsed = (hw.ram_used_gb !== undefined) ? hw.ram_used_gb : ((hw.ram_total_mb && hw.ram_avail_mb) ? ((hw.ram_total_mb - hw.ram_avail_mb) / 1024).toFixed(1) : '0.0');
+        const ramTotal = (hw.ram_total_gb !== undefined) ? hw.ram_total_gb : (hw.ram_total_mb ? (hw.ram_total_mb / 1024).toFixed(1) : '0.0');
+        const ramEl = document.getElementById('hwRam');
+        if (ramEl) ramEl.innerText = ramUsed + ' / ' + ramTotal + ' GB';
+        const lp = eng.load_progress || {};
+        if (eng.status === 'loading' || lp.status === 'loading') {
+            const wasLoading = isModelLoading;
+            isModelLoading = true;
+            loadingModelId = lp.model_id || eng.active_model || activeModelId;
+            currentLoadingPercent = lp.percent || 0;
+            updateLoadingUI(true, lp);
+            if (!wasLoading) setPollRate(500);
+        } else {
+            if (isModelLoading) {
+                isModelLoading = false;
+                loadingModelId = '';
+                updateLoadingUI(false, lp);
+                setPollRate(5000);
+                if (lp.status === 'ready') {
+                    showToast('Модель готова', (eng.active_model || activeModelId).split('/').pop() + ' подключена к инференсу');
+                } else if (lp.status === 'error') {
+                    showToast('Ошибка загрузки', lp.message || 'Сбой инициализации весов');
+                }
+                loadModels();
+            } else if (eng.active_model) {
+                activeModelId = eng.active_model;
+                const shortName = eng.active_model.split('/').pop();
+                document.getElementById('hwModel').innerText = shortName;
+                document.getElementById('hwModel').style.color = '#10b981';
+                const chatModelEl = document.getElementById('chatActiveModel');
+                if (chatModelEl) chatModelEl.innerText = shortName;
+            }
+        }
+    } catch(e) {
+        const gpuEl = document.getElementById('hwGpu');
+        if (gpuEl && gpuEl.innerText === 'Поиск...') gpuEl.innerText = 'Ожидание данных...';
+    }
+}
+async function loadModels() {
+    if (currentCategory === 'downloaded') return loadDownloadedModels();
+    const q = document.getElementById('searchInput').value.trim();
+    const grid = document.getElementById('modelsGrid');
+    const badgeEl = document.getElementById('modelsCountBadge');
+    if (badgeEl) badgeEl.innerText = 'Загрузка каталога моделей...';
+    try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 6000);
+        const res = await fetch('/api/hf/models?category=' + currentCategory + (q ? '&query=' + encodeURIComponent(q) : ''), {signal: ctrl.signal, headers: getAuthHeaders()});
+        clearTimeout(tid);
+        if (!res.ok) {
+            if (badgeEl) badgeEl.innerText = 'Каталог Hub временно недоступен (оффлайн режим)';
+            if (grid && (!grid.children || grid.children.length === 0)) {
+                grid.innerHTML = '<div style="color:var(--text-muted);padding:24px;font-size:13px;grid-column:1/-1;">Не удалось загрузить каталог Hugging Face. Проверьте интернет-соединение или перейдите на вкладку Скачанные.</div>';
+            }
+            return;
+        }
+        const models = await res.json();
+        grid.innerHTML = '';
+        if (badgeEl) {
+            badgeEl.innerHTML = '<span style="color:#38bdf8;font-weight:600;">Каталог Hub (3 000 000+ открытых моделей)</span> &bull; Показано: ' + models.length + (q ? ' (по запросу: "' + escapeHtml(q) + '")' : ' популярных сборок');
+        }
+        if (!models || models.length === 0) {
+            grid.innerHTML = '<div style="color:var(--text-muted);padding:24px;font-size:13px;grid-column:1/-1;">Модели не найдены. Попробуйте другой запрос (например: qwen, deepseek, llama, gemma, mistral, phi).</div>';
+            return;
+        }
+        models.forEach(m => {
+            const card = document.createElement('div');
+            card.className = 'model-card';
+            let badge = (m.compat_badge || (m.compatibility && m.compatibility.tier_label) || 'РЕКОМЕНДУЕТСЯ (VRAM+RAM)');
+            let badgeBg = 'var(--amber-bg)';
+            let badgeColor = 'var(--amber)';
+            let badgeBorder = 'rgba(245,158,11,0.25)';
+            if (badge.indexOf('VRAM)') !== -1) {
+                badgeBg = 'var(--emerald-bg)';
+                badgeColor = 'var(--emerald)';
+                badgeBorder = 'rgba(16,185,129,0.25)';
+            } else if (badge.indexOf('SSD') !== -1) {
+                badgeBg = 'var(--purple-bg)';
+                badgeColor = 'var(--purple)';
+                badgeBorder = 'rgba(139,92,246,0.25)';
+            }
+            const desc = m.description || m.desc || '';
+            const speed = m.speed_tier || (m.compatibility && m.compatibility.speed_est) || '18-32 ток/сек';
+            const mem = m.memory_slot || (m.compatibility && m.compatibility.mode) || 'VRAM + RAM Hybrid';
+            const isLoadingThis = (isModelLoading && (loadingModelId === m.id || loadingModelId === m.id.split('/').pop()));
+            const isActive = (m.id === activeModelId && !isModelLoading);
+            const btnClass = isLoadingThis ? 'btn-action loading' : (isActive ? 'btn-action active' : 'btn-action');
+            const btnText = isLoadingThis ? ('Загрузка ' + currentLoadingPercent + '%') : (isActive ? 'АКТИВНА' : 'Запустить');
+            const btnDisabled = isLoadingThis ? 'disabled' : '';
+            const midEsc = escHtml(m.id);
+            card.innerHTML = '<div class="card-top">' +
+                '<div style="cursor:pointer;" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)">' +
+                    '<div class="model-title" style="display:flex;align-items:center;gap:6px;">' + escHtml(m.name) + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>' +
+                    '<div class="model-author">' + escHtml(m.author) + '</div>' +
+                '</div>' +
+                '<div class="compat-badge" style="background:' + badgeBg + ';color:' + badgeColor + ';border-color:' + badgeBorder + ';">' + escHtml(badge) + '</div>' +
+            '</div>' +
+            '<div class="card-desc" style="cursor:pointer;" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)">' + escHtml(desc) + '</div>' +
+            '<div class="card-specs">' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: ' + escHtml(speed) + '</div>' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> ' + escHtml(mem) + '</div>' +
+            '</div>' +
+            '<div class="card-bottom">' +
+                '<button class="btn-action" style="padding:4px 9px;font-size:11px;" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Обзор</button>' +
+                '<button id="btn-' + m.id.replace(/[^a-zA-Z0-9]/g, '_') + '" class="' + btnClass + '" ' + btnDisabled + ' data-id="' + midEsc + '" onclick="loadModel(this.dataset.id)">' + escHtml(btnText) + '</button>' +
+            '</div>';
+            grid.appendChild(card);
+        });
+    } catch(e) {}
+}
+function inlineMd(str) {
+    if (!str) return '';
+    let s = escHtml(str);
+    s = s.replace(/!\[(.*?)\]\((.*?)\)/g, (_, alt, url) => {
+        const u = safeHref(url);
+        return u === '#' ? alt : '<img src="' + u + '" alt="' + alt + '" style="max-width:100%;border-radius:6px;margin:10px 0;display:block;border:1px solid #1e2638;" onerror="this.style.display=\'none\'">';
+    });
+    s = s.replace(/\[(.*?)\]\((.*?)\)/g, (_, txt, url) => {
+        const u = safeHref(url);
+        return '<a href="' + u + '" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;text-decoration:none;">' + txt + '</a>';
+    });
+    s = s.replace(/\*\*(.*?)\*\*/g, '<b style="color:#fff;">$1</b>');
+    s = s.replace(/\*(.*?)\*/g, '<i style="color:#cbd5e1;">$1</i>');
+    s = s.replace(/`([^`]+)`/g, '<code style="background:#090a0f;padding:2px 5px;border-radius:4px;border:1px solid #1e2638;color:#38bdf8;font-size:11px;">$1</code>');
+    return s;
+}
+function renderTable(rows) {
+    if (rows.length < 2) return '';
+    let out = '<table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;background:#090a0f;border:1px solid #1e2638;border-radius:6px;overflow:hidden;">';
+    const headerCols = rows[0].split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+    out += '<thead><tr style="background:#131824;">';
+    headerCols.forEach(c => { out += '<th style="padding:8px 12px;text-align:left;border:1px solid #1e2638;color:#fff;">' + inlineMd(c) + '</th>'; });
+    out += '</tr></thead><tbody>';
+    for (let r = 2; r < rows.length; r++) {
+        const rowCols = rows[r].split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
+        out += '<tr style="border-bottom:1px solid #1a2233;">';
+        rowCols.forEach(c => { out += '<td style="padding:6px 12px;border:1px solid #1a2233;color:#cbd5e1;">' + inlineMd(c) + '</td>'; });
+        out += '</tr>';
+    }
+    out += '</tbody></table>';
+    return out;
+}
+function renderMarkdown(md) {
+    if (!md) return '<div style="color:var(--text-muted);padding:20px;">Описание модели недоступно.</div>';
+    let text = md.replace(/^---[\s\S]*?---\n*/, '');
+    let html = '';
+    const lines = text.split('\n');
+    let inCode = false;
+    let codeBuf = [];
+    let inTable = false;
+    let tableBuf = [];
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim().startsWith('```')) {
+            if (!inCode) {
+                inCode = true;
+                codeBuf = [];
+            } else {
+                inCode = false;
+                html += '<pre style="background:#090a0f;border:1px solid #1e2638;padding:12px 14px;border-radius:6px;overflow-x:auto;font-family:Consolas,monospace;font-size:12px;color:#38bdf8;margin:12px 0;"><code>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>';
+            }
+            continue;
+        }
+        if (inCode) {
+            codeBuf.push(line);
+            continue;
+        }
+        if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+            if (!inTable) {
+                inTable = true;
+                tableBuf = [];
+            }
+            tableBuf.push(line.trim());
+            continue;
+        } else if (inTable) {
+            inTable = false;
+            html += renderTable(tableBuf);
+            tableBuf = [];
+        }
+        if (line.startsWith('# ')) {
+            html += '<h1 style="font-size:20px;font-weight:700;color:#fff;margin:18px 0 10px;border-bottom:1px solid #1e2638;padding-bottom:6px;">' + inlineMd(line.slice(2)) + '</h1>';
+        } else if (line.startsWith('## ')) {
+            html += '<h2 style="font-size:16px;font-weight:700;color:#f1f5f9;margin:16px 0 8px;">' + inlineMd(line.slice(3)) + '</h2>';
+        } else if (line.startsWith('### ')) {
+            html += '<h3 style="font-size:14px;font-weight:600;color:#cbd5e1;margin:14px 0 6px;">' + inlineMd(line.slice(4)) + '</h3>';
+        } else if (line.startsWith('- ') || line.startsWith('* ')) {
+            html += '<li style="margin:4px 0 4px 20px;color:#cbd5e1;">' + inlineMd(line.slice(2)) + '</li>';
+        } else if (line.trim().length === 0) {
+            html += '<div style="height:8px;"></div>';
+        } else {
+            html += '<p style="margin:6px 0;line-height:1.6;color:#94a3b8;">' + inlineMd(line) + '</p>';
+        }
+    }
+    if (inTable && tableBuf.length > 0) {
+        html += renderTable(tableBuf);
+    }
+    return html;
+}
+async function openModelCard(modelId) {
+    const backdrop = document.getElementById('modelModalBackdrop');
+    const titleEl = document.getElementById('modalModelTitle');
+    const authorEl = document.getElementById('modalModelAuthor');
+    const bodyEl = document.getElementById('modelModalBody');
+    const launchBtn = document.getElementById('modalLaunchBtn');
+    const hfLink = document.getElementById('modalHfLink');
+    const statsEl = document.getElementById('modalStats');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+    if (launchBtn) launchBtn.style.display = '';
+    if (hfLink) hfLink.style.display = '';
+    titleEl.innerText = modelId.split('/').pop();
+    authorEl.innerText = modelId.split('/')[0] || 'Community';
+    hfLink.removeAttribute('href');
+    launchBtn.onclick = () => { loadModel(modelId); closeModelCard(); };
+    bodyEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text-muted);"><div class="think-pulse" style="width:14px;height:14px;"></div><div style="font-size:13px;color:#cbd5e1;">Загрузка спецификации и описания модели...</div></div>';
+    try {
+        const res = await fetch('/api/hf/model/' + encodeURIComponent(modelId));
+        const data = await res.json();
+        const dlSpan = (data.downloads != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ' + Number(data.downloads).toLocaleString('ru-RU') + ' скачиваний</span>' : '';
+        const likeSpan = (data.likes != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ' + Number(data.likes).toLocaleString('ru-RU') + ' лайков</span>' : '';
+        statsEl.innerHTML = '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> ' + escHtml(data.pipeline_tag) + '</span>' +
+            dlSpan + likeSpan +
+            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + escHtml(data.compatibility ? data.compatibility.tier_label : '') + '</span>';
+        bodyEl.innerHTML = renderMarkdown(data.readme);
+    } catch(e) {
+        bodyEl.innerHTML = '<div style="color:#ef4444;padding:30px;text-align:center;">Не удалось загрузить спецификацию модели.</div>';
+    }
+}
+function closeModelCard() {
+    const backdrop = document.getElementById('modelModalBackdrop');
+    if (backdrop) backdrop.style.display = 'none';
+    const launchBtn = document.getElementById('modalLaunchBtn');
+    if (launchBtn) launchBtn.style.display = '';
+    const hfLink = document.getElementById('modalHfLink');
+    if (hfLink) hfLink.style.display = '';
+}
+let _drivesCache = [];
+function openDirPicker() {
+    const backdrop = document.getElementById('dirModalBackdrop');
+    const input = document.getElementById('dirPathInput');
+    const listEl = document.getElementById('dirDriveList');
+    const diskEl = document.getElementById('dirDiskInfo');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+    input.value = '';
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Загрузка дисков...</div>';
+    diskEl.innerHTML = '';
+    fetch('/api/settings').then(r => r.json()).then(s => {
+        if (s.models_dir) input.value = s.models_dir;
+        const disk = s.disk || {};
+        diskEl.innerHTML = '<span class="spec-item">Свободно: ' + escHtml(disk.free_gb) + ' GB из ' + escHtml(disk.total_gb) + ' GB</span>' +
+            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + (s.is_custom ? 'CUSTOM' : 'ПО УМОЛЧАНИЮ') + '</span>';
+    }).catch(() => {});
+    fetch('/api/drives').then(r => r.json()).then(d => {
+        _drivesCache = (d && d.drives) || [];
+        listEl.innerHTML = _drivesCache.map((dr, i) =>
+            '<button class="filter-btn" onclick="pickDrive(' + i + ')" style="gap:6px;">' + escHtml(dr.path) +
+            '<span style="color:var(--text-muted);font-size:10px;">' + escHtml(dr.free_gb) + ' GB</span></button>'
+        ).join('') || '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
+    }).catch(() => {
+        listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
+    });
+}
+function pickDrive(i) {
+    const dr = (_drivesCache || [])[i];
+    const inp = document.getElementById('dirPathInput');
+    if (!dr || !inp) return;
+    const sep = String.fromCharCode(92);
+    inp.value = (dr.path.endsWith('/') || dr.path.endsWith(sep)) ? dr.path + 'shard-models' : dr.path + '/shard-models';
+}
+function closeDirPicker() {
+    const backdrop = document.getElementById('dirModalBackdrop');
+    if (backdrop) backdrop.style.display = 'none';
+}
+async function saveModelsDir() {
+    const path = ((document.getElementById('dirPathInput') || {}).value || '').trim();
+    if (!path) { showToast('Путь не указан', 'Введите путь к папке для моделей'); return; }
+    try {
+        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ models_dir: path }) });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 200) {
+            showToast('Папка сохранена', data.models_dir + ' — применится после перезапуска');
+            closeDirPicker();
+            refreshDirLabel();
+        } else {
+            showToast('Ошибка', data.message || 'Папка недоступна для записи');
+        }
+    } catch (e) {
+        showToast('Ошибка', 'Сервер недоступен');
+    }
+}
+async function resetModelsDir() {
+    try {
+        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: true }) });
+        if (res.status === 200) {
+            showToast('Папка сброшена', 'Вернётся стандартная папка после перезапуска');
+            document.getElementById('dirPathInput').value = '';
+            refreshDirLabel();
+        } else {
+            showToast('Ошибка', 'Сбой сброса');
+        }
+    } catch (e) {
+        showToast('Ошибка', 'Сервер недоступен');
+    }
+}
+function refreshDirLabel() {
+    fetch('/api/settings').then(r => r.json()).then(s => {
+        const el = document.getElementById('modelsDirLabel');
+        if (el && s.models_dir) {
+            el.textContent = s.models_dir.length > 24 ? '…' + s.models_dir.slice(-23) : s.models_dir;
+            el.parentElement.title = 'Загрузка моделей: ' + s.models_dir;
+        }
+    }).catch(() => {});
+}
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeDirPicker(); });
+async function loadModel(modelId) {
+    isModelLoading = true;
+    loadingModelId = modelId;
+    currentLoadingPercent = 6;
+    activeModelId = modelId;
+    updateLoadingUI(true, {
+        model_id: modelId,
+        percent: 6,
+        stage: 'Скачивание весов модели',
+        curr_mb: 0,
+        total_mb: 100,
+        speed_mb: 0,
+        eta_text: 'вычисление...',
+        message: 'Подключение к манифесту весов...'
+    });
+    setPollRate(500);
+    loadModels();
+    showToast('Загрузка модели', 'Начато развертывание ' + modelId.split('/').pop() + '...');
+    try {
+        const res = await fetch('/api/models/load', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({model_id: modelId})
+        });
+        const data = await res.json();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось отправить запрос на загрузку');
+    }
+}
+async function loadKeys() {
+    try {
+        const res = await fetch('/api/keys');
+        const data = await res.json();
+        const list = document.getElementById('keysList');
+        if (!list) return;
+        list.innerHTML = '';
+        const keys = data.keys || [];
+        if (keys.length > 0) {
+            if (!activeApiKey || !keys.includes(activeApiKey)) {
+                activeApiKey = keys[0];
+            }
+        } else {
+            activeApiKey = '';
+        }
+        const sidebarKeyEl = document.getElementById('sidebarApiKey');
+        if (sidebarKeyEl) {
+            if (activeApiKey) {
+                sidebarKeyEl.innerText = activeApiKey;
+                sidebarKeyEl.style.color = '#10b981';
+            } else {
+                sidebarKeyEl.innerText = 'Не создан';
+                sidebarKeyEl.style.color = '#ef4444';
+            }
+        }
+        updateGuide();
+        if (keys.length === 0) {
+            list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);background:#090a0f;border:1px dashed var(--border);border-radius:6px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" style="margin-bottom:8px;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg><div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:4px;">Ключи API еще не созданы</div><div style="font-size:12px;">Нажмите кнопку выше для генерации вашего уникального локального ключа</div></div>';
+            return;
+        }
+        keys.forEach(k => {
+            const item = document.createElement('div');
+            item.style.display = 'flex';
+            item.style.justifyContent = 'space-between';
+            item.style.alignItems = 'center';
+            item.style.padding = '8px 12px';
+            item.style.background = '#090a0f';
+            item.style.border = (k === activeApiKey) ? '1px solid #10b981' : '1px solid var(--border)';
+            item.style.borderRadius = '5px';
+            item.style.fontFamily = 'Consolas, monospace';
+            item.style.fontSize = '12px';
+            const kEsc = escHtml(k);
+            item.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#f1f5f9;">' + kEsc + '</span>' + (k === activeApiKey ? '<span style="font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(16,185,129,0.15);color:#10b981;font-weight:600;">АКТИВЕН</span>' : '') + '</div><div style="display:flex;gap:6px;"><button class="btn-action" style="padding:4px 10px;font-size:11px;" data-key="' + kEsc + '" onclick="copyValue(this.dataset.key, \'Ключ API\')">Скопировать</button><button class="btn-action" style="padding:4px 10px;font-size:11px;border-color:#7f1d1d;color:#fca5a5;" data-key="' + kEsc + '" onclick="deleteKey(this.dataset.key)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить</button></div>';
+            list.appendChild(item);
+        });
+    } catch(e) {}
+}
+async function generateKey() {
+    try {
+        const res = await fetch('/api/keys/generate', {method: 'POST'});
+        const data = await res.json();
+        activeApiKey = data.key;
+        showToast('Ключ создан', data.key);
+        await loadKeys();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось создать ключ');
+    }
+}
+async function deleteKey(k) {
+    try {
+        const res = await fetch('/api/keys/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({key: k})
+        });
+        showToast('Ключ удален', k);
+        if (activeApiKey === k) activeApiKey = '';
+        await loadKeys();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось удалить ключ');
+    }
+}
+function formatDuration(sec) {
+    if (sec >= 60) {
+        const m = Math.floor(sec / 60);
+        const s = Math.round(sec % 60);
+        return m + ' мин ' + s + ' сек';
+    }
+    return sec.toFixed(2) + ' сек';
+}
+function toggleThink(id) {
+    const body = document.getElementById('think-body-' + id);
+    const arrow = document.getElementById('think-arrow-' + id);
+    if (!body) return;
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    } else {
+        body.style.display = 'none';
+        if (arrow) arrow.style.transform = 'rotate(-90deg)';
+    }
+}
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function saveChatSessions() {
+    try {
+        localStorage.setItem('shard_chat_sessions_v1', JSON.stringify(chatSessions));
+    } catch(e) {}
+}
+function initChatSessions() {
+    try {
+        const stored = localStorage.getItem('shard_chat_sessions_v1');
+        if (stored) chatSessions = JSON.parse(stored);
+    } catch(e) {
+        chatSessions = [];
+    }
+    if (!Array.isArray(chatSessions) || chatSessions.length === 0) {
+        const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+        chatSessions = [fresh];
+        activeChatId = fresh.id;
+        saveChatSessions();
+    } else {
+        activeChatId = chatSessions[0].id;
+    }
+    renderChatSessionsList();
+    renderActiveChatMessages();
+}
+function renderChatSessionsList() {
+    const list = document.getElementById('chatSessionsList');
+    if (!list) return;
+    list.innerHTML = '';
+    chatSessions.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'chat-session-item' + (s.id === activeChatId ? ' active' : '');
+        item.onclick = () => selectChat(s.id);
+        const iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-right:8px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'chat-session-title';
+        titleSpan.innerText = s.title || 'Новый диалог';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'chat-del-btn';
+        delBtn.title = 'Удалить диалог';
+        delBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+        delBtn.onclick = (e) => deleteChat(s.id, e);
+        item.innerHTML = iconSvg;
+        item.appendChild(titleSpan);
+        item.appendChild(delBtn);
+        list.appendChild(item);
+    });
+}
+function renderActiveChatMessages() {
+    const chatBody = document.getElementById('chatBody');
+    if (!chatBody) return;
+    chatBody.innerHTML = '';
+    const cur = chatSessions.find(s => s.id === activeChatId);
+    if (!cur || cur.messages.length === 0) {
+        chatBody.innerHTML = '<div id="chatEmptyState" style="margin:auto;text-align:center;color:var(--text-muted);padding:40px 20px;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="1.5" style="margin-bottom:12px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:14px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Диалог пуст</div><div style="font-size:12px;">Задайте любой вопрос или задачу активной модели</div></div>';
+        return;
+    }
+    cur.messages.forEach((msg, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'msg-wrapper';
+        if (msg.role === 'user') {
+            wrap.innerHTML = '<div class="msg-user">' + escapeHtml(msg.content) + '</div>';
+        } else {
+            const histId = 'hist-' + idx;
+            const hasThought = msg.reasoning && msg.reasoning.trim().length > 0;
+            let thinkHtml = '';
+            if (hasThought) {
+                thinkHtml = '<div id="think-panel-' + histId + '" class="think-panel"><div class="think-header" onclick="toggleThink(\'' + histId + '\')"><div class="think-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span id="think-label-' + histId + '">Думал ' + formatDuration(msg.thoughtSec || 0) + '</span></div><svg id="think-arrow-' + histId + '" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg></div><div id="think-body-' + histId + '" class="think-content">' + escapeHtml(msg.reasoning) + '</div></div>';
+            }
+            let telemHtml = '';
+            if (msg.totalSec || msg.speedVal) {
+                const timeStr = (hasThought && msg.thoughtSec > 0) ? formatDuration(msg.totalSec) + ' (размышления: ' + formatDuration(msg.thoughtSec) + ')' : formatDuration(msg.totalSec || 0);
+                const tokensVal = (msg.usage && msg.usage.total_tokens) ? msg.usage.total_tokens : (msg.tokensCount || '-');
+                telemHtml = '<div class="telemetry-row"><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + (msg.speedVal || 0) + ' токенов/сек</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + tokensVal + ' токенов</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div></div>';
+            }
+            wrap.innerHTML = '<div class="msg-assistant">' + thinkHtml + '<div class="msg-content">' + escapeHtml(msg.content) + '</div>' + telemHtml + buildFeedbackWidgetHtml(idx, cur.messages, idx) + '</div>';
+        }
+        chatBody.appendChild(wrap);
+    });
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+function selectChat(chatId) {
+    if (isChatStreaming) return;
+    activeChatId = chatId;
+    renderChatSessionsList();
+    renderActiveChatMessages();
+    const input = document.getElementById('chatInput');
+    if (input) input.focus();
+}
+function createNewChat(switchNow) {
+    if (isChatStreaming) return;
+    const cur = chatSessions.find(s => s.id === activeChatId);
+    if (cur && cur.messages.length === 0) {
+        renderChatSessionsList();
+        renderActiveChatMessages();
+        const input = document.getElementById('chatInput');
+        if (input) input.focus();
+        return;
+    }
+    const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+    chatSessions.unshift(fresh);
+    activeChatId = fresh.id;
+    saveChatSessions();
+    renderChatSessionsList();
+    renderActiveChatMessages();
+    const input = document.getElementById('chatInput');
+    if (input) input.focus();
+}
+function deleteChat(chatId, e) {
+    if (e) e.stopPropagation();
+    if (isChatStreaming) return;
+    chatSessions = chatSessions.filter(s => s.id !== chatId);
+    if (chatSessions.length === 0) {
+        const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+        chatSessions.push(fresh);
+        activeChatId = fresh.id;
+    } else if (activeChatId === chatId) {
+        activeChatId = chatSessions[0].id;
+    }
+    saveChatSessions();
+    renderChatSessionsList();
+    renderActiveChatMessages();
+}
+async function sendChat() {
+    if (isChatStreaming) return;
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    let currentChat = chatSessions.find(s => s.id === activeChatId);
+    if (!currentChat) {
+        currentChat = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+        chatSessions.unshift(currentChat);
+        activeChatId = currentChat.id;
+    }
+    if (currentChat.title === 'Новый диалог') {
+        currentChat.title = text.length > 26 ? text.slice(0, 26) + '...' : text;
+        renderChatSessionsList();
+    }
+    currentChat.messages.push({role: 'user', content: text});
+    saveChatSessions();
+    const emptyState = document.getElementById('chatEmptyState');
+    if (emptyState) emptyState.remove();
+    isChatStreaming = true;
+    document.getElementById('chatSendBtn').disabled = true;
+    const chatBody = document.getElementById('chatBody');
+    const userWrap = document.createElement('div');
+    userWrap.className = 'msg-wrapper';
+    userWrap.innerHTML = '<div class="msg-user">' + escapeHtml(text) + '</div>';
+    chatBody.appendChild(userWrap);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    const msgId = 'msg-' + Date.now();
+    const asstWrap = document.createElement('div');
+    asstWrap.className = 'msg-wrapper';
+    asstWrap.innerHTML = '<div class="msg-assistant"><div id="think-panel-' + msgId + '" class="think-panel" style="display:none;"><div class="think-header" onclick="toggleThink(\'' + msgId + '\')"><div class="think-title"><span id="think-pulse-' + msgId + '" class="think-pulse"></span><span id="think-label-' + msgId + '">Размышления...</span></div><svg id="think-arrow-' + msgId + '" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg></div><div id="think-body-' + msgId + '" class="think-content"></div></div><div id="content-' + msgId + '" class="msg-content"></div><div id="telemetry-' + msgId + '" class="telemetry-row" style="display:none;"></div></div>';
+    chatBody.appendChild(asstWrap);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    const thinkLabel = document.getElementById('think-label-' + msgId);
+    const thinkBody = document.getElementById('think-body-' + msgId);
+    const thinkPulse = document.getElementById('think-pulse-' + msgId);
+    const contentBox = document.getElementById('content-' + msgId);
+    const telemetryBox = document.getElementById('telemetry-' + msgId);
+    const liveSpeed = document.getElementById('chatLiveSpeed');
+    const tStart = performance.now();
+    let hasThoughtEnded = false;
+    let tokensCount = 0;
+    let fullReasoning = '';
+    let fullContent = '';
+    const thinkTimer = setInterval(() => {
+        if (!hasThoughtEnded) {
+            const elapsed = (performance.now() - tStart) / 1000;
+            thinkLabel.innerText = 'Думает (' + elapsed.toFixed(1) + ' сек)...';
+        }
+    }, 100);
+    try {
+        const historyPayload = currentChat.messages.map(m => ({role: m.role, content: m.content}));
+        const res = await fetch('/v1/chat/completions', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({model: activeModelId, messages: historyPayload, stream: true})
+        });
+        if (!res.ok) {
+            clearInterval(thinkTimer);
+            const errJson = await res.json().catch(() => ({}));
+            const errMsg = (errJson && errJson.error && errJson.error.message) || errJson.message || ('HTTP ' + res.status);
+            contentBox.innerText = (res.status === 401 || res.status === 403)
+                ? ('Доступ к чату требует авторизации: перейдите во вкладку «Сеть» и подключитесь как клиент (' + errMsg + ').')
+                : ('Ошибка запроса: ' + errMsg);
+            return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let thoughtSec = 0;
+        let totalSec = 0;
+        let speedVal = 0;
+        let usageData = {prompt_tokens: 0, completion_tokens: 0, total_tokens: 0};
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, {stream: true});
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed === 'data: [DONE]') continue;
+                if (trimmed.startsWith('data: ')) {
+                    try {
+                        const payload = JSON.parse(trimmed.slice(6));
+                        const choice = payload.choices && payload.choices[0];
+                        if (choice && choice.delta) {
+                            if (choice.delta.reasoning_content) {
+                                document.getElementById('think-panel-' + msgId).style.display = 'block';
+                                thinkBody.innerText += choice.delta.reasoning_content;
+                                fullReasoning += choice.delta.reasoning_content;
+                                tokensCount++;
+                            }
+                            if (choice.delta.content !== undefined && choice.delta.content !== null) {
+                                if (!hasThoughtEnded) {
+                                    hasThoughtEnded = true;
+                                    clearInterval(thinkTimer);
+                                    thoughtSec = (performance.now() - tStart) / 1000;
+                                    thinkPulse.style.display = 'none';
+                                    if (thinkBody.innerText.trim().length > 0) {
+                                        thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
+                                    } else {
+                                        const tp = document.getElementById('think-panel-' + msgId);
+                                        if (tp) tp.style.display = 'none';
+                                    }
+                                }
+                                contentBox.innerText += choice.delta.content;
+                                fullContent += choice.delta.content;
+                                tokensCount++;
+                                const curElapsed = (performance.now() - tStart) / 1000;
+                                const curSpeed = (tokensCount / Math.max(0.1, curElapsed)).toFixed(1);
+                                if (liveSpeed) liveSpeed.innerText = curSpeed + ' ток/сек';
+                            }
+                        }
+                        if (payload.telemetry) {
+                            thoughtSec = payload.telemetry.thinking_seconds;
+                            totalSec = payload.telemetry.total_seconds;
+                            speedVal = payload.telemetry.tokens_per_sec;
+                        }
+                        if (payload.usage) {
+                            usageData = payload.usage;
+                        }
+                    } catch(e) {}
+                }
+            }
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+        clearInterval(thinkTimer);
+        hasThoughtEnded = true;
+        thinkPulse.style.display = 'none';
+        const hasRealThought = (thinkBody.innerText.trim().length > 0);
+        if (!hasRealThought) {
+            document.getElementById('think-panel-' + msgId).style.display = 'none';
+        } else if (thoughtSec > 0) {
+            thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
+        }
+        if (!totalSec) {
+            totalSec = (performance.now() - tStart) / 1000;
+        }
+        if (!speedVal) {
+            speedVal = (tokensCount / Math.max(0.1, totalSec)).toFixed(1);
+        }
+        if (liveSpeed) liveSpeed.innerText = speedVal + ' ток/сек';
+        telemetryBox.style.display = 'flex';
+        const timeStr = (hasRealThought && thoughtSec > 0) ? formatDuration(totalSec) + ' (размышления: ' + formatDuration(thoughtSec) + ')' : formatDuration(totalSec);
+        telemetryBox.innerHTML = '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + speedVal + ' токенов/сек</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + usageData.total_tokens + ' токенов</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div>';
+        chatBody.scrollTop = chatBody.scrollHeight;
+        currentChat.messages.push({
+            role: 'assistant',
+            content: fullContent,
+            reasoning: fullReasoning,
+            thoughtSec: thoughtSec,
+            totalSec: totalSec,
+            speedVal: speedVal,
+            usage: usageData
+        });
+        saveChatSessions();
+        const fidx = currentChat.messages.length - 1;
+        const asstBox = asstWrap.querySelector('.msg-assistant');
+        if (asstBox) {
+            asstBox.insertAdjacentHTML('beforeend', buildFeedbackWidgetHtml('live-' + msgId, currentChat.messages, fidx));
+        }
+    } catch(err) {
+        clearInterval(thinkTimer);
+        contentBox.innerText = 'Ошибка соединения с локальным сервером Shard.';
+    } finally {
+        isChatStreaming = false;
+        document.getElementById('chatSendBtn').disabled = false;
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+}
+let feedbackPolicy = {allow_feedback: true, allow_remote_feedback: false, require_explicit_consent: true, is_owner: true, opted_out: false};
+async function loadFeedbackPolicy() {
+    try {
+        const res = await fetch('/api/feedback/policy', {headers: getAuthHeaders()});
+        if (res.ok) {
+            feedbackPolicy = await res.json();
+            const navBtn = document.getElementById('navTrainingBtn');
+            if (navBtn) navBtn.style.display = feedbackPolicy.is_owner ? 'flex' : 'none';
+            const badge = document.getElementById('chatFeedbackPolicyBadge');
+            if (badge) badge.innerText = feedbackPolicy.opted_out ? 'Участие отозвано' : 'Вклады и согласие';
+        }
+    } catch(e) {}
+}
+function findPromptForMsgIndex(messages, idx) {
+    for (let i = idx - 1; i >= 0; i--) {
+        if (messages[i] && messages[i].role === 'user') return messages[i].content || '';
+    }
+    return '';
+}
+function buildFeedbackWidgetHtml(uid, messages, idx) {
+    if (!feedbackPolicy.allow_feedback || feedbackPolicy.opted_out) return '';
+    if (!feedbackPolicy.is_owner && !feedbackPolicy.allow_remote_feedback) return '';
+    const promptTxt = findPromptForMsgIndex(messages, idx);
+    const respTxt = (messages[idx] && messages[idx].content) || '';
+    if (!promptTxt || !respTxt) return '';
+    const encPrompt = lanEsc(encodeURIComponent(promptTxt));
+    const encResp = lanEsc(encodeURIComponent(respTxt));
+    return '<div class="fb-bar" data-prompt="' + encPrompt + '" data-resp="' + encResp + '">' +
+        '<span style="color:#64748b;">Помочь улучшить модель:</span>' +
+        '<button class="fb-btn" onclick="openFbDrawer(\'' + uid + '\', \'up\')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg> Хорошо</button>' +
+        '<button class="fb-btn" onclick="openFbDrawer(\'' + uid + '\', \'down\')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg> Исправить</button>' +
+        '</div>' +
+        '<div id="fb-drawer-' + uid + '" class="fb-drawer">' +
+        '<input type="hidden" id="fb-rating-' + uid + '" value="up">' +
+        '<div style="font-size:11px;color:#94a3b8;">Необязательно: предложите лучший ответ (создаст пару для SFT/DPO обучения)</div>' +
+        '<textarea id="fb-better-' + uid + '" rows="2" class="trn-input" placeholder="Более точный или желаемый ответ..."></textarea>' +
+        '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#cbd5e1;cursor:pointer;">' +
+        '<input type="checkbox" id="fb-consent-' + uid + '"> Я даю явное согласие на добавление этого примера в обучающий датасет сервера (секреты и личные данные автоматически маскируются).' +
+        '</label>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+        '<button class="fb-btn" onclick="closeFbDrawer(\'' + uid + '\')">Отмена</button>' +
+        '<button class="fb-btn selected" onclick="submitChatFeedback(\'' + uid + '\')">Отправить вклад</button>' +
+        '</div></div>';
+}
+function openFbDrawer(uid, rating) {
+    const dr = document.getElementById('fb-drawer-' + uid);
+    const rt = document.getElementById('fb-rating-' + uid);
+    if (rt) rt.value = rating;
+    if (dr) dr.classList.add('open');
+}
+function closeFbDrawer(uid) {
+    const dr = document.getElementById('fb-drawer-' + uid);
+    if (dr) dr.classList.remove('open');
+}
+async function submitChatFeedback(uid) {
+    const dr = document.getElementById('fb-drawer-' + uid);
+    if (!dr) return;
+    const bar = dr.previousElementSibling;
+    const prompt = decodeURIComponent(bar.getAttribute('data-prompt') || '');
+    const resp = decodeURIComponent(bar.getAttribute('data-resp') || '');
+    const rating = document.getElementById('fb-rating-' + uid).value || 'up';
+    const better = (document.getElementById('fb-better-' + uid).value || '').trim();
+    const consent = !!document.getElementById('fb-consent-' + uid).checked;
+    if (!consent) {
+        showToast('Требуется согласие', 'Отметьте галочку явного согласия перед отправкой.');
+        return;
+    }
+    const headers = getAuthHeaders({'Content-Type': 'application/json'});
+    const res = await fetch('/api/feedback/submit', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+            prompt,
+            response: resp,
+            better_response: better || null,
+            rating: better && rating === 'up' ? 'correction' : rating,
+            consent_given: consent,
+            model_id: activeModelId || '',
+            model_version: feedbackPolicy.active_version_id || 'base'
+        })
+    });
+    const out = await res.json();
+    if (!res.ok) {
+        showToast('Отклонено', out.message || 'Ошибка отправки вклада');
+        return;
+    }
+    closeFbDrawer(uid);
+    showToast('Вклад принят', 'Статус: ' + out.entry_status + (out.redactions && out.redactions.length ? ' (маскированы: ' + out.redactions.join(', ') + ')' : ''));
+}
+async function openMyContributions() {
+    const res = await fetch('/api/feedback/my', {headers: getAuthHeaders()});
+    if (!res.ok) {
+        showToast('Недоступно', 'Не удалось загрузить ваши вклады.');
+        return;
+    }
+    const data = await res.json();
+    const modal = document.getElementById('modelModalBackdrop');
+    document.getElementById('modalModelTitle').innerText = 'Мои вклады и согласие';
+    document.getElementById('modalModelAuthor').innerText = 'Псевдоним участника: ' + String(data.contributor_id || '');
+    document.getElementById('modalStats').innerHTML = data.opted_out ? '<span style="color:#f87171;">Участие отозвано</span>' : '<span style="color:#10b981;">Активный участник</span>';
+    document.getElementById('modalLaunchBtn').style.display = 'none';
+    const hfLink = document.getElementById('modalHfLink');
+    if (hfLink) hfLink.style.display = 'none';
+    const rowsHtml = (data.submissions || []).map(s => '<div class="trn-row"><b>' + escHtml(s.id) + '</b> [' + escHtml(s.status) + '] rating=' + escHtml(s.rating) + '</div>').join('') || '<div style="color:#64748b;">Вы ещё не отправляли вкладов.</div>';
+    document.getElementById('modalModelBody').innerHTML = '<div style="margin-bottom:12px;"><button class="btn-delete" onclick="revokeMyParticipation()">Отозвать согласие и удалить неопубликованные вклады</button></div>' + rowsHtml;
+    modal.style.display = 'flex';
+}
+async function revokeMyParticipation() {
+    const res = await fetch('/api/feedback/revoke', {method: 'POST', headers: getAuthHeaders({'Content-Type': 'application/json'}), body: JSON.stringify({delete_existing: true})});
+    const d = await res.json();
+    closeModelCard();
+    await loadFeedbackPolicy();
+    showToast('Согласие отозвано', 'Удалено записей: ' + (d.deleted_count || 0));
+}
+let trnCurrentFilter = 'pending';
+function trnSubTab(name, btn) {
+    document.querySelectorAll('#tab-training .trn-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#tab-training .trn-subbtn').forEach(b => b.classList.remove('active'));
+    document.getElementById('trn-panel-' + name).classList.add('active');
+    btn.classList.add('active');
+    if (name === 'feedback') trnLoadFeedback(trnCurrentFilter);
+}
+async function trnRefresh(probeSoup) {
+    try {
+        const res = await fetch('/api/training/overview');
+        if (!res.ok) {
+            if (res.status === 403) document.getElementById('trnSoupBanner').innerText = 'Управление обучением доступно только владельцу сервера (localhost или X-Shard-Owner-Token).';
+            return;
+        }
+        const ov = await res.json();
+        const soup = probeSoup ? await (await fetch('/api/training/soup')).json() : ov.soup;
+        renderTrnOverview(ov, soup);
+        renderTrnDatasets(ov.datasets || []);
+        renderTrnJobs(ov.jobs || []);
+        renderTrnVersions(ov.registry || {});
+        renderTrnPrivacy(ov.privacy || {});
+        if (!document.getElementById('trnJobBase').value && ov.engine && ov.engine.active_model) {
+            document.getElementById('trnJobBase').value = ov.engine.active_model;
+        }
+        const auditRes = await fetch('/api/training/audit?limit=40');
+        if (auditRes.ok) {
+            const ad = await auditRes.json();
+            document.getElementById('trnAuditList').innerText = (ad.events || []).map(ev => new Date(ev.ts * 1000).toLocaleTimeString() + '  ' + ev.event + '  ' + JSON.stringify(ev.details)).join('\n') || 'Нет событий';
+        }
+        trnLoadFeedback(trnCurrentFilter);
+    } catch(e) {}
+}
+function renderTrnOverview(ov, soup) {
+    const c = (ov.feedback_stats && ov.feedback_stats.counts) || {};
+    const elg = (ov.feedback_stats && ov.feedback_stats.eligible_approved) || {};
+    const reg = ov.registry || {};
+    document.getElementById('trnOverviewCards').innerHTML =
+        '<div class="trn-stat"><div class="trn-stat-label">SOUP Движок</div><div class="trn-stat-val" style="color:' + (soup.available ? '#10b981' : '#f59e0b') + ';">' + (soup.available ? ('v' + lanEsc(soup.soup_version || 'ok')) : 'Не установлен') + '</div><div class="trn-stat-sub">Python ' + lanEsc(soup.python_version) + ' | CUDA: ' + (soup.cuda_available ? 'да' : 'нет') + '</div></div>' +
+        '<div class="trn-stat"><div class="trn-stat-label">Очередь отзывов</div><div class="trn-stat-val">' + (c.approved || 0) + ' одобр. / ' + (c.pending || 0) + ' ожид.</div><div class="trn-stat-sub">Готово для SFT: ' + (elg.sft || 0) + ' | DPO: ' + (elg.dpo || 0) + '</div></div>' +
+        '<div class="trn-stat"><div class="trn-stat-label">Датасеты и Задания</div><div class="trn-stat-val">' + ((ov.datasets || []).length) + ' снимков / ' + ((ov.jobs || []).length) + ' запусков</div><div class="trn-stat-sub">Одиночный узел SOUP на хосте</div></div>' +
+        '<div class="trn-stat"><div class="trn-stat-label">Активная версия</div><div class="trn-stat-val" style="font-size:15px;">' + lanEsc(reg.active_version_id || 'Базовая модель') + '</div><div class="trn-stat-sub">Откат на: ' + lanEsc(reg.previous_version_id || reg.previous_engine_model_id || 'нет') + '</div></div>';
+    const warns = (soup.warnings || []).map(w => '<div style="color:#fbbf24;margin-top:4px;">' + lanEsc(w) + '</div>').join('');
+    document.getElementById('trnSoupBanner').innerHTML =
+        '<div><b>Цикл:</b> CREATE -> SHARE -> CONNECT -> USE -> FEEDBACK -> TRAIN -> IMPROVE -> DEPLOY</div>' +
+        '<div style="color:#94a3b8;margin-top:4px;"><b>Архитектура:</b> ' + lanEsc((ov.architecture_notes && ov.architecture_notes.distributed_training) || '') + '</div>' +
+        (soup.available ? '' : '<div style="color:#38bdf8;margin-top:4px;">Установка: <code>' + lanEsc(soup.install_hint || '') + '</code></div>') + warns;
+}
+async function trnLoadFeedback(statusFilter, btn) {
+    if (statusFilter) trnCurrentFilter = statusFilter;
+    if (btn) {
+        btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    const res = await fetch('/api/training/feedback?status=' + encodeURIComponent(trnCurrentFilter));
+    if (!res.ok) return;
+    const data = await res.json();
+    const box = document.getElementById('trnFeedbackQueue');
+    const entries = data.entries || [];
+    document.getElementById('trnFeedbackMeta').innerText = 'Показано: ' + entries.length;
+    box.innerHTML = entries.map(e => {
+        const flags = (e.redactions && e.redactions.length) ? ' <span style="color:#f59e0b;">[маскировано: ' + lanEsc(e.redactions.join(',')) + ']</span>' : '';
+        return '<div class="trn-row">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;color:#8892a4;">' +
+            '<span><b>' + lanEsc(e.id) + '</b> | рейтинг: ' + lanEsc(e.rating) + ' | источник: ' + lanEsc(e.source) + flags + '</span>' +
+            '<div style="display:flex;gap:6px;">' +
+            (e.status !== 'approved' ? '<button class="fb-btn selected" data-id="' + escHtml(e.id) + '" onclick="trnReviewFb(this.dataset.id, \'approve\')">Одобрить</button>' : '') +
+            (e.status !== 'rejected' ? '<button class="fb-btn" data-id="' + escHtml(e.id) + '" onclick="trnReviewFb(this.dataset.id, \'reject\')">Отклонить</button>' : '') +
+            '<button class="fb-btn" style="color:#f87171;" data-id="' + escHtml(e.id) + '" onclick="trnReviewFb(this.dataset.id, \'delete\')">Удалить</button>' +
+            '</div></div>' +
+            '<div style="font-size:12px;color:#e2e8f0;margin-bottom:4px;"><b>Prompt:</b> ' + lanEsc(e.prompt) + '</div>' +
+            (e.response ? '<div style="font-size:12px;color:#94a3b8;margin-bottom:4px;"><b>Response:</b> ' + lanEsc(e.response) + '</div>' : '') +
+            (e.better_response ? '<div style="font-size:12px;color:#10b981;"><b>Correction:</b> ' + lanEsc(e.better_response) + '</div>' : '') +
+            '</div>';
+    }).join('') || '<div class="trn-row" style="color:#64748b;">Нет записей со статусом "' + lanEsc(trnCurrentFilter) + '".</div>';
+}
+async function trnReviewFb(id, action) {
+    const res = await fetch('/api/training/feedback/' + encodeURIComponent(id) + '/review', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action})
+    });
+    if (res.ok) {
+        showToast('Модерация', id + ' -> ' + action);
+        trnRefresh(false);
+    }
+}
+async function trnBuildDataset() {
+    const payload = {
+        task: document.getElementById('trnDsTask').value,
+        name: document.getElementById('trnDsName').value.trim() || null,
+        include_pending: !!document.getElementById('trnDsIncludePending').checked
+    };
+    const res = await fetch('/api/training/datasets/build', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        showToast('Ошибка датасета', data.message || 'Не удалось собрать снимок');
+        return;
+    }
+    showToast('Датасет собран', data.dataset.snapshot_id + ' (' + data.dataset.record_count + ' записей)');
+    trnRefresh(false);
+}
+function renderTrnDatasets(datasets) {
+    const sel = document.getElementById('trnJobDataset');
+    const prevVal = sel ? sel.value : '';
+    if (sel) {
+        sel.innerHTML = datasets.map(d => '<option value="' + lanEsc(d.snapshot_id) + '">' + lanEsc(d.snapshot_id) + ' (' + lanEsc(d.task) + ', ' + d.record_count + ')</option>').join('') || '<option value="">Сначала соберите датасет</option>';
+        if (prevVal) sel.value = prevVal;
+    }
+    document.getElementById('trnDatasetsList').innerHTML = datasets.map(d =>
+        '<div style="padding:7px;border:1px solid #1e2638;border-radius:5px;margin-bottom:6px;background:#0a0d14;">' +
+        '<div style="color:#e2e8f0;font-weight:600;">' + lanEsc(d.snapshot_id) + '</div>' +
+        '<div style="font-size:11px;color:#8892a4;">' + lanEsc(d.task) + '/' + lanEsc(d.format) + ' | записей: ' + d.record_count + ' | dedup: ' + (d.dedup_removed || 0) + '</div>' +
+        '</div>'
+    ).join('') || 'Нет датасетов';
+}
+async function trnStartJob() {
+    const payload = {
+        dataset_snapshot_id: document.getElementById('trnJobDataset').value,
+        base_model: document.getElementById('trnJobBase').value.trim() || null,
+        task: document.getElementById('trnJobTask').value,
+        unload_inference: !!document.getElementById('trnJobUnload').checked,
+        dry_run: !!document.getElementById('trnJobDryRun').checked,
+        params: {
+            quantization: document.getElementById('trnJobQuant').value,
+            epochs: parseInt(document.getElementById('trnJobEpochs').value || '3', 10),
+            lr: parseFloat(document.getElementById('trnJobLr').value || '0.00002')
+        }
+    };
+    const res = await fetch('/api/training/jobs/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        showToast('Ошибка запуска', data.message || 'Не удалось запустить обучение');
+        return;
+    }
+    showToast('Обучение', data.job.job_id + ' (' + data.job.status + ')');
+    trnRefresh(false);
+    trnInspectJob(data.job.job_id);
+}
+function renderTrnJobs(jobs) {
+    document.getElementById('trnJobsList').innerHTML = jobs.map(j => {
+        const p = j.progress || {};
+        const ptxt = (p.current_step != null ? ('step ' + p.current_step + '/' + (p.total_steps || '?') + ' ') : '') + (p.last_loss != null ? ('loss=' + p.last_loss) : '');
+        return '<div class="trn-row">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<div><b>' + lanEsc(j.job_id) + '</b> <span style="color:#38bdf8;">[' + lanEsc(j.status) + ']</span> <span style="color:#8892a4;font-size:11px;">' + lanEsc(j.task) + ' | ' + lanEsc(j.base_model) + '</span></div>' +
+            '<div style="display:flex;gap:6px;">' +
+            '<button class="fb-btn" data-id="' + escHtml(j.job_id) + '" onclick="trnInspectJob(this.dataset.id)">Логи</button>' +
+            (j.status === 'running' ? '<button class="fb-btn" style="color:#f87171;" data-id="' + escHtml(j.job_id) + '" onclick="trnCancelJob(this.dataset.id)">Отменить</button>' : '') +
+            ((j.status === 'failed' || j.status === 'cancelled' || j.status === 'interrupted') ? '<button class="fb-btn" data-id="' + escHtml(j.job_id) + '" onclick="trnResumeJob(this.dataset.id)">Продолжить</button>' : '') +
+            '</div></div>' +
+            (ptxt ? '<div style="font-size:11px;color:#10b981;margin-top:4px;">' + lanEsc(ptxt) + '</div>' : '') +
+            (j.error ? '<div style="font-size:11px;color:#f87171;margin-top:4px;">' + lanEsc(j.error) + '</div>' : '') +
+            '</div>';
+    }).join('') || '<div class="trn-row" style="color:#64748b;">Заданий пока нет.</div>';
+}
+async function trnInspectJob(jobId) {
+    const res = await fetch('/api/training/jobs/' + encodeURIComponent(jobId));
+    if (!res.ok) return;
+    const d = await res.json();
+    const box = document.getElementById('trnJobLogBox');
+    box.style.display = 'block';
+    document.getElementById('trnJobLogTitle').innerText = 'Лог ' + jobId + ' (' + d.job.status + ')';
+    document.getElementById('trnJobLogPre').innerText = (d.job.log_tail || []).join('\n') || d.job.dry_run_output || 'Лог пуст';
+}
+async function trnCancelJob(jobId) {
+    const res = await fetch('/api/training/jobs/' + encodeURIComponent(jobId) + '/cancel', {method: 'POST'});
+    if (res.ok) { showToast('Остановлено', jobId); trnRefresh(false); }
+}
+async function trnResumeJob(jobId) {
+    const res = await fetch('/api/training/jobs/' + encodeURIComponent(jobId) + '/resume', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({checkpoint: 'auto'})
+    });
+    const d = await res.json();
+    showToast(res.ok ? 'Возобновлено' : 'Ошибка', res.ok ? jobId : d.message);
+    trnRefresh(false);
+}
+function renderTrnVersions(reg) {
+    const list = reg.versions || [];
+    document.getElementById('trnVersionsList').innerHTML = list.map(v => {
+        const cmp = v.comparison;
+        const evalTxt = cmp ? ('Baseline: ' + (cmp.baseline_accuracy * 100).toFixed(1) + '% -> Candidate: ' + (cmp.candidate_accuracy * 100).toFixed(1) + '% (' + (cmp.delta_accuracy >= 0 ? '+' : '') + (cmp.delta_accuracy * 100).toFixed(1) + '%)') : ('Eval: ' + (v.eval_status || 'not_run'));
+        return '<div class="trn-row">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">' +
+            '<div><b>' + lanEsc(v.version_id) + '</b> ' + (v.deployed ? '<span style="color:#10b981;font-weight:700;">[АКТИВНА В SHARD]</span>' : '<span style="color:#94a3b8;">[' + lanEsc(v.approval_status) + ']</span>') + ' <span style="font-size:11px;color:#64748b;">' + lanEsc(v.artifact_type) + ' | от ' + lanEsc(v.parent_version) + '</span></div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+            '<button class="fb-btn" data-id="' + escHtml(v.version_id) + '" onclick="trnEvalVersion(this.dataset.id)">Оценить (Eval)</button>' +
+            '<button class="fb-btn" data-id="' + escHtml(v.version_id) + '" onclick="trnPrepareVersion(this.dataset.id, \'merged\')">Merge HF</button>' +
+            '<button class="fb-btn" data-id="' + escHtml(v.version_id) + '" onclick="trnPrepareVersion(this.dataset.id, \'gguf\')">Export GGUF</button>' +
+            '<button class="fb-btn selected" data-id="' + escHtml(v.version_id) + '" onclick="trnApproveVersion(this.dataset.id, true)">Одобрить</button>' +
+            '<button class="btn-action active" style="padding:3px 10px;font-size:11px;" data-id="' + escHtml(v.version_id) + '" onclick="trnDeployVersion(this.dataset.id)">Деплой</button>' +
+            '</div></div>' +
+            '<div style="font-size:12px;color:#cbd5e1;">' + lanEsc(evalTxt) + ' | артефакт: <code style="color:#38bdf8;">' + lanEsc(v.artifact_path) + '</code></div>' +
+            '</div>';
+    }).join('') || '<div class="trn-row" style="color:#64748b;">Версий моделей ещё нет. Завершите обучение чтобы создать первую версию.</div>';
+}
+async function trnEvalVersion(vid) {
+    const res = await fetch('/api/training/models/' + encodeURIComponent(vid) + '/evaluate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+    const d = await res.json();
+    showToast(res.ok ? 'Eval завершён' : 'Eval недоступен', res.ok ? ('status=' + d.version.eval_status) : d.message);
+    trnRefresh(false);
+}
+async function trnPrepareVersion(vid, target) {
+    const res = await fetch('/api/training/models/' + encodeURIComponent(vid) + '/prepare', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({target})});
+    const d = await res.json();
+    showToast(res.ok ? 'Артефакт готов' : 'Ошибка сборки', res.ok ? d.version.artifact_path : d.message);
+    trnRefresh(false);
+}
+async function trnApproveVersion(vid, approved) {
+    const res = await fetch('/api/training/models/' + encodeURIComponent(vid) + '/approve', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({approved})});
+    if (res.ok) { showToast('Подтверждено', vid); trnRefresh(false); }
+}
+async function trnDeployVersion(vid) {
+    const res = await fetch('/api/training/models/' + encodeURIComponent(vid) + '/deploy', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+    const d = await res.json();
+    showToast(res.ok ? 'Деплой запущен' : 'Деплой отклонён', res.ok ? (vid + ' -> ' + d.artifact_path) : d.message);
+    trnRefresh(false);
+    fetchHardware();
+}
+async function trnRollback() {
+    const res = await fetch('/api/training/models/rollback', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+    const d = await res.json();
+    showToast(res.ok ? 'Откат выполнен' : 'Откат невозможен', res.ok ? ('Восстановлена: ' + (d.restored_version_id || d.restored_model)) : d.message);
+    trnRefresh(false);
+    fetchHardware();
+}
+function renderTrnPrivacy(p) {
+    document.getElementById('prvAllowFeedback').checked = !!p.allow_feedback;
+    document.getElementById('prvAllowRemote').checked = !!p.allow_remote_feedback;
+    document.getElementById('prvRequireConsent').checked = !!p.require_explicit_consent;
+    document.getElementById('prvRequireReview').checked = !!p.require_manual_review;
+    document.getElementById('prvRedactSecrets').checked = !!p.redact_secrets;
+    document.getElementById('prvRedactPii').checked = !!p.redact_pii;
+}
+async function trnSavePrivacy() {
+    const payload = {
+        allow_feedback: !!document.getElementById('prvAllowFeedback').checked,
+        allow_remote_feedback: !!document.getElementById('prvAllowRemote').checked,
+        require_explicit_consent: !!document.getElementById('prvRequireConsent').checked,
+        require_manual_review: !!document.getElementById('prvRequireReview').checked,
+        redact_secrets: !!document.getElementById('prvRedactSecrets').checked,
+        redact_pii: !!document.getElementById('prvRedactPii').checked
+    };
+    const res = await fetch('/api/training/privacy', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+    if (res.ok) {
+        showToast('Сохранено', 'Настройки приватности обновлены');
+        await loadFeedbackPolicy();
+        renderActiveChatMessages();
+    }
+}
+async function trnBackupState() {
+    const out = document.getElementById('trnBackupOut');
+    if (out) out.innerText = 'Создание резервной копии...';
+    try {
+        const res = await fetch('/api/training/backup', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        const d = await res.json();
+        if (!res.ok) {
+            if (out) out.innerText = d.message || 'Ошибка создания бэкапа';
+            showToast('Ошибка бэкапа', d.message || 'Не удалось создать копию');
+            return;
+        }
+        const msg = 'Бэкап: ' + (d.backup_path || '') + ' (файлов: ' + (d.file_count || 0) + ')';
+        if (out) out.innerText = msg;
+        showToast('Бэкап создан', 'Файлов: ' + (d.file_count || 0));
+    } catch(e) {
+        if (out) out.innerText = 'Сервер недоступен';
+    }
+}
+async function trnPruneFeedback() {
+    try {
+        const res = await fetch('/api/training/feedback/prune', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        const d = await res.json();
+        if (res.ok) {
+            const removedCnt = d.removed !== undefined ? d.removed : (d.pruned || 0);
+            showToast('Очистка выполнена', 'Удалено истёкших записей: ' + removedCnt);
+            trnRefresh(false);
+        } else {
+            showToast('Ошибка', d.message || 'Не удалось очистить отзывы');
+        }
+    } catch(e) {}
+}
+function applyClientIsolationUi() {
+    ['navMarketBtn', 'navConnectBtn', 'navKeysBtn', 'navTrainingBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    document.querySelectorAll('.owner-only-hw').forEach(el => { el.style.display = 'none'; });
+    ['lanCreateCard', 'lanJoinCard', 'lanOffWrap', 'lanInviteBtn', 'lanDiagBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    const clientCard = document.getElementById('lanClientCard');
+    if (clientCard) clientCard.style.display = 'block';
+    const netTab = document.getElementById('tab-network');
+    if (netTab) {
+        const titleEl = netTab.querySelector('h3');
+        if (titleEl) titleEl.innerText = 'Подключение к серверу SHARD';
+    }
+    if (shardBoot.active_model) {
+        activeModelId = shardBoot.active_model;
+        const shortName = shardBoot.active_model.split('/').pop();
+        const hwModelEl = document.getElementById('hwModel');
+        if (hwModelEl) hwModelEl.innerText = shortName;
+        const chatModelEl = document.getElementById('chatActiveModel');
+        if (chatModelEl) chatModelEl.innerText = shortName;
+    }
+    const targetTab = (clientLanSession && clientLanSession.token) ? 'chat' : 'network';
+    const targetBtn = document.getElementById(targetTab === 'chat' ? 'navChatBtn' : 'navNetworkBtn');
+    showTab(targetTab, targetBtn);
+}
+window.onload = function() {
+    initChatSessions();
+    loadFeedbackPolicy();
+    setPollRate(5000);
+    if (shardBoot && shardBoot.client_mode) {
+        applyClientIsolationUi();
+        fetchClientBootstrap();
+        return;
+    }
+    fetchHardware();
+    loadKeys();
+    loadModels();
+    refreshDirLabel();
+    updateGuide();
+    updateDownloadedBadge();
+};
+</script>
+</body>
+</html>
