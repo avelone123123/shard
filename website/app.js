@@ -1,359 +1,9 @@
 const I18N_DATA = {
-en: {
-nav_product: "Product",
-nav_how: "How It Works",
-nav_features: "Features",
-nav_arch: "Architecture",
-nav_install: "Installation",
-nav_docs: "Docs",
-nav_cta: "Get Started",
-hero_badge: "TRI-LANGUAGE LOCAL NEURAL ENGINE // C++20 + MASM AVX2 + FASTAPI",
-hero_title: "One Network. Many Servers. Shared AI Infrastructure.",
-hero_subtitle: "Pool GPU VRAM and system memory across local machines to run massive open LLMs. Powered by PyTorch, FastAPI, llama.cpp RPC, and native SIMD kernels.",
-hero_cta_primary: "Quick Start",
-hero_cta_secondary: "View on GitHub",
-hero_telemetry_arch: "ARCHITECTURE",
-hero_telemetry_arch_val: "LAYER-SHARDED RPC",
-hero_telemetry_hop: "HOP BANDWIDTH",
-hero_telemetry_hop_val: "~8 KB / TOKEN",
-hero_telemetry_discovery: "DISCOVERY",
-hero_telemetry_discovery_val: "UDP 8001 BEACON",
-hero_telemetry_api: "API PARITY",
-hero_telemetry_api_val: "OPENAI & ANTHROPIC",
-hero_caption_title: "LIVE CLUSTER TOPOLOGY",
-hero_caption_status: "4 NODES POOLED",
-about_tag: "DISTRIBUTED COMPUTE",
-about_title: "What Is SHARD?",
-about_desc: "SHARD transforms fragmented personal hardware into a unified AI inference engine. No expensive enterprise GPUs or datacenter NVLink interconnects required.",
-about_card1_num: "01",
-about_card1_title: "The Problem",
-about_card1_text: "High-parameter frontier models like 14B, 32B, and 70B exceed the 6-12 GB VRAM capacity of consumer GPUs. Developers are forced into expensive cloud API bills or painfully slow single-CPU offloading.",
-about_card2_num: "02",
-about_card2_title: "The Solution",
-about_card2_text: "SHARD pools video memory and RAM across everyday computers on your local network. A gaming laptop with 8 GB VRAM paired with a desktop holds and runs 32B models collaboratively with zero cloud dependence.",
-about_card3_num: "03",
-about_card3_title: "The Advantage",
-about_card3_text: "Rather than all-reduce tensor parallelism that demands 100 Gbps cables, SHARD uses layer sharding via llama.cpp RPC. Activations hop sequentially at ~8 KB per token, running fluidly over standard Wi-Fi or Gigabit LAN.",
-calc_title: "INTERACTIVE HARDWARE FIT SIMULATOR",
-calc_badge: "PRE-FLIGHT MATH",
-calc_model_label: "Select Open Weight Model",
-calc_gpu1_label: "Node 1 (Master) Free VRAM",
-calc_gpu2_label: "Node 2 (Worker) Free RAM / VRAM",
-calc_total_label: "Total Pooled Capacity:",
-calc_req_label: "Model Memory Required:",
-calc_ratio_label: "Calculated -ts Split:",
-how_tag: "SIMPLE PROTOCOL",
-how_title: "How SHARD Works",
-how_desc: "From standalone PC to multi-node cluster in four transparent steps. Zero complex Kubernetes configurations or network drivers.",
-step1_num: "STEP 01",
-step1_title: "CREATE",
-step1_text: "Launch your master server. SHARD initiates the FastAPI REST gateway, loads hardware telemetry, and broadcasts UDP discovery beacons on port 8001.",
-step2_num: "STEP 02",
-step2_title: "SHARE",
-step2_text: "Worker machines on your LAN join with one command. Each node contributes spare GPU VRAM or system RAM to the shared cluster memory pool.",
-step3_num: "STEP 03",
-step3_title: "CONNECT",
-step3_text: "Clients and developer tools automatically discover available cluster servers without manual IP configuration. Open networks accept connections with zero friction.",
-step4_num: "STEP 04",
-step4_title: "USE",
-step4_text: "Plug Cursor, Claude Code, Aider, or your custom agents directly into the standard /v1 endpoint. Stream tokens at full local speed.",
-feat_tag: "CAPABILITIES",
-feat_title: "Engine Features",
-feat_desc: "Engineered from the ground up for low-latency inference, memory efficiency, and developer ergonomics.",
-feat1_tag: "NETWORKING",
-feat1_title: "Zero-Config LAN Discovery",
-feat1_text: "UDP beacons announce cluster availability every 2 seconds. Nearby nodes appear in the dashboard automatically with instant one-click pairing.",
-feat2_tag: "DISTRIBUTED RUNTIME",
-feat2_title: "llama.cpp RPC Layer Sharding",
-feat2_text: "Proportional tensor split (-ts) assigns memory slices based on exact device capacity. Layer hops transfer only ~8 KB activation buffers.",
-feat3_tag: "DUAL BACKEND",
-feat3_title: "PyTorch & GGUF Dual Engines",
-feat3_text: "Run pure PyTorch models for research and development or high-efficiency quantized GGUF models for peak tokens-per-second performance.",
-feat4_tag: "NATIVE ACCELERATION",
-feat4_title: "C++20 & MASM AVX2 SIMD",
-feat4_text: "Handcrafted 64-bit assembler kernels deliver sub-microsecond vector operations and zero-copy ring buffers on Windows x64 and Linux.",
-feat5_tag: "INTELLIGENT ADVISOR",
-feat5_title: "Pre-Flight Hardware Fit Advisor",
-feat5_text: "Run shard fit before downloading gigabytes. The analyzer mathematically determines if a model fits single-node or requires LAN pooling.",
-feat6_tag: "STANDARD COMPATIBILITY",
-feat6_title: "OpenAI & Anthropic /v1 Parity",
-feat6_text: "Complete drop-in compatibility for /v1/chat/completions and /v1/messages with streaming Server-Sent Events (SSE) and tool calling.",
-showcase_tab_dash: "Web Dashboard Overview",
-showcase_tab_cli: "CLI Pre-Flight Fit Advisor",
-arch_tag: "INTERNALS",
-arch_title: "System Architecture",
-arch_desc: "Transparent modular architecture. Click any subsystem on the left to inspect its role, communication protocols, and source location.",
-install_tag: "GETTING STARTED",
-install_title: "Installation & Quick Start",
-install_desc: "Choose your preferred environment. SHARD runs anywhere from standalone developer laptops to dedicated LAN clusters.",
-tab_pip: "Source (Editable)",
-tab_docker: "Docker Compose",
-tab_native: "Native C++20 Build",
-pip_step1: "1. Clone Repository",
-pip_step2: "2. Install Package with Pip",
-pip_step3: "3. Launch Web Dashboard & API Server",
-pip_step4: "4. Create Distributed Cluster",
-cases_tag: "APPLICATIONS",
-cases_title: "Real-World Use Cases",
-cases_desc: "How developers and teams deploy SHARD to solve real memory bottlenecks without subscription costs.",
-case1_badge: "HOMELAB / DEV CLUSTERS",
-case1_title: "The Laptop + Desktop Supernode",
-case1_desc: "Combine an RTX 3060 gaming laptop (6 GB VRAM) with an office desktop (16 GB RAM). Together, they pool 22 GB to run 32B coding models effortlessly.",
-case1_stat: "POOLED: 22 GB // 32B QUANT FIT: YES",
-case2_badge: "LOCAL DEVELOPMENT",
-case2_title: "Unlimited AI Coding Agent Backend",
-case2_desc: "Point Cursor, Claude Code, and Aider to http://localhost:8000/v1. Enjoy infinite completions and refactoring sessions with zero rate limits or token bills.",
-case2_stat: "LATENCY: ~18 MS // COST: $0.00 / MO",
-case3_badge: "PRIVACY & SECURITY",
-case3_title: "100% Air-Gapped Enterprise Lab",
-case3_desc: "Host proprietary codebases and sensitive data. All model weights, KV caches, and tokens remain strictly inside your physical local network.",
-case3_stat: "CLOUD EXPOSURE: ZERO // DATA: LOCAL",
-faq_tag: "QUESTIONS & ANSWERS",
-faq_title: "Frequently Asked Questions",
-faq_desc: "Technical specifics, requirements, and hardware compatibility.",
-faq_q1: "What hardware do I need to start with SHARD?",
-faq_a1: "You can start with a single PC running Windows or Linux with a modern CPU supporting AVX2. Adding an NVIDIA GPU accelerates inference, and connecting additional LAN computers pools their memory automatically.",
-faq_q2: "How does SHARD pool memory across different computers?",
-faq_a2: "SHARD leverages llama.cpp's native RPC protocol. The master node analyzes available memory budgets across all connected machines and splits model layers proportionally using the -ts flag.",
-faq_q3: "Do I need fast 10Gbps or NVLink networking?",
-faq_a3: "No. Because SHARD uses layer sharding rather than all-reduce tensor splitting, only the hidden state activations (~8 KB per token hop) are transmitted between nodes. Standard Gigabit Ethernet or Wi-Fi is fully sufficient.",
-faq_q4: "Can I connect my AI coding tools like Cursor or Claude Code?",
-faq_a4: "Yes. SHARD provides 100% compatible /v1/chat/completions (OpenAI) and /v1/messages (Anthropic) endpoints with streaming SSE support. Simply point your tool base URL to http://localhost:8000/v1.",
-faq_q5: "What is an 'Open Network' in SHARD?",
-faq_a5: "Introduced in v1.8.0, an open network broadcasts an open flag in its UDP beacon. Other machines on your local subnet can discover and join the cluster with a single click without typing a pairing code.",
-faq_q6: "Is SHARD fully open source?",
-faq_a6: "Yes. SHARD is 100% open source under the permissive MIT License. You are free to inspect, modify, fork, and deploy it for personal and commercial applications.",
-cta_title: "Your server. Your network. Your SHARD.",
-cta_subtitle: "Experience genuine local AI autonomy. Pool your hardware and run frontier models today.",
-cta_btn_install: "Install SHARD Now",
-cta_btn_gh: "Explore GitHub Repository",
-footer_desc: "Distributed local LLM inference engine pooling GPU VRAM and RAM across LAN machines. Free, open source, and privacy-first.",
-footer_col_product: "Product",
-footer_col_docs: "Documentation",
-footer_col_community: "Community",
-footer_copy: "SHARD Project. Distributed Neural Compute. Released under the MIT License."
-},
-ru: {
-nav_product: "О продукте",
-nav_how: "Принцип работы",
-nav_features: "Возможности",
-nav_arch: "Архитектура",
-nav_install: "Установка",
-nav_docs: "Документация",
-nav_cta: "Быстрый старт",
-hero_badge: "ТРЕХЪЯЗЫЧНЫЙ ЛОКАЛЬНЫЙ НЕЙРОДВИЖОК // C++20 + MASM AVX2 + FASTAPI",
-hero_title: "Одна сеть. Множество серверов. Общая AI-инфраструктура.",
-hero_subtitle: "Объединяйте видеопамять GPU и системную память компьютеров локальной сети для запуска тяжелых открытых LLM. На базе PyTorch, FastAPI, llama.cpp RPC и нативных SIMD-ядер.",
-hero_cta_primary: "Быстрый старт",
-hero_cta_secondary: "Репозиторий GitHub",
-hero_telemetry_arch: "АРХИТЕКТУРА",
-hero_telemetry_arch_val: "LAYER-SHARDED RPC",
-hero_telemetry_hop: "ПЕРЕДАЧА СЛОЯ",
-hero_telemetry_hop_val: "~8 КБ / ТОКЕН",
-hero_telemetry_discovery: "ОБНАРУЖЕНИЕ",
-hero_telemetry_discovery_val: "UDP 8001 BEACON",
-hero_telemetry_api: "СОВМЕСТИМОСТЬ",
-hero_telemetry_api_val: "OPENAI И ANTHROPIC",
-hero_caption_title: "ТОПОЛОГИЯ КЛАСТЕРА",
-hero_caption_status: "ОБЪЕДИНЕНО 4 НОДЫ",
-about_tag: "РАСПРЕДЕЛЕННЫЕ ВЫЧИСЛЕНИЯ",
-about_title: "Что такое SHARD?",
-about_desc: "SHARD превращает разрозненные компьютеры в единый нейросетевой кластер. Никаких дорогих серверных карт A100 или интерконнектов NVLink.",
-about_card1_num: "01",
-about_card1_title: "Проблема",
-about_card1_text: "Тяжелые модели на 14B, 32B и 70B параметров не помещаются в 6-12 ГБ VRAM потребительских видеокарт. Разработчики вынуждены платить за облачные API или терпеть низкую скорость процессора.",
-about_card2_num: "02",
-about_card2_title: "Решение",
-about_card2_text: "SHARD объединяет память нескольких машин в вашей домашней или рабочей сети. Ноутбук с 8 ГБ VRAM вместе с рабочим ПК запускают 32B-модели совместно и полностью автономно.",
-about_card3_num: "03",
-about_card3_title: "Преимущество",
-about_card3_text: "Вместо тензорного параллелизма all-reduce, требующего каналы 100 Гбит/с, SHARD использует послойный шардинг llama.cpp RPC. Активация передается порциями по ~8 КБ, что легко выдерживает обычный Wi-Fi или Ethernet.",
-calc_title: "ИНТЕРАКТИВНЫЙ СИМУЛЯТОР СОВМЕСТИМОСТИ",
-calc_badge: "ПРЕФЛАЙТ РАСЧЕТ",
-calc_model_label: "Выберите открытую нейросеть",
-calc_gpu1_label: "Нода 1 (Мастер) Свободная VRAM",
-calc_gpu2_label: "Нода 2 (Воркер) Свободная RAM / VRAM",
-calc_total_label: "Общая память кластера:",
-calc_req_label: "Требуемая память модели:",
-calc_ratio_label: "Расчетное деление -ts:",
-how_tag: "ПРОСТОЙ ПРОТОКОЛ",
-how_title: "Как работает SHARD",
-how_desc: "От одиночного ПК до распределенного кластера за 4 прозрачных шага. Никаких сложных конфигураций Kubernetes или специальных драйверов.",
-step1_num: "ШАГ 01",
-step1_title: "CREATE",
-step1_text: "Запустите мастер-сервер. SHARD поднимает шлюз FastAPI, считывает ресурсы оборудования и рассылает маяки UDP-обнаружения на порту 8001.",
-step2_num: "ШАГ 02",
-step2_title: "SHARE",
-step2_text: "Машины в локальной сети подключаются одной командой. Каждый узел отдает свободную видеопамять или RAM в общий пул кластера.",
-step3_num: "ШАГ 03",
-step3_title: "CONNECT",
-step3_text: "Клиенты и инструменты разработчика автоматически находят серверы в сети без ручного ввода IP. Открытые сети подключаются в один клик.",
-step4_num: "ШАГ 04",
-step4_title: "USE",
-step4_text: "Подключите Cursor, Claude Code, Aider или терминальный чат напрямую к стандартному эндпоинту /v1. Модели отдают токены на максимальной локальной скорости.",
-feat_tag: "ВОЗМОЖНОСТИ",
-feat_title: "Функции движка",
-feat_desc: "Спроектирован с нуля для минимальных задержек, бережного расхода памяти и удобства разработчика.",
-feat1_tag: "СЕТЬ",
-feat1_title: "Автообнаружение в LAN без настроек",
-feat1_text: "UDP-маяки каждые 2 секунды сообщают о доступных кластерах. Соседние узлы сразу отображаются в панели управления с кнопкой входа.",
-feat2_tag: "РАСПРЕДЕЛЕННЫЙ РАНТАЙМ",
-feat2_title: "Послойный шардинг llama.cpp RPC",
-feat2_text: "Пропорциональное деление тензоров (-ts) распределяет слои под точные размеры памяти нод. По сети передаются лишь небольшие буферы активаций.",
-feat3_tag: "ДВОЙНОЙ БЭКЕНД",
-feat3_title: "Движки PyTorch и GGUF",
-feat3_text: "Запускайте оригинальные веса PyTorch для исследований или высокоэффективные квантованные GGUF-модели для максимального токенов/сек.",
-feat4_tag: "НАТИВНОЕ УСКОРЕНИЕ",
-feat4_title: "Ядра C++20 и ассемблер MASM AVX2",
-feat4_text: "Ручные 64-битные SIMD-ядра обеспечивают субмикросекундные векторные вычисления и кольцевые буферы с нулевым копированием под Windows и Linux.",
-feat5_tag: "ИНТЕЛЛЕКТУАЛЬНЫЙ СОВЕТНИК",
-feat5_title: "Префлайт-чекер совместимости моделей",
-feat5_text: "Выполните shard fit перед скачиванием десятков гигабайт. Анализатор математически проверит, поместится ли модель на один ПК или в LAN-сеть.",
-feat6_tag: "СТАНДАРТНЫЙ API",
-feat6_title: "Полная совместимость с OpenAI и Anthropic",
-feat6_text: "Поддержка эндпоинтов /v1/chat/completions и /v1/messages со стримингом токенов (SSE) и вызовом внешних функций (tool calling).",
-showcase_tab_dash: "Обзор веб-панели управления",
-showcase_tab_cli: "Консольный советник совместимости",
-arch_tag: "ВНУТРЕННЕЕ УСТРОЙСТВО",
-arch_title: "Архитектура системы",
-arch_desc: "Модульная архитектура без скрытых слоев. Нажмите на любой компонент слева, чтобы изучить его протоколы, порты и исходный файл.",
-install_tag: "БЫСТРЫЙ СТАРТ",
-install_title: "Установка и запуск",
-install_desc: "Выберите подходящий вариант. SHARD работает как на отдельном ноутбуке разработчика, так и в кластерах локальной сети.",
-tab_pip: "Из исходников (Editable)",
-tab_docker: "Docker Compose",
-tab_native: "Сборка ядер C++20",
-pip_step1: "1. Клонирование репозитория",
-pip_step2: "2. Установка пакета через Pip",
-pip_step3: "3. Запуск веб-панели и сервера API",
-pip_step4: "4. Создание распределенной сети",
-cases_tag: "ПРИМЕНЕНИЕ",
-cases_title: "Сценарии использования",
-cases_desc: "Реальные задачи, где SHARD решает нехватку памяти без дорогой подписки на облачные сервисы.",
-case1_badge: "ДОМАШНИЙ КЛАСТЕР",
-case1_title: "Супернода: Ноутбук + Офисный ПК",
-case1_desc: "Объедините игровой ноутбук с RTX 3060 (6 ГБ VRAM) и настольный ПК (16 ГБ RAM). Вместе они дают 22 ГБ памяти и плавно крутят модель 32B.",
-case1_stat: "ПУЛ: 22 ГБ // КВАНТ 32B ПОМЕЩАЕТСЯ: ДА",
-case2_badge: "РАЗРАБОТКА ПО",
-case2_title: "Безлимитный бэкенд для AI-ассистентов",
-case2_desc: "Подключите Cursor, Claude Code или Aider к адресу http://localhost:8000/v1. Бесконечный автокомплит и рефакторинг без оплаты токенов.",
-case2_stat: "ПИНГ: ~18 МС // СТОИМОСТЬ: 0 РУБ / МЕС",
-case3_badge: "БЕЗОПАСНОСТЬ И ПРИВАТНОСТЬ",
-case3_title: "100% Изолированная корпоративная лаборатория",
-case3_desc: "Работайте с закрытыми репозиториями и конфиденциальными данными. Ни один байт кода или промпта не покидает пределы вашего офиса.",
-case3_stat: "ВЫХОД В ОБЛАКО: НОЛЬ // ДАННЫЕ: В LAN",
-faq_tag: "ВОПРОСЫ И ОТВЕТЫ",
-faq_title: "Часто задаваемые вопросы",
-faq_desc: "Технические подробности, системные требования и совместимость с оборудованием.",
-faq_q1: "Какое оборудование нужно для старта с SHARD?",
-faq_a1: "Достаточно одного компьютера с Windows или Linux и процессором с поддержкой AVX2. Видеокарта NVIDIA ускоряет инференс, а подключение других ПК по сети автоматически объединяет их память.",
-faq_q2: "Как именно SHARD объединяет память разных компьютеров?",
-faq_a2: "SHARD использует встроенный RPC-протокол llama.cpp. Мастер-сервер рассчитывает бюджеты свободной памяти всех участников и делит слои модели пропорционально через ключ -ts.",
-faq_q3: "Требуется ли сеть 10 Гбит/с или мостик NVLink?",
-faq_a3: "Нет. Поскольку используется послойный шардинг (pipeline/layer sharding), по сети передаются лишь скрытые состояния (~8 КБ на токен). Стандартного Ethernet 1 Гбит/с или Wi-Fi более чем достаточно.",
-faq_q4: "Можно ли подключить редакторы Cursor или Claude Code?",
-faq_a4: "Да. SHARD предоставляет полностью совместимые эндпоинты /v1/chat/completions (OpenAI) и /v1/messages (Anthropic) со стримингом SSE. Просто укажите базовый URL http://localhost:8000/v1.",
-faq_q5: "Что такое 'Открытая сеть' в SHARD?",
-faq_a5: "В версии 1.8.0 появился режим открытой сети: сервер транслирует открытый флаг в UDP-маяке, и другие машины в той же подсети могут подключиться нажатием одной кнопки без ввода кода.",
-faq_q6: "Является ли проект полностью открытым?",
-faq_a6: "Да. SHARD распространяется по свободной лицензии MIT. Вы можете свободно изучать код, форкать, модифицировать и использовать движок в любых личных и коммерческих целях.",
-cta_title: "Ваш сервер. Ваша сеть. Ваш SHARD.",
-cta_subtitle: "Обретите подлинную независимость в сфере искусственного интеллекта. Объедините ресурсы и запустите мощную модель прямо сейчас.",
-cta_btn_install: "Установить SHARD",
-cta_btn_gh: "Открыть репозиторий GitHub",
-footer_desc: "Распределенный нейродвижок для локальных LLM, объединяющий VRAM и RAM в локальной сети. Бесплатный, открытый и приватный.",
-footer_col_product: "Продукт",
-footer_col_docs: "Документация",
-footer_col_community: "Сообщество",
-footer_copy: "Проект SHARD. Распределенные нейровычисления. Лицензия MIT."
-}
+en: {"nav_product": "Product", "nav_networking": "Two Networks", "nav_how": "How It Works", "nav_features": "Features", "nav_arch": "Architecture", "nav_cli": "CLI Reference", "nav_install": "Installation", "nav_faq": "FAQ", "nav_cta": "Get Started", "hero_badge": "DISTRIBUTED NEURAL RUNTIME // FASTAPI + GGUF + P2P ENCRYPTED RELAY + SOUP", "hero_title": "One Engine. Local Pooling. Global Connectivity.", "hero_subtitle": "Run massive open LLMs locally by pooling GPU VRAM across your LAN or connecting securely over the decentralized SHARD Network. Pure open source, zero telemetry without consent, and drop-in OpenAI/Anthropic API parity.", "hero_cta_primary": "Quick Start", "hero_cta_secondary": "View on GitHub", "hero_telemetry_arch": "ARCHITECTURE", "hero_telemetry_arch_val": "DUAL RUNTIME (PYTORCH & GGUF)", "hero_telemetry_lan": "LOCAL POOLING", "hero_telemetry_lan_val": "UDP 8001 / -ts RPC SHARDING", "hero_telemetry_net": "GLOBAL NETWORK", "hero_telemetry_net_val": "ED25519 P2P & BLIND RELAY", "hero_telemetry_api": "API PARITY", "hero_telemetry_api_val": "OPENAI & ANTHROPIC", "hero_caption_title": "HYBRID TOPOLOGY", "hero_caption_status": "LAN POOLING & BLIND RELAY READY", "about_tag": "DISTRIBUTED COMPUTE", "about_title": "What Is SHARD?", "about_desc": "SHARD transforms fragmented personal hardware into a unified AI inference engine. No expensive enterprise GPUs or datacenter NVLink interconnects required.", "about_card1_num": "01", "about_card1_title": "The Problem", "about_card1_text": "Frontier open models (14B, 32B, 70B) exceed the 6-12 GB VRAM capacity of consumer GPUs. Developers are forced into expensive per-token cloud bills or painfully slow single-CPU offloading.", "about_card2_num": "02", "about_card2_title": "The Solution", "about_card2_text": "SHARD provides a two-tiered system: pooling video memory and RAM across nearby computers on your LAN, and establishing secure peer-to-peer or encrypted relay tunnels across the global Internet.", "about_card3_num": "03", "about_card3_title": "The Advantage", "about_card3_text": "Rather than all-reduce tensor splitting that demands 100 Gbps cables, SHARD uses layer sharding via llama.cpp RPC. Activations hop sequentially at ~8 KB per token, running fluidly over Wi-Fi, Ethernet, or broadband.", "calc_title": "INTERACTIVE HARDWARE FIT SIMULATOR", "calc_badge": "PRE-FLIGHT MATH", "calc_model_label": "Select Open Weight Model", "calc_gpu1_label": "Node 1 (Master) Free VRAM", "calc_gpu2_label": "Node 2 (Worker) Free RAM / VRAM", "calc_total_label": "Total Pooled Capacity:", "calc_req_label": "Model Memory Required:", "calc_ratio_label": "Calculated -ts Split:", "net_tag": "NETWORKING PARADIGMS", "net_title": "Two Independent Connectivity Systems", "net_desc": "SHARD implements two distinct networking architectures designed for different scopes: local memory pooling on your subnet, and decentralized cross-Internet connectivity.", "net_lan_badge": "LOCAL NETWORK", "net_lan_title": "LAN Compute Pool", "net_lan_desc": "Zero-configuration memory pooling for computers connected to the same physical Wi-Fi, Ethernet switch, or overlay VPN (Tailscale, WireGuard).", "net_lan_item1": "Automatic UDP discovery beacons broadcast on port 8001 every 2 seconds.", "net_lan_item2": "Web Dashboard radar detects nearby hosts with instant 1-click Join/Share (no manual IP typing).", "net_lan_item3": "Proportional tensor split (-ts) assigns model layers based on exact device VRAM/RAM capacity.", "net_lan_item4": "Pairing codes for private subnets or --open flag for frictionless local hackathons.", "net_global_badge": "DECENTRALIZED GLOBAL", "net_global_title": "SHARD Network", "net_global_desc": "Cryptographic, identity-driven networking for connecting remote hosts, clients, and workers across firewalls, NATs, and the public Internet.", "net_global_item1": "Local Ed25519 cryptographic keypair (node_<hex>) with canonical JSON envelope signing.", "net_global_item2": "REST Discovery directory with 30s heartbeats to publish and find active AI servers.", "net_global_item3": "Direct STUN P2P hole punching with automatic fallback to end-to-end encrypted Blind Relay.", "net_global_item4": "Cryptographic invite tokens with roles (client/worker), bandwidth quotas, and rate limiting.", "how_tag": "ARCHITECTURE FLOW", "how_title": "How SHARD Works", "how_desc": "From standalone PC to multi-node cluster and global connectivity in four transparent steps. Zero proprietary lock-in.", "step1_num": "STEP 01", "step1_title": "INITIALIZE", "step1_text": "Launch your SHARD server. The engine initializes hardware telemetry, evaluates local GPU/RAM budgets, and serves the Web Dashboard and OpenAI/Anthropic REST gateway.", "step1_path": "CORE RUNTIME", "step2_num": "STEP 02", "step2_title": "POOL OR CONNECT", "step2_text": "On LAN: nearby machines join with shard lan join <SERVER_IP> --share (or 1-click from the dashboard) to pool memory. Over Internet: remote clients connect using shard network connect <TARGET>.", "step2_path": "LAN & GLOBAL PATH", "step2_note": "SERVER_IP is the dynamic LAN IP (e.g. 192.168.x.x or Tailscale 100.x.x.x) shown in shard lan status. Dashboard auto-detects nearby nodes via UDP 8001 beacons.", "step3_num": "STEP 03", "step3_title": "NEGOTIATE & ROUTE", "step3_text": "SHARD selects the optimal connection path: direct LAN RPC for local memory slices, direct STUN P2P for remote nodes, or end-to-end encrypted Blind Relay forwarding.", "step3_path": "SMART ROUTING", "step4_num": "STEP 04", "step4_title": "CONSUME", "step4_text": "Point Cursor, Claude Code, Aider, or your custom agents to http://localhost:8000/v1. Stream tokens with sub-millisecond local response and zero cloud subscriptions.", "step4_path": "STANDARD /V1 API", "feat_tag": "CAPABILITIES", "feat_title": "Engine Features", "feat_desc": "Engineered from the ground up for low-latency inference, memory pooling, and developer ergonomics.", "feat1_tag": "NETWORKING", "feat1_title": "Zero-Config LAN Discovery", "feat1_text": "UDP beacons announce cluster availability on port 8001. Nearby nodes appear in the dashboard automatically with instant one-click pairing.", "feat2_tag": "DISTRIBUTED RUNTIME", "feat2_title": "llama.cpp RPC Layer Sharding", "feat2_text": "Proportional tensor split (-ts) assigns memory slices based on device capacity. Layer hops transfer only ~8 KB activation buffers.", "feat3_tag": "GLOBAL CONNECTIVITY", "feat3_title": "Decentralized SHARD Network", "feat3_text": "Ed25519 cryptographic identity, public server publishing, STUN NAT traversal, and end-to-end encrypted ChaCha20/AES-GCM blind relay fallback.", "feat4_tag": "DUAL BACKEND", "feat4_title": "PyTorch & GGUF Dual Engines", "feat4_text": "Run pure PyTorch models for research and development or high-efficiency quantized GGUF models for peak tokens-per-second throughput.", "feat5_tag": "NATIVE ACCELERATION", "feat5_title": "C++20 & MASM AVX2 SIMD", "feat5_text": "Handcrafted 64-bit assembler kernels deliver sub-microsecond vector operations and zero-copy ring buffers on Windows x64 and Linux.", "feat6_tag": "INTELLIGENT ADVISOR", "feat6_title": "Pre-Flight Hardware Fit Advisor", "feat6_text": "Run shard fit before downloading gigabytes. The analyzer mathematically determines if a model fits single-node or requires LAN pooling.", "feat7_tag": "COLLABORATIVE TRAINING", "feat7_title": "SOUP Fine-Tuning Integration", "feat7_text": "Consent-gated telemetry collection, automatic PII redaction, dataset generation, and background LoRA/QLoRA training adapter.", "feat8_tag": "STANDARD COMPATIBILITY", "feat8_title": "OpenAI & Anthropic /v1 Parity", "feat8_text": "Complete drop-in compatibility for /v1/chat/completions and /v1/messages with streaming Server-Sent Events (SSE) and tool calling.", "showcase_tab_dash": "Web Dashboard Overview", "showcase_tab_cli": "CLI Pre-Flight Fit Advisor", "arch_tag": "INTERNALS", "arch_title": "System Architecture", "arch_desc": "Transparent modular architecture. Click any subsystem on the left to inspect its role, communication protocols, and source location.", "arch_inspector_subsystem": "SUBSYSTEM INSPECTOR", "cli_tag": "TERMINAL TOOLING", "cli_title": "Complete CLI Reference", "cli_desc": "Explore every command supported by the shard CLI parser. All commands verified against the current repository implementation.", "cli_tab_server": "Server & Lifecycle", "cli_tab_models": "Models & Inference", "cli_tab_lan": "LAN Compute Pool", "cli_tab_network": "Global Network", "cli_tab_training": "SOUP Training", "install_tag": "GETTING STARTED", "install_title": "Installation & Quick Start", "install_desc": "Choose your preferred environment. SHARD runs anywhere from standalone developer laptops to dedicated LAN clusters and headless servers.", "tab_pip": "Python / Pip (Source)", "tab_docker": "Docker Compose", "tab_native": "Native C++20 Build", "pip_step1": "1. Clone Repository", "pip_step2": "2. Install Package with Dependencies", "pip_step3": "3. Launch Web Dashboard & API Server", "pip_step4": "4. Verify Environment Health", "cases_tag": "APPLICATIONS", "cases_title": "Real-World Use Cases", "cases_desc": "How developers and teams deploy SHARD to solve real memory bottlenecks without subscription costs.", "case1_badge": "HOMELAB / DEV CLUSTERS", "case1_title": "The Laptop + Desktop Supernode", "case1_desc": "Combine an RTX 3060 gaming laptop (6 GB VRAM) with an office desktop (16 GB RAM). Together, they pool 22 GB to run 32B coding models collaboratively.", "case1_stat": "POOLED: 22 GB // 32B QUANT FIT: YES", "case2_badge": "LOCAL DEVELOPMENT", "case2_title": "Private AI Coding Agent Backend", "case2_desc": "Point Cursor, Claude Code, and Aider to http://localhost:8000/v1. Enjoy unmetered local completions and refactoring sessions without cloud rate limits.", "case2_stat": "DROP-IN /V1 API // ZERO PER-TOKEN FEES", "case3_badge": "ENTERPRISE PRIVACY", "case3_title": "Air-Gapped & Multi-Office Clusters", "case3_desc": "Run completely offline on isolated local subnets, or connect distributed branch offices across the Internet using end-to-end encrypted blind relays.", "case3_stat": "LOCAL RUNTIME // ZERO DATA EXPOSURE", "faq_tag": "QUESTIONS & ANSWERS", "faq_title": "Frequently Asked Questions", "faq_desc": "Technical specifics, requirements, and hardware compatibility.", "faq_q1": "What hardware do I need to start with SHARD?", "faq_a1": "You can start with a single PC running Windows or Linux with a modern CPU supporting AVX2. Adding an NVIDIA CUDA GPU accelerates inference, and connecting additional LAN computers pools their memory automatically.", "faq_q2": "How does SHARD pool memory across different computers?", "faq_a2": "SHARD leverages llama.cpp's native RPC protocol. The master node analyzes available memory budgets across all connected machines and splits model layers proportionally using the -ts flag.", "faq_q3": "Do I need fast 10Gbps or NVLink networking?", "faq_a3": "No. Because SHARD uses layer sharding rather than all-reduce tensor splitting, only the hidden state activations (~8 KB per token hop) are transmitted between nodes. Standard Gigabit Ethernet or Wi-Fi is fully sufficient.", "faq_q4": "Can I connect my AI coding tools like Cursor or Claude Code?", "faq_a4": "Yes. SHARD provides 100% compatible /v1/chat/completions (OpenAI) and /v1/messages (Anthropic) endpoints with streaming SSE support. Simply point your tool base URL to http://localhost:8000/v1.", "faq_q5": "What is an 'Open Network' in SHARD?", "faq_a5": "An open network broadcasts an open flag in its UDP beacon. Other machines on your local subnet can discover and join the cluster with a single click in the Web Dashboard without typing a pairing code.", "faq_q6": "Is SHARD fully open source?", "faq_a6": "Yes. SHARD is 100% open source under the permissive MIT License. You are free to inspect, modify, fork, and deploy it for personal and commercial applications.", "faq_q7": "What is the difference between LAN Pool and SHARD Network?", "faq_a7": "LAN Compute Pool is for local subnet memory pooling using UDP 8001 beacons and llama.cpp RPC. SHARD Network is a global decentralized protocol with Ed25519 node identities, STUN NAT traversal, and ChaCha20/AES-GCM blind encrypted relays for cross-Internet connectivity.", "faq_q8": "How do nodes join without typing manual IP addresses?", "faq_a8": "In LAN mode, the Web Dashboard continuously listens to UDP 8001 discovery beacons and shows nearby active clusters with one-click Join/Share buttons. The CLI command shard lan diagnose also auto-detects and displays the host recommended join IP.", "cta_title": "Your server. Your network. Your SHARD.", "cta_subtitle": "Experience genuine local AI autonomy. Pool your hardware and run frontier models today.", "cta_btn_install": "Install SHARD Now", "cta_btn_gh": "Explore GitHub Repository", "footer_desc": "Distributed local LLM inference engine pooling GPU VRAM and RAM across LAN machines. Free, open source, and privacy-first.", "footer_col_product": "Product", "footer_col_docs": "Documentation", "footer_col_community": "Community", "footer_copy": "SHARD Project. Distributed Neural Compute. Released under the MIT License."},
+ru: {"nav_product": "Продукт", "nav_networking": "Две Сети", "nav_how": "Как это работает", "nav_features": "Возможности", "nav_arch": "Архитектура", "nav_cli": "Справочник CLI", "nav_install": "Установка", "nav_faq": "Вопросы и ответы", "nav_cta": "Начать работу", "hero_badge": "РАСПРЕДЕЛЕННЫЙ НЕЙРОННЫЙ ДВИЖОК // FASTAPI + GGUF + P2P ШИФРОВАНИЕ + SOUP", "hero_title": "Один движок. Локальный пул. Глобальная сеть.", "hero_subtitle": "Запускайте открытые нейросети локально, объединяя VRAM видеокарт в локальной сети LAN или безопасно подключаясь через децентрализованную сеть SHARD Network. Открытый исходный код, нулевая телеметрия без согласия и полная совместимость с API OpenAI и Anthropic.", "hero_cta_primary": "Быстрый старт", "hero_cta_secondary": "Репозиторий GitHub", "hero_telemetry_arch": "АРХИТЕКТУРА", "hero_telemetry_arch_val": "ДВОЙНОЙ ДВИЖОК (PYTORCH И GGUF)", "hero_telemetry_lan": "ЛОКАЛЬНЫЙ ПУЛ", "hero_telemetry_lan_val": "UDP 8001 / -ts ШАРДИНГ СЛОЕВ", "hero_telemetry_net": "ГЛОБАЛЬНАЯ СЕТЬ", "hero_telemetry_net_val": "ED25519 P2P И ЗАШИФРОВАННЫЙ РЕЛЕЙ", "hero_telemetry_api": "СОВМЕСТИМОСТЬ", "hero_telemetry_api_val": "OPENAI И ANTHROPIC", "hero_caption_title": "ГИБРИДНАЯ ТОПОЛОГИЯ", "hero_caption_status": "ПУЛ LAN И СЛЕПОЙ РЕЛЕЙ ГОТОВЫ", "about_tag": "РАСПРЕДЕЛЕННЫЕ ВЫЧИСЛЕНИЯ", "about_title": "Что такое SHARD?", "about_desc": "SHARD объединяет разрозненные потребительские ПК в единый кластер для инференса ИИ. Дорогие серверные видеокарты и кабели NVLink больше не требуются.", "about_card1_num": "01", "about_card1_title": "Проблема", "about_card1_text": "Большие открытые модели (14B, 32B, 70B) требуют больше видеопамяти, чем 6-12 ГБ обычных GPU. Разработчики вынуждены платить за облачные токены или терпеть крайне медленную работу на одном CPU.", "about_card2_num": "02", "about_card2_title": "Решение", "about_card2_text": "SHARD предлагает двухуровневую систему: объединение видеопамяти и ОЗУ ПК в локальной сети LAN и установку защищенных P2P или зашифрованных сквозных туннелей через Интернет.", "about_card3_num": "03", "about_card3_title": "Преимущество", "about_card3_text": "Вместо тензорного параллелизма all-reduce, требующего каналы 100 Гбит/с, SHARD использует шардинг слоев через llama.cpp RPC. Между нодами передается лишь ~8 КБ активаций на токен, что легко тянет обычный Wi-Fi или Ethernet.", "calc_title": "ИНТЕРАКТИВНЫЙ КАЛЬКУЛЯТОР СОВМЕСТИМОСТИ", "calc_badge": "РАСЧЕТ ПЕРЕД ЗАПУСКОМ", "calc_model_label": "Выберите открытую модель", "calc_gpu1_label": "Нода 1 (Мастер) Свободная VRAM", "calc_gpu2_label": "Нода 2 (Воркер) Свободная RAM / VRAM", "calc_total_label": "Общая емкость пула:", "calc_req_label": "Требуется памяти для модели:", "calc_ratio_label": "Расчетное разделение -ts:", "net_tag": "СЕТЕВЫЕ ПАРАДИГМЫ", "net_title": "Две независимые сетевые системы", "net_desc": "SHARD реализует две различные сетевые архитектуры для разных задач: локальный пул памяти в вашей подсети и децентрализованное межсетевое взаимодействие через Интернет.", "net_lan_badge": "ЛОКАЛЬНАЯ СЕТЬ", "net_lan_title": "LAN Compute Pool", "net_lan_desc": "Пул памяти с нулевой настройкой для компьютеров в одной физической сети Wi-Fi, Ethernet или оверлейной VPN (Tailscale, WireGuard).", "net_lan_item1": "Автоматические UDP маяки на порту 8001 каждые 2 секунды.", "net_lan_item2": "Радар веб-дашборда находит серверы рядом и подключается в 1 клик (без ручного ввода IP).", "net_lan_item3": "Пропорциональный сплит (-ts) делит слои модели точно по объему памяти устройств.", "net_lan_item4": "Коды сопряжения для закрытых сетей или флаг --open для локальных хакатонов.", "net_global_badge": "ДЕЦЕНТРАЛИЗОВАННАЯ ГЛОБАЛЬНАЯ", "net_global_title": "SHARD Network", "net_global_desc": "Криптографическая сеть на базе открытых ключей для соединения удаленных хостов, клиентов и воркеров через фаерволы и NAT.", "net_global_item1": "Локальная ключевая пара Ed25519 (node_<hex>) с канонической подписью JSON.", "net_global_item2": "REST каталог Discovery с heartbeat каждые 30 секунд для публикации и поиска серверов.", "net_global_item3": "Прямой пробив NAT через STUN P2P с автоматическим переходом на сквозной слепой релей.", "net_global_item4": "Криптографические токены приглашений с ролями (client/worker), квотами трафика и лимитами.", "how_tag": "ПОШАГОВЫЙ ПРОЦЕСС", "how_title": "Как работает SHARD", "how_desc": "От одиночного компьютера до мульти-нодового кластера и глобальной связи за четыре понятных шага без привязки к корпоративным облакам.", "step1_num": "ШАГ 01", "step1_title": "ИНИЦИАЛИЗАЦИЯ", "step1_text": "Запустите сервер SHARD. Движок собирает данные о железе, оценивает свободную память GPU и ОЗУ, поднимает веб-дашборд и REST-шлюз OpenAI/Anthropic.", "step1_path": "БАЗОВЫЙ ДВИЖОК", "step2_num": "ШАГ 02", "step2_title": "ОБЪЕДИНЕНИЕ ИЛИ ПОДКЛЮЧЕНИЕ", "step2_text": "В LAN: соседние ПК подключаются командой shard lan join <SERVER_IP> --share (или в 1 клик в дашборде) для объединения памяти. Через Интернет: удаленные клиенты подключаются через shard network connect <TARGET>.", "step2_path": "LAN И ГЛОБАЛЬНЫЙ ПУТЬ", "step2_note": "SERVER_IP — это динамический IP хоста (192.168.x.x или Tailscale 100.x.x.x) из shard lan status. Дашборд находит ноды автоматически по UDP 8001.", "step3_num": "ШАГ 03", "step3_title": "МАРШРУТИЗАЦИЯ И ШАРДИНГ", "step3_text": "SHARD выбирает оптимальный маршрут: прямой локальный RPC для слоев модели, прямой STUN P2P для удаленных нод или слепой зашифрованный релей.", "step3_path": "УМНАЯ МАРШРУТИЗАЦИЯ", "step4_num": "ШАГ 04", "step4_title": "ИСПОЛЬЗОВАНИЕ", "step4_text": "Подключите Cursor, Claude Code, Aider или собственных агентов к http://localhost:8000/v1. Генерация токенов без облачных лимитов и абонентской платы.", "step4_path": "СТАНДАРТНЫЙ /V1 API", "feat_tag": "ВОЗМОЖНОСТИ", "feat_title": "Функции платформы", "feat_desc": "Спроектировано с нуля для низких задержек инференса, объединения памяти и удобства разработчика.", "feat1_tag": "СЕТЬ LAN", "feat1_title": "Автообнаружение в локальной сети", "feat1_text": "UDP-маяки анонсируют кластер на порту 8001. Ноды рядом появляются в дашборде автоматически с сопряжением в один клик.", "feat2_tag": "РАСПРЕДЕЛЕННЫЙ RUNTIME", "feat2_title": "Шардинг слоев llama.cpp RPC", "feat2_text": "Пропорциональный сплит тензоров (-ts) распределяет слои модели строго по емкости устройств. Передаются лишь ~8 КБ активаций на токен.", "feat3_tag": "ГЛОБАЛЬНАЯ СЕТЬ", "feat3_title": "Децентрализованный SHARD Network", "feat3_text": "Криптографическая идентификация Ed25519, каталог серверов, пробив NAT через STUN и сквозное шифрование ChaCha20/AES-GCM.", "feat4_tag": "ДВОЙНОЙ БЭКЕНД", "feat4_title": "Два движка: PyTorch и GGUF", "feat4_text": "Используйте чистый PyTorch для исследований и разработки или быстрый квантованный GGUF для максимальной скорости генерации.", "feat5_tag": "НАТИВНОЕ УСКОРЕНИЕ", "feat5_title": "C++20 и MASM AVX2 SIMD", "feat5_text": "64-битные ассемблерные ядра обеспечивают быстрые векторные инструкции и кольцевые буферы с нулевым копированием под Windows и Linux.", "feat6_tag": "АНАЛИЗАТОР ЖЕЛЕЗА", "feat6_title": "Советник совместимости shard fit", "feat6_text": "Запустите shard fit перед загрузкой тяжелых весов. Анализатор математически рассчитает, поместится ли модель на одном ПК или нужен пул LAN.", "feat7_tag": "СОВМЕСТНОЕ ОБУЧЕНИЕ", "feat7_title": "Интеграция SOUP Fine-Tuning", "feat7_text": "Сбор обратной связи с явным согласием, автоматическое удаление персональных данных (PII), генерация датасетов и фоновое обучение LoRA.", "feat8_tag": "СОВМЕСТИМОСТЬ", "feat8_title": "Совместимость с OpenAI и Anthropic", "feat8_text": "Полная поддержка эндпоинтов /v1/chat/completions и /v1/messages с потоковым SSE-стримингом и вызовом функций (tool calling).", "showcase_tab_dash": "Обзор веб-дашборда", "showcase_tab_cli": "CLI советник shard fit", "arch_tag": "АРХИТЕКТУРА", "arch_title": "Системная архитектура", "arch_desc": "Прозрачная модульная архитектура. Нажмите на любой компонент слева, чтобы изучить его назначение, протоколы и исходный код.", "arch_inspector_subsystem": "ИНСПЕКТОР ПОДСИСТЕМЫ", "cli_tag": "ИНСТРУМЕНТЫ CLI", "cli_title": "Полный справочник CLI", "cli_desc": "Все команды, поддерживаемые консольным интерфейсом shard. Команды сверены с реализацией в коде репозитория.", "cli_tab_server": "Сервер и жизненный цикл", "cli_tab_models": "Модели и инференс", "cli_tab_lan": "Локальный пул LAN", "cli_tab_network": "Глобальная сеть", "cli_tab_training": "Обучение SOUP", "install_tag": "НАЧАЛО РАБОТЫ", "install_title": "Установка и быстрый старт", "install_desc": "Выберите удобный вариант. SHARD работает на ноутбуках разработчиков, в локальных кластерах и на выделенных серверах.", "tab_pip": "Python / Pip (Из исходников)", "tab_docker": "Docker Compose", "tab_native": "Сборка C++20", "pip_step1": "1. Клонируйте репозиторий", "pip_step2": "2. Установите пакет с зависимостями", "pip_step3": "3. Запустите дашборд и сервер API", "pip_step4": "4. Проверьте окружение утилитой doctor", "cases_tag": "ПРИМЕНЕНИЕ", "cases_title": "Реальные сценарии", "cases_desc": "Как разработчики и команды используют SHARD для решения проблемы нехватки памяти без подписок.", "case1_badge": "ДОМАШНИЙ КЛАСТЕР", "case1_title": "Супернода из ноутбука и ПК", "case1_desc": "Объедините игровой ноутбук с RTX 3060 (6 ГБ VRAM) и офисный ПК (16 ГБ RAM). Вместе они дают 22 ГБ и легко тянут модели уровня 32B.", "case1_stat": "ПУЛ: 22 ГБ // 32B КВАНТ ВЛЕЗАЕТ: ДА", "case2_badge": "ЛОКАЛЬНАЯ РАЗРАБОТКА", "case2_title": "Бэкенд для Cursor и Claude Code", "case2_desc": "Укажите адрес http://localhost:8000/v1 в настройках Cursor или Aider. Локальная генерация кода без почасовых лимитов и счета за токены.", "case2_stat": "СТАНДАРТНЫЙ /V1 // БЕЗ ПЛАТЫ ЗА ТОКЕНЫ", "case3_badge": "ПРИВАТНОСТЬ И БЕЗОПАСНОСТЬ", "case3_title": "Изолированные и распределенные офисы", "case3_desc": "Работайте полностью автономно в изолированной локальной сети или объединяйте филиалы через Интернет с помощью сквозного шифрования.", "case3_stat": "ЛОКАЛЬНЫЙ КОНТУР // УТЕЧКИ ИСКЛЮЧЕНЫ", "faq_tag": "ВОПРОСЫ И ОТВЕТЫ", "faq_title": "Часто задаваемые вопросы", "faq_desc": "Технические детали, системные требования и совместимость с оборудованием.", "faq_q1": "Какое железо нужно для работы с SHARD?", "faq_a1": "Достаточно одного ПК с Windows или Linux и процессором с поддержкой AVX2. Наличие видеокарты NVIDIA ускоряет инференс, а подключение других ПК по сети автоматически объединяет их память.", "faq_q2": "Как SHARD объединяет память разных компьютеров?", "faq_a2": "SHARD использует нативный RPC протокол llama.cpp. Мастер-нода рассчитывает бюджет памяти на всех участниках и пропорционально делит слои модели через флаг -ts.", "faq_q3": "Нужна ли быстрая сеть 10 Гбит/с или NVLink?", "faq_a3": "Нет. Так как SHARD делит слои модели последовательно, а не параллелит тензоры внутри слоя, между узлами передается лишь ~8 КБ скрытых состояний на токен. Обычного Gigabit Ethernet или Wi-Fi вполне достаточно.", "faq_q4": "Можно ли подключить Cursor, Claude Code или Aider?", "faq_a4": "Да. SHARD предоставляет полностью совместимые эндпоинты /v1/chat/completions (OpenAI) и /v1/messages (Anthropic) со стримингом SSE. Просто укажите URL http://localhost:8000/v1.", "faq_q5": "Что такое 'Открытая сеть' (Open Network) в SHARD?", "faq_a5": "Открытая сеть передает флаг open в своем UDP-маяке. Другие ПК в вашей локальной подсети могут обнаружить кластер и подключиться в веб-дашборде в один клик без ввода кода сопряжения.", "faq_q6": "Является ли SHARD полностью открытым ПО?", "faq_a6": "Да. SHARD полностью бесплатен и распространяется под свободной лицензией MIT. Вы можете свободно использовать, модифицировать и разворачивать его для личных и коммерческих задач.", "faq_q7": "В чем разница между LAN Pool и SHARD Network?", "faq_a7": "LAN Compute Pool предназначен для объединения памяти в локальной подсети через UDP-маяки на порту 8001 и llama.cpp RPC. SHARD Network — это глобальный децентрализованный протокол с Ed25519 ключами, пробивом NAT через STUN и зашифрованными релеями для связи через Интернет.", "faq_q8": "Как ноды подключаются без ручного ввода IP-адресов?", "faq_a8": "В режиме LAN веб-дашборд непрерывно слушает UDP-маяки на порту 8001 и отображает активные кластеры с кнопками подключения в один клик. Консольная команда shard lan diagnose также автоматически определяет и выводит рекомендуемый IP хоста.", "cta_title": "Ваш сервер. Ваша сеть. Ваш SHARD.", "cta_subtitle": "Оцените настоящую автономность локального ИИ. Объедините оборудование и запускайте передовые модели прямо сейчас.", "cta_btn_install": "Установить SHARD", "cta_btn_gh": "Открыть репозиторий GitHub", "footer_desc": "Распределенный локальный движок инференса LLM, объединяющий VRAM и RAM по сети. Бесплатный, открытый и приватный.", "footer_col_product": "Продукт", "footer_col_docs": "Документация", "footer_col_community": "Сообщество", "footer_copy": "Проект SHARD. Распределенные нейронные вычисления. Лицензия MIT."},
+kz: {"nav_product": "Өнім", "nav_networking": "Екі Желі", "nav_how": "Қалай жұмыс істейді", "nav_features": "Мүмкіндіктер", "nav_arch": "Архитектура", "nav_cli": "CLI Анықтамалығы", "nav_install": "Орнату", "nav_faq": "Сұрақ-жауап", "nav_cta": "Бастау", "hero_badge": "ҮЛЕСТІРІЛГЕН НЕЙРОНДЫҚ ҚОЗҒАЛТҚЫШ // FASTAPI + GGUF + P2P ШИФРЛАУ + SOUP", "hero_title": "Бір қозғалтқыш. Жергілікті пул. Жаһандық желі.", "hero_subtitle": "Жергілікті LAN желісіндегі бейнекарталардың VRAM жадын біріктіру немесе орталықсыздандырылған SHARD Network арқылы қауіпсіз қосылу арқылы ашық LLM үлгілерін іске қосыңыз. Толық ашық бастапқы код, келісімсіз нөлдік телеметрия және OpenAI/Anthropic API толық үйлесімділігі.", "hero_cta_primary": "Жылдам бастау", "hero_cta_secondary": "GitHub репозиторийі", "hero_telemetry_arch": "АРХИТЕКТУРА", "hero_telemetry_arch_val": "ҚОС ҚОЗҒАЛТҚЫШ (PYTORCH ЖӘНЕ GGUF)", "hero_telemetry_lan": "ЖЕРГІЛІКТІ ПУЛ", "hero_telemetry_lan_val": "UDP 8001 / -ts ҚАБАТТАРДЫ БӨЛУ", "hero_telemetry_net": "ЖАҺАНДЫҚ ЖЕЛІ", "hero_telemetry_net_val": "ED25519 P2P ЖӘНЕ ШИФРЛАНҒАН РЕЛЕЙ", "hero_telemetry_api": "ҮЙЛЕСІМДІЛІК", "hero_telemetry_api_val": "OPENAI ЖӘНЕ ANTHROPIC", "hero_caption_title": "ГИБРИДТІК ТОПОЛОГИЯ", "hero_caption_status": "LAN ПУЛЫ ЖӘНЕ СОҚЫР РЕЛЕЙ ДАЙЫН", "about_tag": "ҮЛЕСТІРІЛГЕН ЕСЕПТЕУЛЕР", "about_title": "SHARD дегеніміз не?", "about_desc": "SHARD әртүрлі компьютерлерді бірыңғай ЖИ есептеу кластеріне біріктіреді. Қымбат серверлік бейнекарталар мен NVLink кабельдері қажет емес.", "about_card1_num": "01", "about_card1_title": "Мәселе", "about_card1_text": "Үлкен ашық үлгілер (14B, 32B, 70B) тұтынушылық GPU-лардың 6-12 ГБ VRAM көлемінен асып түседі. Әзірлеушілер бұлттық токендерге төлеуге немесе бір CPU-да баяу жұмыс істеуге мәжбүр болады.", "about_card2_num": "02", "about_card2_title": "Шешім", "about_card2_text": "SHARD екі деңгейлі жүйені ұсынады: LAN желісіндегі компьютерлердің бейнежадын біріктіру және Интернет арқылы қауіпсіз P2P немесе шифрланған туннельдер орнату.", "about_card3_num": "03", "about_card3_title": "Артықшылық", "about_card3_text": "100 Гбит/с талап ететін all-reduce тензорлық бөлудің орнына, SHARD llama.cpp RPC арқылы қабаттарды бөлуді пайдаланады. Түйіндер арасында токеніне тек ~8 КБ активация беріледі, бұл қарапайым Wi-Fi немесе Ethernet желісінде еркін жұмыс істейді.", "calc_title": "ЖАБДЫҚТЫҢ ҮЙЛЕСІМДІЛІК КАЛЬКУЛЯТОРЫ", "calc_badge": "ІСКЕ ҚОСУ АЛДЫНДАҒЫ ЕСЕПТЕУ", "calc_model_label": "Ашық үлгіні таңдаңыз", "calc_gpu1_label": "1-түйін (Мастер) Бос VRAM", "calc_gpu2_label": "2-түйін (Воркер) Бос RAM / VRAM", "calc_total_label": "Пулдың жалпы сыйымдылығы:", "calc_req_label": "Үлгіге қажетті жад:", "calc_ratio_label": "Есептелген -ts бөлу қатынасы:", "net_tag": "ЖЕЛІЛІК ПАРАДИГМАЛАР", "net_title": "Екі тәуелсіз желілік жүйе", "net_desc": "SHARD әртүрлі тапсырмалар үшін екі дербес архитектураны жүзеге асырады: ішкі желідегі жергілікті жад пулы және Интернет арқылы орталықсыздандырылған байланыс.", "net_lan_badge": "ЖЕРГІЛІКТІ ЖЕЛІ", "net_lan_title": "LAN Compute Pool", "net_lan_desc": "Бірдей Wi-Fi, Ethernet қосқышы немесе оверлейлік VPN (Tailscale, WireGuard) желісіндегі компьютерлер үшін нөлдік баптаумен жадты біріктіру.", "net_lan_item1": "8001 портында әрбір 2 секунд сайын автоматты UDP хабар тарату маяктары.", "net_lan_item2": "Веб-дашборд радары жақын маңдағы серверлерді тауып, 1 басумен қосылады (IP терусіз).", "net_lan_item3": "Пропорционалды бөлу (-ts) үлгі қабаттарын құрылғы жадына қарай нақты бөледі.", "net_lan_item4": "Жабық желілер үшін жұптастыру кодтары немесе ашық желілер үшін --open жалаушасы.", "net_global_badge": "ОРТАЛЫҚСЫЗДАНДЫРЫЛҒАН ЖАҺАНДЫҚ", "net_global_title": "SHARD Network", "net_global_desc": "Қауіпсіздік қабырғалары мен NAT арқылы қашықтағы хосттарды, клиенттерді және воркерлерді қосуға арналған криптографиялық желі.", "net_global_item1": "Канондық JSON қолтаңбасы бар жергілікті Ed25519 кілттер жұбы (node_<hex>).", "net_global_item2": "Серверлерді жариялау және табу үшін 30 секунд сайын жүрек соғысы бар REST Discovery каталогы.", "net_global_item3": "STUN P2P арқылы NAT тесу және автоматты түрде шифрланған соқыр релейге ауысу.", "net_global_item4": "Рөлдері (client/worker), трафик квоталары және лимиттері бар криптографиялық шақырулар.", "how_tag": "ҚАДАМДЫҚ ЖҰМЫС", "how_title": "SHARD қалай жұмыс істейді", "how_desc": "Жалғыз компьютерден көп түйінді кластерге және жаһандық байланысқа дейін бұлттық тәуелділіксіз төрт түсінікті қадам.", "step1_num": "01-ҚАДАМ", "step1_title": "БАСТАПҚЫ ОРНАТУ", "step1_text": "SHARD серверін іске қосыңыз. Қозғалтқыш аппараттық құралдарды талдап, бос VRAM мен ОЗУ көлемін бағалайды, веб-дашборд пен OpenAI/Anthropic REST шлюзін көтереді.", "step1_path": "НЕГІЗГІ ҚОЗҒАЛТҚЫШ", "step2_num": "02-ҚАДАМ", "step2_title": "БІРІКТІРУ НЕМЕСЕ ҚОСЫЛУ", "step2_text": "LAN ішінде: көрші ПК-лер жадты біріктіру үшін shard lan join <SERVER_IP> --share пәрменімен қосылады. Интернет арқылы: қашықтағы клиенттер shard network connect <TARGET> арқылы қосылады.", "step2_path": "LAN ЖӘНЕ ЖАҺАНДЫҚ ЖОЛ", "step2_note": "SERVER_IP — бұл shard lan status шығарған хосттың динамикалық IP-і. Дашборд UDP 8001 маяктары арқылы түйіндерді автоматты түрде табады.", "step3_num": "03-ҚАДАМ", "step3_title": "БАҒЫТТАУ ЖӘНЕ ШАРДИНГ", "step3_text": "SHARD оңтайлы бағытты таңдайды: жергілікті қабаттар үшін тікелей LAN RPC, қашықтағы түйіндер үшін STUN P2P немесе шифрланған соқыр релей.", "step3_path": "АҚЫЛДЫ БАҒЫТТАУ", "step4_num": "04-ҚАДАМ", "step4_title": "ПАЙДАЛАНУ", "step4_text": "Cursor, Claude Code, Aider немесе жеке агенттерді http://localhost:8000/v1 мекенжайына бағыттаңыз. Бұлттық төлемсіз жергілікті жоғары жылдамдықта пайдаланыңыз.", "step4_path": "СТАНДАРТТЫ /V1 API", "feat_tag": "МҮМКІНДІКТЕР", "feat_title": "Платформа функциялары", "feat_desc": "Төмен кідіріспен қорытынды жасау, жадты біріктіру және әзірлеушіге ыңғайлы болу үшін нөлден жасалған.", "feat1_tag": "LAN ЖЕЛІСІ", "feat1_title": "Жергілікті желіде автоматты табу", "feat1_text": "UDP маяктары 8001 портында кластерді хабарлайды. Жақын түйіндер дашбордта бір басумен автоматты түрде пайда болады.", "feat2_tag": "ҮЛЕСТІРІЛГЕН RUNTIME", "feat2_title": "llama.cpp RPC қабаттарын бөлу", "feat2_text": "Пропорционалды тензорлық бөлу (-ts) жад сыйымдылығына сәйкес қабаттарды бөледі. Әр токенге тек ~8 КБ активация беріледі.", "feat3_tag": "ЖАҺАНДЫҚ ЖЕЛІ", "feat3_title": "Орталықсыздандырылған SHARD Network", "feat3_text": "Ed25519 криптографиялық сәйкестендіру, серверлер каталогы, STUN NAT тесу және ChaCha20/AES-GCM шифрланған релейі.", "feat4_tag": "ҚОС ҚОЗҒАЛТҚЫШ", "feat4_title": "PyTorch және GGUF қозғалтқыштары", "feat4_text": "Зерттеу мен әзірлеу үшін таза PyTorch үлгілерін немесе ең жоғары жылдамдық үшін квантталған GGUF үлгілерін іске қосыңыз.", "feat5_tag": "НАТИВТІ ҮДЕТУ", "feat5_title": "C++20 және MASM AVX2 SIMD", "feat5_text": "64-биттік ассемблер ядролары Windows және Linux жүйелерінде векторлық есептеулер мен нөлдік көшіру буферлерін қамтамасыз етеді.", "feat6_tag": "СӘЙКЕСТІК ТАЛДАУЫШЫ", "feat6_title": "shard fit аппараттық кеңесшісі", "feat6_text": "Үлкен үлгіні жүктемес бұрын shard fit іске қосыңыз. Талдаушы үлгінің бір компьютерге сиятынын немесе LAN қажеттігін есептейді.", "feat7_tag": "БІРЛЕСКЕН ОҚЫТУ", "feat7_title": "SOUP Fine-Tuning интеграциясы", "feat7_text": "Келісім бойынша кері байланыс жинау, PII дербес деректерін автоматты тазалау, деректер жинағын құру және LoRA оқыту.", "feat8_tag": "ҮЙЛЕСІМДІЛІК", "feat8_title": "OpenAI және Anthropic сәйкестігі", "feat8_text": "SSE ағындық генерациясы және құралдарды шақыру (tool calling) мүмкіндігі бар /v1/chat/completions және /v1/messages API толық үйлесімділігі.", "showcase_tab_dash": "Веб-дашборд шолуы", "showcase_tab_cli": "CLI shard fit кеңесшісі", "arch_tag": "АРХИТЕКТУРА", "arch_title": "Жүйелік архитектура", "arch_desc": "Ашық модульдік архитектура. Құрамдас бөліктің рөлін, протоколдарын және бастапқы кодын көру үшін сол жақтағы түйінді таңдаңыз.", "arch_inspector_subsystem": "ҚҰРАМДАС ИНСПЕКТОРЫ", "cli_tag": "ТЕРМИНАЛ ҚҰРАЛДАРЫ", "cli_title": "Толық CLI анықтамалығы", "cli_desc": "shard консольдік интерфейсі қолдайтын барлық пәрмендер. Пәрмендер репозиторийдің нақты кодымен тексерілген.", "cli_tab_server": "Сервер және өмірлік цикл", "cli_tab_models": "Үлгілер және инференс", "cli_tab_lan": "Жергілікті LAN пулы", "cli_tab_network": "Жаһандық желі", "cli_tab_training": "SOUP оқыту", "install_tag": "ЖҰМЫСТЫ БАСТАУ", "install_title": "Орнату және жылдам бастау", "install_desc": "Өзіңізге ыңғайлы ортаны таңдаңыз. SHARD қарапайым ноутбуктерде де, арнайы кластерлерде де сенімді жұмыс істейді.", "tab_pip": "Python / Pip (Бастапқы кодтан)", "tab_docker": "Docker Compose", "tab_native": "C++20 нативті құрастыру", "pip_step1": "1. Репозиторийді клондаңыз", "pip_step2": "2. Пакетті тәуелділіктермен орнатыңыз", "pip_step3": "3. Дашборд пен API серверін іске қосыңыз", "pip_step4": "4. Орта денсаулығын doctor көмегімен тексеріңіз", "cases_tag": "ҚОЛДАНУ", "cases_title": "Нақты қолдану мысалдары", "cases_desc": "Әзірлеушілер мен командалар жад тапшылығын шешу үшін SHARD-ты қалай қолданады.", "case1_badge": "ҮЙ КЛАСТЕРІ", "case1_title": "Ноутбук пен ДК супертүйіні", "case1_desc": "RTX 3060 ойын ноутбугын (6 ГБ VRAM) және кеңсе ДК-ін (16 ГБ RAM) біріктіріңіз. Олар бірге 22 ГБ беріп, 32B үлгілерін еркін жүргізеді.", "case1_stat": "ПУЛ: 22 ГБ // 32B СИЯДЫ: ИӘ", "case2_badge": "ЖЕРГІЛІКТІ ӘЗІРЛЕУ", "case2_title": "Cursor мен Claude Code үшін бэкенд", "case2_desc": "Cursor немесе Aider баптауларында http://localhost:8000/v1 мекенжайын көрсетіңіз. Токен төлемінсіз шексіз код генерациялаңыз.", "case2_stat": "СТАНДАРТТЫ /V1 // ТОКЕН ҮШІН ШЫҒЫН $0", "case3_badge": "ҚАУІПСІЗДІК ЖӘНЕ ҚҰПИЯЛЫҚ", "case3_title": "Оқшауланған және үлестірілген кеңселер", "case3_desc": "Оқшауланған жергілікті желіде толықтай автономды жұмыс істеңіз немесе шифрланған релей арқылы қашықтағы кеңселерді біріктіріңіз.", "case3_stat": "ЖЕРГІЛІКТІ ОРТА // ДЕРЕКТЕР СЫРТҚА ШЫҚПАЙДЫ", "faq_tag": "СҰРАҚ-ЖАУАП", "faq_title": "Жиі қойылатын сұрақтар", "faq_desc": "Техникалық ерекшеліктер, талаптар және аппараттық үйлесімділік.", "faq_q1": "SHARD-пен жұмыс істеу үшін қандай жабдық қажет?", "faq_a1": "AVX2 қолдайтын процессоры бар Windows немесе Linux жүйесіндегі бір компьютер жеткілікті. NVIDIA GPU болуы инференсті тездетеді, ал басқа компьютерлерді желі арқылы қосу олардың жадын автоматты түрде біріктіреді.", "faq_q2": "SHARD әртүрлі компьютерлердің жадын қалай біріктіреді?", "faq_a2": "SHARD llama.cpp нативті RPC хаттамасын қолданады. Мастер-түйін барлық қатысушылардың жад бюджетін талдап, -ts жалаушасы арқылы үлгі қабаттарын пропорционалды бөледі.", "faq_q3": "Жылдам 10 Гбит/с немесе NVLink желісі қажет пе?", "faq_a3": "Жоқ. SHARD қабаттарды ретімен бөлгендіктен, түйіндер арасында әр токен үшін тек ~8 КБ жасырын күйлер беріледі. Қарапайым Gigabit Ethernet немесе Wi-Fi толық жеткілікті.", "faq_q4": "Cursor, Claude Code немесе Aider қосуға бола ма?", "faq_a4": "Иә. SHARD SSE ағынды қолдайтын 100% үйлесімді /v1/chat/completions (OpenAI) және /v1/messages (Anthropic) ұсынады. Құралды http://localhost:8000/v1 мекенжайына бағыттаңыз.", "faq_q5": "SHARD-тағы 'Ашық желі' (Open Network) деген не?", "faq_a5": "Ашық желі өзінің UDP маягында open жалаушасын таратады. Жергілікті ішкі желідегі басқа компьютерлер кластерді тауып, жұптастыру кодынсыз веб-дашбордта бір басумен қосыла алады.", "faq_q6": "SHARD толығымен ашық бастапқы кодты ма?", "faq_a6": "Иә. SHARD толығымен тегін және рұқсат беруші MIT лицензиясы бойынша таратылады. Сіз оны жеке және коммерциялық мақсатта пайдалана аласыз.", "faq_q7": "LAN Pool мен SHARD Network арасындағы айырмашылық неде?", "faq_a7": "LAN Compute Pool жергілікті ішкі желіде 8001 портындағы UDP маяктары мен llama.cpp RPC арқылы жадты біріктіруге арналған. SHARD Network — бұл Ed25519 кілттері, STUN NAT тесу және Интернет арқылы қосылу үшін шифрланған релейлері бар жаһандық орталықсыздандырылған протокол.", "faq_q8": "Түйіндер IP мекенжайларын қолмен енгізбей қалай қосылады?", "faq_a8": "LAN режимінде веб-дашборд 8001 портындағы UDP маяктарын үнемі тыңдап, бір басумен қосылу түймелері бар белсенді кластерлерді көрсетеді. Сондай-ақ shard lan diagnose пәрмені хосттың ұсынылатын IP мекенжайын анықтап көрсетеді.", "cta_title": "Сіздің серверіңіз. Сіздің желіңіз. Сіздің SHARD.", "cta_subtitle": "Жергілікті ЖИ-дің нағыз дербестігін сезініңіз. Жабдықты біріктіріп, озық үлгілерді дәл қазір іске қосыңыз.", "cta_btn_install": "SHARD-ты орнату", "cta_btn_gh": "GitHub репозиторийі", "footer_desc": "Желі арқылы GPU VRAM және RAM біріктіретін үлестірілген жергілікті LLM инференс қозғалтқышы. Тегін, ашық және құпия.", "footer_col_product": "Өнім", "footer_col_docs": "Құжаттама", "footer_col_community": "Қоғамдастық", "footer_copy": "SHARD жобасы. Үлестірілген нейрондық есептеулер. MIT лицензиясы."}
 };
-const ARCH_DETAILS = {
-client: {
-en: {
-name: "Client Applications & AI Agents",
-role: "Inference Consumer",
-desc: "Coding copilots (Cursor, Claude Code, Aider, Zed), terminal REPL (shard run), and browser UIs connecting over HTTP/SSE. No local model weights needed.",
-tags: ["OpenAI /v1", "Anthropic /v1", "Streaming SSE", "Zero Local Weights"]
-},
-ru: {
-name: "Клиентские приложения и AI-агенты",
-role: "Потребитель инференса",
-desc: "Редакторы кода (Cursor, Claude Code, Aider, Zed), консольный чат (shard run) и веб-интерфейсы, подключающиеся по HTTP/SSE. Локальные веса не требуются.",
-tags: ["OpenAI /v1", "Anthropic /v1", "Потоковый SSE", "Без локальных весов"]
-}
-},
-gateway: {
-en: {
-name: "FastAPI REST Gateway (server.py)",
-role: "API Gateway & Router",
-desc: "Binds to 0.0.0.0:8000. Provides OpenAI and Anthropic compatible endpoints, token authentication middleware, LAN management routes (/api/lan/*), and serves the dashboard.",
-tags: ["FastAPI", "Uvicorn", "Port 8000", "Token Auth", "server.py"]
-},
-ru: {
-name: "Шлюз FastAPI REST (server.py)",
-role: "Шлюз API и маршрутизация",
-desc: "Слушает 0.0.0.0:8000. Предоставляет эндпоинты OpenAI и Anthropic, проверку токенов, управление LAN-сетью (/api/lan/*) и веб-панель управления.",
-tags: ["FastAPI", "Uvicorn", "Порт 8000", "Проверка токенов", "server.py"]
-}
-},
-master: {
-en: {
-name: "Master llama-server & Tensor Splitter",
-role: "Cluster Coordinator (Device 0)",
-desc: "Executes llama-server with --rpc targets and -ts weights. Hosts model weights, coordinates inference layers, and handles master GPU/RAM device budget allocation.",
-tags: ["llama-server", "--rpc flag", "-ts split", "VRAM Budget", "lan.py"]
-},
-ru: {
-name: "Мастер llama-server и расчет тензоров",
-role: "Координатор кластера (Device 0)",
-desc: "Запускает llama-server с параметрами --rpc и -ts. Хранит веса модели, координирует расчет слоев и выделяет квоту локальной памяти мастера.",
-tags: ["llama-server", "Ключ --rpc", "Деление -ts", "Бюджет VRAM", "lan.py"]
-}
-},
-beacon: {
-en: {
-name: "UDP Beacon Discovery Daemon (lan.py)",
-role: "Zero-Config Peer Discovery",
-desc: "Permanent background thread broadcasting JSON announces on UDP port 8001 every 2s. Advertises cluster name, active model, open-network flag, and RPC port.",
-tags: ["UDP 8001", "JSON Announce", "2s Interval", "SO_REUSEADDR", "lan.py"]
-},
-ru: {
-name: "Демон UDP-маяков (lan.py)",
-role: "Автообнаружение в подсети",
-desc: "Фоновый поток, рассылающий JSON-маяки на UDP-порт 8001 каждые 2 секунды. Сообщает имя кластера, загруженную модель, флаг открытой сети и RPC-порт.",
-tags: ["UDP 8001", "JSON Маяк", "Интервал 2с", "SO_REUSEADDR", "lan.py"]
-}
-},
-worker: {
-en: {
-name: "Worker Node (ggml-rpc-server.exe)",
-role: "Distributed Compute Member",
-desc: "Runs bundled ggml-rpc-server on port 50052. Sends 1s telemetry heartbeats to master. Evaluates its assigned model layers directly in local VRAM or RAM.",
-tags: ["ggml-rpc-server", "Port 50052", "1s Heartbeat", "Zero Weights Download"]
-},
-ru: {
-name: "Вычислительный узел (ggml-rpc-server.exe)",
-role: "Участник распределенных вычислений",
-desc: "Запускает штатный ggml-rpc-server на порту 50052. Отправляет телеметрию мастеру раз в секунду. Обрабатывает выделенные слои модели в своей памяти.",
-tags: ["ggml-rpc-server", "Порт 50052", "Пульс 1с", "Без скачивания весов"]
-}
-},
-native: {
-en: {
-name: "Native C++20 & MASM AVX2 Kernels",
-role: "Hardware Acceleration Layer",
-desc: "Handcrafted 64-bit assembler kernels in native/shard_asm.asm and Win32 C++20 bridge in native/shard_core.cpp. Provides zero-copy memory buffers and sub-microsecond vector operations.",
-tags: ["MASM x64", "AVX2 SIMD", "C++20 DLL", "Zero-Copy", "shard_core.cpp"]
-},
-ru: {
-name: "Нативные ядра C++20 и MASM AVX2",
-role: "Слой аппаратного ускорения",
-desc: "64-битные ассемблерные ядра в native/shard_asm.asm и Win32 C++20 мост в native/shard_core.cpp. Обеспечивают кольцевые буферы с нулевым копированием и быстрые векторные инструкции.",
-tags: ["MASM x64", "AVX2 SIMD", "C++20 DLL", "Zero-Copy", "shard_core.cpp"]
-}
-}
-};
+const ARCH_DETAILS = {"client": {"en": {"name": "Developer Clients & IDE Agents", "role": "Application Consumer Layer", "desc": "Cursor, Claude Code, Aider, LangChain, and terminal REPL. Consumes standard OpenAI /v1/chat/completions and Anthropic /v1/messages streaming endpoints.", "tags": ["OpenAI API", "Anthropic API", "SSE Streaming", "Tool Calling", "Token Auth"]}, "ru": {"name": "Клиенты разработчиков и агенты IDE", "role": "Слой потребителей API", "desc": "Cursor, Claude Code, Aider, LangChain и консольный REPL. Работают через стандартные эндпоинты /v1/chat/completions и /v1/messages с потоковой отдачей токенов.", "tags": ["OpenAI API", "Anthropic API", "SSE Стриминг", "Tool Calling", "Токены доступа"]}, "kz": {"name": "Әзірлеуші клиенттері және IDE агенттері", "role": "Қолданбалы тұтынушы деңгейі", "desc": "Cursor, Claude Code, Aider, LangChain және терминалдық REPL. Стандартты OpenAI /v1/chat/completions және Anthropic /v1/messages ағындық API арқылы жұмыс істейді.", "tags": ["OpenAI API", "Anthropic API", "SSE Ағыны", "Tool Calling", "Токен аутентификациясы"]}}, "gateway": {"en": {"name": "FastAPI REST Server (Port 8000)", "role": "API Gateway & Router", "desc": "High-performance async router serving OpenAI/Anthropic APIs, model status endpoints, hardware diagnostics, and Web Dashboard. Implements owner token guards.", "tags": ["FastAPI", "Uvicorn", "X-Shard-Owner-Token", "Port 8000", "server.py"]}, "ru": {"name": "REST-сервер FastAPI (Порт 8000)", "role": "Шлюз API и маршрутизатор", "desc": "Асинхронный сервер API для роутинга запросов OpenAI/Anthropic, отдачи статусов моделей, диагностики железа и веб-дашборда. Защищен токеном владельца.", "tags": ["FastAPI", "Uvicorn", "X-Shard-Owner-Token", "Порт 8000", "server.py"]}, "kz": {"name": "FastAPI REST сервері (8000 порты)", "role": "API шлюзі және бағыттауыш", "desc": "OpenAI/Anthropic сұраныстарын бағыттау, үлгі күйін беру, аппараттық диагностика және веб-дашборд үшін жоғары өнімді асинхронды сервер. Иесінің токенімен қорғалған.", "tags": ["FastAPI", "Uvicorn", "X-Shard-Owner-Token", "8000 порты", "server.py"]}}, "master": {"en": {"name": "Cluster Master & Layer Splitter", "role": "Cluster Coordinator", "desc": "Executes llama-server with --rpc targets and -ts tensor splits. Evaluates connected hardware budgets and distributes model layers across LAN nodes.", "tags": ["llama-server", "--rpc flag", "-ts split", "VRAM Budget", "lan.py"]}, "ru": {"name": "Мастер кластера и сплиттер слоев", "role": "Координатор кластера", "desc": "Запускает llama-server с параметрами --rpc и пропорциями -ts. Рассчитывает бюджеты видеопамяти и распределяет слои модели между участниками LAN.", "tags": ["llama-server", "флаг --rpc", "сплит -ts", "Бюджет VRAM", "lan.py"]}, "kz": {"name": "Кластер шебері және қабаттарды бөлуші", "role": "Кластер үйлестірушісі", "desc": "--rpc және -ts параметрлерімен llama-server іске қосады. Қосылған құрылғылардың жад бюджетін бағалайды және үлгі қабаттарын түйіндерге таратады.", "tags": ["llama-server", "--rpc жалаушасы", "-ts бөлу", "VRAM бюджеті", "lan.py"]}}, "beacon": {"en": {"name": "UDP Discovery Beacon (Port 8001)", "role": "Zero-Config LAN Radar", "desc": "Broadcasts cluster presence every 2 seconds on UDP 8001 with open network flags, recommended join IPs, and model IDs. Enables 1-click dashboard pairing.", "tags": ["UDP 8001", "Broadcast Beacon", "Open Network Flag", "LAN Radar", "lan.py"]}, "ru": {"name": "UDP Маяк обнаружения (Порт 8001)", "role": "Радар локальной сети", "desc": "Рассылает широковещательные пакеты каждые 2 секунды на порт 8001 с флагом открытой сети, рекомендуемым IP и ID модели. Обеспечивает подключение в 1 клик.", "tags": ["UDP 8001", "Широковещательный маяк", "Флаг Open Network", "Радар LAN", "lan.py"]}, "kz": {"name": "UDP табу маягы (8001 порты)", "role": "LAN жергілікті радары", "desc": "Ашық желі жалаушасы, ұсынылатын IP және үлгі ID-мен 8001 портында әр 2 секунд сайын хабар таратады. Дашбордта 1 басумен жұптастыруды қамтамасыз етеді.", "tags": ["UDP 8001", "Хабар тарату маягы", "Open Network жалаушасы", "LAN радары", "lan.py"]}}, "worker": {"en": {"name": "Compute Worker (Port 50052)", "role": "Memory & GPU Contributor", "desc": "Runs ggml-rpc-server on worker computers. Allocates dedicated VRAM/RAM buffers and executes assigned transformer layers as directed by the cluster master.", "tags": ["ggml-rpc-server", "Port 50052", "VRAM Contribution", "Worker Mode", "lan.py"]}, "ru": {"name": "Вычислительный воркер (Порт 50052)", "role": "Поставщик памяти и GPU", "desc": "Запускает ggml-rpc-server на машинах-воркерах. Выделяет память VRAM/RAM и выполняет назначенные слои трансформера по указанию мастера.", "tags": ["ggml-rpc-server", "Порт 50052", "Выделение VRAM", "Режим Worker", "lan.py"]}, "kz": {"name": "Есептеу воркері (50052 порты)", "role": "Жад және GPU жеткізушісі", "desc": "Воркер компьютерлерде ggml-rpc-server іске қосады. VRAM/RAM жадын бөледі және мастер берген трансформер қабаттарын есептейді.", "tags": ["ggml-rpc-server", "50052 порты", "VRAM бөлу", "Worker режимі", "lan.py"]}}, "network_mgr": {"en": {"name": "SHARD Network Manager & Strategy", "role": "Global Routing & Identity Engine", "desc": "Manages Ed25519 node identities, cryptographic invitations, STUN NAT traversal, and automatic fallback between direct P2P and Blind Relay forwarding.", "tags": ["Ed25519 Keys", "STUN NAT", "P2P Strategy", "net_identity.py", "net_strategy.py"]}, "ru": {"name": "Менеджер сети SHARD Network", "role": "Глобальная маршрутизация и ключи", "desc": "Управляет ключами Ed25519, криптографическими инвайтами, пробивом NAT через STUN и автоматическим выбором между прямым P2P и слепым релеем.", "tags": ["Ключи Ed25519", "STUN NAT", "Стратегия P2P", "net_identity.py", "net_strategy.py"]}, "kz": {"name": "SHARD Network желілік менеджері", "role": "Жаһандық бағыттау және кілттер", "desc": "Ed25519 түйін кілттерін, криптографиялық шақыруларды, STUN NAT тесуді және тікелей P2P мен соқыр релей арасында таңдауды басқарады.", "tags": ["Ed25519 кілттері", "STUN NAT", "P2P стратегиясы", "net_identity.py", "net_strategy.py"]}}, "blind_relay": {"en": {"name": "Blind Encrypted Relay Hub", "role": "Encrypted Forwarding Transport", "desc": "High-throughput WebSocket relay multiplexing traffic between NAT-blocked peers. Uses ChaCha20-Poly1305 / AES-256-GCM. Relay never sees plaintext prompts.", "tags": ["Blind Relay", "ChaCha20-Poly1305", "AES-256-GCM", "WebSocket", "net_tunnel.py"]}, "ru": {"name": "Слепой зашифрованный релей", "role": "Сквозной шифрованный транспорт", "desc": "Высокоскоростной WebSocket релей для мультиплексирования трафика за NAT. Шифрование ChaCha20/AES-GCM гарантирует, что релей не видит промпты и веса.", "tags": ["Слепой релей", "ChaCha20-Poly1305", "AES-256-GCM", "WebSocket", "net_tunnel.py"]}, "kz": {"name": "Соқыр шифрланған релей хабы", "role": "Шифрланған тасымалдау көлігі", "desc": "NAT артындағы түйіндер арасында трафикті бағыттайтын жылдам WebSocket релейі. ChaCha20/AES-GCM шифрлауы релейдің промпттарды көрмеуін қамтамасыз етеді.", "tags": ["Соқыр релей", "ChaCha20-Poly1305", "AES-256-GCM", "WebSocket", "net_tunnel.py"]}}, "soup_engine": {"en": {"name": "SOUP Collaborative Training Engine", "role": "LoRA/QLoRA Fine-Tuning Adapter", "desc": "Orchestrates consent-gated user feedback, PII anonymization, synthetic dataset building, and background LoRA fine-tuning for continuous model alignment.", "tags": ["SOUP Protocol", "PII Redaction", "LoRA / QLoRA", "Consent Gate", "soup_adapter.py"]}, "ru": {"name": "Движок совместного обучения SOUP", "role": "Адаптер дообучения LoRA/QLoRA", "desc": "Управляет сбором фидбека с согласия пользователя, обезличиванием PII, созданием датасетов и фоновым обучением LoRA для непрерывного улучшения моделей.", "tags": ["Протокол SOUP", "Очистка PII", "LoRA / QLoRA", "Контроль согласия", "soup_adapter.py"]}, "kz": {"name": "SOUP бірлескен оқыту қозғалтқышы", "role": "LoRA/QLoRA баптау адаптері", "desc": "Пайдаланушы келісімімен кері байланыс жинауды, PII жеке деректерін жасыруды, датасеттер жасауды және LoRA арқылы фондық оқытуды басқарады.", "tags": ["SOUP хаттамасы", "PII тазалау", "LoRA / QLoRA", "Келісімді бақылау", "soup_adapter.py"]}}, "native": {"en": {"name": "Native C++20 & MASM AVX2 Kernels", "role": "Hardware Acceleration Layer", "desc": "Handcrafted 64-bit assembler kernels in native/shard_asm.asm and Win32 C++20 bridge in native/shard_core.cpp. Provides zero-copy memory buffers and SIMD vector math.", "tags": ["MASM x64", "AVX2 SIMD", "C++20 DLL", "Zero-Copy", "shard_core.cpp"]}, "ru": {"name": "Нативные ядра C++20 и MASM AVX2", "role": "Слой аппаратного ускорения", "desc": "64-битные ассемблерные ядра в native/shard_asm.asm и Win32 C++20 мост в native/shard_core.cpp. Обеспечивают кольцевые буферы с нулевым копированием и быстрые векторные инструкции.", "tags": ["MASM x64", "AVX2 SIMD", "C++20 DLL", "Zero-Copy", "shard_core.cpp"]}, "kz": {"name": "Нативті C++20 және MASM AVX2 ядролары", "role": "Аппараттық үдету деңгейі", "desc": "native/shard_asm.asm ішіндегі 64-биттік ассемблер ядролары және native/shard_core.cpp ішіндегі Win32 C++20 көпірі. Нөлдік көшіру жад буферлері мен жылдам векторлық амалдарды береді.", "tags": ["MASM x64", "AVX2 SIMD", "C++20 DLL", "Zero-Copy", "shard_core.cpp"]}}};
 const MODELS_DATA = [
 { id: "qwen15", name: "Qwen 2.5 Coder 1.5B (Q4_K_M)", sizeMb: 1250, reqGb: 1.25 },
 { id: "qwen7", name: "Qwen 2.5 Coder 7B (Q4_K_M)", sizeMb: 4700, reqGb: 4.70 },
@@ -377,7 +27,7 @@ el.textContent = dict[key];
 });
 const langBtnText = document.getElementById("lang-btn-text");
 if (langBtnText) {
-langBtnText.textContent = lang === "en" ? "RU" : "EN";
+langBtnText.textContent = lang === "en" ? "RU" : (lang === "ru" ? "KZ" : "EN");
 }
 updateCalculator();
 const selectedNode = document.querySelector(".arch-node.selected");
@@ -449,14 +99,14 @@ if (badgeEl) {
 badgeEl.className = "calc-status-badge";
 if (node1BudgetMb >= model.sizeMb) {
 badgeEl.classList.add("fits");
-badgeEl.textContent = currentLang === "ru" ? "Помещается на одной локальной ноде (VRAM OK)" : "Fits on Single Local Node (VRAM OK)";
+badgeEl.textContent = currentLang === "ru" ? "Помещается на одной локальной ноде (VRAM OK)" : (currentLang === "kz" ? "Бір жергілікті түйінге сияды (VRAM OK)" : "Fits on Single Local Node (VRAM OK)");
 } else if (poolCapMb >= model.sizeMb) {
 badgeEl.classList.add("needs-pool");
-badgeEl.textContent = currentLang === "ru" ? "Кластер активен: модель распределена по сети LAN" : "Cluster Active: Model Pooled Across LAN";
+badgeEl.textContent = currentLang === "ru" ? "Кластер активен: модель распределена по сети LAN" : (currentLang === "kz" ? "Кластер белсенді: үлгі LAN желісіне бөлінді" : "Cluster Active: Model Pooled Across LAN");
 } else {
 badgeEl.classList.add("too-big");
 const deficit = ((model.sizeMb - poolCapMb) / 1024).toFixed(1);
-badgeEl.textContent = currentLang === "ru" ? "Не хватает " + deficit + " ГБ — добавьте еще одну ноду в LAN" : "Short by " + deficit + " GB — Add another node to LAN";
+badgeEl.textContent = currentLang === "ru" ? "Не хватает " + deficit + " ГБ — добавьте еще одну ноду в LAN" : (currentLang === "kz" ? deficit + " ГБ жетпейді — LAN-ға тағы бір түйін қосыңыз" : "Short by " + deficit + " GB — Add another node to LAN");
 }
 }
 }
@@ -481,13 +131,23 @@ const panel = document.getElementById(target);
 if (panel) panel.classList.add("active");
 });
 });
+document.querySelectorAll(".cli-tab-btn").forEach(btn => {
+btn.addEventListener("click", () => {
+document.querySelectorAll(".cli-tab-btn").forEach(b => b.classList.remove("active"));
+document.querySelectorAll(".cli-panel").forEach(p => p.classList.remove("active"));
+btn.classList.add("active");
+const target = btn.getAttribute("data-cli-tab");
+const panel = document.getElementById(target);
+if (panel) panel.classList.add("active");
+});
+});
 }
 function setupCopyButtons() {
 document.querySelectorAll(".copy-code-btn").forEach(btn => {
 btn.addEventListener("click", () => {
-const codeBlock = btn.closest(".terminal-snippet, .code-block-box");
+const codeBlock = btn.closest(".terminal-snippet, .code-block-box, .cli-item");
 if (!codeBlock) return;
-const code = codeBlock.querySelector("code, pre");
+const code = codeBlock.querySelector("code, pre, .cli-cmd-code");
 if (!code) return;
 navigator.clipboard.writeText(code.innerText.trim()).then(() => {
 const origHtml = btn.innerHTML;
@@ -533,7 +193,8 @@ setupMobileNav();
 const langToggleBtn = document.getElementById("lang-toggle-btn");
 if (langToggleBtn) {
 langToggleBtn.addEventListener("click", () => {
-setLanguage(currentLang === "en" ? "ru" : "en");
+const nextLang = currentLang === "en" ? "ru" : (currentLang === "ru" ? "kz" : "en");
+setLanguage(nextLang);
 });
 }
 const themeToggleBtn = document.getElementById("theme-toggle-btn");

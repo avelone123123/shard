@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SHARD — One Network. Many Servers. Shared AI Infrastructure.</title>
-<meta name="description" content="Distributed local LLM inference engine pooling GPU VRAM and system RAM across LAN machines. Powered by PyTorch, FastAPI, llama.cpp RPC, and native C++20/AVX2 kernels.">
-<meta name="keywords" content="LLM, local AI, distributed inference, llama.cpp RPC, GPU VRAM pooling, PyTorch, C++20, AVX2">
+<title>SHARD — One Engine. Local Pooling. Global Connectivity.</title>
+<meta name="description" content="Distributed local LLM inference engine pooling GPU VRAM and RAM across LAN machines or connecting over the decentralized SHARD Network with P2P and Blind Relay.">
+<meta name="keywords" content="LLM, local AI, distributed inference, llama.cpp RPC, GPU VRAM pooling, PyTorch, GGUF, P2P Relay, C++20, AVX2">
 <meta property="og:title" content="SHARD — Distributed Local LLM Inference Engine">
-<meta property="og:description" content="Pool GPU VRAM and RAM across everyday computers on your LAN to run 32B+ open models collaboratively.">
+<meta property="og:description" content="Pool GPU VRAM and RAM across everyday computers on your LAN or connect over the decentralized SHARD Network.">
 <meta property="og:image" content="assets/branding/shard-logo.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="SHARD — Distributed Local LLM Inference Engine">
-<meta name="twitter:description" content="Pool GPU VRAM and RAM across everyday computers on your LAN to run 32B+ open models collaboratively.">
+<meta name="twitter:description" content="Pool GPU VRAM and RAM across everyday computers on your LAN or connect over the decentralized SHARD Network.">
 <meta name="twitter:image" content="assets/branding/shard-logo.png">
 <link rel="icon" type="image/png" href="assets/branding/favicon.png">
 <link rel="stylesheet" href="styles.css">
@@ -26,10 +26,13 @@
 <nav>
 <ul class="nav-links">
 <li><a href="#about" class="nav-link" data-i18n="nav_product">Product</a></li>
+<li><a href="#networking" class="nav-link" data-i18n="nav_networking">Two Networks</a></li>
 <li><a href="#how-it-works" class="nav-link" data-i18n="nav_how">How It Works</a></li>
 <li><a href="#features" class="nav-link" data-i18n="nav_features">Features</a></li>
 <li><a href="#architecture" class="nav-link" data-i18n="nav_arch">Architecture</a></li>
+<li><a href="#cli" class="nav-link" data-i18n="nav_cli">CLI Reference</a></li>
 <li><a href="#install" class="nav-link" data-i18n="nav_install">Installation</a></li>
+<li><a href="#faq" class="nav-link" data-i18n="nav_faq">FAQ</a></li>
 <li><a href="https://github.com/avelone123123/shard" target="_blank" rel="noopener" class="nav-link">GitHub</a></li>
 </ul>
 </nav>
@@ -54,12 +57,12 @@
 <div class="site-wrapper">
 <div class="hero-editorial-badge">
 <span class="pulse-indicator"></span>
-<span data-i18n="hero_badge">TRI-LANGUAGE LOCAL NEURAL ENGINE // C++20 + MASM AVX2 + FASTAPI</span>
+<span data-i18n="hero_badge">DISTRIBUTED NEURAL RUNTIME // FASTAPI + GGUF + P2P ENCRYPTED RELAY + SOUP</span>
 </div>
 <div class="hero-grid">
 <div class="hero-content">
-<h1 class="hero-headline" data-i18n="hero_title">One Network. Many Servers. Shared AI Infrastructure.</h1>
-<p class="hero-subhead" data-i18n="hero_subtitle">Pool GPU VRAM and system memory across local machines to run massive open LLMs. Powered by PyTorch, FastAPI, llama.cpp RPC, and native SIMD kernels.</p>
+<h1 class="hero-headline" data-i18n="hero_title">One Engine. Local Pooling. Global Connectivity.</h1>
+<p class="hero-subhead" data-i18n="hero_subtitle">Run massive open LLMs locally by pooling GPU VRAM across your LAN or connecting securely over the decentralized SHARD Network. Pure open source, zero telemetry without consent, and drop-in OpenAI/Anthropic API parity.</p>
 <div class="hero-actions">
 <a href="#install" class="cta-button" data-i18n="hero_cta_primary">Quick Start</a>
 <a href="https://github.com/avelone123123/shard" target="_blank" rel="noopener" class="cta-button secondary" data-i18n="hero_cta_secondary">View on GitHub</a>
@@ -67,15 +70,15 @@
 <div class="hero-telemetry-bar">
 <div class="telemetry-item">
 <span class="telemetry-label" data-i18n="hero_telemetry_arch">ARCHITECTURE</span>
-<span class="telemetry-value" data-i18n="hero_telemetry_arch_val">LAYER-SHARDED RPC</span>
+<span class="telemetry-value" data-i18n="hero_telemetry_arch_val">DUAL RUNTIME (PYTORCH &amp; GGUF)</span>
 </div>
 <div class="telemetry-item">
-<span class="telemetry-label" data-i18n="hero_telemetry_hop">HOP BANDWIDTH</span>
-<span class="telemetry-value" data-i18n="hero_telemetry_hop_val">~8 KB / TOKEN</span>
+<span class="telemetry-label" data-i18n="hero_telemetry_lan">LOCAL POOLING</span>
+<span class="telemetry-value" data-i18n="hero_telemetry_lan_val">UDP 8001 / -ts RPC SHARDING</span>
 </div>
 <div class="telemetry-item">
-<span class="telemetry-label" data-i18n="hero_telemetry_discovery">DISCOVERY</span>
-<span class="telemetry-value" data-i18n="hero_telemetry_discovery_val">UDP 8001 BEACON</span>
+<span class="telemetry-label" data-i18n="hero_telemetry_net">GLOBAL NETWORK</span>
+<span class="telemetry-value" data-i18n="hero_telemetry_net_val">ED25519 P2P &amp; BLIND RELAY</span>
 </div>
 <div class="telemetry-item">
 <span class="telemetry-label" data-i18n="hero_telemetry_api">API PARITY</span>
@@ -90,8 +93,8 @@
 <div class="hero-corner-mark bottom-right"></div>
 <img src="assets/animations/hero-network.gif" alt="SHARD Hero Network Animation" class="hero-gif">
 <div class="hero-visual-caption">
-<span data-i18n="hero_caption_title">LIVE CLUSTER TOPOLOGY</span>
-<span data-i18n="hero_caption_status">4 NODES POOLED</span>
+<span data-i18n="hero_caption_title">HYBRID TOPOLOGY</span>
+<span data-i18n="hero_caption_status">LAN POOLING &amp; BLIND RELAY READY</span>
 </div>
 </div>
 </div>
@@ -106,37 +109,37 @@
 </div>
 <div class="editorial-grid">
 <div class="editorial-card">
-<div class="editorial-card-num" data-i18n="about_card1_num">01</div>
-<h3 class="editorial-card-title" data-i18n="about_card1_title">The Problem</h3>
-<p class="editorial-card-text" data-i18n="about_card1_text">High-parameter frontier models like 14B, 32B, and 70B exceed the 6-12 GB VRAM capacity of consumer GPUs. Developers are forced into expensive cloud API bills or painfully slow single-CPU offloading.</p>
+<span class="card-step-num" data-i18n="about_card1_num">01</span>
+<h3 class="card-editorial-title" data-i18n="about_card1_title">The Problem</h3>
+<p class="card-editorial-text" data-i18n="about_card1_text">Frontier open models (14B, 32B, 70B) exceed the 6-12 GB VRAM capacity of consumer GPUs. Developers are forced into expensive per-token cloud bills or painfully slow single-CPU offloading.</p>
 </div>
 <div class="editorial-card">
-<div class="editorial-card-num" data-i18n="about_card2_num">02</div>
-<h3 class="editorial-card-title" data-i18n="about_card2_title">The Solution</h3>
-<p class="editorial-card-text" data-i18n="about_card2_text">SHARD pools video memory and RAM across everyday computers on your local network. A gaming laptop with 8 GB VRAM paired with a desktop holds and runs 32B models collaboratively with zero cloud dependence.</p>
+<span class="card-step-num" data-i18n="about_card2_num">02</span>
+<h3 class="card-editorial-title" data-i18n="about_card2_title">The Solution</h3>
+<p class="card-editorial-text" data-i18n="about_card2_text">SHARD provides a two-tiered system: pooling video memory and RAM across nearby computers on your LAN, and establishing secure peer-to-peer or encrypted relay tunnels across the global Internet.</p>
 </div>
 <div class="editorial-card">
-<div class="editorial-card-num" data-i18n="about_card3_num">03</div>
-<h3 class="editorial-card-title" data-i18n="about_card3_title">The Advantage</h3>
-<p class="editorial-card-text" data-i18n="about_card3_text">Rather than all-reduce tensor parallelism that demands 100 Gbps cables, SHARD uses layer sharding via llama.cpp RPC. Activations hop sequentially at ~8 KB per token, running fluidly over standard Wi-Fi or Gigabit LAN.</p>
+<span class="card-step-num" data-i18n="about_card3_num">03</span>
+<h3 class="card-editorial-title" data-i18n="about_card3_title">The Advantage</h3>
+<p class="card-editorial-text" data-i18n="about_card3_text">Rather than all-reduce tensor splitting that demands 100 Gbps cables, SHARD uses layer sharding via llama.cpp RPC. Activations hop sequentially at ~8 KB per token, running fluidly over Wi-Fi, Ethernet, or broadband.</p>
 </div>
 </div>
-<div class="interactive-calc-box">
+<div class="calc-section-box">
 <div class="calc-header">
-<span class="calc-title" data-i18n="calc_title">INTERACTIVE HARDWARE FIT SIMULATOR</span>
+<h3 class="calc-title" data-i18n="calc_title">INTERACTIVE HARDWARE FIT SIMULATOR</h3>
 <span class="calc-badge" data-i18n="calc_badge">PRE-FLIGHT MATH</span>
 </div>
 <div class="calc-body-grid">
-<div class="calc-inputs-col">
+<div class="calc-controls-col">
 <div class="calc-control-group">
-<label for="calc-model" class="calc-label"><span data-i18n="calc_model_label">Select Open Weight Model</span></label>
+<label for="calc-model" class="calc-label" data-i18n="calc_model_label">Select Open Weight Model</label>
 <select id="calc-model" class="calc-select">
-<option value="qwen15">Qwen 2.5 Coder 1.5B (Q4_K_M — 1.25 GB)</option>
-<option value="qwen7" selected>Qwen 2.5 Coder 7B (Q4_K_M — 4.70 GB)</option>
-<option value="qwen14">Qwen 2.5 Coder 14B (Q4_K_M — 9.20 GB)</option>
-<option value="qwen32">Qwen 2.5 32B Instruct (Q4_K_M — 19.80 GB)</option>
-<option value="deepseek32">DeepSeek R1 Distill 32B (Q4_K_M — 19.80 GB)</option>
-<option value="llama70">Llama 3.3 70B Instruct (Q4_K_M — 42.50 GB)</option>
+<option value="qwen15">Qwen 2.5 Coder 1.5B (Q4_K_M ~1.25 GB)</option>
+<option value="qwen7" selected>Qwen 2.5 Coder 7B (Q4_K_M ~4.70 GB)</option>
+<option value="qwen14">Qwen 2.5 Coder 14B (Q4_K_M ~9.20 GB)</option>
+<option value="qwen32">Qwen 2.5 32B Instruct (Q4_K_M ~19.8 GB)</option>
+<option value="deepseek32">DeepSeek R1 Distill 32B (Q4_K_M ~19.8 GB)</option>
+<option value="llama70">Llama 3.3 70B Instruct (Q4_K_M ~42.5 GB)</option>
 </select>
 </div>
 <div class="calc-control-group">
@@ -148,19 +151,19 @@
 <input type="range" id="calc-gpu2" class="calc-range" min="4" max="64" value="16" step="2">
 </div>
 </div>
+<div class="calc-results-col">
 <div class="calc-results-card">
 <div id="calc-status-badge" class="calc-status-badge fits">Calculating...</div>
-<div class="calc-metrics-list">
 <div class="calc-metric-row">
-<span data-i18n="calc_req_label">Model Memory Required:</span>
+<span class="calc-metric-lbl" data-i18n="calc_req_label">Model Memory Required:</span>
 <span id="calc-req-val" class="calc-metric-val">4.70 GB</span>
 </div>
 <div class="calc-metric-row">
-<span data-i18n="calc_total_label">Total Pooled Capacity:</span>
+<span class="calc-metric-lbl" data-i18n="calc_total_label">Total Pooled Capacity:</span>
 <span id="calc-total-val" class="calc-metric-val">21.8 GB</span>
 </div>
 <div class="calc-metric-row">
-<span data-i18n="calc_ratio_label">Calculated -ts Split:</span>
+<span class="calc-metric-lbl" data-i18n="calc_ratio_label">Calculated -ts Split:</span>
 <span id="calc-split-val" class="calc-metric-val">36% / 64%</span>
 </div>
 </div>
@@ -169,12 +172,72 @@
 </div>
 </div>
 </section>
+<section id="networking" class="section-wrapper">
+<div class="site-wrapper">
+<div class="section-header-box">
+<span class="section-tag" data-i18n="net_tag">NETWORKING PARADIGMS</span>
+<h2 class="section-title" data-i18n="net_title">Two Independent Connectivity Systems</h2>
+<p class="section-desc" data-i18n="net_desc">SHARD implements two distinct networking architectures designed for different scopes: local memory pooling on your subnet, and decentralized cross-Internet connectivity.</p>
+</div>
+<div class="networking-grid">
+<div class="networking-card">
+<div class="networking-card-head">
+<span class="networking-badge" data-i18n="net_lan_badge">LOCAL NETWORK</span>
+<svg class="control-icon" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+</div>
+<h3 class="networking-title" data-i18n="net_lan_title">LAN Compute Pool</h3>
+<p class="networking-desc" data-i18n="net_lan_desc">Zero-configuration memory pooling for computers connected to the same physical Wi-Fi, Ethernet switch, or overlay VPN (Tailscale, WireGuard).</p>
+<ul class="networking-list">
+<li class="networking-list-item"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="net_lan_item1">Automatic UDP discovery beacons broadcast on port 8001 every 2 seconds.</span></li>
+<li class="networking-list-item"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="net_lan_item2">Web Dashboard radar detects nearby hosts with instant 1-click Join/Share (no manual IP typing).</span></li>
+<li class="networking-list-item"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="net_lan_item3">Proportional tensor split (-ts) assigns model layers based on exact device VRAM/RAM capacity.</span></li>
+<li class="networking-list-item"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="net_lan_item4">Pairing codes for private subnets or --open flag for frictionless local hackathons.</span></li>
+</ul>
+<div class="terminal-snippet">
+<code>shard lan join &lt;SERVER_IP&gt; --share</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<div class="networking-tags">
+<span class="networking-tag">UDP 8001 Beacon</span>
+<span class="networking-tag">TCP 8000 REST</span>
+<span class="networking-tag">TCP 50052 RPC</span>
+<span class="networking-tag">llama.cpp -ts</span>
+</div>
+</div>
+<div class="networking-card">
+<div class="networking-card-head">
+<span class="networking-badge" data-i18n="net_global_badge">DECENTRALIZED GLOBAL</span>
+<svg class="control-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+</div>
+<h3 class="networking-title" data-i18n="net_global_title">SHARD Network</h3>
+<p class="networking-desc" data-i18n="net_global_desc">Cryptographic, identity-driven networking for connecting remote hosts, clients, and workers across firewalls, NATs, and the public Internet.</p>
+<ul class="networking-list">
+<li class="networking-list-item"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="net_global_item1">Local Ed25519 cryptographic keypair (node_&lt;hex&gt;) with canonical JSON envelope signing.</span></li>
+<li class="networking-list-item"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="net_global_item2">REST Discovery directory with 30s heartbeats to publish and find active AI servers.</span></li>
+<li class="networking-list-item"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="net_global_item3">Direct STUN P2P hole punching with automatic fallback to end-to-end encrypted Blind Relay.</span></li>
+<li class="networking-list-item"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg><span data-i18n="net_global_item4">Cryptographic invite tokens with roles (client/worker), bandwidth quotas, and rate limiting.</span></li>
+</ul>
+<div class="terminal-snippet">
+<code>shard network connect &lt;TARGET&gt; --invite-code &lt;CODE&gt;</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<div class="networking-tags">
+<span class="networking-tag">Ed25519 Identity</span>
+<span class="networking-tag">STUN NAT Traversal</span>
+<span class="networking-tag">ChaCha20-Poly1305</span>
+<span class="networking-tag">AES-256-GCM</span>
+<span class="networking-tag">WebSocket Relay</span>
+</div>
+</div>
+</div>
+</div>
+</section>
 <section id="how-it-works" class="section-wrapper">
 <div class="site-wrapper">
 <div class="section-header-box">
-<span class="section-tag" data-i18n="how_tag">SIMPLE PROTOCOL</span>
+<span class="section-tag" data-i18n="how_tag">ARCHITECTURE FLOW</span>
 <h2 class="section-title" data-i18n="how_title">How SHARD Works</h2>
-<p class="section-desc" data-i18n="how_desc">From standalone PC to multi-node cluster in four transparent steps. Zero complex Kubernetes configurations or network drivers.</p>
+<p class="section-desc" data-i18n="how_desc">From standalone PC to multi-node cluster and global connectivity in four transparent steps. Zero proprietary lock-in.</p>
 </div>
 <div class="workflow-grid">
 <div class="workflow-step-card">
@@ -182,14 +245,15 @@
 <img src="assets/animations/create-server.gif" alt="CREATE Server Animation" class="workflow-gif">
 </div>
 <div class="workflow-step-content">
+<div>
 <span class="workflow-step-num" data-i18n="step1_num">STEP 01</span>
-<h3 class="workflow-step-title" data-i18n="step1_title">CREATE</h3>
-<p class="workflow-step-text" data-i18n="step1_text">Launch your master server. SHARD initiates the FastAPI REST gateway, loads hardware telemetry, and broadcasts UDP discovery beacons on port 8001.</p>
+<span class="workflow-path-tag" data-i18n="step1_path">CORE RUNTIME</span>
+</div>
+<h3 class="workflow-step-title" data-i18n="step1_title">INITIALIZE</h3>
+<p class="workflow-step-text" data-i18n="step1_text">Launch your SHARD server. The engine initializes hardware telemetry, evaluates local GPU/RAM budgets, and serves the Web Dashboard and OpenAI/Anthropic REST gateway.</p>
 <div class="terminal-snippet">
-<code>shard lan create "lab" --open</code>
-<button class="copy-code-btn" aria-label="Copy Command">
-<svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-</button>
+<code>shard start</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
 </div>
 </div>
 </div>
@@ -198,15 +262,17 @@
 <img src="assets/animations/share-network.gif" alt="SHARE Node Animation" class="workflow-gif">
 </div>
 <div class="workflow-step-content">
+<div>
 <span class="workflow-step-num" data-i18n="step2_num">STEP 02</span>
-<h3 class="workflow-step-title" data-i18n="step2_title">SHARE</h3>
-<p class="workflow-step-text" data-i18n="step2_text">Worker machines on your LAN join with one command. Each node contributes spare GPU VRAM or system RAM to the shared cluster memory pool.</p>
-<div class="terminal-snippet">
-<code>shard lan join 192.168.1.50 --share</code>
-<button class="copy-code-btn" aria-label="Copy Command">
-<svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-</button>
+<span class="workflow-path-tag" data-i18n="step2_path">LAN &amp; GLOBAL PATH</span>
 </div>
+<h3 class="workflow-step-title" data-i18n="step2_title">POOL OR CONNECT</h3>
+<p class="workflow-step-text" data-i18n="step2_text">On LAN: nearby machines join with shard lan join &lt;SERVER_IP&gt; --share (or 1-click from the dashboard) to pool memory. Over Internet: remote clients connect using shard network connect &lt;TARGET&gt;.</p>
+<div class="terminal-snippet">
+<code>shard lan join &lt;SERVER_IP&gt; --share</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<div class="workflow-note" data-i18n="step2_note">SERVER_IP is the dynamic LAN IP (e.g. 192.168.x.x or Tailscale 100.x.x.x) shown in shard lan status. Dashboard auto-detects nearby nodes via UDP 8001 beacons.</div>
 </div>
 </div>
 <div class="workflow-step-card">
@@ -214,14 +280,15 @@
 <img src="assets/animations/connect-server.gif" alt="CONNECT Client Animation" class="workflow-gif">
 </div>
 <div class="workflow-step-content">
+<div>
 <span class="workflow-step-num" data-i18n="step3_num">STEP 03</span>
-<h3 class="workflow-step-title" data-i18n="step3_title">CONNECT</h3>
-<p class="workflow-step-text" data-i18n="step3_text">Clients and developer tools automatically discover available cluster servers without manual IP configuration. Open networks accept connections with zero friction.</p>
+<span class="workflow-path-tag" data-i18n="step3_path">SMART ROUTING</span>
+</div>
+<h3 class="workflow-step-title" data-i18n="step3_title">NEGOTIATE &amp; ROUTE</h3>
+<p class="workflow-step-text" data-i18n="step3_text">SHARD selects the optimal connection path: direct LAN RPC for local memory slices, direct STUN P2P for remote nodes, or end-to-end encrypted Blind Relay forwarding.</p>
 <div class="terminal-snippet">
-<code>shard lan status</code>
-<button class="copy-code-btn" aria-label="Copy Command">
-<svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-</button>
+<code>shard network status</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
 </div>
 </div>
 </div>
@@ -230,14 +297,15 @@
 <img src="assets/animations/ai-agents.gif" alt="USE AI Agents Animation" class="workflow-gif">
 </div>
 <div class="workflow-step-content">
+<div>
 <span class="workflow-step-num" data-i18n="step4_num">STEP 04</span>
-<h3 class="workflow-step-title" data-i18n="step4_title">USE</h3>
-<p class="workflow-step-text" data-i18n="step4_text">Plug Cursor, Claude Code, Aider, or your custom agents directly into the standard /v1 endpoint. Stream tokens at full local speed.</p>
+<span class="workflow-path-tag" data-i18n="step4_path">STANDARD /V1 API</span>
+</div>
+<h3 class="workflow-step-title" data-i18n="step4_title">CONSUME</h3>
+<p class="workflow-step-text" data-i18n="step4_text">Point Cursor, Claude Code, Aider, or your custom agents to http://localhost:8000/v1. Stream tokens with sub-millisecond local response and zero cloud subscriptions.</p>
 <div class="terminal-snippet">
 <code>http://localhost:8000/v1</code>
-<button class="copy-code-btn" aria-label="Copy Command">
-<svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-</button>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
 </div>
 </div>
 </div>
@@ -249,7 +317,7 @@
 <div class="section-header-box">
 <span class="section-tag" data-i18n="feat_tag">CAPABILITIES</span>
 <h2 class="section-title" data-i18n="feat_title">Engine Features</h2>
-<p class="section-desc" data-i18n="feat_desc">Engineered from the ground up for low-latency inference, memory efficiency, and developer ergonomics.</p>
+<p class="section-desc" data-i18n="feat_desc">Engineered from the ground up for low-latency inference, memory pooling, and developer ergonomics.</p>
 </div>
 <div class="features-grid">
 <div class="feature-box">
@@ -258,7 +326,7 @@
 </div>
 <span class="feature-tag" data-i18n="feat1_tag">NETWORKING</span>
 <h3 class="feature-title" data-i18n="feat1_title">Zero-Config LAN Discovery</h3>
-<p class="feature-text" data-i18n="feat1_text">UDP beacons announce cluster availability every 2 seconds. Nearby nodes appear in the dashboard automatically with instant one-click pairing.</p>
+<p class="feature-text" data-i18n="feat1_text">UDP beacons announce cluster availability on port 8001. Nearby nodes appear in the dashboard automatically with instant one-click pairing.</p>
 </div>
 <div class="feature-box">
 <div class="feature-icon-wrap">
@@ -266,39 +334,55 @@
 </div>
 <span class="feature-tag" data-i18n="feat2_tag">DISTRIBUTED RUNTIME</span>
 <h3 class="feature-title" data-i18n="feat2_title">llama.cpp RPC Layer Sharding</h3>
-<p class="feature-text" data-i18n="feat2_text">Proportional tensor split (-ts) assigns memory slices based on exact device capacity. Layer hops transfer only ~8 KB activation buffers.</p>
+<p class="feature-text" data-i18n="feat2_text">Proportional tensor split (-ts) assigns memory slices based on device capacity. Layer hops transfer only ~8 KB activation buffers.</p>
+</div>
+<div class="feature-box">
+<div class="feature-icon-wrap">
+<svg class="feature-icon-svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+</div>
+<span class="feature-tag" data-i18n="feat3_tag">GLOBAL CONNECTIVITY</span>
+<h3 class="feature-title" data-i18n="feat3_title">Decentralized SHARD Network</h3>
+<p class="feature-text" data-i18n="feat3_text">Ed25519 cryptographic identity, public server publishing, STUN NAT traversal, and end-to-end encrypted ChaCha20/AES-GCM blind relay fallback.</p>
 </div>
 <div class="feature-box">
 <div class="feature-icon-wrap">
 <svg class="feature-icon-svg" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
 </div>
-<span class="feature-tag" data-i18n="feat3_tag">DUAL BACKEND</span>
-<h3 class="feature-title" data-i18n="feat3_title">PyTorch &amp; GGUF Dual Engines</h3>
-<p class="feature-text" data-i18n="feat3_text">Run pure PyTorch models for research and development or high-efficiency quantized GGUF models for peak tokens-per-second performance.</p>
+<span class="feature-tag" data-i18n="feat4_tag">DUAL BACKEND</span>
+<h3 class="feature-title" data-i18n="feat4_title">PyTorch &amp; GGUF Dual Engines</h3>
+<p class="feature-text" data-i18n="feat4_text">Run pure PyTorch models for research and development or high-efficiency quantized GGUF models for peak tokens-per-second throughput.</p>
 </div>
 <div class="feature-box">
 <div class="feature-icon-wrap">
 <svg class="feature-icon-svg" viewBox="0 0 24 24"><path d="M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-2V9h-2V7c0-1.1-.9-2-2-2h-2V3h-2v2h-2V3H9v2H7c-1.1 0-2 .9-2 2v2H3v2h2v2H3v2h2v2c0 1.1.9 2 2 2h2v2h2v-2h2v2h2v-2h2c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2zm-4 6H7V7h10v10z"/></svg>
 </div>
-<span class="feature-tag" data-i18n="feat4_tag">NATIVE ACCELERATION</span>
-<h3 class="feature-title" data-i18n="feat4_title">C++20 &amp; MASM AVX2 SIMD</h3>
-<p class="feature-text" data-i18n="feat4_text">Handcrafted 64-bit assembler kernels deliver sub-microsecond vector operations and zero-copy ring buffers on Windows x64 and Linux.</p>
+<span class="feature-tag" data-i18n="feat5_tag">NATIVE ACCELERATION</span>
+<h3 class="feature-title" data-i18n="feat5_title">C++20 &amp; MASM AVX2 SIMD</h3>
+<p class="feature-text" data-i18n="feat5_text">Handcrafted 64-bit assembler kernels deliver sub-microsecond vector operations and zero-copy ring buffers on Windows x64 and Linux.</p>
 </div>
 <div class="feature-box">
 <div class="feature-icon-wrap">
 <svg class="feature-icon-svg" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
 </div>
-<span class="feature-tag" data-i18n="feat5_tag">INTELLIGENT ADVISOR</span>
-<h3 class="feature-title" data-i18n="feat5_title">Pre-Flight Hardware Fit Advisor</h3>
-<p class="feature-text" data-i18n="feat5_text">Run shard fit before downloading gigabytes. The analyzer mathematically determines if a model fits single-node or requires LAN pooling.</p>
+<span class="feature-tag" data-i18n="feat6_tag">INTELLIGENT ADVISOR</span>
+<h3 class="feature-title" data-i18n="feat6_title">Pre-Flight Hardware Fit Advisor</h3>
+<p class="feature-text" data-i18n="feat6_text">Run shard fit before downloading gigabytes. The analyzer mathematically determines if a model fits single-node or requires LAN pooling.</p>
+</div>
+<div class="feature-box">
+<div class="feature-icon-wrap">
+<svg class="feature-icon-svg" viewBox="0 0 24 24"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/></svg>
+</div>
+<span class="feature-tag" data-i18n="feat7_tag">COLLABORATIVE TRAINING</span>
+<h3 class="feature-title" data-i18n="feat7_title">SOUP Fine-Tuning Integration</h3>
+<p class="feature-text" data-i18n="feat7_text">Consent-gated telemetry collection, automatic PII redaction, dataset generation, and background LoRA/QLoRA training adapter.</p>
 </div>
 <div class="feature-box">
 <div class="feature-icon-wrap">
 <svg class="feature-icon-svg" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
 </div>
-<span class="feature-tag" data-i18n="feat6_tag">STANDARD COMPATIBILITY</span>
-<h3 class="feature-title" data-i18n="feat6_title">OpenAI &amp; Anthropic /v1 Parity</h3>
-<p class="feature-text" data-i18n="feat6_text">Complete drop-in compatibility for /v1/chat/completions and /v1/messages with streaming Server-Sent Events (SSE) and tool calling.</p>
+<span class="feature-tag" data-i18n="feat8_tag">STANDARD COMPATIBILITY</span>
+<h3 class="feature-title" data-i18n="feat8_title">OpenAI &amp; Anthropic /v1 Parity</h3>
+<p class="feature-text" data-i18n="feat8_text">Complete drop-in compatibility for /v1/chat/completions and /v1/messages with streaming Server-Sent Events (SSE) and tool calling.</p>
 </div>
 </div>
 <div class="showcase-tab-container">
@@ -363,10 +447,29 @@
 <div class="arch-node-desc">Zero-copy ring buffer + vector math</div>
 </div>
 </div>
+<div class="arch-node-row">
+<div class="arch-node" data-node="network_mgr">
+<span class="arch-node-type">GLOBAL ROUTER</span>
+<div class="arch-node-name">SHARD Network Strategy (net_strategy.py)</div>
+<div class="arch-node-desc">Ed25519 identity + STUN P2P router</div>
+</div>
+<div class="arch-node" data-node="blind_relay">
+<span class="arch-node-type">ENCRYPTED TUNNEL</span>
+<div class="arch-node-name">Blind Relay Hub (net_tunnel.py)</div>
+<div class="arch-node-desc">ChaCha20/AES-GCM WebSocket forwarder</div>
+</div>
+</div>
+<div class="arch-node-row">
+<div class="arch-node" data-node="soup_engine">
+<span class="arch-node-type">COLLABORATIVE TRAINING</span>
+<div class="arch-node-name">SOUP Fine-Tuning (soup_adapter.py)</div>
+<div class="arch-node-desc">Consent-gated feedback + LoRA adapter</div>
+</div>
+</div>
 </div>
 <div class="arch-inspector">
 <div class="inspector-head">
-<span>SUBSYSTEM INSPECTOR</span>
+<span data-i18n="arch_inspector_subsystem">SUBSYSTEM INSPECTOR</span>
 <span id="inspector-node-role">Cluster Coordinator</span>
 </div>
 <h3 id="inspector-node-title" class="inspector-title">Master llama-server &amp; Tensor Splitter</h3>
@@ -383,16 +486,249 @@
 </div>
 </div>
 </section>
+<section id="cli" class="section-wrapper">
+<div class="site-wrapper">
+<div class="section-header-box">
+<span class="section-tag" data-i18n="cli_tag">TERMINAL TOOLING</span>
+<h2 class="section-title" data-i18n="cli_title">Complete CLI Reference</h2>
+<p class="section-desc" data-i18n="cli_desc">Explore every command supported by the shard CLI parser. All commands verified against the current repository implementation.</p>
+</div>
+<div class="cli-tabs-nav">
+<button class="cli-tab-btn active" data-cli-tab="cli-tab-server" data-i18n="cli_tab_server">Server &amp; Lifecycle</button>
+<button class="cli-tab-btn" data-cli-tab="cli-tab-models" data-i18n="cli_tab_models">Models &amp; Inference</button>
+<button class="cli-tab-btn" data-cli-tab="cli-tab-lan" data-i18n="cli_tab_lan">LAN Compute Pool</button>
+<button class="cli-tab-btn" data-cli-tab="cli-tab-network" data-i18n="cli_tab_network">Global Network</button>
+<button class="cli-tab-btn" data-cli-tab="cli-tab-training" data-i18n="cli_tab_training">SOUP Training</button>
+</div>
+<div id="cli-tab-server" class="cli-panel active">
+<div class="cli-grid">
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard start [--host IP] [--port N] [--daemon] [--no-browser]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Start the local SHARD inference server, initialize hardware diagnostics, and serve the Web Dashboard.</p>
+<div class="cli-flags-list"><span class="cli-flag-pill">--host: bind IP (default 127.0.0.1)</span><span class="cli-flag-pill">--port: port number (default 8000)</span><span class="cli-flag-pill">--daemon: run in background</span></div>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard stop</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Safely terminate any running background SHARD server daemon and clean up socket locks.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard restart [--foreground]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Restart the running SHARD instance. Pass --foreground to attach output directly to terminal.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard status</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Print detailed runtime diagnostic report: PID, uptime, active model ID, memory consumption, and port bindings.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard doctor</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Verify local environment prerequisites: Python version, PyTorch, CUDA GPU driver, llama-server runtime, and AVX2 SIMD support.</p>
+</div>
+</div>
+</div>
+<div id="cli-tab-models" class="cli-panel">
+<div class="cli-grid">
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard list [--category [all|ideal|coding|reasoning|compact]]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">List cached downloaded models and browse curated Hugging Face models with local hardware fit ratings.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard fit &lt;model_id&gt; [--ctx &lt;tokens&gt;] [--no-fetch]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Pre-flight hardware fit advisor. Mathematically computes memory requirements and recommends GGUF quantization.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard run [model_id]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Load a specified model into memory and launch an interactive terminal chat REPL with streaming tokens.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard models-dir [path] [--reset]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">View, configure custom disk directory, or reset storage location for downloaded model weights.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard key [--gen]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Display existing local API keys for IDE integration, or generate new cryptographically secure keys.</p>
+</div>
+</div>
+</div>
+<div id="cli-tab-lan" class="cli-panel">
+<div class="cli-grid">
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard lan status</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Display current LAN cluster state: host IP, network mode (open/private), active member list, and pooled VRAM capacity.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard lan create [name] [--open] [--model ID]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Create a local cluster host. Broadcasts UDP beacons on port 8001. Pass --open to allow peers to join without a pairing code.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard lan join &lt;SERVER_IP&gt; [code] [--share] [--port N]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Connect to an active LAN server. Pass --share to contribute spare GPU VRAM or system RAM to the cluster pool.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard lan diagnose [--public]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Inspect local network adapters, Tailscale/VPN interfaces, UPnP IGD gateway, and STUN NAT type to determine best join IP.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard lan off</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Gracefully disconnect from a connected cluster or stop hosting the local LAN network.</p>
+</div>
+</div>
+</div>
+<div id="cli-tab-network" class="cli-panel">
+<div class="cli-grid">
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard network status</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Show node identity, public key fingerprint, hosting state, active transport (Direct P2P or Relay), and connected peers.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard network identity [--regen]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Display local Ed25519 node public key, node ID (node_&lt;hex&gt;), and cryptographic envelope signature.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard network servers [--query Q]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Query the configured Discovery directory to browse available public AI servers, models, and capacity.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard network publish [--name NAME] [--open] [--bandwidth-limit-mbps N]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Register and publish your local inference server to Discovery and Blind Relay with optional rate limiting.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard network connect &lt;target&gt; [--invite-code CODE] [--force-relay]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Connect to a remote SHARD server using direct STUN hole punching or fallback to end-to-end encrypted Blind Relay.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard network invite [--role client|worker] [--quota-mb N] [--ttl-hours N]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Generate signed cryptographic invite tokens with role permissions, bandwidth quotas, and expiration lifetimes.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard network discovery-serve [--port 8090]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Run a standalone, self-hosted Discovery server to maintain server directories for your team or organization.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard network relay-serve [--port 8091]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Run a self-hosted Blind Encrypted Relay server for high-throughput WebSocket traffic forwarding between NAT-blocked peers.</p>
+</div>
+</div>
+</div>
+<div id="cli-tab-training" class="cli-panel">
+<div class="cli-grid">
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard training status</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Display SOUP adapter status, feedback queue counts (approved/pending), dataset snapshots, and background jobs.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard training doctor</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Inspect SOUP integration prerequisites: Python version, CUDA readiness, trl, peft, and datasets dependencies.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard training feedback --prompt "..." --response "..." [--approved]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Record consent-gated alignment feedback with automated client-side PII scrubbing.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard training dataset --format [chatml|alpaca|sharegpt]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Compile approved interaction feedback into an immutable training dataset snapshot ready for fine-tuning.</p>
+</div>
+<div class="cli-item">
+<div class="cli-item-header">
+<code class="cli-cmd-code">shard training run --dataset &lt;id&gt; [--task sft|dpo] [--base &lt;model&gt;]</code>
+<button class="copy-code-btn" aria-label="Copy Command"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button>
+</div>
+<p class="cli-cmd-desc">Execute background LoRA fine-tuning run on the selected dataset snapshot.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
 <section id="install" class="section-wrapper">
 <div class="site-wrapper">
 <div class="section-header-box">
 <span class="section-tag" data-i18n="install_tag">GETTING STARTED</span>
 <h2 class="section-title" data-i18n="install_title">Installation &amp; Quick Start</h2>
-<p class="section-desc" data-i18n="install_desc">Choose your preferred environment. SHARD runs anywhere from standalone developer laptops to dedicated LAN clusters.</p>
+<p class="section-desc" data-i18n="install_desc">Choose your preferred environment. SHARD runs anywhere from standalone developer laptops to dedicated LAN clusters and headless servers.</p>
 </div>
 <div class="install-tabs-wrap">
 <div class="install-tabs-nav">
-<button class="install-tab-btn active" data-install-tab="panel-pip" data-i18n="tab_pip">Source (Editable)</button>
+<button class="install-tab-btn active" data-install-tab="panel-pip" data-i18n="tab_pip">Python / Pip (Source)</button>
 <button class="install-tab-btn" data-install-tab="panel-docker" data-i18n="tab_docker">Docker Compose</button>
 <button class="install-tab-btn" data-install-tab="panel-native" data-i18n="tab_native">Native C++20 Build</button>
 </div>
@@ -401,73 +737,48 @@
 <div class="install-step-item">
 <span class="install-step-header" data-i18n="pip_step1">1. Clone Repository</span>
 <div class="code-block-box">
-<div class="code-block-bar">
-<span>bash</span>
-<button class="copy-code-btn" aria-label="Copy Code">
-<svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-</button>
-</div>
+<div class="code-block-bar"><span>bash</span><button class="copy-code-btn" aria-label="Copy Code"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></div>
 <div class="code-block-content"><pre>git clone https://github.com/avelone123123/shard.git
 cd shard</pre></div>
 </div>
 </div>
 <div class="install-step-item">
-<span class="install-step-header" data-i18n="pip_step2">2. Install Package with Pip</span>
+<span class="install-step-header" data-i18n="pip_step2">2. Install Package with Dependencies</span>
 <div class="code-block-box">
-<div class="code-block-bar">
-<span>bash</span>
-<button class="copy-code-btn" aria-label="Copy Code">
-<svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-</button>
-</div>
-<div class="code-block-content"><pre>python -m pip install -e .</pre></div>
+<div class="code-block-bar"><span>bash</span><button class="copy-code-btn" aria-label="Copy Code"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></div>
+<div class="code-block-content"><pre>python -m pip install -e .
+python -m pip install ".[full]"</pre></div>
 </div>
 </div>
 <div class="install-step-item">
 <span class="install-step-header" data-i18n="pip_step3">3. Launch Web Dashboard &amp; API Server</span>
 <div class="code-block-box">
-<div class="code-block-bar">
-<span>bash</span>
-<button class="copy-code-btn" aria-label="Copy Code">
-<svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-</button>
-</div>
+<div class="code-block-bar"><span>bash</span><button class="copy-code-btn" aria-label="Copy Code"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></div>
 <div class="code-block-content"><pre>shard start</pre></div>
 </div>
 </div>
 <div class="install-step-item">
-<span class="install-step-header" data-i18n="pip_step4">4. Create Distributed Cluster</span>
+<span class="install-step-header" data-i18n="pip_step4">4. Verify Environment Health</span>
 <div class="code-block-box">
-<div class="code-block-bar">
-<span>bash</span>
-<button class="copy-code-btn" aria-label="Copy Code">
-<svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-</button>
-</div>
-<div class="code-block-content"><pre>shard lan create "lab-cluster" --open</pre></div>
+<div class="code-block-bar"><span>bash</span><button class="copy-code-btn" aria-label="Copy Code"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></div>
+<div class="code-block-content"><pre>shard doctor</pre></div>
 </div>
 </div>
 </div>
 </div>
 <div id="panel-docker" class="install-panel">
 <div class="code-block-box">
-<div class="code-block-bar">
-<span>bash</span>
-<button class="copy-code-btn" aria-label="Copy Code">
-<svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-</button>
-</div>
+<div class="code-block-bar"><span>bash (Local Cluster)</span><button class="copy-code-btn" aria-label="Copy Code"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></div>
 <div class="code-block-content"><pre>docker compose up -d</pre></div>
+</div>
+<div class="code-block-box" style="margin-top:16px;">
+<div class="code-block-bar"><span>bash (Discovery &amp; Blind Relay Stack)</span><button class="copy-code-btn" aria-label="Copy Code"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></div>
+<div class="code-block-content"><pre>docker compose -f deploy/docker/docker-compose.network.yml up -d</pre></div>
 </div>
 </div>
 <div id="panel-native" class="install-panel">
 <div class="code-block-box">
-<div class="code-block-bar">
-<span>powershell / cmd</span>
-<button class="copy-code-btn" aria-label="Copy Code">
-<svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-</button>
-</div>
+<div class="code-block-bar"><span>powershell / cmd</span><button class="copy-code-btn" aria-label="Copy Code"><svg class="control-icon" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg></button></div>
 <div class="code-block-content"><pre>python native/build_native.py
 shard test</pre></div>
 </div>
@@ -486,20 +797,20 @@ shard test</pre></div>
 <div class="usecase-card">
 <span class="usecase-badge" data-i18n="case1_badge">HOMELAB / DEV CLUSTERS</span>
 <h3 class="usecase-title" data-i18n="case1_title">The Laptop + Desktop Supernode</h3>
-<p class="usecase-desc" data-i18n="case1_desc">Combine an RTX 3060 gaming laptop (6 GB VRAM) with an office desktop (16 GB RAM). Together, they pool 22 GB to run 32B coding models effortlessly.</p>
+<p class="usecase-desc" data-i18n="case1_desc">Combine an RTX 3060 gaming laptop (6 GB VRAM) with an office desktop (16 GB RAM). Together, they pool 22 GB to run 32B coding models collaboratively.</p>
 <div class="usecase-stats" data-i18n="case1_stat">POOLED: 22 GB // 32B QUANT FIT: YES</div>
 </div>
 <div class="usecase-card">
 <span class="usecase-badge" data-i18n="case2_badge">LOCAL DEVELOPMENT</span>
-<h3 class="usecase-title" data-i18n="case2_title">Unlimited AI Coding Agent Backend</h3>
-<p class="usecase-desc" data-i18n="case2_desc">Point Cursor, Claude Code, and Aider to http://localhost:8000/v1. Enjoy infinite completions and refactoring sessions with zero rate limits or token bills.</p>
-<div class="usecase-stats" data-i18n="case2_stat">LATENCY: ~18 MS // COST: $0.00 / MO</div>
+<h3 class="usecase-title" data-i18n="case2_title">Private AI Coding Agent Backend</h3>
+<p class="usecase-desc" data-i18n="case2_desc">Point Cursor, Claude Code, and Aider to http://localhost:8000/v1. Enjoy unmetered local completions and refactoring sessions without cloud rate limits.</p>
+<div class="usecase-stats" data-i18n="case2_stat">DROP-IN /V1 API // ZERO PER-TOKEN FEES</div>
 </div>
 <div class="usecase-card">
-<span class="usecase-badge" data-i18n="case3_badge">PRIVACY &amp; SECURITY</span>
-<h3 class="usecase-title" data-i18n="case3_title">100% Air-Gapped Enterprise Lab</h3>
-<p class="usecase-desc" data-i18n="case3_desc">Host proprietary codebases and sensitive data. All model weights, KV caches, and tokens remain strictly inside your physical local network.</p>
-<div class="usecase-stats" data-i18n="case3_stat">CLOUD EXPOSURE: ZERO // DATA: LOCAL</div>
+<span class="usecase-badge" data-i18n="case3_badge">ENTERPRISE PRIVACY</span>
+<h3 class="usecase-title" data-i18n="case3_title">Air-Gapped &amp; Multi-Office Clusters</h3>
+<p class="usecase-desc" data-i18n="case3_desc">Run completely offline on isolated local subnets, or connect distributed branch offices across the Internet using end-to-end encrypted blind relays.</p>
+<div class="usecase-stats" data-i18n="case3_stat">LOCAL RUNTIME // ZERO DATA EXPOSURE</div>
 </div>
 </div>
 </div>
@@ -518,7 +829,7 @@ shard test</pre></div>
 <svg class="faq-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
 </button>
 <div class="faq-answer">
-<p data-i18n="faq_a1">You can start with a single PC running Windows or Linux with a modern CPU supporting AVX2. Adding an NVIDIA GPU accelerates inference, and connecting additional LAN computers pools their memory automatically.</p>
+<p data-i18n="faq_a1">You can start with a single PC running Windows or Linux with a modern CPU supporting AVX2. Adding an NVIDIA CUDA GPU accelerates inference, and connecting additional LAN computers pools their memory automatically.</p>
 </div>
 </div>
 <div class="faq-item">
@@ -527,7 +838,7 @@ shard test</pre></div>
 <svg class="faq-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
 </button>
 <div class="faq-answer">
-<p data-i18n="faq_a2">SHARD leverages llama.cpp's native RPC protocol. The master node analyzes available memory budgets across all connected machines and splits model layers proportionally using the -ts flag.</p>
+<p data-i18n="faq_a2">SHARD leverages llama.cpp native RPC protocol. The master node analyzes available memory budgets across all connected machines and splits model layers proportionally using the -ts flag.</p>
 </div>
 </div>
 <div class="faq-item">
@@ -554,7 +865,7 @@ shard test</pre></div>
 <svg class="faq-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
 </button>
 <div class="faq-answer">
-<p data-i18n="faq_a5">Introduced in v1.8.0, an open network broadcasts an open flag in its UDP beacon. Other machines on your local subnet can discover and join the cluster with a single click without typing a pairing code.</p>
+<p data-i18n="faq_a5">An open network broadcasts an open flag in its UDP beacon. Other machines on your local subnet can discover and join the cluster with a single click in the Web Dashboard without typing a pairing code.</p>
 </div>
 </div>
 <div class="faq-item">
@@ -564,6 +875,24 @@ shard test</pre></div>
 </button>
 <div class="faq-answer">
 <p data-i18n="faq_a6">Yes. SHARD is 100% open source under the permissive MIT License. You are free to inspect, modify, fork, and deploy it for personal and commercial applications.</p>
+</div>
+</div>
+<div class="faq-item">
+<button class="faq-question-btn">
+<span data-i18n="faq_q7">What is the difference between LAN Pool and SHARD Network?</span>
+<svg class="faq-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+</button>
+<div class="faq-answer">
+<p data-i18n="faq_a7">LAN Compute Pool is for local subnet memory pooling using UDP 8001 beacons and llama.cpp RPC. SHARD Network is a global decentralized protocol with Ed25519 node identities, STUN NAT traversal, and ChaCha20/AES-GCM blind encrypted relays for cross-Internet connectivity.</p>
+</div>
+</div>
+<div class="faq-item">
+<button class="faq-question-btn">
+<span data-i18n="faq_q8">How do nodes join without typing manual IP addresses?</span>
+<svg class="faq-toggle-icon" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+</button>
+<div class="faq-answer">
+<p data-i18n="faq_a8">In LAN mode, the Web Dashboard continuously listens to UDP 8001 discovery beacons and shows nearby active clusters with one-click Join/Share buttons. The CLI command shard lan diagnose also auto-detects and displays the host recommended join IP.</p>
 </div>
 </div>
 </div>
@@ -593,9 +922,11 @@ shard test</pre></div>
 <h4 class="footer-col-title" data-i18n="footer_col_product">Product</h4>
 <ul class="footer-link-list">
 <li><a href="#about" class="footer-link" data-i18n="nav_product">Product</a></li>
+<li><a href="#networking" class="footer-link" data-i18n="nav_networking">Two Networks</a></li>
 <li><a href="#how-it-works" class="footer-link" data-i18n="nav_how">How It Works</a></li>
 <li><a href="#features" class="footer-link" data-i18n="nav_features">Features</a></li>
 <li><a href="#architecture" class="footer-link" data-i18n="nav_arch">Architecture</a></li>
+<li><a href="#cli" class="footer-link" data-i18n="nav_cli">CLI Reference</a></li>
 </ul>
 </div>
 <div class="footer-links-col">
@@ -619,7 +950,7 @@ shard test</pre></div>
 </div>
 <div class="footer-bottom-bar">
 <span data-i18n="footer_copy">SHARD Project. Distributed Neural Compute. Released under the MIT License.</span>
-<span>v1.8.0 // C++20 + MASM AVX2 + FASTAPI</span>
+<span>v1.8.0 // C++20 + MASM AVX2 + FASTAPI + P2P RELAY</span>
 </div>
 </div>
 </footer>
