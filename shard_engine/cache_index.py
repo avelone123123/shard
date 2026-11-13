@@ -32,3 +32,5 @@ class LocalCacheIndex:
     def has_weights(self, identifier: str) -> bool:
         entry = self.get_entry(identifier)
         return entry is not None and entry.file_size > 0 and os.path.exists(entry.local_path)
+    def invalidate(self):
+        self._entries.clear()
