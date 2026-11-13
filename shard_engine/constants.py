@@ -19,3 +19,4 @@ HEADER_CLIENT_ID = "X-Shard-Client-Id"
 HEADER_CONTENT_TYPE = "Content-Type"
 GGUF_EXT = ".gguf"
 SAFETENSORS_EXT = ".safetensors"
+SUPPORTED_QUANTS = ("Q4_K_M", "Q4_K_S", "Q5_K_M", "Q5_K_S", "Q8_0", "Q6_K", "IQ4_XS", "IQ3_M", "BF16", "F16")
