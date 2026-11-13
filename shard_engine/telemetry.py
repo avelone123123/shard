@@ -23,3 +23,14 @@ class SpeedMovingAverage:
         dt = self.samples[-1][0] - self.samples[0][0]
         db = self.samples[-1][1] - self.samples[0][1]
         return max(0.0, float(db) / dt) if dt > 0.001 else 0.0
+class TransferProgressTracker:
+    def __init__(self, total_bytes: int = 0):
+        self.total_bytes = total_bytes
+        self.downloaded_bytes = 0
+        self.smoother = SpeedMovingAverage()
+        self.start_time = time.time()
+    def update(self, current_bytes: int):
+        self.downloaded_bytes = current_bytes
+        self.smoother.add_sample(time.time(), current_bytes)
+    def speed(self) -> float:
+        return self.smoother.current_speed()
