@@ -4,23 +4,16 @@ services:
     container_name: shard-engine
     ports:
       - "8000:8000"
+      - "8001:8001/udp"
+      - "50052:50052"
     environment:
       - HF_HOME=/data/models
       - TRANSFORMERS_CACHE=/data/models
       - SHARD_MODELS_DIR=/data/models
       - SHARD_DATA_DIR=/data/shard
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     volumes:
       - shard_models:/data/models
       - shard_data:/data/shard
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     restart: unless-stopped
 volumes:
   shard_models:
