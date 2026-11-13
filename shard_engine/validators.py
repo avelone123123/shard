@@ -5,3 +5,5 @@ def validate_quant_name(quant: str) -> bool:
     return bool(quant and isinstance(quant, str) and re.match(r"^(?:[A-Z0-9]+(?:_[A-Z0-9]+)*)$", quant.strip().upper()))
 def validate_hash_digest(digest: str) -> bool:
     return bool(digest and isinstance(digest, str) and re.match(r"^[a-fA-F0-9]{32,128}$", digest.strip()))
+def validate_port_number(port: int) -> bool:
+    return isinstance(port, int) and 1 <= port <= 65535
