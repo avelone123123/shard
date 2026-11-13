@@ -9,3 +9,5 @@ def validate_port_number(port: int) -> bool:
     return isinstance(port, int) and 1 <= port <= 65535
 def validate_ip_address(ip: str) -> bool:
     return bool(ip and isinstance(ip, str) and (re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip.strip()) or ":" in ip))
+def validate_repo_id(repo_id: str) -> bool:
+    return bool(repo_id and isinstance(repo_id, str) and "/" in repo_id and len(repo_id.split("/")) == 2 and all(part for part in repo_id.split("/")))
