@@ -38,3 +38,5 @@ class TransferProgressTracker:
         spd = self.speed()
         rem = max(0, self.total_bytes - self.downloaded_bytes)
         return float(rem) / spd if spd > 1024.0 else 0.0
+    def snapshot(self, stage: str = "downloading") -> DownloadTelemetrySnapshot:
+        return DownloadTelemetrySnapshot(self.downloaded_bytes, self.total_bytes, self.speed(), self.eta(), stage)
