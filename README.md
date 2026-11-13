@@ -168,19 +168,22 @@ Every feature listed below is verified directly against the [SHARD source tree](
 
 ### Installation
 
-#### Option 1: Install via pip (Recommended)
-Run SHARD from any directory without cloning the repository:
+#### Option 1: Install via pip from GitHub (Recommended)
+Run SHARD from any directory without manually cloning the repository:
 ```bash
 # Core install: CLI, FastAPI server, web dashboard, GGUF (llama.cpp) + LAN clustering
-pip install shard-engine
+pip install "git+https://github.com/avelone123123/shard.git"
 
 # Full install: adds PyTorch/Transformers safetensors & Hugging Face extras
-pip install "shard-engine[full]"
+pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
+*Note on PyPI:* The `shard-engine` package is pending initial index release on PyPI. Once published, `pip install shard-engine` and `pip install "shard-engine[full]"` will install directly from PyPI.
+
 Verify your environment right after installation:
 ```bash
 shard doctor
 ```
+> **Windows PATH Note:** If Windows reports that `shard.exe` is not on your PATH, you can run SHARD directly through Python: `python -m shard_engine <command>` (for example, `python -m shard_engine help` or `python -m shard_engine start`).
 > **GPU & Runtime Note:** GGUF inference auto-downloads platform binaries for `llama-server` / `ggml-rpc-server` on first run and needs no extra ML packages. For CUDA PyTorch inference, install a matching CUDA build of `torch` before `pip install "shard-engine[full]"`.
 
 #### Option 2: Editable Install from Source (Developers)
