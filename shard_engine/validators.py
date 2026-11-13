@@ -7,3 +7,5 @@ def validate_hash_digest(digest: str) -> bool:
     return bool(digest and isinstance(digest, str) and re.match(r"^[a-fA-F0-9]{32,128}$", digest.strip()))
 def validate_port_number(port: int) -> bool:
     return isinstance(port, int) and 1 <= port <= 65535
+def validate_ip_address(ip: str) -> bool:
+    return bool(ip and isinstance(ip, str) and (re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", ip.strip()) or ":" in ip))
