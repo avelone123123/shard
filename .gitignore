@@ -19,3 +19,6 @@ skill.md
 *.dll
 *.lib
 *.obj
+
+scratch/
+
