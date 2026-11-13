@@ -1,92 +1,372 @@
+import hashlib
+import ipaddress
 import json
 import os
+import re
+import secrets
 import shutil
+import socket
+import threading
 import time
 import uuid
+from collections import deque
+from contextlib import asynccontextmanager
+from pathlib import Path
+from urllib.parse import urlparse
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from . import __version__
+from . import feedback
+from . import net_identity
+from . import net_strategy
+from . import net_tunnel
+from . import net_wireguard
 from . import paths
 from . import settings
+from . import soup_adapter
+from . import storage
+from . import training
 from .engine import engine_instance
 from .fit import fit_report
 from .hardware import evaluate_compatibility, get_hardware_profile
 from .hf_hub import browse_models, fetch_model_card, fetch_model_metadata, get_local_cached_ids
 from .lan import DEFAULT_MASTER_PORT, LAN, is_loopback
-app = FastAPI(title="Shard Local Model Engine and Server", version=__version__)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
-@app.middleware("http")
-async def lan_gate(request, call_next):
+_SAFE_HF_REPO_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,95}(?:/[A-Za-z0-9][A-Za-z0-9._-]{0,95})?$")
+_SAFE_MODEL_RE = re.compile(r"^[A-Za-z0-9._/\-:]{1,160}$")
+_SAFE_KEY_RE = re.compile(r"^[A-Za-z0-9._\-]{4,128}$")
+_VALID_TOOLS = {"claude", "opencode", "continue", "aider", "zed", "codex", "openrouter", "cursor", "env", "sdk"}
+_PROXY_HEADERS = ("x-forwarded-for", "x-real-ip", "forwarded", "cf-connecting-ip", "true-client-ip", "x-client-ip")
+class _SlidingWindowLimiter:
+    def __init__(self, limit, window_s=60.0, max_ips=4096):
+        self.limit = int(limit)
+        self.window_s = float(window_s)
+        self.max_ips = int(max_ips)
+        self._hits = {}
+        self._lock = threading.Lock()
+    def check(self, key, record=True):
+        now = time.monotonic()
+        k = str(key or "unknown")
+        with self._lock:
+            if k not in self._hits and len(self._hits) >= self.max_ips:
+                oldest = next(iter(self._hits))
+                self._hits.pop(oldest, None)
+            q = self._hits.setdefault(k, deque())
+            cutoff = now - self.window_s
+            while q and q[0] < cutoff:
+                q.popleft()
+            if len(q) >= self.limit:
+                retry = max(1, int(self.window_s - (now - q[0])))
+                return False, retry
+            if record:
+                q.append(now)
+            return True, 0
+    def record(self, key):
+        return self.check(key, record=True)
+_PAIR_FAIL_LIMITER = _SlidingWindowLimiter(limit=10, window_s=60.0)
+_PAIR_TOTAL_LIMITER = _SlidingWindowLimiter(limit=30, window_s=60.0)
+_OWNER_FAIL_LIMITER = _SlidingWindowLimiter(limit=8, window_s=60.0)
+_FEEDBACK_LIMITER = _SlidingWindowLimiter(limit=40, window_s=60.0)
+_NET_BIND_DIR = None
+def _net_local_models():
+    out = []
+    if engine_instance.active_model_id:
+        out.append(str(engine_instance.active_model_id))
     try:
-        if (request.url.path or "").startswith("/v1") and LAN.is_server():
-            client = request.client.host if request.client else ""
-            if not is_loopback(client):
-                auth = request.headers.get("authorization") or ""
-                token = auth[7:].strip() if auth.lower().startswith("bearer ") else auth.strip()
-                if token not in LAN.tokens():
-                    return JSONResponse(
-                        status_code=401,
-                        content={"error": {"message": "Требуется токен участника shard-сети",
-                                           "type": "auth_error"}})
+        for mid in get_local_cached_ids():
+            if mid and mid not in out:
+                out.append(str(mid))
+            if len(out) >= 10:
+                break
     except Exception:
         pass
-    return await call_next(request)
+    return out
+def _net_load_provider():
+    try:
+        st = str(engine_instance.status or "").lower()
+        return 0.5 if st in ("loading", "busy", "generating") else 0.0
+    except Exception:
+        return 0.0
+def _net_status_provider():
+    is_loaded = engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
+    return {
+        "active_model": engine_instance.active_model_id,
+        "engine_status": engine_instance.status,
+        "is_loaded": is_loaded,
+        "lan_mode": LAN.mode(),
+    }
+def _net_mgr():
+    global _NET_BIND_DIR
+    cur_dir = str(paths.data_dir())
+    cur_mgr = getattr(net_strategy, "_DEFAULT_MANAGER", None)
+    if cur_mgr is not None and _NET_BIND_DIR is not None and _NET_BIND_DIR != cur_dir:
+        if getattr(cur_mgr, "_config_path", "") == os.path.join(_NET_BIND_DIR, "network_config.json"):
+            try:
+                cur_mgr.shutdown()
+            except Exception:
+                pass
+            with net_strategy._DEFAULT_MANAGER_LOCK:
+                net_strategy._DEFAULT_MANAGER = None
+    mgr = net_strategy.get_network_manager(
+        asgi_app=app,
+        model_provider=_net_local_models,
+        load_provider=_net_load_provider,
+        status_provider=_net_status_provider,
+    )
+    if _NET_BIND_DIR != cur_dir or getattr(mgr, "_asgi_app", None) is None:
+        _NET_BIND_DIR = cur_dir
+    if getattr(mgr, "_asgi_app", None) is None:
+        mgr._asgi_app = app
+    if getattr(mgr, "_model_provider", None) is None:
+        mgr._model_provider = _net_local_models
+    if getattr(mgr, "_load_provider", None) is None:
+        mgr._load_provider = _net_load_provider
+    if getattr(mgr, "_status_provider", None) is None:
+        mgr._status_provider = _net_status_provider
+    return mgr
+def _safe_node_id():
+    try:
+        return _net_mgr().identity.node_id
+    except Exception:
+        return None
+def _identity_payload(ident):
+    pub_bytes = ident.pubkey_bytes()
+    fp = hashlib.sha256(pub_bytes).hexdigest()
+    return {
+        "node_id": ident.node_id,
+        "pubkey_b64": ident.pubkey_b64,
+        "fingerprint": fp,
+        "fingerprint_short": ":".join(fp[i:i + 4] for i in range(0, 32, 4)),
+        "created_at": getattr(ident, "_created_at", None),
+    }
+@asynccontextmanager
+async def lifespan(_app):
+    LAN.start_runtime()
+    try:
+        _net_mgr()
+    except Exception:
+        pass
+    try:
+        yield
+    finally:
+        try:
+            mgr = getattr(net_strategy, "_DEFAULT_MANAGER", None)
+            if mgr is not None:
+                mgr.shutdown()
+        except Exception:
+            pass
+        try:
+            LAN.stop_runtime()
+        except Exception:
+            pass
+        try:
+            training.shutdown_active_jobs()
+        except Exception:
+            pass
+        try:
+            engine_instance.unload_model()
+        except Exception:
+            pass
+app = FastAPI(title="Shard Local Model Engine and Server", version=__version__, lifespan=lifespan)
+def _extract_host_only(host_hdr):
+    raw = str(host_hdr or "").strip()
+    if not raw:
+        return ""
+    if any(c in raw for c in ("/", "\\", "@", " ", "\t", "\r", "\n")):
+        return None
+    if raw.startswith("[") and "]" in raw:
+        return raw[1:raw.index("]")].lower()
+    if ":" in raw and raw.count(":") == 1:
+        return raw.split(":", 1)[0].lower()
+    return raw.lower()
+def _is_trusted_host(host_hdr):
+    if not host_hdr:
+        return True
+    h = _extract_host_only(host_hdr)
+    if h is None or not h:
+        return False
+    allowed_env = {x.strip().lower() for x in os.environ.get("SHARD_ALLOWED_HOSTS", "").split(",") if x.strip()}
+    if h in allowed_env or h in ("localhost", "127.0.0.1", "::1", "testserver", "testclient"):
+        return True
+    try:
+        ipaddress.ip_address(h)
+        return True
+    except ValueError:
+        pass
+    try:
+        local_name = socket.gethostname().lower()
+        if h == local_name or h == f"{local_name}.local" or h.endswith(".local"):
+            return True
+    except Exception:
+        pass
+    return False
+def _allowed_cors_origin(origin_hdr, host_hdr):
+    if not origin_hdr:
+        return None
+    try:
+        parsed = urlparse(origin_hdr)
+    except Exception:
+        return None
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return None
+    if host_hdr and parsed.netloc.lower() == str(host_hdr).strip().lower():
+        return origin_hdr
+    extra = [x.strip() for x in os.environ.get("SHARD_CORS_ORIGINS", "").split(",") if x.strip()]
+    if origin_hdr in extra:
+        return origin_hdr
+    return None
+def _apply_sec_headers(resp, cors_origin=None):
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    if cors_origin:
+        resp.headers["Access-Control-Allow-Origin"] = cors_origin
+        resp.headers["Vary"] = "Origin"
+        resp.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Shard-Owner-Token"
+        resp.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+    return resp
+def _has_proxy_headers(req):
+    for h in _PROXY_HEADERS:
+        if req.headers.get(h):
+            return True
+    return False
+def _token_in_pool(tok, pool):
+    if not tok:
+        return False
+    t = str(tok)
+    for cand in pool:
+        if cand and secrets.compare_digest(t, str(cand)):
+            return True
+    return False
+@app.middleware("http")
+async def lan_gate(request, call_next):
+    host_hdr = request.headers.get("host")
+    if not _is_trusted_host(host_hdr):
+        return _apply_sec_headers(JSONResponse(status_code=403, content={"status": "error", "message": "Untrusted Host header"}))
+    origin_hdr = request.headers.get("origin")
+    cors_ok = _allowed_cors_origin(origin_hdr, host_hdr)
+    if request.method == "OPTIONS":
+        return _apply_sec_headers(PlainTextResponse("", status_code=204), cors_origin=cors_ok)
+    path = request.url.path or "/"
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        sec_site = (request.headers.get("sec-fetch-site") or "").strip().lower()
+        if sec_site == "cross-site":
+            return _apply_sec_headers(JSONResponse(status_code=403, content={"status": "error", "message": "Cross-site mutation blocked"}))
+        if origin_hdr and not cors_ok:
+            return _apply_sec_headers(JSONResponse(status_code=403, content={"status": "error", "message": "Cross-origin request blocked"}))
+    is_public_ping = request.method == "GET" and path == "/v1/ping"
+    if path.startswith("/v1") and not is_public_ping:
+        try:
+            if not _is_owner_request(request):
+                is_tunnel = net_tunnel.is_tunnel_request(request)
+                if not is_tunnel:
+                    auth = request.headers.get("authorization") or ""
+                    token = auth[7:].strip() if auth.lower().startswith("bearer ") else auth.strip()
+                    valid_pool = set(load_keys())
+                    if LAN.is_server():
+                        valid_pool |= LAN.tokens()
+                    if not _token_in_pool(token, valid_pool):
+                        return _apply_sec_headers(
+                            JSONResponse(
+                                status_code=401,
+                                content={"error": {"message": "Требуется действительный токен SHARD или участника сети", "type": "auth_error"}},
+                            ),
+                            cors_origin=cors_ok,
+                        )
+        except Exception:
+            return _apply_sec_headers(
+                JSONResponse(status_code=500, content={"error": {"message": "Authentication verification error", "type": "auth_error"}}),
+                cors_origin=cors_ok,
+            )
+    resp = await call_next(request)
+    return _apply_sec_headers(resp, cors_origin=cors_ok)
 DATA_DIR = str(paths.data_dir())
 KEYS_FILE = paths.keys_file()
 def save_keys(keys):
     kf = paths.keys_file()
-    os.makedirs(os.path.dirname(kf), exist_ok=True)
-    with open(kf, "w", encoding="utf-8") as f:
-        json.dump(keys, f, indent=2, ensure_ascii=False)
+    clean = [str(k) for k in (keys or []) if str(k).strip()]
+    storage.atomic_write_json(kf, clean, indent=2, fsync=True, backup=True, restrict=True)
+    if isinstance(globals().get("API_KEYS"), list):
+        API_KEYS[:] = clean
 def load_keys():
     kf = paths.keys_file()
-    if os.path.exists(kf):
+    with storage.file_lock(kf):
+        d = storage.read_json_safe(kf, default=None, expected_type=list, quarantine=True, use_backup=True)
+        if isinstance(d, list) and len(d) > 0:
+            storage.restrict_file_permissions(kf)
+            return [str(x) for x in d if str(x).strip()]
+        initial = [f"sk-shard-{secrets.token_hex(8)}"]
         try:
-            with open(kf, "r", encoding="utf-8") as f:
-                d = json.load(f)
-                if isinstance(d, list) and len(d) > 0:
-                    return d
+            save_keys(initial)
         except Exception:
             pass
-    initial = [f"sk-shard-{uuid.uuid4().hex[:16]}"]
-    try:
-        save_keys(initial)
-    except Exception:
-        pass
-    return initial
+        return initial
 API_KEYS = load_keys()
+@app.get("/api/client/bootstrap")
+def api_client_bootstrap(req: Request):
+    is_owner = _is_owner_request(req)
+    st = LAN.status(include_secrets=False)
+    is_loaded = engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
+    return {
+        "is_owner": is_owner,
+        "client_mode": not is_owner,
+        "version": __version__,
+        "node_id": _safe_node_id(),
+        "lan_mode": st.get("mode"),
+        "lan_open": bool(st.get("open")),
+        "server_name": st.get("name"),
+        "active_model": engine_instance.active_model_id,
+        "engine_status": engine_instance.status,
+        "is_loaded": is_loaded,
+    }
 @app.get("/api/system/hardware")
-def api_hardware():
+def api_hardware(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     hw = get_hardware_profile()
     engine_st = engine_instance.get_status()
-    return {"hardware": hw, "engine": engine_st, "version": __version__, "paths": paths.all_dirs()}
+    return {"hardware": hw, "engine": engine_st, "version": __version__, "paths": paths.all_dirs(), "is_owner": True}
 @app.get("/api/hf/models")
-def api_hf_models(query: str = None, category: str = "all", limit: int = 80):
+def api_hf_models(req: Request, query: str = None, category: str = "all", limit: int = 80):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     return browse_models(query=query, category=category, limit=limit)
 @app.get("/api/hf/model/{model_id:path}")
-def api_hf_model_card(model_id: str):
+def api_hf_model_card(model_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     return fetch_model_card(model_id)
 @app.post("/api/models/load")
 async def api_load_model(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     data = await req.json()
-    model_id = data.get("model_id", "Qwen/Qwen2.5-Coder-1.5B-Instruct")
-    info = engine_instance.load_model(model_id)
-    return {"status": "ok", "loaded": info}
+    model_id = str(data.get("model_id", "Qwen/Qwen2.5-Coder-1.5B-Instruct")).strip()
+    try:
+        info = engine_instance.load_model(model_id)
+        return {"status": "ok", "loaded": info}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
 @app.post("/api/models/unload")
-def api_unload_model():
+def api_unload_model(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     return engine_instance.unload_model()
 @app.post("/api/models/cancel")
-def api_cancel_model():
+def api_cancel_model(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     return engine_instance.cancel_operation()
 @app.get("/api/models/downloaded")
-def api_get_downloaded_models():
+def api_get_downloaded_models(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     hf_home = os.environ.get("HF_HOME") or settings.models_dir()
     hub_dir = os.path.join(hf_home, "hub")
     hw = get_hardware_profile()
@@ -147,16 +427,21 @@ def api_get_downloaded_models():
 @app.delete("/api/models/downloaded")
 @app.post("/api/models/delete")
 async def api_delete_downloaded_model(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     model_id = ""
     try:
         data = await req.json()
-        model_id = data.get("model_id", "").strip()
+        model_id = str(data.get("model_id", "")).strip()
     except Exception:
         pass
     if not model_id:
-        model_id = req.query_params.get("model_id", "").strip()
+        model_id = str(req.query_params.get("model_id", "")).strip()
     if not model_id:
         return JSONResponse(status_code=400, content={"status": "error", "message": "model_id required"})
+    if "\\" in model_id or ".." in model_id or not _SAFE_HF_REPO_RE.match(model_id):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid model_id format"})
     if engine_instance.active_model_id == model_id or engine_instance.current_loaded_id == model_id:
         engine_instance.unload_model()
     hf_home = os.environ.get("HF_HOME") or settings.models_dir()
@@ -179,43 +464,64 @@ async def api_delete_downloaded_model(req: Request):
     except Exception:
         pass
     norm_name = "models--" + model_id.replace("/", "--")
-    folder_path = os.path.join(hub_dir, norm_name)
-    if os.path.exists(folder_path):
+    hub_root = Path(hub_dir).resolve()
+    folder_path = (hub_root / norm_name).resolve()
+    if folder_path.is_relative_to(hub_root) and folder_path != hub_root and folder_path.exists():
         if freed_bytes == 0:
-            freed_bytes = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(folder_path) for f in fs if os.path.exists(os.path.join(r, f)))
-        shutil.rmtree(folder_path, ignore_errors=True)
+            freed_bytes = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(str(folder_path)) for f in fs if os.path.exists(os.path.join(r, f)))
+        shutil.rmtree(str(folder_path), ignore_errors=True)
     sz_mb = round(freed_bytes / (1024 * 1024), 1)
     freed_str = f"{round(sz_mb / 1024, 2)} ГБ" if sz_mb >= 1024 else f"{sz_mb} МБ"
     return {"status": "ok", "deleted": model_id, "freed_str": freed_str, "freed_bytes": freed_bytes}
 @app.get("/api/keys")
-def api_get_keys():
-    return {"keys": API_KEYS}
+def api_get_keys(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    keys = load_keys()
+    return {"keys": keys}
 @app.post("/api/keys/generate")
-def api_gen_key():
-    new_key = f"sk-shard-{uuid.uuid4().hex[:16]}"
-    API_KEYS.append(new_key)
-    save_keys(API_KEYS)
-    return {"key": new_key, "keys": API_KEYS}
+def api_gen_key(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    keys = load_keys()
+    new_key = f"sk-shard-{secrets.token_hex(8)}"
+    keys.append(new_key)
+    save_keys(keys)
+    return {"key": new_key, "keys": keys}
 @app.delete("/api/keys")
 @app.post("/api/keys/delete")
 async def api_del_key(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     target = ""
     try:
         data = await req.json()
-        target = data.get("key", "").strip()
+        target = str(data.get("key", "")).strip()
     except Exception:
         pass
     if not target:
-        target = req.query_params.get("key", "").strip()
-    if target and target in API_KEYS:
-        API_KEYS.remove(target)
-        if not API_KEYS:
-            API_KEYS.append(f"sk-shard-{uuid.uuid4().hex[:16]}")
-        save_keys(API_KEYS)
-        return {"status": "ok", "deleted": target, "keys": API_KEYS}
+        target = str(req.query_params.get("key", "")).strip()
+    keys = load_keys()
+    matched = None
+    for k in keys:
+        if target and secrets.compare_digest(k, target):
+            matched = k
+            break
+    if matched is not None:
+        keys.remove(matched)
+        if not keys:
+            keys.append(f"sk-shard-{secrets.token_hex(8)}")
+        save_keys(keys)
+        return {"status": "ok", "deleted": target, "keys": keys}
     return JSONResponse(status_code=404, content={"status": "error", "message": "Key not found"})
 @app.get("/api/settings")
-def api_get_settings():
+def api_get_settings(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     return {
         "models_dir": settings.models_dir(),
         "default_models_dir": settings.DEFAULT_MODELS_DIR,
@@ -224,6 +530,9 @@ def api_get_settings():
     }
 @app.post("/api/settings")
 async def api_set_settings(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     data = await req.json()
     if data.get("reset"):
         path = settings.reset_models_dir()
@@ -240,14 +549,20 @@ async def api_set_settings(req: Request):
             "disk": settings.disk_info(saved),
             "message": f"Папка моделей сохранена: {saved}. Применится после перезапуска приложения"}
 @app.get("/api/drives")
-def api_drives():
+def api_drives(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     return {
         "drives": settings.available_drives(),
         "current": settings.models_dir(),
         "disk": settings.disk_info()
     }
 @app.get("/api/fit/{model_id:path}")
-def api_fit(model_id: str):
+def api_fit(model_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     mid = (model_id or "").strip()
     if not mid:
         return JSONResponse(status_code=400, content={"status": "error", "message": "model_id required"})
@@ -267,8 +582,7 @@ def _backup_and_write(target_path, content_str):
                 shutil.copy2(target_path, bak)
             except Exception:
                 pass
-    with open(target_path, "w", encoding="utf-8") as f:
-        f.write(content_str)
+    storage.atomic_write_text(target_path, content_str, fsync=True, backup=False, restrict=True)
 def _set_win_user_env(var_map):
     if os.name != "nt":
         return
@@ -281,10 +595,20 @@ def _set_win_user_env(var_map):
         pass
 @app.post("/api/integrations/apply")
 async def api_apply_integration(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     data = await req.json()
     tool = (data.get("tool") or "claude").lower().strip()
-    key = (data.get("key") or (API_KEYS[0] if API_KEYS else "sk-shard-local")).strip()
+    if tool not in _VALID_TOOLS:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Неизвестная интеграция"})
+    cur_keys = load_keys()
+    key = (data.get("key") or (cur_keys[0] if cur_keys else "sk-shard-local")).strip()
     model = (data.get("model") or engine_instance.active_model_id or "Qwen/Qwen2.5-Coder-1.5B-Instruct").strip()
+    if not _SAFE_KEY_RE.match(key):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Недопустимый формат ключа"})
+    if not _SAFE_MODEL_RE.match(model) or ".." in model:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Недопустимый формат модели"})
     home = os.path.expanduser("~")
     port = os.environ.get("SHARD_PORT", "8000")
     base_url = f"http://localhost:{port}/v1"
@@ -412,7 +736,15 @@ def list_models():
 @app.get("/v1/ping")
 def api_ping():
     is_loaded = engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
-    return {"status": "ok", "version": __version__, "latency_ms": 0.3, "engine": "shard-local-engine", "active_model": engine_instance.active_model_id, "is_loaded": is_loaded}
+    return {
+        "status": "ok",
+        "version": __version__,
+        "latency_ms": 0.3,
+        "engine": "shard-local-engine",
+        "active_model": engine_instance.active_model_id,
+        "is_loaded": is_loaded,
+        "node_id": _safe_node_id(),
+    }
 @app.post("/v1/chat/completions")
 async def chat_completions(req: Request):
     data = await req.json()
@@ -539,11 +871,19 @@ async def anthropic_count_tokens(req: Request):
     count = sum(len(str(m.get("content", "")).split()) for m in raw_messages)
     return {"input_tokens": max(1, count)}
 @app.get("/i")
-def installer_script(tool: str = "claude", os: str = "linux", key: str = ""):
+def installer_script(req: Request, tool: str = "claude", os: str = "linux", key: str = ""):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     tool_clean = tool.lower().strip()
     os_clean = os.lower().strip()
-    chosen_key = key.strip() if key else (API_KEYS[0] if API_KEYS else "sk-shard-local")
+    if tool_clean not in _VALID_TOOLS:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Неизвестный инструмент"})
+    cur_keys = load_keys()
+    chosen_key = key.strip() if key else (cur_keys[0] if cur_keys else "sk-shard-local")
     act_model = engine_instance.active_model_id or "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+    if not _SAFE_KEY_RE.match(chosen_key) or not _SAFE_MODEL_RE.match(act_model):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid parameters"})
     port = __import__("os").environ.get("SHARD_PORT", "8000")
     base_v1 = f"http://localhost:{port}/v1"
     if os_clean == "windows":
@@ -649,6 +989,9 @@ def installer_script(tool: str = "claude", os: str = "linux", key: str = ""):
     return PlainTextResponse(script, media_type="text/plain; charset=utf-8")
 @app.post("/api/lan/create")
 async def api_lan_create(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     data = await req.json()
     st = LAN.create((data.get("name") or "").strip() or None,
                     open_net=bool(data.get("open")),
@@ -656,49 +999,162 @@ async def api_lan_create(req: Request):
     return {"status": "ok", **st}
 @app.post("/api/lan/model")
 async def api_lan_model(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     data = await req.json()
     return LAN.set_model((data.get("model") or "").strip())
 @app.post("/api/lan/open")
 async def api_lan_open(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     data = await req.json()
     return LAN.set_open(bool(data.get("open")))
 @app.post("/api/lan/join")
 async def api_lan_join(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     data = await req.json()
     return LAN.join((data.get("ip") or "").strip(), data.get("code") or "",
                     share=bool(data.get("share")),
                     port=int(data.get("port") or DEFAULT_MASTER_PORT))
 @app.post("/api/lan/pair")
 async def api_lan_pair(req: Request):
-    data = await req.json()
-    ip = req.client.host if req.client else ""
-    payload, err = LAN.handle_pair(data.get("code") or "", ip,
-                                   (data.get("name") or "").strip() or None,
-                                   share=bool(data.get("share")))
+    ip = req.client.host if req.client else "unknown"
+    ok_tot, retry_tot = _PAIR_TOTAL_LIMITER.check(ip)
+    if not ok_tot:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_tot)}, content={"status": "error", "message": "Too many pairing attempts"})
+    ok_fail, retry_fail = _PAIR_FAIL_LIMITER.check(ip, record=False)
+    if not ok_fail:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_fail)}, content={"status": "error", "message": "Pairing temporarily rate-limited"})
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    payload, err = LAN.handle_pair(
+        data.get("code") or "",
+        ip,
+        (data.get("name") or "").strip() or None,
+        share=bool(data.get("share")),
+        client_id=data.get("client_id"),
+    )
     if err:
+        _PAIR_FAIL_LIMITER.record(ip)
         return JSONResponse(status_code=403, content={"status": "error", "message": err})
     return {"status": "ok", **payload}
 @app.post("/api/lan/heartbeat")
 async def api_lan_heartbeat(req: Request):
-    data = await req.json()
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
     ip = req.client.host if req.client else ""
-    ok = LAN.handle_heartbeat(ip, data.get("token") or "",
-                              hw=data.get("hw"), rpc_port=data.get("rpc_port"))
+    ok = LAN.handle_heartbeat(
+        ip,
+        data.get("token") or "",
+        hw=data.get("hw"),
+        rpc_port=data.get("rpc_port"),
+        client_id=data.get("client_id"),
+    )
     if not ok:
-        return JSONResponse(status_code=404, content={"status": "error", "message": "Участник не найден"})
-    return {"status": "ok"}
+        return JSONResponse(status_code=401, content={"status": "error", "mode": LAN.mode(), "message": "Участник не найден или токен отклонён"})
+    return {"status": "ok", "mode": LAN.mode()}
 @app.post("/api/lan/leave")
 async def api_lan_leave(req: Request):
-    data = await req.json()
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    tok = str(data.get("token") or "").strip()
+    if not tok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется токен участника"})
     ip = req.client.host if req.client else ""
-    dropped = LAN.handle_leave(ip, data.get("token") or "")
-    return {"status": "ok", "dropped": dropped}
+    dropped = LAN.handle_leave(ip, tok, client_id=data.get("client_id"))
+    if not dropped:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Недействительный токен участника"})
+    return {"status": "ok", "dropped": True}
 @app.post("/api/lan/off")
-def api_lan_off():
+def api_lan_off(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
     return LAN.off()
 @app.get("/api/lan/status")
-def api_lan_status():
-    return LAN.status()
-@app.get("/", response_class=HTMLResponse)
-def dashboard():
-    return paths.read_package_text("dashboard.html")
+def api_lan_status(req: Request):
+    if _is_owner_request(req):
+        return LAN.status(include_secrets=True)
+    tok = _extract_bearer(req)
+    if LAN.is_server() and _token_in_pool(tok, LAN.tokens()):
+        return LAN.status(include_secrets=False)
+    return JSONResponse(status_code=403, content={"status": "error", "message": "Owner authorization or LAN token required"})
+@app.get("/api/lan/invite")
+def api_lan_invite(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return LAN.build_invite()
+@app.get("/api/lan/diagnose")
+def api_lan_diagnose(req: Request, public: bool = False):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    from . import lan as _lan_mod
+    return _lan_mod.connectivity_report(probe_public=bool(public))
+def _extract_bearer(req):
+    auth = req.headers.get("authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return auth.strip()
+def _is_owner_request(req):
+    if getattr(req, "scope", {}).get("shard_tunnel"):
+        return False
+    if "x-shard-tunnel-peer" in req.headers or "x-shard-bridge-token" in req.headers:
+        return False
+    owner_hdr = (req.headers.get("x-shard-owner-token") or "").strip()
+    client_ip = req.client.host if req.client else ""
+    if owner_hdr:
+        allowed, _ = _OWNER_FAIL_LIMITER.check(client_ip, record=False)
+        if not allowed:
+            return False
+        if training.verify_owner_token(owner_hdr):
+            return True
+        _OWNER_FAIL_LIMITER.record(client_ip)
+        return False
+    if _has_proxy_headers(req):
+        return False
+    return is_loopback(client_ip)
+def _deny_non_owner(req):
+    if _is_owner_request(req):
+        return None
+    return JSONResponse(status_code=403, content={"status": "error", "message": "Owner authorization required"})
+def _contributor_identity(req, payload=None):
+    is_owner = _is_owner_request(req)
+    if is_owner and isinstance(payload, dict) and payload.get("contributor_id"):
+        return str(payload.get("contributor_id"))
+    tok = _extract_bearer(req)
+    valid_pool = set(load_keys()) | LAN.tokens()
+    if tok and _token_in_pool(tok, valid_pool):
+        return f"token:{tok}"
+    client_ip = req.client.host if req.client else "unknown"
+    return f"ip:{client_ip}"
+@app.get("/api/feedback/policy")
+def api_feedback_policy(req: Request):
+    cfg = feedback.get_privacy_config()
+    reg = training.list_model_versions()
+    is_owner = _is_owner_request(req)
+    cid = feedback.pseudonymize_contributor(_contributor_identity(req))
+    return {
+        "allow_feedback": bool(cfg.get("allow_feedback", True)),
+        "allow_remote_feedback": bool(cfg.get("allow_remote_feedback", False)),
+        "require_explicit_consent": bool(cfg.get("require_explicit_consent", True)),
+        "require_manual_review": bool(cfg.get("require_manual_review", True)),
+        "redact_secrets": bool(cfg.get("redact_secrets", True)),
+        "redact_pii": bool(cfg.get("redact_pii", True)),
+        "store_raw_conversations": False,
+        "active_model": engine_instance.active_model_id,
+        "active_version_id": reg.get("active_version_id") or "base",
+        "is_owner": is_owner,
+        "opted_out": feedback.is_contributor_opted_out(cid),
+    }
