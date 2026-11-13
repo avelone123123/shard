@@ -20,3 +20,7 @@ jobs:
         run: |
           python -m unittest tests_shard.py -v
           python -m unittest tests_cli_pkg.py -v
+          python -m unittest tests_training_ecosystem.py -v
+          python -m unittest tests_network_persistence_security.py -v
+          python -m unittest tests_shard_network.py -v
+          python -m unittest tests_phase4_network_integration.py -v
