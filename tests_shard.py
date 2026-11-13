@@ -428,12 +428,12 @@ class TestSettings(unittest.TestCase):
 # ---------------------------------------------------------------------------
 class TestLan(unittest.TestCase):
     def setUp(self):
-        # clean registry file so each test starts in "off" mode
-        # (a fresh LanManager then loads no state and spawns no resume threads)
         try:
             os.remove(lan.lan_file())
         except FileNotFoundError:
             pass
+        lan.LAN.off(quiet=True)
+        self.addCleanup(lan.LAN.off, True)
         self.lan = lan.LanManager()
         self.addCleanup(self.lan.off, True)
 
