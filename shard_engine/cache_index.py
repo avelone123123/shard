@@ -6,3 +6,7 @@ class LocalCacheEntry:
         self.local_path = local_path
         self.file_size = file_size
         self.mtime = mtime
+class LocalCacheIndex:
+    def __init__(self, root_dirs: Optional[List[str]] = None):
+        self.root_dirs = root_dirs or []
+        self._entries: Dict[str, LocalCacheEntry] = {}
