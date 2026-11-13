@@ -7,7 +7,7 @@ dynamic = ["version"]
 description = "Distributed local LLM inference engine with OpenAI/Anthropic API, GGUF/llama.cpp, and LAN memory pooling"
 readme = "README.md"
 authors = [{name = "avelone123123", email = "avelone.dev@gmail.com"}]
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.8"
 keywords = ["llm", "inference", "local-ai", "gguf", "llama-cpp", "distributed-inference", "openai-api", "cli"]
 classifiers = [
