@@ -146,6 +146,7 @@ SHARD объединяет свободные ресурсы GPU и RAM неск
 | **API и стриминг** | **Совместимость с OpenAI и Anthropic API** | [`server.py`](server.py) | Поддержка `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/messages` (протокол Anthropic), `/api/generate` и `/api/generate/stream` (SSE) с защитой API-ключами (`shard key`). |
 | **Веб-управление** | **Автономная панель управления (`dashboard.html`)** | [`dashboard.html`](dashboard.html) | Веб-интерфейс на `http://localhost:8000` с мониторингом VRAM/RAM, поиском и загрузкой моделей с Hugging Face, интерактивным чатом, управлением LAN-пулом и готовыми конфигами для IDE. |
 | **Контейнеризация** | **Стек Docker и NVIDIA GPU Compose** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Готовая конфигурация контейнера с постоянными томами (`shard_models_volume`, `shard_data_volume`) и пробросом GPU NVIDIA. |
+| **Совместное обучение** | **Опциональный конвейер дообучения (SOUP)** | [`soup_adapter.py`](shard_engine/soup_adapter.py), [`feedback.py`](shard_engine/feedback.py), [`training.py`](shard_engine/training.py), [`docs/COLLABORATIVE_TRAINING.ru.md`](docs/COLLABORATIVE_TRAINING.ru.md) | Сбор отзывов с явным согласием, очистка секретов/ПДн, снимки SFT/DPO, запуск обучения через SOUP, оценка Baseline vs Candidate, версионирование, деплой и откат. |
 
 ### Экспериментальные возможности
 - **Межсетевой RPC-шардинг слоёв `llama.cpp` (`gguf_backend.py`, `lan.py`):** Распределённое выполнение слоёв по TCP/RPC между разными видеокартами в LAN показывает максимальную скорость в проводных сетях Gigabit / 2.5GbE Ethernet; при работе по Wi-Fi возможны задержки передачи тензоров.
@@ -292,6 +293,7 @@ shard lan off
 | `shard run` | `[model_id]` | Скачивает (при необходимости) модель и открывает терминальный чат REPL. |
 | `shard list` | `[--category CAT]` | Отображает локальные и рекомендованные модели (`all`, `ideal`, `coding`, `reasoning`, `compact`). |
 | `shard lan` | `[status\|create\|join\|model\|off] [extra] [--share] [--open] [--model ID] [--port N]` | Управление распределённым вычислительным пулом в локальной сети. |
+| `shard training` | `[status\|doctor\|privacy\|feedback\|dataset\|start\|logs\|cancel\|resume\|models\|eval\|prepare\|approve\|deploy\|rollback]` | Управление вкладами пользователей, датасетами, заданиями SOUP, оценкой, деплоем и откатом ([Документация](docs/COLLABORATIVE_TRAINING.ru.md)). |
 | `shard key` | `[--gen]` | Показывает текущий локальный API-ключ или генерирует новый (`--gen`). |
 | `shard models-dir` | `[path \| reset]` | Показывает, изменяет или сбрасывает каталог хранения весов моделей. |
 | `shard test` | `[--strict-native]` | Запускает тест 12 тензорных ядер и бенчмарк AVX2 / pure-Python fallback. |
@@ -312,6 +314,7 @@ SHARD хранит пользовательские данные строго в
 | `SHARD_MODELS_DIR` | `<data_dir>/models` (`/data/models` в Docker) | Каталог для хранения весов моделей Hugging Face и GGUF. |
 | `SHARD_NO_BROWSER` / `SHARD_DOCKER` | *(не задано)* | Отключает автоматическое открытие браузера при старте сервера. |
 | `SHARD_NATIVE_LIB` | *(автопоиск)* | Явный путь к `shard_core.dll`/`.so`/`.dylib` (`none` включает Python fallback). |
+| `SHARD_SOUP_PYTHON` / `SHARD_SOUP_CMD` | *(автопоиск)* | Путь к окружению Python 3.11–3.13 или исполняемому файлу [`soup-cli`](https://github.com/MakazhanAlpamys/Soup) (нужен на хостах с Python 3.14+). |
 | `HF_HOME` / `TRANSFORMERS_CACHE` | `~/.cache/huggingface` | Каталог кэша моделей Hugging Face. |
 | `engine_optimizations.json` | Ресурс пакета `shard_engine` | Профиль оптимизаций (потоки CPU, флаги SIMD, батчи), читаемый через `importlib.resources`. |
 
