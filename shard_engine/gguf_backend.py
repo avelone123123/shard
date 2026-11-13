@@ -10,6 +10,7 @@ import sys
 import tarfile
 import time
 import zipfile
+from pathlib import Path
 from . import paths
 from . import settings
 _CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
@@ -218,8 +219,9 @@ def download_gguf(repo_id, selection):
     raise RuntimeError("GGUF скачан, но файл не найден в кэше")
 def _runtime_dirs():
     dirs = []
-    for d in (_RUNTIME_DIR, paths.runtime_dir()):
-        if d and d not in dirs:
+    home_rt = os.path.join(os.path.expanduser("~"), ".shard", "runtime")
+    for d in (_RUNTIME_DIR, paths.runtime_dir(), home_rt):
+        if d and os.path.normcase(os.path.abspath(d)) not in [os.path.normcase(os.path.abspath(x)) for x in dirs]:
             dirs.append(d)
     return dirs
 def _server_bin_name():
@@ -270,13 +272,46 @@ def _download_file(url, dest, progress_cb=None, chunk=1024 * 512):
     os.replace(tmp, dest)
     return dest
 def _extract_archive(archive_path, target_dir):
+    base = Path(target_dir).resolve()
+    base.mkdir(parents=True, exist_ok=True)
     if archive_path.endswith(".zip"):
         with zipfile.ZipFile(archive_path) as z:
-            z.extractall(target_dir)
+            for info in z.infolist():
+                norm = info.filename.replace("\\", "/").lstrip("/")
+                if not norm or ".." in norm.split("/") or (":" in norm.split("/")[0]):
+                    raise ValueError(f"Unsafe zip entry: {info.filename}")
+                mode = (info.external_attr >> 16) & 0o170000
+                if mode == 0o120000:
+                    raise ValueError(f"Symlink entry disallowed in zip: {info.filename}")
+                dest = (base / norm).resolve()
+                if not dest.is_relative_to(base):
+                    raise ValueError(f"Path traversal in zip entry: {info.filename}")
+                if info.is_dir():
+                    dest.mkdir(parents=True, exist_ok=True)
+                else:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with z.open(info, "r") as src, open(dest, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
         return
     if archive_path.endswith((".tar.gz", ".tgz")):
         with tarfile.open(archive_path, "r:gz") as t:
-            t.extractall(target_dir)
+            for member in t.getmembers():
+                norm = member.name.replace("\\", "/").lstrip("/")
+                if not norm or ".." in norm.split("/") or (":" in norm.split("/")[0]):
+                    raise ValueError(f"Unsafe tar entry: {member.name}")
+                if member.issym() or member.islnk() or member.ischr() or member.isblk() or member.isfifo():
+                    raise ValueError(f"Unsupported special tar entry: {member.name}")
+                dest = (base / norm).resolve()
+                if not dest.is_relative_to(base):
+                    raise ValueError(f"Path traversal in tar entry: {member.name}")
+                if member.isdir():
+                    dest.mkdir(parents=True, exist_ok=True)
+                elif member.isfile():
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    src = t.extractfile(member)
+                    if src is not None:
+                        with src, open(dest, "wb") as dst:
+                            shutil.copyfileobj(src, dst)
 def _platform_llama_assets():
     if sys.platform == "win32":
         use_cuda = os.environ.get("SHARD_LLAMA_CUDA", "0") == "1" and _nvidia_present()
@@ -477,4 +512,3 @@ class LlamaBackend:
             "ctx_tokens": self.ctx_tokens,
             "running": self.is_running(),
         }
-
