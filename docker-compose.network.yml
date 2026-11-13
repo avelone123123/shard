@@ -1,0 +1,54 @@
+services:
+  shard-discovery:
+    build:
+      context: .
+      dockerfile: Dockerfile.network
+    container_name: shard-discovery
+    user: "10001:10001"
+    command: ["discovery-serve"]
+    ports:
+      - "8090:8090"
+    environment:
+      - SHARD_HOST=0.0.0.0
+      - SHARD_PORT=8090
+      - SHARD_DISCOVERY_PORT=8090
+      - SHARD_DATA_DIR=/data/shard
+    volumes:
+      - shard_discovery_data:/data/shard
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+  shard-relay:
+    build:
+      context: .
+      dockerfile: Dockerfile.network
+    container_name: shard-relay
+    user: "10001:10001"
+    command: ["relay-serve"]
+    ports:
+      - "8091:8091"
+    environment:
+      - SHARD_HOST=0.0.0.0
+      - SHARD_PORT=8091
+      - SHARD_RELAY_PORT=8091
+      - SHARD_DATA_DIR=/data/shard
+    volumes:
+      - shard_relay_data:/data/shard
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+volumes:
+  shard_discovery_data:
+    name: shard_discovery_data_volume
+  shard_relay_data:
+    name: shard_relay_data_volume
