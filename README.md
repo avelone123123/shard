@@ -146,6 +146,7 @@ Every feature listed below is verified directly against the [SHARD source tree](
 | **API & Streaming** | **OpenAI & Anthropic Compatible Server** | [`server.py`](server.py) | Serves `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/messages` (Anthropic protocol), `/api/generate`, and `/api/generate/stream` with real-time Server-Sent Events (SSE) and optional API key auth (`shard key`). |
 | **Web Control Panel** | **Zero-Dependency Dashboard & Playground** | [`dashboard.html`](dashboard.html) | Built-in browser UI at `http://localhost:8000` with live GPU/VRAM/RAM telemetry, Hugging Face model search & download, quantization selector, streaming chat playground, LAN node manager, and one-click IDE integration snippets. |
 | **Containerization** | **Docker & NVIDIA GPU Compose Stack** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Production-ready container setup with persistent named volumes (`shard_models_volume`, `shard_data_volume`) and NVIDIA GPU reservation. |
+| **Collaborative Training** | **Optional SOUP Fine-Tuning Ecosystem** | [`soup_adapter.py`](shard_engine/soup_adapter.py), [`feedback.py`](shard_engine/feedback.py), [`training.py`](shard_engine/training.py), [`docs/COLLABORATIVE_TRAINING.md`](docs/COLLABORATIVE_TRAINING.md) | Privacy-first consent feedback, secret/PII redaction, immutable SFT/DPO dataset snapshots, SOUP training orchestration, Baseline vs Candidate eval, model versioning, deployment, and 1-click rollback. |
 
 ### Experimental Features
 - **Multi-Host `llama.cpp` RPC Tensor Distribution (`gguf_backend.py`, `lan.py`):** Distributed layer execution over TCP/RPC across heterogeneous LAN GPUs works best on low-latency wired Gigabit/2.5GbE Ethernet subnets; Wi-Fi links may experience higher inter-token latency.
@@ -293,6 +294,7 @@ shard lan off
 | `shard run` | `[model_id]` | Downloads (if needed), loads the model, and opens interactive terminal chat REPL. |
 | `shard list` | `[--category CAT]` | Lists cached and curated catalog models (`all`, `ideal`, `coding`, `reasoning`, `compact`). |
 | `shard lan` | `[status\|create\|join\|model\|off] [extra] [--share] [--open] [--model ID] [--port N]` | Creates, joins, configures, inspects, or stops distributed LAN compute pooling across machines. |
+| `shard training` | `[status\|doctor\|privacy\|feedback\|dataset\|start\|logs\|cancel\|resume\|models\|eval\|prepare\|approve\|deploy\|rollback]` | Manages consent feedback, dataset snapshots, SOUP fine-tuning jobs, evaluation, model deployment, and rollback ([Guide](docs/COLLABORATIVE_TRAINING.md)). |
 | `shard key` | `[--gen]` | Views the current local API key or generates a new token (`--gen`). |
 | `shard models-dir` | `[path \| reset]` | Views, updates, or resets the directory where model weights are stored. |
 | `shard test` | `[--strict-native]` | Verifies tensor math kernels and AVX2/pure-Python fallback throughput. |
@@ -313,6 +315,7 @@ SHARD stores user data outside `site-packages` following OS conventions (and rea
 | `SHARD_MODELS_DIR` | `<data_dir>/models` (`/data/models` in Docker) | Storage directory for downloaded Hugging Face SafeTensors and GGUF weights. |
 | `SHARD_NO_BROWSER` / `SHARD_DOCKER` | *(unset)* | Suppresses auto-opening a browser tab when starting SHARD. |
 | `SHARD_NATIVE_LIB` | *(auto-discovered)* | Path override to `shard_core.dll`/`.so`/`.dylib` (set `none` to force Python fallback). |
+| `SHARD_SOUP_PYTHON` / `SHARD_SOUP_CMD` | *(auto-discovered)* | Optional path to a Python 3.11–3.13 environment or binary running [`soup-cli`](https://github.com/MakazhanAlpamys/Soup) when training on Python 3.14+ hosts. |
 | `HF_HOME` / `TRANSFORMERS_CACHE` | `~/.cache/huggingface` | Standard Hugging Face cache override respected by `engine.py` and `hf_hub.py`. |
 | `engine_optimizations.json` | Packaged inside `shard_engine` | Runtime optimization profile loaded via `importlib.resources`. |
 
