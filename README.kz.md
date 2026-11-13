@@ -167,19 +167,22 @@ SHARD жұмыс процесі төрт негізгі қадамнан тұр�
 
 ### Орнату
 
-#### 1-нұсқа: pip арқылы орнату (ұсынылады)
-Репозиторийді клондамай-ақ кез келген бумадан SHARD-ты іске қосыңыз:
+#### 1-нұсқа: GitHub-тан pip арқылы орнату (ұсынылады)
+Репозиторийді қолмен клондамай-ақ кез келген бумадан SHARD-ты іске қосыңыз:
 ```bash
 # Негізгі орнату: CLI, FastAPI сервері, веб-тақта, GGUF (llama.cpp) және LAN-кластер
-pip install shard-engine
+pip install "git+https://github.com/avelone123123/shard.git"
 
 # Толық орнату: PyTorch/Transformers safetensors және Hugging Face модульдерін қосады
-pip install "shard-engine[full]"
+pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
+*PyPI туралы ескертпе:* `shard-engine` пакеті PyPI индексіндегі алғашқы жарияланымды күтуде. PyPI-де жарияланғаннан кейін `pip install shard-engine` және `pip install "shard-engine[full]"` тікелей PyPI-ден қолжетімді болады.
+
 Орнатудан кейін бірден ортаны тексеріңіз:
 ```bash
 shard doctor
 ```
+> **Windows PATH ескертпесі:** Егер Windows жүйесі `shard.exe` PATH ішінде табылмағанын хабарласа, SHARD-ты Python арқылы тікелей іске қоса аласыз: `python -m shard_engine <команда>` (мысалы, `python -m shard_engine help` немесе `python -m shard_engine start`).
 > **GPU және runtime ескертпесі:** GGUF бэкенді алғашқы іске қосуда `llama-server` / `ggml-rpc-server` бинарлық файлдарын автоматты түрде жүктейді және қосымша ML пакеттерін қажет етпейді. CUDA-мен PyTorch қолдану үшін алдымен үйлесімді `torch` нұсқасын орнатыңыз, содан кейін `pip install "shard-engine[full]"` орындаңыз.
 
 #### 2-нұсқа: Әзірлеушілерге арналған бастапқы кодтан орнату
