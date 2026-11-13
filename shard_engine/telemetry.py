@@ -17,3 +17,9 @@ class SpeedMovingAverage:
         self.samples.append((timestamp, byte_count))
         if len(self.samples) > self.window_size:
             self.samples.pop(0)
+    def current_speed(self) -> float:
+        if len(self.samples) < 2:
+            return 0.0
+        dt = self.samples[-1][0] - self.samples[0][0]
+        db = self.samples[-1][1] - self.samples[0][1]
+        return max(0.0, float(db) / dt) if dt > 0.001 else 0.0
