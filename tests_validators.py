@@ -13,3 +13,11 @@ class TestValidators(unittest.TestCase):
     def test_ip_address_validation(self):
         self.assertTrue(validators.validate_ip_address("127.0.0.1"))
         self.assertFalse(validators.validate_ip_address(""))
+    def test_repo_id_validation(self):
+        self.assertTrue(validators.validate_repo_id("meta-llama/Llama-3-8B"))
+        self.assertFalse(validators.validate_repo_id("no-author"))
+    def test_file_extension_validation(self):
+        self.assertTrue(validators.validate_file_extension("model.gguf"))
+        self.assertFalse(validators.validate_file_extension("model.exe"))
+if __name__ == "__main__":
+    unittest.main()
