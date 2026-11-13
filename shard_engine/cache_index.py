@@ -34,3 +34,4 @@ class LocalCacheIndex:
         return entry is not None and entry.file_size > 0 and os.path.exists(entry.local_path)
     def invalidate(self):
         self._entries.clear()
+__all__ = ["LocalCacheEntry", "LocalCacheIndex"]
