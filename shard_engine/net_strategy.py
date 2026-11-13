@@ -418,3 +418,433 @@ def _run_coro_sync(coro, timeout=None):
         in_loop = False
     if not in_loop:
         return asyncio.run(coro)
+    box = {}
+    err = {}
+    def _worker():
+        try:
+            box["val"] = asyncio.run(coro)
+        except BaseException as exc:
+            err["exc"] = exc
+    th = threading.Thread(target=_worker, daemon=True)
+    th.start()
+    th.join(timeout=timeout)
+    if th.is_alive():
+        raise TimeoutError("Async operation timed out")
+    if "exc" in err:
+        raise err["exc"]
+    return box.get("val")
+def probe_direct_e2e_tcp(host, port, expected_host_id, identity, auth_proof=None, timeout=3.0):
+    host_s = str(host or "").strip().strip("[]")
+    if not host_s:
+        return {"ok": False, "endpoint": "", "rtt_ms": None, "node_id": None, "reason": "invalid_host"}
+    try:
+        port_num = int(port)
+        if not (1 <= port_num <= 65535):
+            return {"ok": False, "endpoint": f"{host_s}:{port}", "rtt_ms": None, "node_id": None, "reason": "invalid_port"}
+    except Exception:
+        return {"ok": False, "endpoint": f"{host_s}:{port}", "rtt_ms": None, "node_id": None, "reason": "invalid_port"}
+    ep = f"[{host_s}]:{port_num}" if ":" in host_s else f"{host_s}:{port_num}"
+    if not isinstance(expected_host_id, str) or not net_identity.NODE_ID_RE.match(expected_host_id):
+        return {"ok": False, "endpoint": ep, "rtt_ms": None, "node_id": None, "reason": "invalid_host_id"}
+    to_s = max(0.3, float(timeout))
+    async def _probe():
+        agent = net_tunnel.ClientTunnelAgent(
+            identity=identity,
+            target_host_id=expected_host_id,
+            mode="direct",
+            direct_endpoints=[ep],
+            auth_proof=auth_proof,
+            connect_timeout_s=to_s,
+            ping_timeout_s=to_s,
+            reconnect=False,
+            verify_ping=True,
+        )
+        try:
+            ok = await agent.connect()
+            st = agent.status()
+            if ok and agent.state == TunnelState.CONNECTED and st.get("rtt_ms") is not None:
+                return {"ok": True, "endpoint": ep, "rtt_ms": st.get("rtt_ms"), "node_id": expected_host_id, "reason": "ok"}
+            return {"ok": False, "endpoint": ep, "rtt_ms": None, "node_id": None, "reason": st.get("last_error") or "probe_failed"}
+        except Exception as exc:
+            return {"ok": False, "endpoint": ep, "rtt_ms": None, "node_id": None, "reason": f"{type(exc).__name__}:{exc}"}
+        finally:
+            try:
+                await agent.disconnect()
+            except Exception:
+                pass
+    return _run_coro_sync(_probe(), timeout=to_s * 3.0 + 2.0)
+def _extract_host_port(endpoint, default_port=None):
+    raw = str(endpoint or "").strip()
+    if not raw:
+        return "", default_port
+    if "://" in raw:
+        parsed = urlsplit(raw)
+        host = (parsed.hostname or "").strip()
+        port = parsed.port or default_port
+        return host, port
+    if raw.startswith("[") and "]:" in raw:
+        host, port_s = raw[1:].split("]:", 1)
+        try:
+            return host.strip(), int(port_s)
+        except Exception:
+            return host.strip(), default_port
+    if raw.startswith("[") and raw.endswith("]"):
+        return raw[1:-1].strip(), default_port
+    if ":" in raw and raw.count(":") == 1:
+        host, port_s = raw.rsplit(":", 1)
+        try:
+            return host.strip(), int(port_s)
+        except Exception:
+            return host.strip(), default_port
+    return raw, default_port
+def _local_vpn_networks():
+    nets = list(_VPN_NETS)
+    try:
+        for item in lan.local_interfaces():
+            if item.get("kind") == "vpn" and item.get("cidr"):
+                try:
+                    nets.append(ipaddress.ip_network(item["cidr"], strict=False))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return nets
+def classify_endpoint_path(endpoint):
+    raw = str(endpoint or "").strip()
+    if raw.lower().startswith(("ws://", "wss://")):
+        return "relay"
+    host, _ = _extract_host_port(raw)
+    low = host.lower()
+    if not low:
+        return "direct_p2p"
+    if lan.is_loopback(low) or low == "localhost.localdomain":
+        return "same_machine"
+    try:
+        ip_obj = ipaddress.ip_address(low)
+    except ValueError:
+        return "direct_p2p"
+    if ip_obj.is_loopback:
+        return "same_machine"
+    if ip_obj.version == 4:
+        for net in _local_vpn_networks():
+            if ip_obj in net:
+                return "direct_p2p"
+        for net in _LAN_NETS_V4:
+            if ip_obj in net:
+                return "direct_lan"
+        return "direct_p2p"
+    for net in _LAN_NETS_V6:
+        if ip_obj in net:
+            return "direct_lan"
+    return "direct_p2p"
+def _is_local_or_lan_endpoint(endpoint):
+    ptype = classify_endpoint_path(endpoint)
+    return ptype in ("same_machine", "direct_lan")
+def parse_connect_target(target, default_port=None):
+    raw = str(target or "").strip()
+    if not raw:
+        raise ValueError("Connection target is required")
+    if raw.lower().startswith("shard://"):
+        parsed = net_identity.parse_invite_uri(raw)
+        return {"kind": "shard_uri", **parsed}
+    if net_identity.NODE_ID_RE.match(raw):
+        return {"kind": "node_id", "node_id": raw}
+    if raw.lower().startswith(("ws://", "wss://")):
+        return {"kind": "relay", "relay_url": raw}
+    if raw.lower().startswith(("http://", "https://")):
+        host, port = _extract_host_port(raw, default_port=default_port or lan.active_http_port())
+        return {"kind": "http", "host": host, "port": int(port), "url": _normalize_http_base(raw)}
+    host, port = _extract_host_port(raw, default_port=default_port)
+    clean_host, err = lan.validate_master_host(host)
+    if err:
+        raise ValueError(err)
+    return {"kind": "host_port", "host": clean_host, "port": int(port) if port is not None else None}
+class _LoopRunner:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._loop = None
+        self._thread = None
+        self._ready = threading.Event()
+    def _ensure_started(self):
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive() and self._loop is not None:
+                return self._loop
+            self._ready.clear()
+            loop = asyncio.new_event_loop()
+            self._loop = loop
+            def _run():
+                asyncio.set_event_loop(loop)
+                self._ready.set()
+                try:
+                    loop.run_forever()
+                finally:
+                    loop.close()
+            self._thread = threading.Thread(target=_run, daemon=True)
+            self._thread.start()
+        self._ready.wait(timeout=5.0)
+        return self._loop
+    def run_coro(self, coro, timeout=20.0):
+        loop = self._ensure_started()
+        fut = asyncio.run_coroutine_threadsafe(coro, loop)
+        return fut.result(timeout=timeout)
+    def stop(self):
+        with self._lock:
+            loop = self._loop
+            thread = self._thread
+            self._loop = None
+            self._thread = None
+        if loop is None or thread is None:
+            return
+        if loop.is_running():
+            async def _drain():
+                cur = asyncio.current_task()
+                tasks = [t for t in asyncio.all_tasks() if t is not cur and not t.done()]
+                for t in tasks:
+                    t.cancel()
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                loop.stop()
+            try:
+                fut = asyncio.run_coroutine_threadsafe(_drain(), loop)
+                fut.result(timeout=4.0)
+            except Exception:
+                try:
+                    loop.call_soon_threadsafe(loop.stop)
+                except Exception:
+                    pass
+        if thread.is_alive():
+            thread.join(timeout=3.0)
+def _build_failure_alternatives(offline_only, relay_urls, allow_relay_fallback, direct_endpoints, http_endpoints):
+    alts = []
+    if offline_only:
+        alts.append("offline_only is enabled: disable offline_only to allow P2P over internet or Relay fallback")
+    if not relay_urls:
+        alts.append("Configure one or more self-hosted or community Relay URLs (wss://...) for NAT traversal fallback")
+    elif not allow_relay_fallback:
+        alts.append("Enable allow_relay_fallback=True to allow E2E encrypted Relay fallback when direct connection fails")
+    if direct_endpoints or http_endpoints:
+        alts.append("Use a mesh VPN (WireGuard, Tailscale, Radmin VPN, or ZeroTier) and connect directly to the peer mesh IP")
+        alts.append("Ensure firewall allows inbound TCP on the SHARD port or forward the TCP port on your router")
+    else:
+        alts.append("Provide a valid shard:// invite URI, direct host:port, or configure Discovery/Relay URLs")
+    return alts
+def resolve_and_connect(
+    identity,
+    target_host_id=None,
+    direct_endpoints=(),
+    http_endpoints=(),
+    relay_urls=(),
+    auth_proof=None,
+    preferred_mode="auto",
+    offline_only=False,
+    allow_relay_fallback=True,
+    allow_p2p_direct=True,
+    allow_insecure_local=False,
+    connect_timeout_s=5.0,
+    ping_timeout_s=3.0,
+    reconnect=True,
+    verify_node_id=None,
+    runner=None,
+):
+    pref = str(preferred_mode or "auto").strip().lower()
+    if pref not in VALID_CONNECT_MODES:
+        raise ValueError(f"Unsupported preferred_mode: {preferred_mode}")
+    exp_node_id = verify_node_id or target_host_id
+    if exp_node_id and (not isinstance(exp_node_id, str) or not net_identity.NODE_ID_RE.match(exp_node_id)):
+        raise ValueError("Invalid target or verify node_id")
+    buckets = {p: [] for p in PATH_PRIORITY}
+    seen_candidates = set()
+    for ep in direct_endpoints or ():
+        s = str(ep or "").strip()
+        if not s:
+            continue
+        ptype = classify_endpoint_path(s)
+        if ptype == "relay":
+            continue
+        key = ("e2e_tcp", s)
+        if key not in seen_candidates:
+            seen_candidates.add(key)
+            buckets[ptype].append({"path_type": ptype, "transport": "e2e_tcp", "endpoint": s})
+    for h_url in http_endpoints or ():
+        base = _normalize_http_base(h_url)
+        if not base:
+            continue
+        ptype = classify_endpoint_path(base)
+        if ptype == "relay":
+            continue
+        key = ("http", base)
+        if key not in seen_candidates:
+            seen_candidates.add(key)
+            buckets[ptype].append({"path_type": ptype, "transport": "http", "endpoint": base})
+    for rurl in relay_urls or ():
+        s = str(rurl or "").strip()
+        if not s:
+            continue
+        key = ("relay_ws", s)
+        if key not in seen_candidates:
+            seen_candidates.add(key)
+            buckets["relay"].append({"path_type": "relay", "transport": "relay_ws", "endpoint": s})
+    ordered = []
+    for ptype in PATH_PRIORITY:
+        ordered.extend(buckets[ptype])
+    attempts = []
+    def _exec(coro):
+        if runner is not None:
+            return runner.run_coro(coro, timeout=float(connect_timeout_s) + float(ping_timeout_s) + 5.0)
+        return _run_coro_sync(coro, timeout=float(connect_timeout_s) + float(ping_timeout_s) + 5.0)
+    for cand in ordered:
+        ptype = cand["path_type"]
+        tr_kind = cand["transport"]
+        ep = cand["endpoint"]
+        if pref == "relay" and ptype != "relay":
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_mode_relay"})
+            continue
+        if pref == "direct" and ptype == "relay":
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_mode_direct"})
+            continue
+        if pref == "lan" and ptype not in ("same_machine", "direct_lan"):
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_mode_lan"})
+            continue
+        if pref == "p2p" and ptype == "relay":
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_mode_p2p"})
+            continue
+        if ptype == "direct_p2p" and not allow_p2p_direct:
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_p2p_disabled"})
+            continue
+        if ptype == "relay" and pref != "relay" and not allow_relay_fallback:
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_relay_disabled"})
+            continue
+        if offline_only and (ptype == "relay" or (ptype == "direct_p2p" and not _is_local_or_lan_endpoint(ep))):
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_offline_only"})
+            continue
+        if tr_kind in ("e2e_tcp", "relay_ws"):
+            if not exp_node_id:
+                attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "missing_target_node_id"})
+                continue
+            agent = net_tunnel.ClientTunnelAgent(
+                identity=identity,
+                target_host_id=exp_node_id,
+                mode="relay" if tr_kind == "relay_ws" else "direct",
+                direct_endpoints=[ep] if tr_kind == "e2e_tcp" else (),
+                relay_urls=[ep] if tr_kind == "relay_ws" else (),
+                auth_proof=auth_proof,
+                allow_insecure_local=allow_insecure_local,
+                connect_timeout_s=float(connect_timeout_s),
+                ping_timeout_s=float(ping_timeout_s),
+                reconnect=bool(reconnect),
+                verify_ping=True,
+            )
+            try:
+                ok = _exec(agent.connect())
+            except Exception as exc:
+                ok = False
+                agent._last_error = f"{type(exc).__name__}:{exc}"
+            st = agent.status()
+            expected_state = TunnelState.RELAY_CONNECTED.value if tr_kind == "relay_ws" else TunnelState.CONNECTED.value
+            if ok and st.get("state") == expected_state and st.get("rtt_ms") is not None and st.get("local_url"):
+                attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": True, "rtt_ms": st["rtt_ms"], "reason": "ok"})
+                return {
+                    "ok": True,
+                    "state": st["state"],
+                    "mode": "relay" if tr_kind == "relay_ws" else "direct",
+                    "path_type": ptype,
+                    "transport": tr_kind,
+                    "endpoint": ep,
+                    "relay_url": ep if tr_kind == "relay_ws" else None,
+                    "local_url": st["local_url"],
+                    "rtt_ms": st["rtt_ms"],
+                    "peer_node_id": exp_node_id,
+                    "agent": agent,
+                    "attempts": attempts,
+                    "reason": "ok",
+                    "alternatives": [],
+                }
+            reason = st.get("last_error") or "tunnel_connect_failed"
+            try:
+                _exec(agent.disconnect())
+            except Exception:
+                pass
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": reason})
+            continue
+        if tr_kind == "http":
+            res = probe_direct_http(ep, expected_node_id=exp_node_id, identity=identity, timeout=min(float(connect_timeout_s), float(ping_timeout_s)))
+            attempts.append({"path_type": ptype, "transport": "http", "endpoint": ep, "ok": bool(res["ok"]), "rtt_ms": res.get("rtt_ms"), "reason": res.get("reason")})
+            if res["ok"]:
+                return {
+                    "ok": True,
+                    "state": TunnelState.CONNECTED.value,
+                    "mode": "direct",
+                    "path_type": ptype,
+                    "transport": "http",
+                    "endpoint": ep,
+                    "relay_url": None,
+                    "local_url": res["url"],
+                    "rtt_ms": res["rtt_ms"],
+                    "peer_node_id": res.get("node_id") or exp_node_id,
+                    "ping": res.get("ping"),
+                    "bootstrap": res.get("bootstrap"),
+                    "agent": None,
+                    "attempts": attempts,
+                    "reason": "ok",
+                    "alternatives": [],
+                }
+    last_reason = next((a["reason"] for a in reversed(attempts) if a.get("reason") and not str(a["reason"]).startswith("skipped_")), None)
+    if not last_reason:
+        last_reason = "no_reachable_endpoints" if ordered else "no_endpoints_provided"
+    return {
+        "ok": False,
+        "state": TunnelState.FAILED.value,
+        "mode": None,
+        "path_type": None,
+        "transport": None,
+        "endpoint": None,
+        "relay_url": None,
+        "local_url": None,
+        "rtt_ms": None,
+        "peer_node_id": exp_node_id,
+        "agent": None,
+        "attempts": attempts,
+        "reason": last_reason,
+        "alternatives": _build_failure_alternatives(offline_only, relay_urls, allow_relay_fallback, direct_endpoints, http_endpoints),
+    }
+def network_diagnostics(probe_public=False, offline_only=False, port=None, stun_servers=None, include_platform=True, include_wireguard=True):
+    http_port = int(port or lan.active_http_port())
+    lan_rep = lan.connectivity_report(probe_public=False)
+    stun_rep = stun_nat_profile(stun_servers=stun_servers, offline_only=offline_only) if probe_public else {
+        "ok": False,
+        "offline_only": bool(offline_only),
+        "nat_type": "unknown",
+        "symmetric_nat": None,
+        "endpoints": [],
+        "reason": "skipped",
+    }
+    wg_rep = net_wireguard.detect_wireguard() if include_wireguard else None
+    plat_rep = None
+    if include_platform:
+        if os.name == "nt":
+            plat_rep = net_platform_win.windows_diagnostics(port=http_port, extra_ports=(lan.BEACON_PORT,))
+        elif sys.platform.startswith("linux"):
+            plat_rep = net_platform_linux.linux_diagnostics(ports=(http_port, lan.BEACON_PORT))
+        else:
+            plat_rep = {"platform": sys.platform, "supported": False}
+    return {
+        "port": http_port,
+        "offline_only": bool(offline_only),
+        "lan": lan_rep,
+        "stun": stun_rep,
+        "wireguard": wg_rep,
+        "platform": plat_rep,
+    }
+class NetworkManager:
+    def __init__(
+        self,
+        config_path=None,
+        peers_path=None,
+        identity_path=None,
+        invites_path=None,
+        asgi_app=None,
+        local_http_url=None,
+        model_provider=None,
+        load_provider=None,
+        status_provider=None,
+    ):
