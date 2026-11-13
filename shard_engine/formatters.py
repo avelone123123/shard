@@ -8,3 +8,12 @@ def format_bytes(num_bytes: int) -> str:
     return f"{n:.1f} TB"
 def format_speed(bytes_per_sec: float) -> str:
     return f"{format_bytes(int(bytes_per_sec))}/s"
+def format_eta(seconds: float) -> str:
+    s = max(0, int(seconds))
+    if s < 60:
+        return f"{s}s"
+    m, rem = divmod(s, 60)
+    if m < 60:
+        return f"{m}m {rem}s"
+    h, m = divmod(m, 60)
+    return f"{h}h {m}m"
