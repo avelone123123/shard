@@ -588,7 +588,9 @@ static void StartLocalServerSilent() {
     if (g_hwnd) PostMessageW(g_hwnd, WM_SHARD_REFRESH, 0, 0);
     std::wstring exeDir = GetExeDirectory();
     std::wstring pyExe = FindPythonExecutable();
-    std::wstring cmdLine = L"\"" + pyExe + L"\" -m uvicorn server:app --app-dir \"" + exeDir + L"\" --host 127.0.0.1 --port 8000 --log-level warning";
+    const wchar_t* envHost = _wgetenv(L"SHARD_HOST");
+    std::wstring bindHost = (envHost && *envHost) ? envHost : L"0.0.0.0";
+    std::wstring cmdLine = L"\"" + pyExe + L"\" -m uvicorn server:app --app-dir \"" + exeDir + L"\" --host " + bindHost + L" --port 8000 --log-level warning";
     STARTUPINFOW si = {};
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESHOWWINDOW;
