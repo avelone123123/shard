@@ -1,4 +1,3 @@
-import json
 import os
 import signal
 import socket
@@ -6,24 +5,18 @@ import subprocess
 import sys
 import time
 from . import paths
+from . import storage
 _WIN_DETACHED = 0x00000008
 _WIN_NEW_GROUP = 0x00000200
 _WIN_NO_WINDOW = 0x08000000
 def read_pid_info():
     pf = paths.pid_file()
-    if not os.path.isfile(pf):
-        return None
-    try:
-        with open(pf, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if isinstance(data, dict) and isinstance(data.get("pid"), int):
-            return data
-    except Exception:
-        pass
+    data = storage.read_json_safe(pf, default=None, expected_type=dict, quarantine=False, use_backup=False)
+    if isinstance(data, dict) and isinstance(data.get("pid"), int):
+        return data
     return None
 def write_pid_info(pid, host, port):
     pf = paths.pid_file()
-    os.makedirs(os.path.dirname(pf), exist_ok=True)
     payload = {
         "pid": int(pid),
         "host": str(host),
@@ -31,16 +24,14 @@ def write_pid_info(pid, host, port):
         "started_at": time.time(),
         "executable": sys.executable,
     }
-    tmp = pf + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
-    os.replace(tmp, pf)
+    storage.atomic_write_json(pf, payload, fsync=False, backup=False, restrict=True)
     return payload
 def clear_pid_info():
     pf = paths.pid_file()
     try:
-        if os.path.exists(pf):
-            os.remove(pf)
+        with storage.file_lock(pf):
+            if os.path.exists(pf):
+                os.remove(pf)
     except Exception:
         pass
 def is_pid_running(pid):
