@@ -154,6 +154,26 @@ main{flex:1;padding:24px 28px;max-width:1440px;margin:0 auto;width:100%;}
 .modal-close-btn{background:transparent;border:none;color:#94a3b8;cursor:pointer;padding:6px;border-radius:5px;display:flex;align-items:center;transition:all 0.15s;}
 .modal-close-btn:hover{background:#1e2638;color:#fff;}
 .modal-body{flex:1;overflow-y:auto;padding:24px 28px;line-height:1.7;color:#cbd5e1;font-size:13px;}
+.trn-subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.trn-subbtn{background:#0f131d;border:1px solid var(--border);color:var(--text-muted);padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s;}
+.trn-subbtn.active{background:#192234;border-color:#38bdf8;color:#fff;font-weight:600;}
+.trn-panel{display:none;}
+.trn-panel.active{display:block;}
+.trn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px;}
+.trn-stat{background:#0c0e14;border:1px solid var(--border);border-radius:8px;padding:14px;}
+.trn-stat-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;}
+.trn-stat-val{font-size:18px;font-weight:700;color:#fff;}
+.trn-stat-sub{font-size:11px;color:#64748b;margin-top:4px;}
+.trn-input{width:100%;background:#0a0d14;border:1px solid #212736;color:#e2e8f0;border-radius:6px;padding:7px 10px;font-size:12px;outline:none;}
+.trn-input:focus{border-color:#38bdf8;}
+.trn-row{background:#0c0e14;border:1px solid #1e2638;border-radius:7px;padding:12px;margin-bottom:8px;}
+.trn-log{background:#07090e;border:1px solid #1e2638;border-radius:6px;padding:12px;font-family:Consolas,monospace;font-size:11px;color:#94a3b8;max-height:220px;overflow-y:auto;white-space:pre-wrap;line-height:1.5;}
+.fb-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:8px;border-top:1px dashed #1e2638;margin-top:4px;font-size:11px;color:var(--text-muted);}
+.fb-btn{background:#0c0e14;border:1px solid #242c3d;color:#94a3b8;border-radius:5px;padding:3px 9px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s;}
+.fb-btn:hover{border-color:#38bdf8;color:#fff;}
+.fb-btn.selected{border-color:#10b981;color:#10b981;background:rgba(16,185,129,0.08);}
+.fb-drawer{background:#0a0d14;border:1px solid #1e293b;border-radius:6px;padding:10px;margin-top:6px;display:none;flex-direction:column;gap:8px;}
+.fb-drawer.open{display:flex;}
 </style>
 </head>
 <body>
@@ -232,33 +252,37 @@ main{flex:1;padding:24px 28px;max-width:1440px;margin:0 auto;width:100%;}
 </div>
 </div>
 <div class="hw-bar">
-<div class="hw-item"><span>ЯДРО</span><b id="hwCore">C++20 / MASM AVX2</b></div>
-<div class="hw-item"><span>GPU</span><b id="hwGpu">Поиск...</b></div>
-<div class="hw-item"><span>VRAM</span><b id="hwVram">0 / 0 MB</b></div>
-<div class="hw-item"><span>RAM</span><b id="hwRam">0 / 0 GB</b></div>
+<div class="hw-item owner-only-hw"><span>ЯДРО</span><b id="hwCore">C++20 / MASM AVX2</b></div>
+<div class="hw-item owner-only-hw"><span>GPU</span><b id="hwGpu">Поиск...</b></div>
+<div class="hw-item owner-only-hw"><span>VRAM</span><b id="hwVram">0 / 0 MB</b></div>
+<div class="hw-item owner-only-hw"><span>RAM</span><b id="hwRam">0 / 0 GB</b></div>
 <div class="hw-item"><span>МОДЕЛЬ</span><b id="hwModel" style="color:#10b981;">Не загружена</b></div>
 </div>
 </header>
 <div class="nav-tabs">
-<button class="nav-btn active" onclick="showTab('market', this)">
+<button id="navMarketBtn" class="nav-btn active" onclick="showTab('market', this)">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
 Каталог
 </button>
-<button class="nav-btn" onclick="showTab('connect', this)">
+<button id="navConnectBtn" class="nav-btn" onclick="showTab('connect', this)">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
 Инструкции и Подключение
 </button>
-<button class="nav-btn" onclick="showTab('chat', this)">
+<button id="navChatBtn" class="nav-btn" onclick="showTab('chat', this)">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
 Чат
 </button>
-<button class="nav-btn" onclick="showTab('keys', this)">
+<button id="navKeysBtn" class="nav-btn" onclick="showTab('keys', this)">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg>
 API Ключи
 </button>
-<button class="nav-btn" onclick="showTab('network', this)">
+<button id="navNetworkBtn" class="nav-btn" onclick="showTab('network', this)">
 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
 Сеть
+</button>
+<button id="navTrainingBtn" class="nav-btn" onclick="showTab('training', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+Обучение (SOUP)
 </button>
 </div>
 <div id="globalLoadingBanner" class="global-loading-banner" style="display:none;">
@@ -557,6 +581,7 @@ macOS
 <span id="chatLoadingTag" class="chat-loading-tag" style="display:none;"></span>
 </div>
 <div class="chat-header-live">
+<span id="chatFeedbackPolicyBadge" style="color:#8892a4;font-size:11px;cursor:pointer;" onclick="openMyContributions()" title="Просмотр или отзыв вкладов">Вклады и согласие</span>
 <span id="chatCoreBadge">C++20 Zero-Copy / AVX2 ASM</span>
 <span id="chatLiveSpeed" style="color:#38bdf8;">Готов к запросам</span>
 </div>
@@ -587,17 +612,135 @@ macOS
 </div>
 </div>
 <div id="tab-network" class="section">
+<div class="info-card" style="margin-bottom:16px;">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+<div>
+<h3 style="margin:0 0 4px 0;">Глобальная сеть SHARD (P2P & Relay)</h3>
+<p style="margin:0;font-size:12px;color:var(--text-muted);">Децентрализованная сеть обмена вычислительными узлами: сквозное шифрование ChaCha20-Poly1305, авто-выбор маршрута (LAN &rarr; P2P &rarr; Слепой Relay), без централизованных серверов.</p>
+</div>
+<div style="display:flex;gap:8px;align-items:center;">
+<span id="netGlobalNodeBadge" style="font-size:11px;padding:4px 8px;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#8b949e;font-family:monospace;">Node: ...</span>
+<button class="btn-action" onclick="netRefresh(true)">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+Обновить
+</button>
+</div>
+</div>
+<div class="trn-subtabs" style="margin-bottom:16px;">
+<button id="netSubBtn-browser" class="trn-subbtn active" onclick="netSubTab('browser', this)">Каталог серверов</button>
+<button id="netSubBtn-invites" class="trn-subbtn" onclick="netSubTab('invites', this)">Инвайты и Подключение</button>
+<button id="netSubBtn-host" class="trn-subbtn" onclick="netSubTab('host', this)">Хостинг и Участники</button>
+<button id="netSubBtn-lan" class="trn-subbtn" onclick="netSubTab('lan', this)">Локальный кластер (LAN)</button>
+<button id="netSubBtn-settings" class="trn-subbtn" onclick="netSubTab('settings', this)">Свои серверы и Диагностика</button>
+</div>
+<div id="netActiveConnBanner" style="display:none;background:#0d1117;border:1px solid #238636;border-radius:8px;padding:12px;margin-bottom:16px;"></div>
+<div id="net-panel-browser" class="trn-panel active">
+<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+<input id="netSearchQ" placeholder="Поиск по модели или имени..." class="trn-input" style="flex:2;min-width:180px;" onkeydown="if(event.key==='Enter')netLoadServers()">
+<input id="netSearchRegion" placeholder="Регион (e.g. eu, us, kz)" class="trn-input" style="flex:1;min-width:110px;" onkeydown="if(event.key==='Enter')netLoadServers()">
+<select id="netSearchAccess" class="trn-input" style="flex:1;min-width:110px;" onchange="netLoadServers()">
+<option value="">Все типы доступа</option>
+<option value="open">Открытые</option>
+<option value="invite_only">По инвайту</option>
+<option value="owner_confirm">С подтверждением</option>
+</select>
+<button class="btn-action active" onclick="netLoadServers()">Найти</button>
+</div>
+<div id="netServersGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:12px;">Загрузка серверов...</div>
+</div>
+<div id="net-panel-invites" class="trn-panel">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Подключиться по инвайту или адресу</div>
+<input id="netConnectTarget" placeholder="shard://... или shn_... или IP:порт" class="trn-input" style="margin-bottom:8px;">
+<div style="display:flex;gap:8px;align-items:center;">
+<select id="netConnectMode" class="trn-input" style="width:140px;">
+<option value="auto">Авто (LAN&rarr;P2P&rarr;Relay)</option>
+<option value="direct">Только Direct</option>
+<option value="relay">Только Relay</option>
+</select>
+<button class="btn-action active" onclick="netConnectDirect()">Подключиться</button>
+</div>
+</div>
+<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Создать криптографический инвайт</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+<select id="netInviteTtl" class="trn-input">
+<option value="3600">1 час</option>
+<option value="86400" selected>24 часа</option>
+<option value="604800">7 дней</option>
+<option value="2592000">30 дней</option>
+</select>
+<input id="netInviteMaxUses" type="number" min="1" max="1000" value="1" placeholder="Макс. использований" class="trn-input">
+</div>
+<input id="netInviteLabel" placeholder="Метка (e.g. для команды)" class="trn-input" style="margin-bottom:8px;">
+<button class="btn-action" onclick="netCreateInvite()">Сгенерировать инвайт</button>
+</div>
+</div>
+<div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:8px;">Активные приглашения</div>
+<div id="netInvitesList">Загрузка инвайтов...</div>
+</div>
+<div id="net-panel-host" class="trn-panel">
+<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:14px;margin-bottom:16px;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
+<div>
+<div style="font-size:13px;font-weight:600;color:#fff;">Публикация своего сервера в сети</div>
+<div style="font-size:12px;color:var(--text-muted);">Разрешить удалённым пользователям подключаться к локально загруженной модели через сквозной туннель.</div>
+</div>
+<div style="display:flex;gap:8px;">
+<button id="netPublishToggleBtn" class="btn-action active" onclick="netTogglePublish()">Опубликовать</button>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+<input id="netHostName" placeholder="Имя сервера" class="trn-input">
+<input id="netHostRegion" placeholder="Регион (e.g. kz, ru, eu)" class="trn-input">
+<select id="netHostVisibility" class="trn-input">
+<option value="public">Публичный (виден в каталоге)</option>
+<option value="private">Приватный (только по инвайтам)</option>
+<option value="local">Только локальный (LAN/VPN)</option>
+</select>
+<select id="netHostAccess" class="trn-input">
+<option value="open">Открытый (без подтверждения)</option>
+<option value="invite_only">Только по инвайту</option>
+<option value="owner_confirm">С ручным одобрением владельца</option>
+</select>
+<input id="netHostMaxPeers" type="number" min="1" max="128" value="8" placeholder="Макс. пиров" class="trn-input">
+<input id="netHostBandwidth" type="number" min="0" value="0" placeholder="Лимит полосы kbps (0=без лимита)" class="trn-input">
+</div>
+<button class="btn-action" onclick="netSaveHostConfig()">Сохранить настройки хоста</button>
+</div>
+<div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:8px;">Подключённые и ожидающие пиры</div>
+<div id="netPeersList">Загрузка списка пиров...</div>
+</div>
+<div id="net-panel-lan" class="trn-panel">
 <div class="info-card">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
 <div>
 <h3>Shard-сеть (LAN)</h3>
 <p style="margin:0;">Объединяйте машины в одну сеть — память устройств складывается, и большие модели влезают даже без одной мощной GPU. Работает поверх Radmin VPN / ZeroTier / Tailscale.</p>
 </div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<button id="lanInviteBtn" class="btn-action" onclick="lanShowInvite()">Пригласить</button>
+<button id="lanDiagBtn" class="btn-action" onclick="lanRunDiagnose()">Диагностика сети</button>
 <button class="btn-action" onclick="lanRefresh()">Обновить</button>
 </div>
+</div>
 <div id="lanStatusBox" style="margin-bottom:16px;">Загрузка...</div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div id="lanDiagBox" style="margin-bottom:16px;display:none;"></div>
+<div id="lanClientCard" style="display:none;background:#0d1117;border:1px solid #1e3a8a;border-radius:8px;padding:12px;margin-bottom:12px;">
+<div style="font-size:13px;color:#e6edf3;font-weight:600;margin-bottom:6px;">Клиентская сессия подключения</div>
+<div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Введите имя и код подключения (если сервер закрытый), чтобы получить токен участника для чата и отзывов.</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+<input id="lanClientName" placeholder="Ваше имя (необязательно)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;">
+<input id="lanClientCode" placeholder="Код подключения ABCD-EFGH" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;">
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<button class="btn-action active" onclick="clientPairToHost()">Подключиться к серверу</button>
+<button class="btn-action" onclick="clientLeaveHost()">Выйти из сессии</button>
+</div>
+</div>
+<div id="lanOwnerGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+<div id="lanCreateCard" style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
 <div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Создать сеть на этом ПК (мастер)</div>
 <input id="lanName" placeholder="Имя сети (необязательно)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;margin-bottom:8px;cursor:pointer;">
@@ -605,9 +748,12 @@ macOS
 </label>
 <button class="btn-action" onclick="lanCreate()">Создать сеть</button>
 </div>
-<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div id="lanJoinCard" style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
 <div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Подключиться к сети мастера</div>
-<input id="lanJoinIp" placeholder="IP мастера (из shard lan create)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
+<div style="display:flex;gap:8px;margin-bottom:8px;">
+<input id="lanJoinIp" placeholder="IP мастера (из shard lan create)" style="flex:1;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;">
+<input id="lanJoinPort" type="number" min="1" max="65535" value="8000" placeholder="Порт" style="width:92px;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;">
+</div>
 <input id="lanJoinCode" placeholder="Код вида ABCD-EFGH (для открытой сети не нужен)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="lanShare"> Стать вычислительным узлом (отдать VRAM/RAM)
@@ -615,8 +761,184 @@ macOS
 <button class="btn-action" onclick="lanJoin()">Подключиться</button>
 </div>
 </div>
-<div style="margin-top:10px;text-align:right;">
+<div id="lanOffWrap" style="margin-top:10px;text-align:right;">
 <button class="btn-action" onclick="lanOff()" style="border-color:#f85149;color:#f85149;">Отключить сеть</button>
+</div>
+</div>
+</div>
+<div id="net-panel-settings" class="trn-panel">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px;">Свои серверы Discovery</div>
+<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Адреса Discovery-серверов (по одному на строку). Пусто = сервер по умолчанию.</div>
+<textarea id="netCfgDiscoveryUrls" class="trn-input" rows="3" style="resize:vertical;margin-bottom:8px;"></textarea>
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px;">Свои слепые Relay-серверы</div>
+<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Адреса WebSocket Relay-серверов (по одному на строку).</div>
+<textarea id="netCfgRelayUrls" class="trn-input" rows="3" style="resize:vertical;margin-bottom:8px;"></textarea>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#cbd5e1;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="netCfgOfflineOnly"> Автономный режим (offline_only) — запрет внешних сетевых запросов
+</label>
+<button class="btn-action" onclick="netSaveServersConfig()">Сохранить настройки серверов</button>
+</div>
+<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+<div style="font-size:13px;font-weight:600;color:#fff;">Сетевая диагностика и WireGuard</div>
+<button class="btn-action" onclick="netRunDiag()">Запустить аудит</button>
+</div>
+<div id="netDiagOutput" style="font-size:12px;color:var(--text-muted);font-family:monospace;white-space:pre-wrap;background:#080a0f;padding:10px;border-radius:6px;border:1px solid #21262d;max-height:260px;overflow-y:auto;">Нажмите «Запустить аудит» для проверки платформы, брандмауэра и STUN NAT.</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tab-training" class="section">
+<div class="info-card" style="margin-bottom:16px;">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+<div>
+<h3>Совместное обучение моделей (SHARD x SOUP)</h3>
+<p style="margin:0;">Сбор отзывов по явному согласию, очистка данных, дообучение через SOUP, оценка качества, деплой и безопасный откат.</p>
+</div>
+<div style="display:flex;gap:8px;align-items:center;">
+<button class="btn-action" onclick="trnRollback()" style="border-color:#d97706;color:#fbbf24;">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+Откатить версию
+</button>
+<button class="btn-action" onclick="trnRefresh(true)">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+Обновить
+</button>
+</div>
+</div>
+<div class="trn-subtabs">
+<button class="trn-subbtn active" onclick="trnSubTab('overview', this)">Обзор</button>
+<button class="trn-subbtn" onclick="trnSubTab('feedback', this)">Отзывы и Датасеты</button>
+<button class="trn-subbtn" onclick="trnSubTab('jobs', this)">Обучение (SOUP)</button>
+<button class="trn-subbtn" onclick="trnSubTab('versions', this)">Версии и Деплой</button>
+<button class="trn-subbtn" onclick="trnSubTab('privacy', this)">Приватность и Доступ</button>
+</div>
+<div id="trn-panel-overview" class="trn-panel active">
+<div class="trn-grid" id="trnOverviewCards"></div>
+<div id="trnSoupBanner" class="trn-row" style="font-size:12px;">Проверка окружения SOUP...</div>
+<div style="font-size:12px;color:#94a3b8;margin:12px 0 6px;font-weight:600;">Журнал событий (Audit Log)</div>
+<div id="trnAuditList" class="trn-log" style="max-height:170px;">Нет событий</div>
+</div>
+<div id="trn-panel-feedback" class="trn-panel">
+<div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;">
+<div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+<div style="display:flex;gap:6px;">
+<button class="filter-btn active" onclick="trnLoadFeedback('pending', this)">На проверке</button>
+<button class="filter-btn" onclick="trnLoadFeedback('approved', this)">Одобренные</button>
+<button class="filter-btn" onclick="trnLoadFeedback('rejected', this)">Отклонённые</button>
+</div>
+<span id="trnFeedbackMeta" style="font-size:11px;color:#8892a4;"></span>
+</div>
+<div id="trnFeedbackQueue">Загрузка отзывов...</div>
+</div>
+<div class="trn-row">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">Собрать неизменяемый датасет</div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Формат / задача SOUP</label>
+<select id="trnDsTask" class="trn-input" style="margin-bottom:8px;">
+<option value="sft">SFT (chatml — ответы и исправления)</option>
+<option value="dpo">DPO (пары prompt / chosen / rejected)</option>
+</select>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Имя снимка (опционально)</label>
+<input id="trnDsName" class="trn-input" placeholder="e.g. coding-v1" style="margin-bottom:8px;">
+<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-bottom:10px;cursor:pointer;">
+<input type="checkbox" id="trnDsIncludePending"> Включить непроверенные (pending)
+</label>
+<button class="btn-action active" style="width:100%;justify-content:center;" onclick="trnBuildDataset()">Собрать датасет</button>
+<div style="font-size:12px;font-weight:600;color:#cbd5e1;margin:14px 0 8px;">Сохранённые датасеты</div>
+<div id="trnDatasetsList" style="font-size:12px;color:#8892a4;">Нет датасетов</div>
+</div>
+</div>
+</div>
+<div id="trn-panel-jobs" class="trn-panel">
+<div style="display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start;">
+<div class="trn-row">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">Запуск обучения (SOUP)</div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Датасет</label>
+<select id="trnJobDataset" class="trn-input" style="margin-bottom:8px;"></select>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Базовая модель (HF ID или локальная папка)</label>
+<input id="trnJobBase" class="trn-input" placeholder="Qwen/Qwen2.5-Coder-1.5B-Instruct" style="margin-bottom:8px;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+<div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Метод</label>
+<select id="trnJobTask" class="trn-input">
+<option value="sft">SFT</option>
+<option value="dpo">DPO</option>
+</select>
+</div>
+<div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Квантование</label>
+<select id="trnJobQuant" class="trn-input">
+<option value="4bit">4bit (QLoRA)</option>
+<option value="8bit">8bit</option>
+<option value="none">none (FP16)</option>
+</select>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+<div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Эпохи</label>
+<input id="trnJobEpochs" type="number" class="trn-input" value="3" min="1" max="50">
+</div>
+<div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Learning Rate</label>
+<input id="trnJobLr" class="trn-input" value="0.00002">
+</div>
+</div>
+<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-bottom:6px;cursor:pointer;">
+<input type="checkbox" id="trnJobUnload" checked> Выгрузить модель инференса перед стартом (защита от OOM)
+</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-bottom:10px;cursor:pointer;">
+<input type="checkbox" id="trnJobDryRun"> Dry-Run (проверить конфиг soup.yaml без обучения)
+</label>
+<button class="btn-action active" style="width:100%;justify-content:center;" onclick="trnStartJob()">Запустить обучение</button>
+</div>
+<div>
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Задания обучения</div>
+<div id="trnJobsList">Нет заданий</div>
+<div id="trnJobLogBox" style="display:none;margin-top:10px;">
+<div style="font-size:11px;color:#38bdf8;margin-bottom:4px;" id="trnJobLogTitle">Лог задания</div>
+<pre id="trnJobLogPre" class="trn-log"></pre>
+</div>
+</div>
+</div>
+</div>
+<div id="trn-panel-versions" class="trn-panel">
+<div style="font-size:12px;color:#8892a4;margin-bottom:10px;">Каждая обученная версия проверяется сравнением Baseline vs Candidate. Для деплоя требуется явное подтверждение владельца.</div>
+<div id="trnVersionsList">Нет зарегистрированных версий</div>
+</div>
+<div id="trn-panel-privacy" class="trn-panel">
+<div class="trn-row">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">Политика приватности и прав доступа</div>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="prvAllowFeedback"> Разрешить сбор явных отзывов в интерфейсе
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="prvAllowRemote"> Разрешить удалённым клиентам LAN отправлять отзывы (по умолчанию ВЫКЛ)
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="prvRequireConsent"> Требовать явную галочку согласия для каждого вклада
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="prvRequireReview"> Требовать ручную модерацию владельцем перед экспортом в датасет
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="prvRedactSecrets"> Автоматически редактировать API-ключи, токены и секреты перед записью
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:12px;cursor:pointer;">
+<input type="checkbox" id="prvRedactPii"> Автоматически маскировать email и телефоны перед записью
+</label>
+<div style="font-size:11px;color:#64748b;margin-bottom:12px;">Хранение сырых переписок отключено на уровне ядра: обычные чаты и API-вызовы никогда не сохраняются без явного вклада пользователя. Удалённые клиенты не имеют доступа к запуску обучения, датасетам и деплою (HTTP 403).</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<button class="btn-action active" onclick="trnSavePrivacy()">Сохранить настройки приватности</button>
+<button class="btn-action" onclick="trnBackupState()">Создать бэкап состояния</button>
+<button class="btn-action" onclick="trnPruneFeedback()">Очистить истёкшие отзывы</button>
+</div>
+<div id="trnBackupOut" style="font-size:11px;color:#94a3b8;margin-top:8px;"></div>
+</div>
 </div>
 </div>
 </div>
@@ -632,10 +954,50 @@ let isChatStreaming = false;
 let chatSessions = [];
 let activeChatId = null;
 let activeApiKey = '';
+let shardBoot = {client_mode: false, is_owner: true};
+try {
+    const bootEl = document.getElementById('shard-boot');
+    if (bootEl && bootEl.textContent) shardBoot = JSON.parse(bootEl.textContent);
+} catch(e) {}
+let clientLanSession = null;
+try {
+    const rawSess = sessionStorage.getItem('shard_client_lan_session');
+    if (rawSess) clientLanSession = JSON.parse(rawSess);
+} catch(e) {}
+function escHtml(v) {
+    return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+function safeHref(u) {
+    const s = String(u || '').trim();
+    if (!s) return '#';
+    if (s.startsWith('/') || s.startsWith('#') || /^https?:\/\//i.test(s)) return s;
+    return '#';
+}
+function getClientSessionId() {
+    if (clientLanSession && clientLanSession.client_id) return clientLanSession.client_id;
+    let cid = '';
+    try { cid = sessionStorage.getItem('shard_client_id') || ''; } catch(e) {}
+    if (!cid) {
+        cid = 'web-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
+        try { sessionStorage.setItem('shard_client_id', cid); } catch(e) {}
+    }
+    return cid;
+}
+function getAuthHeaders(extra) {
+    const h = Object.assign({}, extra || {});
+    const tok = (clientLanSession && clientLanSession.token) || activeApiKey || '';
+    if (tok) h['Authorization'] = 'Bearer ' + tok;
+    return h;
+}
 function showToast(title, sub) {
     const el = document.getElementById('toast');
     if (toastTimeout) clearTimeout(toastTimeout);
-    el.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><div><div class="toast-title">' + title + '</div><div class="toast-sub">' + sub + '</div></div>';
+    el.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><div><div class="toast-title">' + escHtml(title) + '</div><div class="toast-sub">' + escHtml(sub) + '</div></div>';
     el.classList.add('visible');
     toastTimeout = setTimeout(() => { el.classList.remove('visible'); }, 3200);
 }
@@ -668,24 +1030,35 @@ function copyOpenCodeManual() {
 function copyEnvManual() {
     copyText('codeEnvManual', 'Команды env скопированы');
 }
+let lanPollTimer = null;
 function showTab(id, btn) {
+    if (shardBoot.client_mode && (id !== 'chat' && id !== 'network')) return;
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-' + id).classList.add('active');
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (lanPollTimer) { clearInterval(lanPollTimer); lanPollTimer = null; }
     if (id === 'connect') updateGuide();
     if (id === 'keys') loadKeys();
-    if (id === 'network') lanRefresh();
+    if (id === 'network') {
+        netRefresh(true);
+        lanRefresh();
+        lanPollTimer = setInterval(() => { netRefresh(false); lanRefresh(); }, 5000);
+    }
+    if (id === 'training') trnRefresh(false);
 }
 function lanEsc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g,
-        c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    return escHtml(s);
 }
 async function lanRefresh() {
     const box = document.getElementById('lanStatusBox');
     if (!box) return;
     try {
-        const res = await fetch('/api/lan/status');
+        const res = await fetch('/api/lan/status', {headers: getAuthHeaders()});
+        if (res.status === 401 || res.status === 403) {
+            box.innerHTML = '<div style="background:#0d1117;border:1px solid #1e3a8a;border-radius:8px;padding:12px;font-size:13px;color:#cbd5e1;">Подключитесь ниже как клиент (введите код доступа или нажмите кнопку для открытого сервера), чтобы получить токен участника.</div>';
+            return;
+        }
         const st = await res.json();
         renderLanStatus(st);
     } catch(e) {
@@ -700,11 +1073,12 @@ function renderLanStatus(st) {
     const labels = {off:'выключена', server:'мастер', worker:'вычислительный узел', member:'участник (клиент)'};
     const colors = {off:'#8b949e', server:'#3fb950', worker:'#58a6ff', member:'#bc8cff'};
     const mode = st.mode || 'off';
+    const modeColor = colors[mode] || '#8b949e';
     let html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">' +
-        '<span style="background:#0d1117;border:1px solid ' + colors[mode] + '44;color:' + colors[mode] +
+        '<span style="background:#0d1117;border:1px solid ' + modeColor + '44;color:' + modeColor +
         ';border-radius:20px;padding:2px 10px;font-size:12px;">' + lanEsc(labels[mode] || mode) + '</span>' +
-        '<span style="font-size:13px;color:#e6edf3;">Сеть: ' + lanEsc(st.name) + '</span>';
-    if (mode === 'server') {
+        '<span style="font-size:13px;color:#e6edf3;">Сеть: ' + lanEsc(st.name || '') + '</span>';
+    if (mode === 'server' && !shardBoot.client_mode) {
         if (st.open) {
             html += ' <span style="background:#0d1117;border:1px solid #10b98144;color:#10b981;border-radius:20px;padding:2px 10px;font-size:12px;">открытая</span>' +
                 '<button class="btn-action" style="font-size:11px;padding:2px 10px;" onclick="lanToggleOpen(false)">Закрыть сеть</button>';
@@ -713,13 +1087,25 @@ function renderLanStatus(st) {
                 '<button class="btn-action" style="font-size:11px;padding:2px 10px;" onclick="lanToggleOpen(true)">Открыть сеть</button>';
         }
     }
-    html += '</div>';
-    html += '<div style="font-size:12px;color:#8b949e;">IP этой машины: <b style="color:#e6edf3;">' + lanEsc(st.ip) + '</b>';
-    if (st.pairing_code) {
-        html += ' &middot; Код подключения: <b style="color:#e6edf3;cursor:pointer;" title="Скопировать" ' +
-            'onclick="copyValue(\'' + lanEsc(st.pairing_code) + '\', \'Код подключения\')">' + lanEsc(st.pairing_code) + '</b>';
+    if (shardBoot.client_mode && clientLanSession && clientLanSession.token) {
+        html += ' <span style="background:#0d1117;border:1px solid #10b98144;color:#10b981;border-radius:20px;padding:2px 10px;font-size:12px;">клиент авторизован</span>';
     }
     html += '</div>';
+    if (st.ip) {
+        html += '<div style="font-size:12px;color:#8b949e;">IP этой машины: <b style="color:#e6edf3;">' + lanEsc(st.ip) + '</b>';
+        if (st.pairing_code) {
+            html += ' &middot; Код подключения: <b style="color:#e6edf3;cursor:pointer;" title="Скопировать" data-copy="' + lanEsc(st.pairing_code) + '" onclick="copyValue(this.dataset.copy, \'Код подключения\')">' + lanEsc(st.pairing_code) + '</b>';
+        }
+        html += '</div>';
+    }
+    if (Array.isArray(st.interfaces) && st.interfaces.length) {
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">';
+        for (const it of st.interfaces) {
+            const badgeColor = it.kind === 'vpn' ? '#bc8cff' : '#38bdf8';
+            html += '<span style="background:#0d1117;border:1px solid ' + badgeColor + '44;color:' + badgeColor + ';border-radius:14px;padding:2px 8px;font-size:11px;">[' + lanEsc(it.provider || it.kind) + '] ' + lanEsc(it.ip) + '</span>';
+        }
+        html += '</div>';
+    }
     if ((mode === 'worker' || mode === 'member') && st.master) {
         html += '<div style="font-size:12px;color:#8b949e;margin-top:4px;">Подключён к мастеру: <b style="color:#e6edf3;">' +
             lanEsc(st.master.name || st.master.ip) + '</b> (' + lanEsc(st.master.ip) + ':' + lanEsc(st.master.port) + ')</div>';
@@ -744,7 +1130,7 @@ function renderLanStatus(st) {
         }
     }
     const peers = (st.peers || []).filter(p => p.role === 'server');
-    if (peers.length) {
+    if (peers.length && !shardBoot.client_mode) {
         html += '<div style="font-size:12px;color:#8b949e;margin:10px 0 4px;">Серверы рядом (UDP-маяк):</div>';
         for (const p of peers) {
             const isOpen = !!p.open;
@@ -753,7 +1139,7 @@ function renderLanStatus(st) {
                 : '<span style="background:#0d1117;border:1px solid #8b949e44;color:#8b949e;border-radius:20px;padding:1px 8px;font-size:11px;">нужен код</span>';
             const model = p.model ? (' модель: ' + lanEsc(p.model)) : '';
             const joinBtn = isOpen
-                ? '<button class="btn-action" style="font-size:11px;padding:2px 10px;color:#3fb950;border-color:#3fb950;" onclick="lanJoinQuick(\'' + lanEsc(p.ip) + '\', ' + lanEsc(p.port) + ')">Войти на сервер</button>'
+                ? '<button class="btn-action" style="font-size:11px;padding:2px 10px;color:#3fb950;border-color:#3fb950;" data-ip="' + lanEsc(p.ip) + '" data-port="' + lanEsc(p.port) + '" onclick="lanJoinQuick(this.dataset.ip, parseInt(this.dataset.port, 10) || 8000)">Войти на сервер</button>'
                 : '';
             html += '<div style="display:flex;align-items:center;gap:10px;font-size:12px;padding:3px 0;flex-wrap:wrap;">' +
                 '<span style="color:#e6edf3;font-weight:600;">' + lanEsc(p.name) + '</span>' +
@@ -767,6 +1153,98 @@ function renderLanStatus(st) {
             lanEsc(st.rpc.servers) + ' -ts ' + lanEsc(st.rpc.split) + '</div>';
     }
     box.innerHTML = html;
+}
+async function clientPairToHost() {
+    const name = ((document.getElementById('lanClientName') || {}).value || '').trim();
+    const code = ((document.getElementById('lanClientCode') || {}).value || '').trim().toUpperCase();
+    const cid = getClientSessionId();
+    try {
+        const res = await fetch('/api/lan/pair', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({code: code, name: name || 'Web-Client', share: false, client_id: cid})
+        });
+        const data = await res.json();
+        if (!res.ok || data.status !== 'ok') {
+            showToast('Ошибка входа', data.message || 'Проверьте код подключения');
+            return;
+        }
+        clientLanSession = {token: data.token, client_id: data.client_id || cid, master: data.master || ''};
+        try { sessionStorage.setItem('shard_client_lan_session', JSON.stringify(clientLanSession)); } catch(e) {}
+        showToast('Подключено', 'Сессия участника активна: ' + (clientLanSession.master || 'сервер'));
+        await lanRefresh();
+        await loadFeedbackPolicy();
+        await fetchClientBootstrap();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось подключиться к серверу');
+    }
+}
+async function clientLeaveHost() {
+    if (clientLanSession && clientLanSession.token) {
+        try {
+            await fetch('/api/lan/leave', {
+                method: 'POST',
+                headers: getAuthHeaders({'Content-Type': 'application/json'}),
+                body: JSON.stringify({client_id: getClientSessionId()})
+            });
+        } catch(e) {}
+    }
+    clientLanSession = null;
+    try { sessionStorage.removeItem('shard_client_lan_session'); } catch(e) {}
+    showToast('Сессия завершена', 'Токен клиента очищен');
+    lanRefresh();
+    loadFeedbackPolicy();
+}
+async function lanShowInvite() {
+    const box = document.getElementById('lanDiagBox');
+    if (!box) return;
+    box.style.display = 'block';
+    box.innerHTML = '<div style="font-size:12px;color:#8b949e;">Загрузка параметров приглашения...</div>';
+    try {
+        const res = await fetch('/api/lan/invite');
+        const d = await res.json();
+        if (!res.ok || d.status !== 'ok') {
+            box.innerHTML = '<div style="font-size:12px;color:#f85149;">' + escHtml(d.message || 'Сначала создайте сеть на этом ПК.') + '</div>';
+            return;
+        }
+        const targets = (d.targets || []).map(t =>
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #21262d;flex-wrap:wrap;">' +
+            '<div style="font-size:12px;"><span style="color:#38bdf8;font-weight:600;">[' + escHtml(t.provider || t.kind) + ']</span> <b style="color:#e6edf3;">' + escHtml(t.url) + '</b> <span style="color:#8b949e;">(' + escHtml(t.interface || '') + ')</span></div>' +
+            '<button class="btn-action" style="padding:2px 8px;font-size:11px;" data-copy="' + escHtml(t.cli_command || t.url) + '" onclick="copyValue(this.dataset.copy, \'Команда подключения\')">Копировать CLI</button>' +
+            '</div>'
+        ).join('') || '<div style="font-size:12px;color:#8b949e;">Подходящие интерфейсы не найдены.</div>';
+        box.innerHTML = '<div style="background:#0d1117;border:1px solid #1e3a8a;border-radius:8px;padding:12px;">' +
+            '<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px;">Приглашение в сеть: ' + escHtml(d.name || '') + ' (' + (d.open ? 'открытая' : ('код: ' + escHtml(d.pairing_code || ''))) + ')</div>' +
+            targets + '</div>';
+    } catch(e) {
+        box.innerHTML = '<div style="font-size:12px;color:#f85149;">Не удалось получить приглашение.</div>';
+    }
+}
+async function lanRunDiagnose(probePublic) {
+    const box = document.getElementById('lanDiagBox');
+    if (!box) return;
+    box.style.display = 'block';
+    box.innerHTML = '<div style="font-size:12px;color:#8b949e;">Диагностика сетевых интерфейсов' + (probePublic ? ' и внешнего доступа (STUN/UPnP)...' : '...') + '</div>';
+    try {
+        const res = await fetch('/api/lan/diagnose?public=' + (probePublic ? '1' : '0'));
+        const d = await res.json();
+        const lanHtml = (d.lan_interfaces || []).map(i => '<span style="color:#38bdf8;margin-right:8px;">[LAN ' + escHtml(i.interface) + '] ' + escHtml(i.ip) + '</span>').join('') || '<span style="color:#64748b;">нет</span>';
+        const vpnHtml = (d.vpn_interfaces || []).map(i => '<span style="color:#bc8cff;margin-right:8px;">[' + escHtml(i.provider) + '] ' + escHtml(i.ip) + '</span>').join('') || '<span style="color:#64748b;">не обнаружен</span>';
+        const stunInfo = d.stun ? ('<div><b>STUN:</b> ' + (d.stun.ok ? (escHtml(d.stun.public_ip) + ':' + escHtml(d.stun.public_port) + (d.behind_nat ? ' (за NAT)' : ' (прямой IP)')) : 'недоступен') + '</div>') : '';
+        const upnpInfo = d.upnp_igd ? ('<div><b>UPnP IGD:</b> ' + (d.upnp_igd.found ? ('шлюз ' + escHtml(d.upnp_igd.gateway_ip || 'найден')) : 'шлюз не обнаружен') + '</div>') : '';
+        box.innerHTML = '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;font-size:12px;line-height:1.6;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px;flex-wrap:wrap;">' +
+            '<b style="color:#fff;">Диагностика сети (HTTP :' + escHtml(d.port) + ' / UDP :' + escHtml(d.beacon_port) + ')</b>' +
+            '<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="lanRunDiagnose(true)">Проверить UPnP / STUN</button>' +
+            '</div>' +
+            '<div><b>Рекомендуемый IP:</b> <span style="color:#10b981;">' + escHtml(d.recommended_join_ip || '127.0.0.1') + '</span></div>' +
+            '<div><b>LAN адаптеры:</b> ' + lanHtml + '</div>' +
+            '<div><b>VPN (Radmin/Tailscale/ZeroTier/WG):</b> ' + vpnHtml + '</div>' +
+            (d.tailscale && d.tailscale.installed ? ('<div><b>Tailscale CLI:</b> ' + ((d.tailscale.running || d.tailscale.online) ? ('online (' + escHtml(d.tailscale.ip || (d.tailscale.ips || []).join(', ') || 'active') + (d.tailscale.online_peers !== undefined ? (', пиры: ' + escHtml(d.tailscale.online_peers)) : '') + ')') : 'offline') + '</div>') : '') +
+            stunInfo + upnpInfo + '</div>';
+    } catch(e) {
+        box.innerHTML = '<div style="font-size:12px;color:#f85149;">Ошибка диагностики сети.</div>';
+    }
 }
 async function lanCreate() {
     const name = document.getElementById('lanName').value.trim();
@@ -793,1156 +1271,230 @@ async function lanToggleOpen(open) {
     else showToast('Ошибка', data.message || 'Не удалось изменить сеть');
     lanRefresh();
 }
-async function lanJoinQuick(ip, port) {
-    const res = await fetch('/api/lan/join', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ip: ip, code: '', share: true, port: port})
-    });
-    const data = await res.json();
-    if (data.status === 'ok') {
-        showToast('Подключено', 'К сети: ' + (data.master || ip) + (data.warning ? ' (без расшаривания: ' + data.warning + ')' : ' (ваше VRAM/RAM расшарено)'));
-        lanRefresh();
-    } else {
-        showToast('Ошибка подключения', data.message || 'Проверьте IP');
-    }
+let currentNetSubTab = 'browser';
+let lastNetStatus = null;
+function netSubTab(tab, btn) {
+    currentNetSubTab = tab;
+    document.querySelectorAll('#tab-network .trn-subbtn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#tab-network .trn-panel').forEach(p => p.classList.remove('active'));
+    const p = document.getElementById('net-panel-' + tab);
+    if (p) p.classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (tab === 'browser') netLoadServers();
+    else if (tab === 'invites') netLoadInvites();
+    else if (tab === 'host') { netLoadHostConfig(); netLoadPeers(); }
+    else if (tab === 'lan') lanRefresh();
+    else if (tab === 'settings') { netLoadConfig(); }
 }
-async function lanJoin() {
-    const ip = document.getElementById('lanJoinIp').value.trim();
-    const code = document.getElementById('lanJoinCode').value.trim().toUpperCase();
-    const share = document.getElementById('lanShare').checked;
-    if (!ip) { showToast('Заполните поле', 'Нужен IP мастера'); return; }
-    const res = await fetch('/api/lan/join', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ip: ip, code: code, share: share})
-    });
-    const data = await res.json();
-    if (data.status === 'ok') {
-        showToast('Подключено', 'К сети: ' + (data.master || ip) + (data.warning ? ' (без расшаривания)' : ''));
-        lanRefresh();
-    } else {
-        showToast('Ошибка подключения', data.message || 'Проверьте IP и код');
-    }
-}
-async function lanOff() {
-    const res = await fetch('/api/lan/off', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({})
-    });
-    const data = await res.json();
-    showToast('Сеть отключена', 'Режим: ' + (data.mode || 'off'));
-    lanRefresh();
-}
-async function updateDownloadedBadge() {
+async function netRefresh(force) {
     try {
-        const res = await fetch('/api/models/downloaded');
-        const data = await res.json();
-        const badge = document.getElementById('downloadedBadgeCount');
-        if (badge && data.models) badge.innerText = data.models.length;
+        const res = await fetch('/api/net/status', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const st = await res.json();
+        renderNetStatus(st);
+        if (currentNetSubTab === 'browser' || force) netLoadServers();
+        if (currentNetSubTab === 'invites' || force) netLoadInvites();
+        if (currentNetSubTab === 'host' || force) netLoadPeers();
     } catch(e) {}
 }
-async function loadDownloadedModels() {
-    currentCategory = 'downloaded';
-    const grid = document.getElementById('modelsGrid');
-    const badgeEl = document.getElementById('modelsCountBadge');
-    if (badgeEl) badgeEl.innerText = 'Сканирование весов на SSD...';
-    try {
-        const res = await fetch('/api/models/downloaded');
-        const data = await res.json();
-        const models = data.models || [];
-        const countBadge = document.getElementById('downloadedBadgeCount');
-        if (countBadge) countBadge.innerText = models.length;
-        if (badgeEl) {
-            badgeEl.innerHTML = '<span style="color:#60a5fa;font-weight:600;">Локальное хранилище SSD:</span> занято ' + data.total_size_gb + ' ГБ &bull; свободно ' + data.disk_free_gb + ' ГБ &bull; сохранено моделей: ' + models.length;
+function renderNetStatus(st) {
+    if (!st) return;
+    lastNetStatus = st;
+    const badge = document.getElementById('netGlobalNodeBadge');
+    if (badge && st.node_id) {
+        badge.innerText = 'Node: ' + st.node_id.substring(0, 16) + '...';
+        badge.title = 'SHARD Node ID: ' + st.node_id;
+    }
+    const banner = document.getElementById('netActiveConnBanner');
+    const cli = st.client || {};
+    if (cli.state && cli.state !== 'disconnected') {
+        if (banner) {
+            banner.style.display = 'block';
+            const modeBadge = cli.state === 'relay_connected' ? '<span style="color:#d29922;font-weight:600;">[Слепой Relay]</span>' : '<span style="color:#238636;font-weight:600;">[Direct P2P/LAN]</span>';
+            const rttText = cli.rtt_ms ? (' &bull; ' + cli.rtt_ms + ' ms') : '';
+            const txrx = (cli.bytes_tx || cli.bytes_rx) ? (' &bull; TX: ' + formatBytes(cli.bytes_tx || 0) + ' / RX: ' + formatBytes(cli.bytes_rx || 0)) : '';
+            banner.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
+                '<div><div style="font-size:13px;font-weight:600;color:#fff;">Подключено к удалённому узлу ' + modeBadge + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);font-family:monospace;margin-top:2px;">Цель: ' + escHtml(cli.target || '') + rttText + txrx + '</div></div>' +
+                '<button class="btn-action" style="border-color:#f85149;color:#f85149;" onclick="netDisconnect()">Отключиться</button>' +
+                '</div>';
         }
-        grid.innerHTML = '';
-        if (models.length === 0) {
-            grid.innerHTML = '<div style="color:var(--text-muted);padding:32px;font-size:13px;grid-column:1/-1;text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:8px;">На диске нет скачанных моделей. Выберите модель из каталога и нажмите «Запустить».</div>';
-            return;
+    } else {
+        if (banner) banner.style.display = 'none';
+    }
+    const host = st.host || {};
+    const pubBtn = document.getElementById('netPublishToggleBtn');
+    if (pubBtn) {
+        if (host.published) {
+            pubBtn.innerText = 'Снять с публикации';
+            pubBtn.style.borderColor = '#f85149';
+            pubBtn.style.color = '#f85149';
+        } else {
+            pubBtn.innerText = 'Опубликовать';
+            pubBtn.style.borderColor = '#238636';
+            pubBtn.style.color = '#fff';
         }
-        models.forEach(m => {
-            const card = document.createElement('div');
-            card.className = 'model-card';
-            const isActive = m.is_active || (m.id === activeModelId && !isModelLoading);
-            const btnActiveHtml = isActive ? '<button class="btn-action active" disabled style="cursor:default;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Активна</button>' : '<button class="btn-action" onclick="loadModel(\'' + m.id + '\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Использовать</button>';
-            const deleteBtnHtml = '<button class="btn-delete" onclick="deleteDownloadedModel(\'' + m.id + '\', \'' + m.name + '\', \'' + m.size_str + '\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Удалить</button>';
-            card.innerHTML = '<div class="card-top">' +
-                '<div style="cursor:pointer;" onclick="openModelCard(\'' + m.id + '\')">' +
-                    '<div class="model-title" style="display:flex;align-items:center;gap:6px;">' + m.name + '</div>' +
-                    '<div class="model-author">' + m.author + '</div>' +
-                '</div>' +
-                '<div style="display:flex;gap:6px;align-items:center;">' +
-                    '<span class="compat-badge" style="background:rgba(37,99,235,0.1);color:#60a5fa;border:1px solid rgba(37,99,235,0.25);font-family:Consolas,monospace;">SSD: ' + m.size_str + '</span>' +
-                '</div>' +
-            '</div>' +
-            '<div class="card-desc" style="cursor:pointer;" onclick="openModelCard(\'' + m.id + '\')">Локальные веса модели сохранены на SSD. Доступны для мгновенного инференса без обращения к сети.</div>' +
-            '<div class="card-specs">' +
-                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ' + ((m.compatibility && m.compatibility.speed_est) || '45-75 ток/сек') + '</div>' +
-                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> ' + ((m.compatibility && m.compatibility.mode) || '100% GPU VRAM') + '</div>' +
-            '</div>' +
-            '<div class="card-bottom" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">' +
-                '<button class="btn-review" onclick="openModelCard(\'' + m.id + '\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Обзор</button>' +
-                '<div style="display:flex;gap:8px;align-items:center;">' +
-                    btnActiveHtml +
-                    deleteBtnHtml +
-                '</div>' +
-            '</div>';
-            grid.appendChild(card);
-        });
-    } catch(e) {
-        grid.innerHTML = '<div style="color:#ef4444;padding:24px;font-size:13px;grid-column:1/-1;">Не удалось загрузить список моделей на SSD.</div>';
     }
 }
-async function deleteDownloadedModel(id, name, sizeStr) {
-    if (!confirm('Удалить веса модели ' + name + ' (' + sizeStr + ') с SSD диска?')) {
-        return;
-    }
-    showToast('Удаление модели ' + name + ' с SSD...');
+function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+async function netLoadServers() {
+    const grid = document.getElementById('netServersGrid');
+    if (!grid) return;
+    const q = (document.getElementById('netSearchQ') || {}).value || '';
+    const reg = (document.getElementById('netSearchRegion') || {}).value || '';
+    const acc = (document.getElementById('netSearchAccess') || {}).value || '';
     try {
-        const res = await fetch('/api/models/downloaded', {
-            method: 'DELETE',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({model_id: id})
+        const u = new URL('/api/net/servers', window.location.origin);
+        if (q) u.searchParams.set('q', q);
+        if (reg) u.searchParams.set('region', reg);
+        if (acc) u.searchParams.set('access', acc);
+        const res = await fetch(u.toString(), {headers: getAuthHeaders()});
+        const data = await res.json();
+        const srvs = data.servers || [];
+        if (srvs.length === 0) {
+            grid.innerHTML = '<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;background:#0d1117;border:1px solid #21262d;border-radius:8px;">Серверы не найдены. Опубликуйте свой сервер или подключитесь по инвайту.</div>';
+            return;
+        }
+        grid.innerHTML = srvs.map(s => {
+            const m = s.metadata || {};
+            const name = escHtml(m.name || 'SHARD Node');
+            const model = escHtml(m.active_model || 'Без активной модели');
+            const nid = escHtml(s.node_id || '');
+            const region = escHtml(m.region || 'global');
+            const access = escHtml(m.access_policy || 'open');
+            const direct = (m.direct_endpoints && m.direct_endpoints.length) ? '<span style="color:#238636;">Direct P2P</span>' : '<span style="color:#d29922;">Relay</span>';
+            const loadVal = Math.round((m.load || 0) * 100);
+            return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;">' +
+                '<div>' +
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">' +
+                '<div style="font-size:13px;font-weight:600;color:#fff;">' + name + '</div>' +
+                '<span style="font-size:10px;padding:2px 6px;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#8b949e;">' + region + '</span>' +
+                '</div>' +
+                '<div style="font-size:12px;color:#58a6ff;font-weight:500;margin-bottom:6px;">' + model + '</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;">' + nid + '</div>' +
+                '<div style="font-size:11px;color:#8b949e;display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
+                '<span>Маршрут: ' + direct + '</span>' +
+                '<span>Доступ: ' + access + '</span>' +
+                '<span>Нагрузка: ' + loadVal + '%</span>' +
+                '</div>' +
+                '</div>' +
+                '<button class="btn-action active" style="width:100%;justify-content:center;" data-nid="' + nid + '" onclick="netConnectTargetServer(this.dataset.nid)">Подключиться</button>' +
+                '</div>';
+        }).join('');
+    } catch(e) {
+        grid.innerHTML = '<div style="grid-column:1/-1;padding:16px;color:#f85149;font-size:13px;">Ошибка связи с Discovery-сервером.</div>';
+    }
+}
+async function netConnectTargetServer(nodeId) {
+    showToast('Подключение...', 'Инициализация туннеля к ' + nodeId.substring(0, 16) + '...');
+    try {
+        const res = await fetch('/api/net/connect', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({target: nodeId, mode: 'auto'})
+        });
+        const data = await res.json();
+        if (data.state === 'connected' || data.state === 'relay_connected') {
+            showToast('Успешно', 'Соединение установлено через ' + (data.mode || 'auto') + ' (' + (data.rtt_ms || 0) + ' ms)');
+            netRefresh(true);
+        } else {
+            showToast('Не удалось', data.error || ('Статус: ' + data.state));
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netConnectDirect() {
+    const target = (document.getElementById('netConnectTarget') || {}).value.trim();
+    const mode = (document.getElementById('netConnectMode') || {}).value || 'auto';
+    if (!target) { showToast('Введите адрес', 'Нужен shard:// URI или Node ID'); return; }
+    showToast('Подключение...', target.substring(0, 24));
+    try {
+        const res = await fetch('/api/net/connect', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({target: target, mode: mode})
+        });
+        const data = await res.json();
+        if (data.state === 'connected' || data.state === 'relay_connected') {
+            showToast('Подключено', 'Маршрут: ' + (data.mode || mode) + ' RTT: ' + (data.rtt_ms || 0) + ' ms');
+            netRefresh(true);
+        } else {
+            showToast('Ошибка', data.error || ('Состояние: ' + data.state));
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netDisconnect() {
+    try {
+        const res = await fetch('/api/net/disconnect', {method: 'POST', headers: getAuthHeaders()});
+        showToast('Отключено', 'Сетевой туннель закрыт');
+        netRefresh(true);
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netCreateInvite() {
+    const ttl = parseInt((document.getElementById('netInviteTtl') || {}).value || '86400', 10);
+    const maxUses = parseInt((document.getElementById('netInviteMaxUses') || {}).value || '1', 10);
+    const label = (document.getElementById('netInviteLabel') || {}).value.trim();
+    try {
+        const res = await fetch('/api/net/invites', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({ttl_s: ttl, max_uses: maxUses, label: label})
         });
         const data = await res.json();
         if (data.status === 'ok') {
-            showToast('Модель ' + name + ' удалена. Освобождено: ' + data.freed_str);
-            updateDownloadedBadge();
-            if (currentCategory === 'downloaded') {
-                loadDownloadedModels();
-            } else {
-                loadModels();
+            showToast('Инвайт создан', 'URI скопирован в буфер');
+            if (data.uri && navigator.clipboard) {
+                navigator.clipboard.writeText(data.uri);
             }
+            netLoadInvites();
         } else {
-            showToast('Ошибка: ' + (data.message || 'Сбой'));
+            showToast('Ошибка', data.message || 'Не удалось создать инвайт');
         }
     } catch(e) {
-        showToast('Сбой удаления модели');
+        showToast('Ошибка', e.message);
     }
 }
-function setCategory(cat, btn) {
-    currentCategory = cat;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    if (cat === 'downloaded') {
-        loadDownloadedModels();
-    } else {
-        loadModels();
-    }
-}
-let searchDebounceTimer = null;
-function handleSearchDebounced() {
-    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
-    searchDebounceTimer = setTimeout(() => {
-        loadModels();
-    }, 320);
-}
-function handleSearch(e) {
-    if (e.key === 'Enter') {
-        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
-        loadModels();
-    }
-}
-function selectTool(tool, el) {
-    currentTool = tool;
-    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-    el.classList.add('active');
-    updateGuide();
-}
-function selectOS(os, el) {
-    currentOS = os;
-    document.querySelectorAll('.os-btn').forEach(b => b.classList.remove('active'));
-    el.classList.add('active');
-    if (os === 'manual') {
-        setGuideMode('manual');
-    } else {
-        updateGuide();
-    }
-}
-function setGuideMode(mode) {
-    currentGuideMode = mode;
-    document.getElementById('modeBtnScript').classList.toggle('active', mode === 'script');
-    document.getElementById('modeBtnManual').classList.toggle('active', mode === 'manual');
-    document.getElementById('guideScriptSection').style.display = (mode === 'script') ? 'block' : 'none';
-    document.getElementById('guideManualSection').style.display = (mode === 'manual') ? 'block' : 'none';
-    updateGuide();
-}
-function updateGuide() {
-    const toolNames = {
-        'claude': 'Claude CLI',
-        'claude-desktop': 'Claude Desktop',
-        'cursor': 'Cursor IDE',
-        'opencode': 'OpenCode',
-        'continue': 'Continue',
-        'aider': 'Aider CLI',
-        'zed': 'Zed Editor',
-        'jetbrains': 'JetBrains AI',
-        'sdk': 'API / SDK'
-    };
-    const osNames = {'windows': 'Windows', 'linux': 'Linux', 'macos': 'macOS', 'manual': 'Ручной config'};
-    const keyNoticeEl = document.getElementById('guideKeyNotice');
-    if (keyNoticeEl) {
-        if (activeApiKey) {
-            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#34d399;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Используется ваш API-ключ: <strong style="color:#fff;font-family:Consolas,monospace;background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">' + activeApiKey + '</strong></span></div>';
-        } else {
-            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#fca5a5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>У вас пока нет активного ключа. <a href="javascript:void(0)" onclick="switchTab(\'keys\', document.querySelectorAll(\'.nav-btn\')[3])" style="color:#38bdf8;text-decoration:underline;font-weight:600;">Создайте ключ</a> во вкладке «API Ключи», чтобы он автоматически подставился в команды.</span></div>';
-        }
-    }
-    document.getElementById('guideTitle').innerText = 'Инструкция: ' + (toolNames[currentTool] || currentTool) + ' + ' + (osNames[currentOS] || currentOS);
-    const scriptBox = document.getElementById('guideScriptCode');
-    const stepsList = document.getElementById('guideScriptSteps');
-    const keyParam = activeApiKey ? '&key=' + encodeURIComponent(activeApiKey) : '';
-    const keyFallback = activeApiKey || 'sk-shard-local';
-    if (currentOS === 'windows') {
-        scriptBox.innerText = 'powershell -ExecutionPolicy Bypass -Command "irm \'http://localhost:8000/i?os=windows&tool=' + currentTool + keyParam + '\' | iex"';
-        stepsList.innerHTML = '<li>Откройте Терминал: <b>Win + X</b> -> Терминал (или откройте <b>PowerShell / CMD</b>).</li>' +
-            '<li>Вставьте скопированную команду комбинацией <b>Ctrl + V</b> и нажмите <b>Enter</b>.</li>' +
-            '<li>Готово. Команда работает в PowerShell и CMD. Конфигурация инструмента обновится автоматически.</li>';
-    } else {
-        const toolArg = (currentTool === 'claude-desktop') ? 'claude' : currentTool;
-        const unixKeyArg = activeApiKey ? ' ' + activeApiKey : '';
-        scriptBox.innerText = 'bash <(curl -fsSL "http://localhost:8000/i?tool=' + toolArg + keyParam + '")' + unixKeyArg;
-        stepsList.innerHTML = '<li>Откройте Терминал: <b>Ctrl + Alt + T</b> (Linux) или <b>Cmd + Пробел -> Terminal</b> (macOS).</li>' +
-            '<li>Вставьте команду комбинацией <b>Ctrl + Shift + V</b> (или <b>Cmd + V</b>) и нажмите <b>Enter</b>.</li>' +
-            '<li>Готово. Конфигурация применена к окружению без перезагрузки системы.</li>';
-    }
-    const manualBox = document.getElementById('guideManualContent');
-    if (currentTool === 'claude' || currentTool === 'claude-desktop') {
-        const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.claude\\settings.json' : '~/.claude/settings.json';
-        manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации:</div>' +
-            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Создайте или замените settings.json блоком ниже:</div>' +
-            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeClaudeManual"></pre><button class="btn-copy" onclick="copyClaudeManual()">Скопировать</button></div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Перезапустите Claude CLI / Desktop:</div>' +
-            '<div>Claude читает ANTHROPIC_BASE_URL и ANTHROPIC_AUTH_TOKEN из settings.json. Endpoint единый — отдаёт и Claude, и OpenAI совместимые модели через локальный C++20 / AVX2 пайплайн.</div>' +
-        '</div>';
-        const pre = document.getElementById('codeClaudeManual');
-        if (pre) {
-            pre.innerText = JSON.stringify({
-                hasCompletedOnboarding: true,
-                env: {
-                    ANTHROPIC_BASE_URL: "http://localhost:8000/v1",
-                    ANTHROPIC_AUTH_TOKEN: keyFallback,
-                    ANTHROPIC_DEFAULT_OPUS_MODEL: activeModelId,
-                    ANTHROPIC_DEFAULT_SONNET_MODEL: activeModelId,
-                    ANTHROPIC_DEFAULT_HAIKU_MODEL: activeModelId
-                }
-            }, null, 2);
-        }
-    } else if (currentTool === 'cursor') {
-        manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Откройте настройки Cursor:</div>' +
-            '<div>Нажмите <b>Ctrl + ,</b> -> выберите раздел <b>Models</b> -> включите <b>OpenAI API Key</b>.</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin:10px 0 6px;">2. Укажите локальный адрес и ключ Shard:</div>' +
-            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeCursorManual"></pre><button class="btn-copy" onclick="copyCursorManual()">Скопировать</button></div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Сохраните настройки:</div>' +
-            '<div>Cursor будет отправлять запросы напрямую на локальный сервер Shard без задержек сети.</div>' +
-        '</div>';
-        const pre = document.getElementById('codeCursorManual');
-        if (pre) {
-            pre.innerText = 'Base URL: http://localhost:8000/v1\nAPI Key:  ' + keyFallback + '\nModel:    ' + activeModelId;
-        }
-    } else if (currentTool === 'opencode') {
-        const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.config\\opencode\\config.json' : '~/.config/opencode/config.json';
-        const opencodeCfg = {
-            "$schema": "https://opencode.ai/config.json",
-            "provider": {
-                "shard": {
-                    "npm": "@ai-sdk/openai-compatible",
-                    "name": "Shard",
-                    "options": {
-                        "baseURL": "http://localhost:8000/v1",
-                        "apiKey": keyFallback
-                    },
-                    "models": {
-                        "Qwen/Qwen2.5-Coder-7B-Instruct": { "name": "Qwen2.5 Coder 7B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
-                        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B": { "name": "DeepSeek R1 Distill 7B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
-                        "google/gemma-2-9b-it": { "name": "Gemma 2 9B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
-                        "meta-llama/Llama-3.2-3B-Instruct": { "name": "Llama 3.2 3B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} },
-                        "mistralai/Mistral-7B-Instruct-v0.3": { "name": "Mistral 7B v0.3", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192} }
-                    }
-                }
-            },
-            "model": "shard/" + activeModelId
-        };
-        manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации OpenCode:</div>' +
-            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Создайте или замените config.json официальным блоком OpenCode:</div>' +
-            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeOpenCodeManual"></pre><button class="btn-copy" onclick="copyOpenCodeManual()">Скопировать</button></div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Запустите OpenCode:</div>' +
-            '<div>OpenCode загрузит провайдер @ai-sdk/openai-compatible и подключится напрямую к локальному серверу Shard.</div>' +
-        '</div>';
-        const pre = document.getElementById('codeOpenCodeManual');
-        if (pre) pre.innerText = JSON.stringify(opencodeCfg, null, 2);
-    } else if (currentTool === 'continue') {
-        const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.continue\\config.json' : '~/.continue/config.json';
-        const continueCfg = {
-            "models": [
-                {
-                    "title": "Shard Local (" + activeModelId.split('/').pop() + ")",
-                    "provider": "openai",
-                    "model": activeModelId,
-                    "apiBase": "http://localhost:8000/v1",
-                    "apiKey": keyFallback
-                }
-            ],
-            "tabAutocompleteModel": {
-                "title": "Shard Autocomplete",
-                "provider": "openai",
-                "model": activeModelId,
-                "apiBase": "http://localhost:8000/v1",
-                "apiKey": keyFallback
-            }
-        };
-        manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации Continue:</div>' +
-            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте Shard в секцию models в config.json:</div>' +
-            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeContinueManual"></pre><button class="btn-copy" onclick="copyText(\'codeContinueManual\', \'Конфиг Continue скопирован\')">Скопировать</button></div>' +
-        '</div>';
-        const pre = document.getElementById('codeContinueManual');
-        if (pre) pre.innerText = JSON.stringify(continueCfg, null, 2);
-    } else if (currentTool === 'aider') {
-        const cmd = 'aider --openai-api-base http://localhost:8000/v1 --openai-api-key ' + keyFallback + ' --model openai/' + activeModelId;
-        manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Запуск Aider с подключением к Shard:</div>' +
-            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeAiderManual"></pre><button class="btn-copy" onclick="copyText(\'codeAiderManual\', \'Команда Aider скопирована\')">Скопировать</button></div>' +
-        '</div>';
-        const pre = document.getElementById('codeAiderManual');
-        if (pre) pre.innerText = cmd;
-    } else if (currentTool === 'zed') {
-        const filePath = (currentOS === 'windows') ? '%APPDATA%\\Zed\\settings.json' : '~/.config/zed/settings.json';
-        const zedCfg = {
-            "language_models": {
-                "openai": {
-                    "version": "1",
-                    "api_url": "http://localhost:8000/v1",
-                    "available_models": [
-                        {
-                            "name": activeModelId,
-                            "display_name": "Shard " + activeModelId.split('/').pop(),
-                            "max_tokens": 8192
-                        }
-                    ]
-                }
-            }
-        };
-        manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к настройкам Zed:</div>' +
-            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте провайдер OpenAI с локальным URL в settings.json:</div>' +
-            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeZedManual"></pre><button class="btn-copy" onclick="copyText(\'codeZedManual\', \'Конфиг Zed скопирован\')">Скопировать</button></div>' +
-        '</div>';
-        const pre = document.getElementById('codeZedManual');
-        if (pre) pre.innerText = JSON.stringify(zedCfg, null, 2);
-    } else {
-        manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Переменные окружения (Environment Variables):</div>' +
-            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeEnvManual"></pre><button class="btn-copy" onclick="copyEnvManual()">Скопировать</button></div>' +
-            '<div>Любой совместимый инструмент подтянет локальный сервер автоматически.</div>' +
-        '</div>';
-        const pre = document.getElementById('codeEnvManual');
-        if (pre) {
-            pre.innerText = (currentOS === 'windows') ?
-                '$env:OPENAI_API_BASE="http://localhost:8000/v1"\n$env:OPENAI_API_KEY="' + keyFallback + '"' :
-                'export OPENAI_API_BASE="http://localhost:8000/v1"\nexport OPENAI_API_KEY="' + keyFallback + '"';
-        }
-    }
-}
-function copyCurrentScript() {
-    const text = document.getElementById('guideScriptCode').innerText;
-    navigator.clipboard.writeText(text);
-    showToast('Команда скопирована', 'Вставьте команду в Терминал и нажмите Enter');
-}
-function copyText(id, toastMsg) {
-    const el = document.getElementById(id);
+async function netLoadInvites() {
+    const el = document.getElementById('netInvitesList');
     if (!el) return;
-    navigator.clipboard.writeText(el.innerText);
-    showToast('Скопировано', toastMsg);
-}
-async function runPingTest() {
-    const el = document.getElementById('pingStatusText');
-    el.innerHTML = '<span style="color:#38bdf8;">Выполняется проверка соединения...</span>';
     try {
-        const t0 = performance.now();
-        const res = await fetch('/v1/ping');
-        const dt = (performance.now() - t0).toFixed(1);
+        const res = await fetch('/api/net/invites', {headers: getAuthHeaders()});
         const data = await res.json();
-        el.innerHTML = '<span style="color:#10b981;font-weight:600;">200 OK — Эндпоинт активен!</span> Задержка: <b>' + dt + ' мс</b> | Ядро: <b>' + data.engine + '</b>';
-        showToast('Эндпоинт доступен', 'Отклик: ' + dt + ' мс');
-    } catch(e) {
-        el.innerHTML = '<span style="color:#ef4444;font-weight:600;">Ошибка соединения</span> Проверьте запущен ли локальный сервер Shard';
-    }
-}
-let isModelLoading = false;
-let loadingModelId = '';
-let currentLoadingPercent = 0;
-let hwPollTimer = null;
-function setPollRate(ms) {
-    if (hwPollTimer) clearInterval(hwPollTimer);
-    hwPollTimer = setInterval(fetchHardware, ms);
-}
-function updateLoadingUI(isLoading, lp) {
-    const banner = document.getElementById('globalLoadingBanner');
-    const chatTag = document.getElementById('chatLoadingTag');
-    const chatCard = document.getElementById('chatLoadingCard');
-    const chatSpeed = document.getElementById('chatLiveSpeed');
-    const hwModel = document.getElementById('hwModel');
-    if (!banner) return;
-    if (isLoading && lp) {
-        banner.style.display = 'block';
-        const modelId = lp.model_id || activeModelId || '';
-        const shortName = modelId.split('/').pop();
-        const pct = lp.percent || 0;
-        const eta = lp.eta_text || 'вычисление...';
-        const speed = lp.speed_mb || 0;
-        const currMb = lp.curr_mb || 0;
-        const totalMb = lp.total_mb || 0;
-        const stage = lp.stage || 'Подготовка тензоров...';
-        document.getElementById('glbModelName').innerText = shortName;
-        document.getElementById('glbStageText').innerText = stage;
-        document.getElementById('glbMetrics').innerText = currMb + ' / ' + totalMb + ' МБ • ' + speed + ' МБ/с';
-        document.getElementById('glbEta').innerText = 'Осталось: ' + eta;
-        document.getElementById('glbPercentVal').innerText = pct + '%';
-        document.getElementById('glbTrackFill').style.width = pct + '%';
-        if (chatTag) {
-            chatTag.style.display = 'inline-flex';
-            chatTag.innerHTML = '<svg class="glb-spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Загрузка: ' + pct + '% (' + eta + ')';
-        }
-        if (chatCard) {
-            chatCard.style.display = 'flex';
-            chatCard.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><svg class="glb-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><b style="font-size:13px;color:#fff;">Загрузка нейросети ' + shortName + '</b></div><span style="font-size:12px;font-weight:700;color:#38bdf8;font-family:Consolas,monospace;">' + pct + '%</span></div><div class="glb-track"><div class="glb-fill" style="width:' + pct + '%;"></div></div><div style="font-size:11px;color:#94a3b8;display:flex;justify-content:space-between;"><span>' + currMb + ' / ' + totalMb + ' МБ • ' + speed + ' МБ/с</span><span>Осталось: ' + eta + '</span></div>';
-        }
-        if (chatSpeed) {
-            chatSpeed.innerHTML = '<span style="color:#f59e0b;">Загрузка: ' + pct + '% (' + eta + ')</span>';
-        }
-        if (hwModel) {
-            hwModel.innerText = shortName + ' (' + pct + '% • ' + eta + ')';
-            hwModel.style.color = '#38bdf8';
-        }
-    } else {
-        banner.style.display = 'none';
-        if (chatTag) chatTag.style.display = 'none';
-        if (chatCard) chatCard.style.display = 'none';
-        if (chatSpeed) chatSpeed.innerHTML = '<span style="color:#38bdf8;">Готов к запросам</span>';
-        if (hwModel) {
-            const shortName = (activeModelId || '').split('/').pop() || 'Не загружена';
-            hwModel.innerText = shortName;
-            hwModel.style.color = '#10b981';
-        }
-    }
-}
-async function fetchHardware() {
-    try {
-        const res = await fetch('/api/system/hardware');
-        const data = await res.json();
-        const hw = data.hardware;
-        const eng = data.engine;
-        document.getElementById('hwGpu').innerText = (hw.gpu_name || 'GPU').replace(' Laptop GPU', '').replace('NVIDIA GeForce ', '');
-        document.getElementById('hwVram').innerText = (hw.vram_used_mb || 0) + ' / ' + (hw.vram_total_mb || 0) + ' MB';
-        const ramUsed = (hw.ram_used_gb !== undefined) ? hw.ram_used_gb : ((hw.ram_total_mb - hw.ram_avail_mb) / 1024).toFixed(1);
-        const ramTotal = (hw.ram_total_gb !== undefined) ? hw.ram_total_gb : (hw.ram_total_mb / 1024).toFixed(1);
-        document.getElementById('hwRam').innerText = ramUsed + ' / ' + ramTotal + ' GB';
-        const lp = eng.load_progress || {};
-        if (eng.status === 'loading' || lp.status === 'loading') {
-            const wasLoading = isModelLoading;
-            isModelLoading = true;
-            loadingModelId = lp.model_id || eng.active_model || activeModelId;
-            currentLoadingPercent = lp.percent || 0;
-            updateLoadingUI(true, lp);
-            if (!wasLoading) setPollRate(500);
-        } else {
-            if (isModelLoading) {
-                isModelLoading = false;
-                loadingModelId = '';
-                updateLoadingUI(false, lp);
-                setPollRate(5000);
-                if (lp.status === 'ready') {
-                    showToast('Модель готова', (eng.active_model || activeModelId).split('/').pop() + ' подключена к инференсу');
-                } else if (lp.status === 'error') {
-                    showToast('Ошибка загрузки', lp.message || 'Сбой инициализации весов');
-                }
-                loadModels();
-            } else if (eng.active_model) {
-                activeModelId = eng.active_model;
-                const shortName = eng.active_model.split('/').pop();
-                document.getElementById('hwModel').innerText = shortName;
-                document.getElementById('hwModel').style.color = '#10b981';
-                const chatModelEl = document.getElementById('chatActiveModel');
-                if (chatModelEl) chatModelEl.innerText = shortName;
-            }
-        }
-    } catch(e) {}
-}
-async function loadModels() {
-    if (currentCategory === 'downloaded') return loadDownloadedModels();
-    const q = document.getElementById('searchInput').value.trim();
-    const grid = document.getElementById('modelsGrid');
-    const badgeEl = document.getElementById('modelsCountBadge');
-    if (badgeEl) badgeEl.innerText = 'Загрузка каталога моделей...';
-    try {
-        const res = await fetch('/api/hf/models?category=' + currentCategory + (q ? '&query=' + encodeURIComponent(q) : ''));
-        const models = await res.json();
-        grid.innerHTML = '';
-        if (badgeEl) {
-            badgeEl.innerHTML = '<span style="color:#38bdf8;font-weight:600;">Каталог Hub (3 000 000+ открытых моделей)</span> &bull; Показано: ' + models.length + (q ? ' (по запросу: "' + escapeHtml(q) + '")' : ' популярных сборок');
-        }
-        if (!models || models.length === 0) {
-            grid.innerHTML = '<div style="color:var(--text-muted);padding:24px;font-size:13px;grid-column:1/-1;">Модели не найдены. Попробуйте другой запрос (например: qwen, deepseek, llama, gemma, mistral, phi).</div>';
+        const invs = data.invites || [];
+        if (invs.length === 0) {
+            el.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;text-align:center;">Нет активных инвайтов. Сгенерируйте инвайт выше.</div>';
             return;
         }
-        models.forEach(m => {
-            const card = document.createElement('div');
-            card.className = 'model-card';
-            let badge = (m.compat_badge || (m.compatibility && m.compatibility.tier_label) || 'РЕКОМЕНДУЕТСЯ (VRAM+RAM)');
-            let badgeBg = 'var(--amber-bg)';
-            let badgeColor = 'var(--amber)';
-            let badgeBorder = 'rgba(245,158,11,0.25)';
-            if (badge.indexOf('VRAM)') !== -1) {
-                badgeBg = 'var(--emerald-bg)';
-                badgeColor = 'var(--emerald)';
-                badgeBorder = 'rgba(16,185,129,0.25)';
-            } else if (badge.indexOf('SSD') !== -1) {
-                badgeBg = 'var(--purple-bg)';
-                badgeColor = 'var(--purple)';
-                badgeBorder = 'rgba(139,92,246,0.25)';
-            }
-            const desc = m.description || m.desc || '';
-            const speed = m.speed_tier || (m.compatibility && m.compatibility.speed_est) || '18-32 ток/сек';
-            const mem = m.memory_slot || (m.compatibility && m.compatibility.mode) || 'VRAM + RAM Hybrid';
-            const dCount = (typeof m.downloads === 'number') ? m.downloads.toLocaleString('ru-RU') : '—';
-            const isLoadingThis = (isModelLoading && (loadingModelId === m.id || loadingModelId === m.id.split('/').pop()));
-            const isActive = (m.id === activeModelId && !isModelLoading);
-            const btnClass = isLoadingThis ? 'btn-action loading' : (isActive ? 'btn-action active' : 'btn-action');
-            const btnText = isLoadingThis ? ('Загрузка ' + currentLoadingPercent + '%') : (isActive ? 'АКТИВНА' : 'Запустить');
-            const btnDisabled = isLoadingThis ? 'disabled' : '';
-            card.innerHTML = '<div class="card-top">' +
-                '<div style="cursor:pointer;" onclick="openModelCard(\'' + m.id + '\')">' +
-                    '<div class="model-title" style="display:flex;align-items:center;gap:6px;">' + m.name + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>' +
-                    '<div class="model-author">' + m.author + '</div>' +
+        el.innerHTML = invs.map(inv => {
+            const iid = escHtml(inv.id || inv.invite_id || '');
+            const uri = escHtml(inv.uri || '');
+            const uses = (inv.uses_count || 0) + ' / ' + (inv.max_uses || 1);
+            const exp = inv.expires_at ? new Date(inv.expires_at * 1000).toLocaleString() : 'Без срока';
+            const lbl = inv.label ? ('<span style="color:#58a6ff;">' + escHtml(inv.label) + '</span> &bull; ') : '';
+            return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
+                '<div>' +
+                '<div style="font-size:12px;color:#fff;">' + lbl + 'Использовано: ' + uses + ' &bull; Истекает: ' + exp + '</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-top:2px;">' + iid + '</div>' +
                 '</div>' +
-                '<div class="compat-badge" style="background:' + badgeBg + ';color:' + badgeColor + ';border-color:' + badgeBorder + ';">' + badge + '</div>' +
-            '</div>' +
-            '<div class="card-desc" style="cursor:pointer;" onclick="openModelCard(\'' + m.id + '\')">' + desc + '</div>' +
-            '<div class="card-specs">' +
-                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: ' + speed + '</div>' +
-                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> ' + mem + '</div>' +
-            '</div>' +
-            '<div class="card-bottom">' +
-                '<button class="btn-action" style="padding:4px 9px;font-size:11px;" onclick="openModelCard(\'' + m.id + '\')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Обзор</button>' +
-                '<button id="btn-' + m.id.replace(/[^a-zA-Z0-9]/g, '_') + '" class="' + btnClass + '" ' + btnDisabled + ' onclick="loadModel(\'' + m.id + '\')">' + btnText + '</button>' +
-            '</div>';
-            grid.appendChild(card);
-        });
-    } catch(e) {}
-}
-function inlineMd(str) {
-    if (!str) return '';
-    let s = str;
-    s = s.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:10px 0;display:block;border:1px solid #1e2638;" onerror="this.style.display=\'none\'">');
-    s = s.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;text-decoration:none;">$1</a>');
-    s = s.replace(/\*\*(.*?)\*\*/g, '<b style="color:#fff;">$1</b>');
-    s = s.replace(/\*(.*?)\*/g, '<i style="color:#cbd5e1;">$1</i>');
-    s = s.replace(/`([^`]+)`/g, '<code style="background:#090a0f;padding:2px 5px;border-radius:4px;border:1px solid #1e2638;color:#38bdf8;font-size:11px;">$1</code>');
-    return s;
-}
-function renderTable(rows) {
-    if (rows.length < 2) return '';
-    let out = '<table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;background:#090a0f;border:1px solid #1e2638;border-radius:6px;overflow:hidden;">';
-    const headerCols = rows[0].split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
-    out += '<thead><tr style="background:#131824;">';
-    headerCols.forEach(c => { out += '<th style="padding:8px 12px;text-align:left;border:1px solid #1e2638;color:#fff;">' + inlineMd(c) + '</th>'; });
-    out += '</tr></thead><tbody>';
-    for (let r = 2; r < rows.length; r++) {
-        const rowCols = rows[r].split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
-        out += '<tr style="border-bottom:1px solid #1a2233;">';
-        rowCols.forEach(c => { out += '<td style="padding:6px 12px;border:1px solid #1a2233;color:#cbd5e1;">' + inlineMd(c) + '</td>'; });
-        out += '</tr>';
-    }
-    out += '</tbody></table>';
-    return out;
-}
-function renderMarkdown(md) {
-    if (!md) return '<div style="color:var(--text-muted);padding:20px;">Описание модели недоступно.</div>';
-    let text = md.replace(/^---[\s\S]*?---\n*/, '');
-    let html = '';
-    const lines = text.split('\n');
-    let inCode = false;
-    let codeBuf = [];
-    let inTable = false;
-    let tableBuf = [];
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (line.trim().startsWith('```')) {
-            if (!inCode) {
-                inCode = true;
-                codeBuf = [];
-            } else {
-                inCode = false;
-                html += '<pre style="background:#090a0f;border:1px solid #1e2638;padding:12px 14px;border-radius:6px;overflow-x:auto;font-family:Consolas,monospace;font-size:12px;color:#38bdf8;margin:12px 0;"><code>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>';
-            }
-            continue;
-        }
-        if (inCode) {
-            codeBuf.push(line);
-            continue;
-        }
-        if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
-            if (!inTable) {
-                inTable = true;
-                tableBuf = [];
-            }
-            tableBuf.push(line.trim());
-            continue;
-        } else if (inTable) {
-            inTable = false;
-            html += renderTable(tableBuf);
-            tableBuf = [];
-        }
-        if (line.startsWith('# ')) {
-            html += '<h1 style="font-size:20px;font-weight:700;color:#fff;margin:18px 0 10px;border-bottom:1px solid #1e2638;padding-bottom:6px;">' + inlineMd(line.slice(2)) + '</h1>';
-        } else if (line.startsWith('## ')) {
-            html += '<h2 style="font-size:16px;font-weight:700;color:#f1f5f9;margin:16px 0 8px;">' + inlineMd(line.slice(3)) + '</h2>';
-        } else if (line.startsWith('### ')) {
-            html += '<h3 style="font-size:14px;font-weight:600;color:#cbd5e1;margin:14px 0 6px;">' + inlineMd(line.slice(4)) + '</h3>';
-        } else if (line.startsWith('- ') || line.startsWith('* ')) {
-            html += '<li style="margin:4px 0 4px 20px;color:#cbd5e1;">' + inlineMd(line.slice(2)) + '</li>';
-        } else if (line.trim().length === 0) {
-            html += '<div style="height:8px;"></div>';
-        } else {
-            html += '<p style="margin:6px 0;line-height:1.6;color:#94a3b8;">' + inlineMd(line) + '</p>';
-        }
-    }
-    if (inTable && tableBuf.length > 0) {
-        html += renderTable(tableBuf);
-    }
-    return html;
-}
-async function openModelCard(modelId) {
-    const backdrop = document.getElementById('modelModalBackdrop');
-    const titleEl = document.getElementById('modalModelTitle');
-    const authorEl = document.getElementById('modalModelAuthor');
-    const bodyEl = document.getElementById('modelModalBody');
-    const launchBtn = document.getElementById('modalLaunchBtn');
-    const hfLink = document.getElementById('modalHfLink');
-    const statsEl = document.getElementById('modalStats');
-    if (!backdrop) return;
-    backdrop.style.display = 'flex';
-    titleEl.innerText = modelId.split('/').pop();
-    authorEl.innerText = modelId.split('/')[0] || 'Community';
-    hfLink.removeAttribute('href');
-    launchBtn.onclick = () => { loadModel(modelId); closeModelCard(); };
-    bodyEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text-muted);"><div class="think-pulse" style="width:14px;height:14px;"></div><div style="font-size:13px;color:#cbd5e1;">Загрузка спецификации и описания модели...</div></div>';
-    try {
-        const res = await fetch('/api/hf/model/' + encodeURIComponent(modelId));
-        const data = await res.json();
-        const dlSpan = (data.downloads != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ' + Number(data.downloads).toLocaleString('ru-RU') + ' скачиваний</span>' : '';
-        const likeSpan = (data.likes != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ' + Number(data.likes).toLocaleString('ru-RU') + ' лайков</span>' : '';
-        statsEl.innerHTML = '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> ' + data.pipeline_tag + '</span>' +
-            dlSpan + likeSpan +
-            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + (data.compatibility ? data.compatibility.tier_label : '') + '</span>';
-        bodyEl.innerHTML = renderMarkdown(data.readme);
+                '<div style="display:flex;gap:6px;">' +
+                '<button class="btn-action" data-uri="' + uri + '" onclick="copyNetUri(this.dataset.uri)">Копировать URI</button>' +
+                '<button class="btn-action" style="border-color:#f85149;color:#f85149;" data-iid="' + iid + '" onclick="netRevokeInvite(this.dataset.iid)">Отозвать</button>' +
+                '</div>' +
+                '</div>';
+        }).join('');
     } catch(e) {
-        bodyEl.innerHTML = '<div style="color:#ef4444;padding:30px;text-align:center;">Не удалось загрузить спецификацию модели.</div>';
+        el.innerHTML = '<div style="color:#f85149;font-size:12px;">Ошибка загрузки инвайтов.</div>';
     }
 }
-function closeModelCard() {
-    const backdrop = document.getElementById('modelModalBackdrop');
-    if (backdrop) backdrop.style.display = 'none';
-}
-let _drivesCache = [];
-function openDirPicker() {
-    const backdrop = document.getElementById('dirModalBackdrop');
-    const input = document.getElementById('dirPathInput');
-    const listEl = document.getElementById('dirDriveList');
-    const diskEl = document.getElementById('dirDiskInfo');
-    if (!backdrop) return;
-    backdrop.style.display = 'flex';
-    input.value = '';
-    listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Загрузка дисков...</div>';
-    diskEl.innerHTML = '';
-    fetch('/api/settings').then(r => r.json()).then(s => {
-        if (s.models_dir) input.value = s.models_dir;
-        const disk = s.disk || {};
-        diskEl.innerHTML = '<span class="spec-item">Свободно: ' + disk.free_gb + ' GB из ' + disk.total_gb + ' GB</span>' +
-            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + (s.is_custom ? 'CUSTOM' : 'ПО УМОЛЧАНИЮ') + '</span>';
-    }).catch(() => {});
-    fetch('/api/drives').then(r => r.json()).then(d => {
-        _drivesCache = (d && d.drives) || [];
-        listEl.innerHTML = _drivesCache.map((dr, i) =>
-            '<button class="filter-btn" onclick="pickDrive(' + i + ')" style="gap:6px;">' + dr.path +
-            '<span style="color:var(--text-muted);font-size:10px;">' + dr.free_gb + ' GB</span></button>'
-        ).join('') || '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
-    }).catch(() => {
-        listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
-    });
-}
-function pickDrive(i) {
-    const dr = (_drivesCache || [])[i];
-    const inp = document.getElementById('dirPathInput');
-    if (!dr || !inp) return;
-    const sep = String.fromCharCode(92);
-    inp.value = (dr.path.endsWith('/') || dr.path.endsWith(sep)) ? dr.path + 'shard-models' : dr.path + '/shard-models';
-}
-function closeDirPicker() {
-    const backdrop = document.getElementById('dirModalBackdrop');
-    if (backdrop) backdrop.style.display = 'none';
-}
-async function saveModelsDir() {
-    const path = ((document.getElementById('dirPathInput') || {}).value || '').trim();
-    if (!path) { showToast('Путь не указан', 'Введите путь к папке для моделей'); return; }
-    try {
-        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ models_dir: path }) });
-        const data = await res.json().catch(() => ({}));
-        if (res.status === 200) {
-            showToast('Папка сохранена', data.models_dir + ' — применится после перезапуска');
-            closeDirPicker();
-            refreshDirLabel();
-        } else {
-            showToast('Ошибка', data.message || 'Папка недоступна для записи');
-        }
-    } catch (e) {
-        showToast('Ошибка', 'Сервер недоступен');
-    }
-}
-async function resetModelsDir() {
-    try {
-        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: true }) });
-        if (res.status === 200) {
-            showToast('Папка сброшена', 'Вернётся стандартная папка после перезапуска');
-            document.getElementById('dirPathInput').value = '';
-            refreshDirLabel();
-        } else {
-            showToast('Ошибка', 'Сбой сброса');
-        }
-    } catch (e) {
-        showToast('Ошибка', 'Сервер недоступен');
-    }
-}
-function refreshDirLabel() {
-    fetch('/api/settings').then(r => r.json()).then(s => {
-        const el = document.getElementById('modelsDirLabel');
-        if (el && s.models_dir) {
-            el.textContent = s.models_dir.length > 24 ? '…' + s.models_dir.slice(-23) : s.models_dir;
-            el.parentElement.title = 'Загрузка моделей: ' + s.models_dir;
-        }
-    }).catch(() => {});
-}
-window.addEventListener('keydown', e => { if (e.key === 'Escape') closeDirPicker(); });
-async function loadModel(modelId) {
-    isModelLoading = true;
-    loadingModelId = modelId;
-    currentLoadingPercent = 6;
-    activeModelId = modelId;
-    updateLoadingUI(true, {
-        model_id: modelId,
-        percent: 6,
-        stage: 'Скачивание весов модели',
-        curr_mb: 0,
-        total_mb: 100,
-        speed_mb: 0,
-        eta_text: 'вычисление...',
-        message: 'Подключение к манифесту весов...'
-    });
-    setPollRate(500);
-    loadModels();
-    showToast('Загрузка модели', 'Начато развертывание ' + modelId.split('/').pop() + '...');
-    try {
-        const res = await fetch('/api/models/load', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({model_id: modelId})
-        });
-        const data = await res.json();
-    } catch(e) {
-        showToast('Ошибка', 'Не удалось отправить запрос на загрузку');
-    }
-}
-async function loadKeys() {
-    try {
-        const res = await fetch('/api/keys');
-        const data = await res.json();
-        const list = document.getElementById('keysList');
-        if (!list) return;
-        list.innerHTML = '';
-        const keys = data.keys || [];
-        if (keys.length > 0) {
-            if (!activeApiKey || !keys.includes(activeApiKey)) {
-                activeApiKey = keys[0];
-            }
-        } else {
-            activeApiKey = '';
-        }
-        const sidebarKeyEl = document.getElementById('sidebarApiKey');
-        if (sidebarKeyEl) {
-            if (activeApiKey) {
-                sidebarKeyEl.innerText = activeApiKey;
-                sidebarKeyEl.style.color = '#10b981';
-            } else {
-                sidebarKeyEl.innerText = 'Не создан';
-                sidebarKeyEl.style.color = '#ef4444';
-            }
-        }
-        updateGuide();
-        if (keys.length === 0) {
-            list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);background:#090a0f;border:1px dashed var(--border);border-radius:6px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" style="margin-bottom:8px;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg><div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:4px;">Ключи API еще не созданы</div><div style="font-size:12px;">Нажмите кнопку выше для генерации вашего уникального локального ключа</div></div>';
-            return;
-        }
-        keys.forEach(k => {
-            const item = document.createElement('div');
-            item.style.display = 'flex';
-            item.style.justifyContent = 'space-between';
-            item.style.alignItems = 'center';
-            item.style.padding = '8px 12px';
-            item.style.background = '#090a0f';
-            item.style.border = (k === activeApiKey) ? '1px solid #10b981' : '1px solid var(--border)';
-            item.style.borderRadius = '5px';
-            item.style.fontFamily = 'Consolas, monospace';
-            item.style.fontSize = '12px';
-            item.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#f1f5f9;">' + k + '</span>' + (k === activeApiKey ? '<span style="font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(16,185,129,0.15);color:#10b981;font-weight:600;">АКТИВЕН</span>' : '') + '</div><div style="display:flex;gap:6px;"><button class="btn-action" style="padding:4px 10px;font-size:11px;" onclick="copyValue(\'' + k + '\', \'Ключ API\')">Скопировать</button><button class="btn-action" style="padding:4px 10px;font-size:11px;border-color:#7f1d1d;color:#fca5a5;" onclick="deleteKey(\'' + k + '\')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить</button></div>';
-            list.appendChild(item);
-        });
-    } catch(e) {}
-}
-async function generateKey() {
-    try {
-        const res = await fetch('/api/keys/generate', {method: 'POST'});
-        const data = await res.json();
-        activeApiKey = data.key;
-        showToast('Ключ создан', data.key);
-        await loadKeys();
-    } catch(e) {
-        showToast('Ошибка', 'Не удалось создать ключ');
-    }
-}
-async function deleteKey(k) {
-    try {
-        const res = await fetch('/api/keys/delete', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({key: k})
-        });
-        showToast('Ключ удален', k);
-        if (activeApiKey === k) activeApiKey = '';
-        await loadKeys();
-    } catch(e) {
-        showToast('Ошибка', 'Не удалось удалить ключ');
-    }
-}
-function formatDuration(sec) {
-    if (sec >= 60) {
-        const m = Math.floor(sec / 60);
-        const s = Math.round(sec % 60);
-        return m + ' мин ' + s + ' сек';
-    }
-    return sec.toFixed(2) + ' сек';
-}
-function toggleThink(id) {
-    const body = document.getElementById('think-body-' + id);
-    const arrow = document.getElementById('think-arrow-' + id);
-    if (!body) return;
-    if (body.style.display === 'none') {
-        body.style.display = 'block';
-        if (arrow) arrow.style.transform = 'rotate(0deg)';
-    } else {
-        body.style.display = 'none';
-        if (arrow) arrow.style.transform = 'rotate(-90deg)';
-    }
-}
-function escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-function saveChatSessions() {
-    try {
-        localStorage.setItem('shard_chat_sessions_v1', JSON.stringify(chatSessions));
-    } catch(e) {}
-}
-function initChatSessions() {
-    try {
-        const stored = localStorage.getItem('shard_chat_sessions_v1');
-        if (stored) chatSessions = JSON.parse(stored);
-    } catch(e) {
-        chatSessions = [];
-    }
-    if (!Array.isArray(chatSessions) || chatSessions.length === 0) {
-        const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
-        chatSessions = [fresh];
-        activeChatId = fresh.id;
-        saveChatSessions();
-    } else {
-        activeChatId = chatSessions[0].id;
-    }
-    renderChatSessionsList();
-    renderActiveChatMessages();
-}
-function renderChatSessionsList() {
-    const list = document.getElementById('chatSessionsList');
-    if (!list) return;
-    list.innerHTML = '';
-    chatSessions.forEach(s => {
-        const item = document.createElement('div');
-        item.className = 'chat-session-item' + (s.id === activeChatId ? ' active' : '');
-        item.onclick = () => selectChat(s.id);
-        const iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-right:8px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
-        const titleSpan = document.createElement('span');
-        titleSpan.className = 'chat-session-title';
-        titleSpan.innerText = s.title || 'Новый диалог';
-        const delBtn = document.createElement('button');
-        delBtn.className = 'chat-del-btn';
-        delBtn.title = 'Удалить диалог';
-        delBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
-        delBtn.onclick = (e) => deleteChat(s.id, e);
-        item.innerHTML = iconSvg;
-        item.appendChild(titleSpan);
-        item.appendChild(delBtn);
-        list.appendChild(item);
-    });
-}
-function renderActiveChatMessages() {
-    const chatBody = document.getElementById('chatBody');
-    if (!chatBody) return;
-    chatBody.innerHTML = '';
-    const cur = chatSessions.find(s => s.id === activeChatId);
-    if (!cur || cur.messages.length === 0) {
-        chatBody.innerHTML = '<div id="chatEmptyState" style="margin:auto;text-align:center;color:var(--text-muted);padding:40px 20px;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="1.5" style="margin-bottom:12px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:14px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Диалог пуст</div><div style="font-size:12px;">Задайте любой вопрос или задачу активной модели</div></div>';
-        return;
-    }
-    cur.messages.forEach((msg, idx) => {
-        const wrap = document.createElement('div');
-        wrap.className = 'msg-wrapper';
-        if (msg.role === 'user') {
-            wrap.innerHTML = '<div class="msg-user">' + escapeHtml(msg.content) + '</div>';
-        } else {
-            const histId = 'hist-' + idx;
-            const hasThought = msg.reasoning && msg.reasoning.trim().length > 0;
-            let thinkHtml = '';
-            if (hasThought) {
-                thinkHtml = '<div id="think-panel-' + histId + '" class="think-panel"><div class="think-header" onclick="toggleThink(\'' + histId + '\')"><div class="think-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span id="think-label-' + histId + '">Думал ' + formatDuration(msg.thoughtSec || 0) + '</span></div><svg id="think-arrow-' + histId + '" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg></div><div id="think-body-' + histId + '" class="think-content">' + escapeHtml(msg.reasoning) + '</div></div>';
-            }
-            let telemHtml = '';
-            if (msg.totalSec || msg.speedVal) {
-                const timeStr = (hasThought && msg.thoughtSec > 0) ? formatDuration(msg.totalSec) + ' (размышления: ' + formatDuration(msg.thoughtSec) + ')' : formatDuration(msg.totalSec || 0);
-                const tokensVal = (msg.usage && msg.usage.total_tokens) ? msg.usage.total_tokens : (msg.tokensCount || '-');
-                telemHtml = '<div class="telemetry-row"><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + (msg.speedVal || 0) + ' токенов/сек</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + tokensVal + ' токенов</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div></div>';
-            }
-            wrap.innerHTML = '<div class="msg-assistant">' + thinkHtml + '<div class="msg-content">' + escapeHtml(msg.content) + '</div>' + telemHtml + '</div>';
-        }
-        chatBody.appendChild(wrap);
-    });
-    chatBody.scrollTop = chatBody.scrollHeight;
-}
-function selectChat(chatId) {
-    if (isChatStreaming) return;
-    activeChatId = chatId;
-    renderChatSessionsList();
-    renderActiveChatMessages();
-    const input = document.getElementById('chatInput');
-    if (input) input.focus();
-}
-function createNewChat(switchNow) {
-    if (isChatStreaming) return;
-    const cur = chatSessions.find(s => s.id === activeChatId);
-    if (cur && cur.messages.length === 0) {
-        renderChatSessionsList();
-        renderActiveChatMessages();
-        const input = document.getElementById('chatInput');
-        if (input) input.focus();
-        return;
-    }
-    const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
-    chatSessions.unshift(fresh);
-    activeChatId = fresh.id;
-    saveChatSessions();
-    renderChatSessionsList();
-    renderActiveChatMessages();
-    const input = document.getElementById('chatInput');
-    if (input) input.focus();
-}
-function deleteChat(chatId, e) {
-    if (e) e.stopPropagation();
-    if (isChatStreaming) return;
-    chatSessions = chatSessions.filter(s => s.id !== chatId);
-    if (chatSessions.length === 0) {
-        const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
-        chatSessions.push(fresh);
-        activeChatId = fresh.id;
-    } else if (activeChatId === chatId) {
-        activeChatId = chatSessions[0].id;
-    }
-    saveChatSessions();
-    renderChatSessionsList();
-    renderActiveChatMessages();
-}
-async function sendChat() {
-    if (isChatStreaming) return;
-    const input = document.getElementById('chatInput');
-    const text = input.value.trim();
-    if (!text) return;
-    input.value = '';
-    let currentChat = chatSessions.find(s => s.id === activeChatId);
-    if (!currentChat) {
-        currentChat = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
-        chatSessions.unshift(currentChat);
-        activeChatId = currentChat.id;
-    }
-    if (currentChat.title === 'Новый диалог') {
-        currentChat.title = text.length > 26 ? text.slice(0, 26) + '...' : text;
-        renderChatSessionsList();
-    }
-    currentChat.messages.push({role: 'user', content: text});
-    saveChatSessions();
-    const emptyState = document.getElementById('chatEmptyState');
-    if (emptyState) emptyState.remove();
-    isChatStreaming = true;
-    document.getElementById('chatSendBtn').disabled = true;
-    const chatBody = document.getElementById('chatBody');
-    const userWrap = document.createElement('div');
-    userWrap.className = 'msg-wrapper';
-    userWrap.innerHTML = '<div class="msg-user">' + escapeHtml(text) + '</div>';
-    chatBody.appendChild(userWrap);
-    chatBody.scrollTop = chatBody.scrollHeight;
-    const msgId = 'msg-' + Date.now();
-    const asstWrap = document.createElement('div');
-    asstWrap.className = 'msg-wrapper';
-    asstWrap.innerHTML = '<div class="msg-assistant"><div id="think-panel-' + msgId + '" class="think-panel" style="display:none;"><div class="think-header" onclick="toggleThink(\'' + msgId + '\')"><div class="think-title"><span id="think-pulse-' + msgId + '" class="think-pulse"></span><span id="think-label-' + msgId + '">Размышления...</span></div><svg id="think-arrow-' + msgId + '" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg></div><div id="think-body-' + msgId + '" class="think-content"></div></div><div id="content-' + msgId + '" class="msg-content"></div><div id="telemetry-' + msgId + '" class="telemetry-row" style="display:none;"></div></div>';
-    chatBody.appendChild(asstWrap);
-    chatBody.scrollTop = chatBody.scrollHeight;
-    const thinkLabel = document.getElementById('think-label-' + msgId);
-    const thinkBody = document.getElementById('think-body-' + msgId);
-    const thinkPulse = document.getElementById('think-pulse-' + msgId);
-    const contentBox = document.getElementById('content-' + msgId);
-    const telemetryBox = document.getElementById('telemetry-' + msgId);
-    const liveSpeed = document.getElementById('chatLiveSpeed');
-    const tStart = performance.now();
-    let hasThoughtEnded = false;
-    let tokensCount = 0;
-    let fullReasoning = '';
-    let fullContent = '';
-    const thinkTimer = setInterval(() => {
-        if (!hasThoughtEnded) {
-            const elapsed = (performance.now() - tStart) / 1000;
-            thinkLabel.innerText = 'Думает (' + elapsed.toFixed(1) + ' сек)...';
-        }
-    }, 100);
-    try {
-        const historyPayload = currentChat.messages.map(m => ({role: m.role, content: m.content}));
-        const res = await fetch('/v1/chat/completions', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + activeApiKey},
-            body: JSON.stringify({model: activeModelId, messages: historyPayload, stream: true})
-        });
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let buffer = '';
-        let thoughtSec = 0;
-        let totalSec = 0;
-        let speedVal = 0;
-        let usageData = {prompt_tokens: 0, completion_tokens: 0, total_tokens: 0};
-        while (true) {
-            const {done, value} = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, {stream: true});
-            const lines = buffer.split('\n');
-            buffer = lines.pop();
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed || trimmed === 'data: [DONE]') continue;
-                if (trimmed.startsWith('data: ')) {
-                    try {
-                        const payload = JSON.parse(trimmed.slice(6));
-                        const choice = payload.choices && payload.choices[0];
-                        if (choice && choice.delta) {
-                            if (choice.delta.reasoning_content) {
-                                document.getElementById('think-panel-' + msgId).style.display = 'block';
-                                thinkBody.innerText += choice.delta.reasoning_content;
-                                fullReasoning += choice.delta.reasoning_content;
-                                tokensCount++;
-                            }
-                            if (choice.delta.content !== undefined && choice.delta.content !== null) {
-                                if (!hasThoughtEnded) {
-                                    hasThoughtEnded = true;
-                                    clearInterval(thinkTimer);
-                                    thoughtSec = (performance.now() - tStart) / 1000;
-                                    thinkPulse.style.display = 'none';
-                                    if (thinkBody.innerText.trim().length > 0) {
-                                        thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
-                                    } else {
-                                        const tp = document.getElementById('think-panel-' + msgId);
-                                        if (tp) tp.style.display = 'none';
-                                    }
-                                }
-                                contentBox.innerText += choice.delta.content;
-                                fullContent += choice.delta.content;
-                                tokensCount++;
-                                const curElapsed = (performance.now() - tStart) / 1000;
-                                const curSpeed = (tokensCount / Math.max(0.1, curElapsed)).toFixed(1);
-                                if (liveSpeed) liveSpeed.innerText = curSpeed + ' ток/сек';
-                            }
-                        }
-                        if (payload.telemetry) {
-                            thoughtSec = payload.telemetry.thinking_seconds;
-                            totalSec = payload.telemetry.total_seconds;
-                            speedVal = payload.telemetry.tokens_per_sec;
-                        }
-                        if (payload.usage) {
-                            usageData = payload.usage;
-                        }
-                    } catch(e) {}
-                }
-            }
-            chatBody.scrollTop = chatBody.scrollHeight;
-        }
-        clearInterval(thinkTimer);
-        hasThoughtEnded = true;
-        thinkPulse.style.display = 'none';
-        const hasRealThought = (thinkBody.innerText.trim().length > 0);
-        if (!hasRealThought) {
-            document.getElementById('think-panel-' + msgId).style.display = 'none';
-        } else if (thoughtSec > 0) {
-            thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
-        }
-        if (!totalSec) {
-            totalSec = (performance.now() - tStart) / 1000;
-        }
-        if (!speedVal) {
-            speedVal = (tokensCount / Math.max(0.1, totalSec)).toFixed(1);
-        }
-        if (liveSpeed) liveSpeed.innerText = speedVal + ' ток/сек';
-        telemetryBox.style.display = 'flex';
-        const timeStr = (hasRealThought && thoughtSec > 0) ? formatDuration(totalSec) + ' (размышления: ' + formatDuration(thoughtSec) + ')' : formatDuration(totalSec);
-        telemetryBox.innerHTML = '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + speedVal + ' токенов/сек</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + usageData.total_tokens + ' токенов</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div>';
-        chatBody.scrollTop = chatBody.scrollHeight;
-        currentChat.messages.push({
-            role: 'assistant',
-            content: fullContent,
-            reasoning: fullReasoning,
-            thoughtSec: thoughtSec,
-            totalSec: totalSec,
-            speedVal: speedVal,
-            usage: usageData
-        });
-        saveChatSessions();
-    } catch(err) {
-        clearInterval(thinkTimer);
-        contentBox.innerText = 'Ошибка соединения с локальным сервером Shard.';
-    } finally {
-        isChatStreaming = false;
-        document.getElementById('chatSendBtn').disabled = false;
-        chatBody.scrollTop = chatBody.scrollHeight;
-    }
-}
-window.onload = function() {
-    fetchHardware();
-    loadKeys();
-    loadModels();
-    refreshDirLabel();
-    updateGuide();
-    initChatSessions();
-    setPollRate(5000);
-    updateDownloadedBadge();
-};
-</script>
-</body>
-</html>
+function copyNetUri(uri) {
