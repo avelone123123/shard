@@ -27,3 +27,5 @@ class LocalCacheIndex:
                         except OSError:
                             continue
         return self._entries
+    def get_entry(self, identifier: str) -> Optional[LocalCacheEntry]:
+        return self._entries.get(identifier)
