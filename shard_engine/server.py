@@ -345,11 +345,24 @@ async def api_load_model(req: Request):
         return denied
     data = await req.json()
     model_id = str(data.get("model_id", "Qwen/Qwen2.5-Coder-1.5B-Instruct")).strip()
+    if engine_instance.is_model_active(model_id):
+        return {"status": "ok", "loaded": engine_instance.loaded_info, "already_loaded": True}
     try:
         info = engine_instance.load_model(model_id)
         return {"status": "ok", "loaded": info}
     except ValueError as e:
         return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/models/status")
+@app.get("/api/engine/status")
+def api_models_status(req: Request, model_id: str = None):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    st = engine_instance.get_status()
+    if model_id:
+        st["lifecycle_state"] = engine_instance.lifecycle_state(model_id)
+        st["is_model_active"] = engine_instance.is_model_active(model_id)
+    return st
 @app.post("/api/models/unload")
 def api_unload_model(req: Request):
     denied = _deny_non_owner(req)
@@ -367,25 +380,40 @@ def api_get_downloaded_models(req: Request):
     denied = _deny_non_owner(req)
     if denied:
         return denied
-    hf_home = os.environ.get("HF_HOME") or settings.models_dir()
-    hub_dir = os.path.join(hf_home, "hub")
+    candidate_roots = [
+        os.environ.get("HF_HOME"),
+        settings.models_dir(),
+        paths.default_models_dir(),
+        os.path.join(os.path.expanduser("~"), ".shard", "models"),
+        os.path.join(os.path.expanduser("~"), ".cache", "huggingface"),
+        str(paths.data_dir() / "models"),
+    ]
+    hub_dirs = []
+    for d in candidate_roots:
+        if d:
+            h = os.path.join(d, "hub") if not str(d).endswith("hub") else d
+            norm = os.path.normcase(os.path.abspath(h))
+            if os.path.isdir(h) and norm not in [os.path.normcase(os.path.abspath(x)) for x in hub_dirs]:
+                hub_dirs.append(h)
     hw = get_hardware_profile()
     models = []
+    seen_ids = set()
     total_bytes = 0
-    if os.path.exists(hub_dir):
+    for hub_dir in hub_dirs:
         try:
             from huggingface_hub import scan_cache_dir
             cache = scan_cache_dir(hub_dir)
-            active_id = (engine_instance.active_model_id or "").lower()
-            current_id = (engine_instance.current_loaded_id or "").lower()
             for repo in cache.repos:
+                if repo.repo_id.lower() in seen_ids:
+                    continue
+                seen_ids.add(repo.repo_id.lower())
                 total_bytes += repo.size_on_disk
                 sz_mb = round(repo.size_on_disk / (1024 * 1024), 1)
                 sz_str = f"{round(sz_mb / 1024, 2)} ГБ" if sz_mb >= 1024 else f"{sz_mb} МБ"
                 author = repo.repo_id.split("/")[0] if "/" in repo.repo_id else "Community"
                 name = repo.repo_id.split("/")[-1]
                 comp = evaluate_compatibility(repo.repo_id, hw)
-                is_act = (repo.repo_id.lower() == current_id) or (engine_instance.model is not None and repo.repo_id.lower() == active_id)
+                is_act = engine_instance.is_model_active(repo.repo_id)
                 models.append({
                     "id": repo.repo_id,
                     "author": author,
@@ -401,6 +429,9 @@ def api_get_downloaded_models(req: Request):
             for item in os.listdir(hub_dir):
                 if item.startswith("models--"):
                     clean_id = item.replace("models--", "").replace("--", "/")
+                    if clean_id.lower() in seen_ids:
+                        continue
+                    seen_ids.add(clean_id.lower())
                     full_p = os.path.join(hub_dir, item)
                     sz = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(full_p) for f in fs if os.path.exists(os.path.join(r, f)))
                     sz_mb = round(sz / (1024 * 1024), 1)
@@ -413,7 +444,7 @@ def api_get_downloaded_models(req: Request):
                         "size_bytes": sz,
                         "size_mb": sz_mb,
                         "size_str": sz_str,
-                        "is_active": (clean_id.lower() == (engine_instance.current_loaded_id or "").lower()),
+                        "is_active": engine_instance.is_model_active(clean_id),
                         "last_modified": int(os.path.getmtime(full_p)),
                         "compatibility": evaluate_compatibility(clean_id, hw)
                     })
@@ -1764,7 +1795,8 @@ def _render_dashboard_html(client_mode):
         "server_name": st.get("name"),
         "active_model": engine_instance.active_model_id,
     }
-    tag = f'<script id="shard-boot" type="application/json">{json.dumps(boot, ensure_ascii=False).replace("</", "<\\/")}</script>'
+    boot_json = json.dumps(boot, ensure_ascii=False).replace("</", "<\\/")
+    tag = f'<script id="shard-boot" type="application/json">{boot_json}</script>'
     if "</head>" in html:
         return html.replace("</head>", tag + "\n</head>", 1)
     return tag + html
