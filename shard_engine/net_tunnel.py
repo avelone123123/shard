@@ -850,3 +850,332 @@ class _RelayHostEntry:
     async def send_bytes(self, data: bytes) -> None:
         async with self.send_lock:
             await self.ws.send_bytes(data)
+class RelayHub:
+    def __init__(
+        self,
+        max_conns_per_ip: int = DEFAULT_RELAY_MAX_CONNS_PER_IP,
+        max_tunnels_per_host: int = DEFAULT_RELAY_MAX_TUNNELS_PER_HOST,
+        max_frame_bytes: int = MAX_FRAME_BYTES,
+        max_bytes_per_sec: float = DEFAULT_RELAY_MAX_BYTES_PER_SEC,
+        max_bandwidth_kbps: float | None = None,
+        idle_timeout_s: float = DEFAULT_RELAY_IDLE_TIMEOUT_S,
+        auth_token: str | None = None,
+        auth_timeout_s: float = 10.0,
+        on_frame=None,
+    ):
+        self.max_conns_per_ip = max(1, int(max_conns_per_ip))
+        self.max_tunnels_per_host = max(1, int(max_tunnels_per_host))
+        self.max_frame_bytes = max(64, int(max_frame_bytes))
+        eff_bytes_sec = float(max_bandwidth_kbps) * 125.0 if max_bandwidth_kbps is not None else float(max_bytes_per_sec)
+        self.max_bytes_per_sec = eff_bytes_sec
+        self.idle_timeout_s = max(1.0, float(idle_timeout_s))
+        self.auth_token = str(auth_token) if auth_token else None
+        self.auth_timeout_s = max(1.0, float(auth_timeout_s))
+        self.on_frame = on_frame
+        self._hosts: dict[str, _RelayHostEntry] = {}
+        self._ip_conns: dict[str, int] = {}
+        self._bytes_relayed = 0
+        self._dropped_frames = 0
+        self._started_at = time.monotonic()
+        self._sweep_task: asyncio.Task | None = None
+    def stats(self) -> dict:
+        active_tunnels = sum(len(h.tunnels) for h in self._hosts.values())
+        return {
+            "host_count": len(self._hosts),
+            "active_tunnels": active_tunnels,
+            "bytes_relayed": self._bytes_relayed,
+            "dropped_frames": self._dropped_frames,
+        }
+    def _acquire_ip_slot(self, ip: str) -> bool:
+        cur = self._ip_conns.get(ip, 0)
+        if cur >= self.max_conns_per_ip:
+            return False
+        self._ip_conns[ip] = cur + 1
+        return True
+    def _release_ip_slot(self, ip: str) -> None:
+        cur = self._ip_conns.get(ip, 0)
+        if cur <= 1:
+            self._ip_conns.pop(ip, None)
+        else:
+            self._ip_conns[ip] = cur - 1
+    def _emit_frame_hook(self, direction: str, host_id: str, tunnel_id: str, payload: bytes) -> None:
+        if self.on_frame is not None:
+            try:
+                self.on_frame(direction, host_id, tunnel_id, payload)
+            except Exception:
+                pass
+    def _verify_relay_auth(self, host_id: str, challenge: str, msg: dict) -> tuple[bool, str]:
+        if not isinstance(msg, dict):
+            return False, "invalid_json"
+        if self.auth_token is not None:
+            cand = str(msg.get("auth_token") or msg.get("token") or "")
+            if not cand or not hmac.compare_digest(cand, self.auth_token):
+                return False, "invalid_relay_token"
+        pubkey = msg.get("pubkey") if msg.get("pubkey") is not None else msg.get("pubkey_b64")
+        sig = msg.get("sig")
+        ts = msg.get("ts")
+        msg_hid = msg.get("host_id")
+        if msg_hid is not None and str(msg_hid) != host_id:
+            return False, "host_id_mismatch"
+        if isinstance(ts, bool) or not isinstance(ts, (int, float)):
+            return False, "invalid_ts"
+        if abs(time.time() - float(ts)) > net_identity.MAX_CLOCK_SKEW_S:
+            return False, "ts_skew"
+        signed_data = f"relay-reg:{host_id}:{challenge}:{ts}".encode("utf-8")
+        if net_identity.verify_sig(pubkey, host_id, net_identity.DOMAIN_RELAY_REG, signed_data, sig):
+            return True, "ok"
+        if isinstance(ts, float) and ts.is_integer():
+            alt_data = f"relay-reg:{host_id}:{challenge}:{int(ts)}".encode("utf-8")
+            if net_identity.verify_sig(pubkey, host_id, net_identity.DOMAIN_RELAY_REG, alt_data, sig):
+                return True, "ok"
+        return False, "invalid_sig"
+    async def _close_peer_tunnel(self, host_entry: _RelayHostEntry, tunnel_id: str, notify_host: bool = True, code: int = 1000, reason: str = "closed") -> None:
+        pt = host_entry.tunnels.pop(tunnel_id, None)
+        if pt is None or pt.closed:
+            return
+        pt.closed = True
+        try:
+            await asyncio.wait_for(pt.peer_ws.close(code=code, reason=reason), timeout=1.0)
+        except Exception:
+            pass
+        if notify_host and not host_entry.closed:
+            try:
+                await host_entry.send_text({"type": "peer_close", "tunnel_id": tunnel_id})
+            except Exception:
+                pass
+    async def _close_host_entry(self, entry: _RelayHostEntry, code: int = 1000, reason: str = "replaced") -> None:
+        if entry.closed:
+            return
+        entry.closed = True
+        for tid in list(entry.tunnels.keys()):
+            await self._close_peer_tunnel(entry, tid, notify_host=False, code=code, reason=reason)
+        try:
+            await asyncio.wait_for(entry.ws.close(code=code, reason=reason), timeout=1.0)
+        except Exception:
+            pass
+    async def start_watchdog(self) -> None:
+        if self._sweep_task is not None and not self._sweep_task.done():
+            return
+        self._sweep_task = asyncio.create_task(self._watchdog_loop())
+    async def stop_watchdog(self) -> None:
+        t = self._sweep_task
+        self._sweep_task = None
+        if t is not None:
+            t.cancel()
+            try:
+                await t
+            except BaseException:
+                pass
+        for entry in list(self._hosts.values()):
+            await self._close_host_entry(entry, code=1001, reason="shutdown")
+        self._hosts.clear()
+    async def _watchdog_loop(self) -> None:
+        interval = min(5.0, max(0.25, self.idle_timeout_s / 3.0))
+        while True:
+            await asyncio.sleep(interval)
+            now = time.monotonic()
+            for entry in list(self._hosts.values()):
+                for tid, pt in list(entry.tunnels.items()):
+                    if (now - pt.last_activity) > self.idle_timeout_s:
+                        await self._close_peer_tunnel(entry, tid, notify_host=True, code=4408, reason="idle_timeout")
+                if (now - entry.last_activity) > self.idle_timeout_s and not entry.tunnels:
+                    if self._hosts.get(entry.host_id) is entry:
+                        self._hosts.pop(entry.host_id, None)
+                    await self._close_host_entry(entry, code=4408, reason="idle_timeout")
+    async def handle_host_ws(self, ws: WebSocket, host_id: str) -> None:
+        ip = ws.client.host if ws.client else "unknown"
+        if not self._acquire_ip_slot(ip):
+            await ws.close(code=1008)
+            return
+        entry: _RelayHostEntry | None = None
+        try:
+            await ws.accept()
+            if not isinstance(host_id, str) or not net_identity.NODE_ID_RE.match(host_id):
+                await ws.close(code=4400, reason="invalid_host_id")
+                return
+            challenge = secrets.token_hex(32)
+            await ws.send_text(json.dumps({"type": "challenge", "challenge": challenge}, separators=(",", ":")))
+            try:
+                raw_auth = await asyncio.wait_for(ws.receive_text(), timeout=self.auth_timeout_s)
+                auth_msg = json.loads(raw_auth)
+            except Exception:
+                await ws.close(code=4401, reason="auth_timeout_or_invalid")
+                return
+            ok, reason = self._verify_relay_auth(host_id, challenge, auth_msg)
+            if not ok:
+                await ws.close(code=4401, reason=reason)
+                return
+            old_entry = self._hosts.get(host_id)
+            entry = _RelayHostEntry(host_id, ws, ip)
+            self._hosts[host_id] = entry
+            if old_entry is not None and old_entry is not entry:
+                await self._close_host_entry(old_entry, code=4409, reason="replaced")
+            await entry.send_text({"type": "registered", "host_id": host_id})
+            while not entry.closed:
+                msg = await ws.receive()
+                if msg.get("type") == "websocket.disconnect":
+                    break
+                entry.last_activity = time.monotonic()
+                raw_bytes = msg.get("bytes")
+                raw_text = msg.get("text")
+                if raw_bytes is not None:
+                    if len(raw_bytes) < 16 or len(raw_bytes) > 16 + self.max_frame_bytes:
+                        self._dropped_frames += 1
+                        continue
+                    try:
+                        tid = raw_bytes[:16].decode("ascii")
+                    except UnicodeDecodeError:
+                        self._dropped_frames += 1
+                        continue
+                    payload = bytes(raw_bytes[16:])
+                    if len(payload) == 0 or len(payload) > self.max_frame_bytes:
+                        self._dropped_frames += 1
+                        continue
+                    pt = entry.tunnels.get(tid)
+                    if pt is None or pt.closed:
+                        self._dropped_frames += 1
+                        continue
+                    allowed = await pt.bucket_down.acquire(len(payload))
+                    if not allowed:
+                        self._dropped_frames += 1
+                        continue
+                    pt.last_activity = time.monotonic()
+                    self._emit_frame_hook("host_to_peer", host_id, tid, payload)
+                    try:
+                        await pt.peer_ws.send_bytes(payload)
+                        self._bytes_relayed += len(payload)
+                    except Exception:
+                        await self._close_peer_tunnel(entry, tid, notify_host=True, code=1011, reason="peer_send_error")
+                elif raw_text is not None:
+                    try:
+                        ctrl = json.loads(raw_text)
+                    except Exception:
+                        continue
+                    if not isinstance(ctrl, dict):
+                        continue
+                    ctype = ctrl.get("type")
+                    if ctype == "ping":
+                        await entry.send_text({"type": "pong"})
+                    elif ctype == "peer_close":
+                        tid = str(ctrl.get("tunnel_id") or "")
+                        if tid in entry.tunnels:
+                            await self._close_peer_tunnel(entry, tid, notify_host=False, code=1000, reason="host_closed")
+        except WebSocketDisconnect:
+            pass
+        except Exception:
+            pass
+        finally:
+            if entry is not None:
+                if self._hosts.get(host_id) is entry:
+                    self._hosts.pop(host_id, None)
+                await self._close_host_entry(entry, code=1001, reason="host_disconnected")
+            self._release_ip_slot(ip)
+    async def handle_peer_ws(self, ws: WebSocket, host_id: str) -> None:
+        ip = ws.client.host if ws.client else "unknown"
+        if not self._acquire_ip_slot(ip):
+            await ws.close(code=1008)
+            return
+        host_entry: _RelayHostEntry | None = None
+        tunnel_id = ""
+        try:
+            await ws.accept()
+            if not isinstance(host_id, str) or not net_identity.NODE_ID_RE.match(host_id):
+                await ws.close(code=4400, reason="invalid_host_id")
+                return
+            host_entry = self._hosts.get(host_id)
+            if host_entry is None or host_entry.closed:
+                await ws.close(code=4404, reason="host_offline")
+                return
+            if len(host_entry.tunnels) >= self.max_tunnels_per_host:
+                await ws.close(code=4429, reason="too_many_tunnels")
+                return
+            tunnel_id = secrets.token_hex(8)
+            pt = _RelayPeerTunnel(tunnel_id, host_id, ws, ip, self.max_bytes_per_sec, self.max_frame_bytes)
+            host_entry.tunnels[tunnel_id] = pt
+            try:
+                await host_entry.send_text({"type": "peer_connect", "tunnel_id": tunnel_id})
+            except Exception:
+                await self._close_peer_tunnel(host_entry, tunnel_id, notify_host=False, code=1011, reason="host_send_error")
+                return
+            while not pt.closed and not host_entry.closed:
+                msg = await ws.receive()
+                if msg.get("type") == "websocket.disconnect":
+                    break
+                raw_bytes = msg.get("bytes")
+                if raw_bytes is None:
+                    self._dropped_frames += 1
+                    await ws.close(code=1003, reason="binary_only")
+                    break
+                if len(raw_bytes) == 0 or len(raw_bytes) > self.max_frame_bytes:
+                    self._dropped_frames += 1
+                    await ws.close(code=1009, reason="frame_too_large")
+                    break
+                allowed = await pt.bucket_up.acquire(len(raw_bytes))
+                if not allowed:
+                    self._dropped_frames += 1
+                    continue
+                now = time.monotonic()
+                pt.last_activity = now
+                host_entry.last_activity = now
+                payload = bytes(raw_bytes)
+                self._emit_frame_hook("peer_to_host", host_id, tunnel_id, payload)
+                try:
+                    await host_entry.send_bytes(pt.tunnel_id_bytes + payload)
+                    self._bytes_relayed += len(payload)
+                except Exception:
+                    break
+        except WebSocketDisconnect:
+            pass
+        except Exception:
+            pass
+        finally:
+            if host_entry is not None and tunnel_id:
+                await self._close_peer_tunnel(host_entry, tunnel_id, notify_host=True, code=1000, reason="peer_disconnected")
+            self._release_ip_slot(ip)
+def create_relay_app(hub: RelayHub | None = None, **hub_kwargs) -> FastAPI:
+    relay_hub = hub if hub is not None else RelayHub(**hub_kwargs)
+    @asynccontextmanager
+    async def _lifespan(_app: FastAPI):
+        await relay_hub.start_watchdog()
+        try:
+            yield
+        finally:
+            await relay_hub.stop_watchdog()
+    app = FastAPI(title="SHARD Blind Relay", docs_url=None, redoc_url=None, openapi_url=None, lifespan=_lifespan)
+    app.state.relay_hub = relay_hub
+    @app.get("/healthz")
+    async def healthz():
+        return {"status": "ok"}
+    @app.get("/v1/relay/stats")
+    async def relay_stats():
+        return JSONResponse(content=relay_hub.stats())
+    @app.websocket("/v1/relay/host")
+    async def relay_host(ws: WebSocket, host_id: str = ""):
+        await relay_hub.handle_host_ws(ws, host_id)
+    @app.websocket("/v1/relay/connect")
+    async def relay_connect(ws: WebSocket, host_id: str = ""):
+        await relay_hub.handle_peer_ws(ws, host_id)
+    return app
+async def start_relay_server(host: str = "127.0.0.1", port: int = 0, hub: RelayHub | None = None, **hub_kwargs):
+    import uvicorn
+    app = create_relay_app(hub=hub, **hub_kwargs)
+    sock = socket.socket(socket.AF_INET6 if ":" in host and host != "0.0.0.0" else socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((host, int(port)))
+    sock.listen(128)
+    sock.setblocking(False)
+    actual_port = sock.getsockname()[1]
+    cfg = uvicorn.Config(app, host=host, port=actual_port, log_level="warning", access_log=False)
+    server = uvicorn.Server(cfg)
+    server.install_signal_handlers = lambda: None
+    task = asyncio.create_task(server.serve(sockets=[sock]))
+    while not server.started and not task.done():
+        await asyncio.sleep(0.02)
+    return app.state.relay_hub, server, task, actual_port
+def serve_relay(host: str = "0.0.0.0", port: int = 8091, hub: RelayHub | None = None, ssl_certfile: str | None = None, ssl_keyfile: str | None = None, **hub_kwargs) -> None:
+    import uvicorn
+    app = create_relay_app(hub=hub, **hub_kwargs)
+    kwargs = {"host": host, "port": int(port), "log_level": "info", "access_log": False}
+    if ssl_certfile:
+        kwargs["ssl_certfile"] = ssl_certfile
+    if ssl_keyfile:
