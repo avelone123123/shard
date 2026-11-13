@@ -34,3 +34,7 @@ class TransferProgressTracker:
         self.smoother.add_sample(time.time(), current_bytes)
     def speed(self) -> float:
         return self.smoother.current_speed()
+    def eta(self) -> float:
+        spd = self.speed()
+        rem = max(0, self.total_bytes - self.downloaded_bytes)
+        return float(rem) / spd if spd > 1024.0 else 0.0
