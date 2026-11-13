@@ -17,3 +17,5 @@ HTTP_INTERNAL_ERROR = 500
 HEADER_OWNER_TOKEN = "X-Shard-Owner-Token"
 HEADER_CLIENT_ID = "X-Shard-Client-Id"
 HEADER_CONTENT_TYPE = "Content-Type"
+GGUF_EXT = ".gguf"
+SAFETENSORS_EXT = ".safetensors"
