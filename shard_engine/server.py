@@ -1158,3 +1158,193 @@ def api_feedback_policy(req: Request):
         "is_owner": is_owner,
         "opted_out": feedback.is_contributor_opted_out(cid),
     }
+@app.post("/api/feedback/submit")
+async def api_feedback_submit(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    ok_fb, retry_fb = _FEEDBACK_LIMITER.check(ip)
+    if not ok_fb:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_fb)}, content={"status": "error", "message": "Too many feedback requests"})
+    is_owner = _is_owner_request(req)
+    if not is_owner and LAN.is_server():
+        tok = _extract_bearer(req)
+        if not _token_in_pool(tok, LAN.tokens()):
+            return JSONResponse(status_code=401, content={"status": "error", "message": "Valid LAN participant token required"})
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    src = "local" if is_owner else "remote"
+    hint = _contributor_identity(req, data if is_owner else None)
+    if not is_owner and isinstance(data, dict):
+        data = dict(data)
+        data.pop("contributor_id", None)
+    try:
+        entry = feedback.submit_feedback(data, source=src, client_hint=hint)
+        return {"status": "ok", "id": entry["id"], "entry_status": entry["status"], "redactions": entry["redactions"]}
+    except PermissionError as e:
+        return JSONResponse(status_code=403, content={"status": "error", "message": str(e)})
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/feedback/my")
+def api_feedback_my(req: Request, contributor_id: str = None):
+    is_owner = _is_owner_request(req)
+    if not is_owner and LAN.is_server():
+        tok = _extract_bearer(req)
+        if not _token_in_pool(tok, LAN.tokens()):
+            return JSONResponse(status_code=401, content={"status": "error", "message": "Valid LAN participant token required"})
+    cid = contributor_id if (is_owner and contributor_id) else _contributor_identity(req)
+    return feedback.list_contributor_submissions(cid)
+@app.post("/api/feedback/revoke")
+async def api_feedback_revoke(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    ok_fb, retry_fb = _FEEDBACK_LIMITER.check(ip)
+    if not ok_fb:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_fb)}, content={"status": "error", "message": "Too many requests"})
+    is_owner = _is_owner_request(req)
+    if not is_owner and LAN.is_server():
+        tok = _extract_bearer(req)
+        if not _token_in_pool(tok, LAN.tokens()):
+            return JSONResponse(status_code=401, content={"status": "error", "message": "Valid LAN participant token required"})
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    cid = data.get("contributor_id") if (is_owner and data.get("contributor_id")) else _contributor_identity(req)
+    res = feedback.revoke_contributor(cid, delete_existing=bool(data.get("delete_existing", True)))
+    return {"status": "ok", **res}
+@app.get("/api/training/overview")
+def api_training_overview(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return training.training_overview()
+@app.get("/api/training/soup")
+def api_training_soup(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return soup_adapter.detect_soup(probe_deps=True)
+@app.get("/api/training/privacy")
+def api_training_privacy_get(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return feedback.get_privacy_config()
+@app.post("/api/training/privacy")
+async def api_training_privacy_update(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+        return {"status": "ok", "privacy": feedback.update_privacy_config(data)}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/training/feedback")
+def api_training_feedback_list(req: Request, status: str = None, limit: int = 200):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"entries": feedback.list_feedback(status=status, limit=limit), "stats": feedback.compute_stats()}
+@app.post("/api/training/feedback/{entry_id}/review")
+async def api_training_feedback_review(entry_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+        entry = feedback.review_feedback(
+            entry_id,
+            action=data.get("action"),
+            edited_fields=data.get("edited_fields"),
+        )
+        return {"status": "ok", "entry": entry}
+    except KeyError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/training/datasets")
+def api_training_datasets_list(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"datasets": feedback.list_datasets(), "stats": feedback.compute_stats()}
+@app.post("/api/training/datasets/build")
+async def api_training_datasets_build(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        manifest = feedback.build_dataset_snapshot(
+            task=data.get("task", "sft"),
+            base_model=data.get("base_model") or engine_instance.active_model_id,
+            name=data.get("name"),
+            include_pending=bool(data.get("include_pending", False)),
+            validate_with_soup=bool(data.get("validate_with_soup", True)),
+        )
+        return {"status": "ok", "dataset": manifest}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/training/datasets/{snapshot_id}")
+def api_training_dataset_detail(snapshot_id: str, req: Request, preview: int = 10):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        m = feedback.get_dataset_manifest(snapshot_id)
+        rows = feedback.preview_dataset_records(snapshot_id, limit=preview)
+        return {"dataset": m, "preview": rows}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except FileNotFoundError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+@app.get("/api/training/jobs")
+def api_training_jobs_list(req: Request, limit: int = 50):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"jobs": training.list_training_jobs(limit=limit)}
+@app.post("/api/training/jobs/start")
+async def api_training_jobs_start(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+        job = training.start_training_job(
+            base_model=data.get("base_model"),
+            dataset_snapshot_id=data.get("dataset_snapshot_id"),
+            task=data.get("task", "sft"),
+            params=data.get("params"),
+            dry_run=bool(data.get("dry_run", False)),
+            unload_inference=bool(data.get("unload_inference", True)),
+            experiment_name=data.get("experiment_name"),
+        )
+        return {"status": "ok", "job": job}
+    except (ValueError, KeyError, FileNotFoundError) as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except RuntimeError as e:
+        return JSONResponse(status_code=409, content={"status": "error", "message": str(e)})
+@app.get("/api/training/jobs/{job_id}")
+def api_training_job_detail(job_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        return {"job": training.get_training_job(job_id)}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except KeyError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+@app.post("/api/training/jobs/{job_id}/cancel")
+def api_training_job_cancel(job_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        return {"status": "ok", "job": training.cancel_training_job(job_id)}
+    except KeyError as e:
