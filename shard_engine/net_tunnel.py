@@ -1662,3 +1662,573 @@ class HostTunnelAgent:
             elif not fin_sent and channel.is_established:
                 try:
                     await channel.send_frame(net_identity.MSG_HTTP_BODY_CHUNK, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+                except Exception:
+                    pass
+class ClientTunnelAgent:
+    def __init__(
+        self,
+        identity: net_identity.NodeIdentity,
+        target_host_id: str,
+        mode: str = "auto",
+        direct_endpoints=(),
+        relay_urls=(),
+        auth_proof: str | None = None,
+        allow_insecure_local: bool | None = None,
+        connect_timeout_s: float = 8.0,
+        ping_timeout_s: float = 5.0,
+        reconnect: bool = False,
+        bridge_host: str = "127.0.0.1",
+        bridge_port: int = 0,
+        verify_ping: bool = True,
+    ):
+        if not isinstance(target_host_id, str) or not net_identity.NODE_ID_RE.match(target_host_id):
+            raise ValueError("Invalid target_host_id")
+        if mode not in ("auto", "direct", "relay"):
+            raise ValueError("mode must be 'auto', 'direct', or 'relay'")
+        self.identity = identity
+        self.target_host_id = target_host_id
+        self.requested_mode = mode
+        self.direct_endpoints = [str(x).strip() for x in (direct_endpoints or ()) if str(x).strip()]
+        self.relay_urls = [str(x).strip() for x in (relay_urls or ()) if str(x).strip()]
+        self.auth_proof = auth_proof
+        self.allow_insecure_local = allow_insecure_local
+        self.connect_timeout_s = float(connect_timeout_s)
+        self.ping_timeout_s = float(ping_timeout_s)
+        self.reconnect_enabled = bool(reconnect)
+        self.bridge_host = str(bridge_host or "127.0.0.1")
+        self.bridge_port = int(bridge_port)
+        self.verify_ping = bool(verify_ping)
+        self._state = TunnelState.READY
+        self._active_mode: str | None = None
+        self._active_relay_url: str | None = None
+        self._channel: EncryptedChannel | None = None
+        self._bridge_server: asyncio.AbstractServer | None = None
+        self._local_port: int | None = None
+        self._recv_task: asyncio.Task | None = None
+        self._reconnect_task: asyncio.Task | None = None
+        self._stop = False
+        self._next_stream_id = 1
+        self._stream_lock = asyncio.Lock()
+        self._pending_streams: dict[int, asyncio.Queue] = {}
+        self._rtt_ms: float | None = None
+        self._bytes_tx_acc = 0
+        self._bytes_rx_acc = 0
+        self._reconnect_attempts = 0
+        self._last_error: str | None = None
+    @property
+    def state(self) -> TunnelState:
+        return self._state
+    @property
+    def mode(self) -> str | None:
+        return self._active_mode
+    @property
+    def local_port(self) -> int | None:
+        return self._local_port
+    @property
+    def local_url(self) -> str | None:
+        if self._local_port is None:
+            return None
+        return f"http://{self.bridge_host}:{self._local_port}"
+    def status(self) -> dict:
+        tx = self._bytes_tx_acc + (self._channel.bytes_tx if self._channel is not None else 0)
+        rx = self._bytes_rx_acc + (self._channel.bytes_rx if self._channel is not None else 0)
+        return {
+            "state": self._state.value,
+            "mode": self._active_mode,
+            "local_url": self.local_url,
+            "relay_url": self._active_relay_url,
+            "target_host_id": self.target_host_id,
+            "rtt_ms": self._rtt_ms,
+            "bytes_tx": tx,
+            "bytes_rx": rx,
+            "reconnect_attempts": self._reconnect_attempts,
+            "last_error": self._last_error,
+        }
+    async def __aenter__(self):
+        await self.connect()
+        return self
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.disconnect()
+    async def _start_bridge(self) -> None:
+        if self._bridge_server is not None:
+            return
+        self._bridge_server = await asyncio.start_server(self._handle_bridge_client, self.bridge_host, self.bridge_port)
+        if self._bridge_server.sockets:
+            self._local_port = self._bridge_server.sockets[0].getsockname()[1]
+    async def _stop_bridge(self) -> None:
+        if self._bridge_server is not None:
+            self._bridge_server.close()
+            try:
+                await asyncio.wait_for(self._bridge_server.wait_closed(), timeout=1.5)
+            except Exception:
+                pass
+            self._bridge_server = None
+        self._local_port = None
+    async def _teardown_channel(self) -> None:
+        rt = self._recv_task
+        self._recv_task = None
+        if rt is not None and rt is not asyncio.current_task():
+            rt.cancel()
+            try:
+                await rt
+            except BaseException:
+                pass
+        ch = self._channel
+        self._channel = None
+        if ch is not None:
+            self._bytes_tx_acc += ch.bytes_tx
+            self._bytes_rx_acc += ch.bytes_rx
+            await ch.send_close("client_disconnect")
+            await ch.close()
+        self._fail_pending_streams()
+    def _fail_pending_streams(self) -> None:
+        for sid, q in list(self._pending_streams.items()):
+            try:
+                q.put_nowait(None)
+            except Exception:
+                pass
+        self._pending_streams.clear()
+    async def _open_direct_channel(self, endpoint: str) -> EncryptedChannel:
+        host, port = _parse_direct_endpoint(endpoint)
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=self.connect_timeout_s)
+        tr = TcpFrameTransport(reader, writer)
+        ch = EncryptedChannel(tr, role="client")
+        await ch.perform_client_handshake(self.identity, self.target_host_id, auth_proof=self.auth_proof, timeout=self.connect_timeout_s)
+        return ch
+    async def _open_relay_channel(self, relay_url: str) -> EncryptedChannel:
+        ws_url = _build_relay_ws_url(relay_url, "connect", self.target_host_id, allow_insecure_local=self.allow_insecure_local)
+        ws = await websockets.connect(
+            ws_url,
+            max_size=MAX_FRAME_BYTES,
+            compression=None,
+            proxy=None,
+            open_timeout=self.connect_timeout_s,
+            ping_interval=20.0,
+            ping_timeout=20.0,
+        )
+        tr = WebSocketTransport(ws)
+        ch = EncryptedChannel(tr, role="client")
+        await ch.perform_client_handshake(self.identity, self.target_host_id, auth_proof=self.auth_proof, timeout=self.connect_timeout_s)
+        return ch
+    async def _establish_once(self) -> bool:
+        self._state = TunnelState.CONNECTING
+        self._last_error = None
+        modes = []
+        if self.requested_mode == "direct":
+            modes = ["direct"]
+        elif self.requested_mode == "relay":
+            modes = ["relay"]
+        else:
+            modes = ["direct", "relay"]
+        last_err = None
+        for m in modes:
+            if m == "direct":
+                for ep in self.direct_endpoints:
+                    try:
+                        ch = await self._open_direct_channel(ep)
+                        await self._activate_channel(ch, "direct", None)
+                        return True
+                    except Exception as exc:
+                        last_err = str(exc)
+            elif m == "relay":
+                for rurl in self.relay_urls:
+                    try:
+                        ch = await self._open_relay_channel(rurl)
+                        await self._activate_channel(ch, "relay", rurl)
+                        return True
+                    except Exception as exc:
+                        last_err = str(exc)
+        self._last_error = last_err or "No reachable tunnel endpoints"
+        self._state = TunnelState.FAILED
+        return False
+    async def _activate_channel(self, ch: EncryptedChannel, mode: str, relay_url: str | None) -> None:
+        self._channel = ch
+        self._active_mode = mode
+        self._active_relay_url = relay_url
+        self._recv_task = asyncio.create_task(self._recv_loop(ch))
+        if self.verify_ping:
+            rtt = await self.measure_ping(timeout=self.ping_timeout_s)
+            if rtt is None:
+                await self._teardown_channel()
+                raise TunnelError("Tunnel /v1/ping verification failed")
+        self._state = TunnelState.CONNECTED if mode == "direct" else TunnelState.RELAY_CONNECTED
+    async def connect(self) -> bool:
+        self._stop = False
+        await self._teardown_channel()
+        ok = await self._establish_once()
+        if not ok:
+            if self.reconnect_enabled and (self._reconnect_task is None or self._reconnect_task.done()):
+                self._reconnect_task = asyncio.create_task(self._reconnect_loop())
+            return False
+        await self._start_bridge()
+        if self.reconnect_enabled and (self._reconnect_task is None or self._reconnect_task.done()):
+            self._reconnect_task = asyncio.create_task(self._reconnect_loop())
+        return True
+    async def disconnect(self) -> None:
+        self._stop = True
+        rt = self._reconnect_task
+        self._reconnect_task = None
+        if rt is not None and rt is not asyncio.current_task():
+            rt.cancel()
+            try:
+                await rt
+            except BaseException:
+                pass
+        await self._teardown_channel()
+        await self._stop_bridge()
+        self._active_mode = None
+        self._active_relay_url = None
+        self._state = TunnelState.DISCONNECTED
+    async def _reconnect_loop(self) -> None:
+        backoff = 1.0
+        while not self._stop and self.reconnect_enabled:
+            await asyncio.sleep(0.5)
+            if self._stop:
+                break
+            if self._channel is not None and self._channel.is_established:
+                backoff = 1.0
+                continue
+            self._state = TunnelState.RECONNECTING
+            self._reconnect_attempts += 1
+            await self._teardown_channel()
+            if await self._establish_once():
+                await self._start_bridge()
+                backoff = 1.0
+            else:
+                await asyncio.sleep(backoff)
+                backoff = min(10.0, backoff * 2.0)
+    async def _recv_loop(self, ch: EncryptedChannel) -> None:
+        try:
+            while not self._stop and ch.is_established:
+                msg_type, flags, stream_id, payload = await ch.recv_frame()
+                if msg_type == net_identity.MSG_PING:
+                    await ch.send_frame(net_identity.MSG_PONG, payload=payload, stream_id=0, flags=0)
+                    continue
+                if msg_type == net_identity.MSG_PONG:
+                    continue
+                if msg_type == net_identity.MSG_AUTH_ERR:
+                    self._last_error = payload.decode("utf-8", errors="replace") or "auth_rejected"
+                    break
+                if msg_type == net_identity.MSG_CLOSE:
+                    break
+                q = self._pending_streams.get(stream_id)
+                if q is not None:
+                    try:
+                        q.put_nowait((msg_type, flags, payload))
+                    except asyncio.QueueFull:
+                        self._pending_streams.pop(stream_id, None)
+                        try:
+                            q.put_nowait(None)
+                        except Exception:
+                            pass
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            self._last_error = str(exc)
+        finally:
+            self._fail_pending_streams()
+            if self._channel is ch:
+                self._bytes_tx_acc += ch.bytes_tx
+                self._bytes_rx_acc += ch.bytes_rx
+                self._channel = None
+                await ch.close()
+                if not self._stop:
+                    self._state = TunnelState.RECONNECTING if self.reconnect_enabled else TunnelState.DISCONNECTED
+    async def _alloc_stream(self) -> tuple[int, asyncio.Queue]:
+        async with self._stream_lock:
+            sid = self._next_stream_id
+            self._next_stream_id += 2
+            q: asyncio.Queue = asyncio.Queue(maxsize=512)
+            self._pending_streams[sid] = q
+            return sid, q
+    async def stream_request(
+        self,
+        method: str,
+        path: str,
+        query: str = "",
+        headers=None,
+        body: bytes = b"",
+        timeout: float = 60.0,
+    ):
+        ch = self._channel
+        if ch is None or not ch.is_established:
+            raise TunnelClosedError("Tunnel not connected")
+        sid, q = await self._alloc_stream()
+        try:
+            req_hdrs = []
+            raw_items = headers.items() if isinstance(headers, dict) else (headers or ())
+            for pair in raw_items:
+                if not isinstance(pair, (tuple, list)) or len(pair) != 2:
+                    continue
+                k = (pair[0].decode("latin-1") if isinstance(pair[0], (bytes, bytearray)) else str(pair[0])).strip().lower()
+                v = pair[1].decode("latin-1") if isinstance(pair[1], (bytes, bytearray)) else str(pair[1])
+                if not k or k in ("host", "connection", "keep-alive", "transfer-encoding", "te", "trailer", "upgrade", "proxy-connection", "content-length"):
+                    continue
+                if any(c in k for c in ("\r", "\n", "\x00", ":")) or any(c in v for c in ("\r", "\n", "\x00")):
+                    continue
+                req_hdrs.append((k, v))
+            meta = {
+                "method": str(method or "GET").upper(),
+                "path": str(path or "/"),
+                "query": str(query or ""),
+                "headers": [[k, v] for k, v in req_hdrs],
+            }
+            req_bytes = net_identity.canonical_json(meta)
+            has_body = bool(body)
+            await ch.send_frame(
+                net_identity.MSG_HTTP_REQ,
+                payload=req_bytes,
+                stream_id=sid,
+                flags=0 if has_body else net_identity.FLAG_FIN,
+            )
+            if has_body:
+                raw_body = bytes(body)
+                offset = 0
+                while offset < len(raw_body):
+                    part = raw_body[offset:offset + MAX_CHUNK_BYTES]
+                    offset += len(part)
+                    fl = net_identity.FLAG_FIN if offset >= len(raw_body) else 0
+                    await ch.send_frame(net_identity.MSG_HTTP_BODY_CHUNK, payload=part, stream_id=sid, flags=fl)
+            item = await asyncio.wait_for(q.get(), timeout=timeout)
+            if item is None:
+                raise TunnelClosedError("Tunnel stream closed before response")
+            mt, fl, payload = item
+            if mt != net_identity.MSG_HTTP_RESP_HEAD:
+                raise TunnelFrameError("Expected HTTP response head frame")
+            head_obj = json.loads(payload.decode("utf-8"))
+            status = int(head_obj.get("status") or 502)
+            resp_hdrs = [(str(k), str(v)) for k, v in (head_obj.get("headers") or ())]
+            yield ("head", status, resp_hdrs)
+            while True:
+                item = await asyncio.wait_for(q.get(), timeout=timeout)
+                if item is None:
+                    raise TunnelClosedError("Tunnel closed mid-response")
+                mt, fl, payload = item
+                if mt != net_identity.MSG_HTTP_BODY_CHUNK:
+                    raise TunnelFrameError("Expected HTTP body chunk frame")
+                if payload:
+                    yield ("chunk", payload)
+                if fl & net_identity.FLAG_FIN:
+                    break
+        finally:
+            self._pending_streams.pop(sid, None)
+    async def request(
+        self,
+        method: str,
+        path: str,
+        query: str = "",
+        headers=None,
+        body: bytes = b"",
+        timeout: float = 30.0,
+    ) -> tuple[int, list[tuple[str, str]], bytes]:
+        status = 502
+        resp_headers: list[tuple[str, str]] = []
+        buf = bytearray()
+        async for ev in self.stream_request(method, path, query=query, headers=headers, body=body, timeout=timeout):
+            if ev[0] == "head":
+                status = ev[1]
+                resp_headers = ev[2]
+            elif ev[0] == "chunk":
+                buf.extend(ev[1])
+        return status, resp_headers, bytes(buf)
+    async def measure_ping(self, timeout: float | None = None) -> float | None:
+        ch = self._channel
+        if ch is None or not ch.is_established:
+            return None
+        to = self.ping_timeout_s if timeout is None else float(timeout)
+        t0 = time.perf_counter()
+        try:
+            status, _, _ = await self.request("GET", "/v1/ping", timeout=to)
+            if status != 200:
+                self._last_error = f"Ping returned HTTP {status}"
+                return None
+            rtt = round((time.perf_counter() - t0) * 1000.0, 3)
+            self._rtt_ms = rtt
+            return rtt
+        except Exception as exc:
+            self._last_error = str(exc)
+            return None
+    async def open_rpc_stream(self, rpc_port: int):
+        ch = self._channel
+        if ch is None or not ch.is_established:
+            raise TunnelClosedError("Tunnel not connected")
+        sid, q = await self._alloc_stream()
+        payload = net_identity.canonical_json({"port": int(rpc_port)})
+        await ch.send_frame(net_identity.MSG_RPC_OPEN, payload=payload, stream_id=sid, flags=0)
+        return sid, q
+    async def send_rpc_data(self, stream_id: int, data: bytes) -> None:
+        ch = self._channel
+        if ch is None or not ch.is_established:
+            raise TunnelClosedError("Tunnel not connected")
+        raw = bytes(data)
+        offset = 0
+        while offset < len(raw):
+            part = raw[offset:offset + MAX_CHUNK_BYTES]
+            offset += len(part)
+            await ch.send_frame(net_identity.MSG_RPC_DATA, payload=part, stream_id=int(stream_id), flags=0)
+    async def close_rpc_stream(self, stream_id: int) -> None:
+        self._pending_streams.pop(int(stream_id), None)
+        ch = self._channel
+        if ch is not None and ch.is_established:
+            try:
+                await ch.send_frame(net_identity.MSG_RPC_CLOSE, payload=b"", stream_id=int(stream_id), flags=net_identity.FLAG_FIN)
+            except Exception:
+                pass
+    async def _read_http_request_from_socket(self, reader: asyncio.StreamReader):
+        raw_head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=15.0)
+        if len(raw_head) > MAX_HTTP_HEAD_BYTES:
+            raise TunnelFrameError("HTTP request header too large")
+        lines = raw_head[:-4].split(b"\r\n")
+        if not lines:
+            raise TunnelFrameError("Empty HTTP request")
+        req_line = lines[0].decode("latin-1").split(" ", 2)
+        if len(req_line) < 2:
+            raise TunnelFrameError("Malformed HTTP request line")
+        method = req_line[0].upper().strip()
+        raw_target = req_line[1]
+        parsed = urlsplit(raw_target)
+        path = parsed.path or "/"
+        query = parsed.query or ""
+        headers = []
+        content_length = None
+        is_chunked = False
+        for raw_line in lines[1:]:
+            if b":" not in raw_line:
+                continue
+            k_b, v_b = raw_line.split(b":", 1)
+            k = k_b.decode("latin-1").strip()
+            v = v_b.decode("latin-1").strip()
+            kl = k.lower()
+            if kl == "content-length":
+                content_length = int(v)
+            elif kl == "transfer-encoding" and "chunked" in v.lower():
+                is_chunked = True
+            headers.append((k, v))
+        body = bytearray()
+        if is_chunked:
+            while True:
+                sz_line = await reader.readline()
+                sz = int(sz_line.split(b";", 1)[0].strip(), 16)
+                if len(body) + sz > MAX_REQ_BODY_BYTES:
+                    raise TunnelFrameError("Request body exceeds limit")
+                if sz == 0:
+                    while True:
+                        tr_line = await reader.readline()
+                        if tr_line in (b"\r\n", b"\n", b""):
+                            break
+                    break
+                body.extend(await reader.readexactly(sz))
+                await reader.readexactly(2)
+        elif content_length is not None and content_length > 0:
+            if content_length > MAX_REQ_BODY_BYTES:
+                raise TunnelFrameError("Request body exceeds limit")
+            body.extend(await reader.readexactly(content_length))
+        return method, path, query, headers, bytes(body)
+    async def _handle_bridge_client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        try:
+            method, path, query, headers, body = await self._read_http_request_from_socket(reader)
+            if self._channel is None or not self._channel.is_established:
+                msg = b'{"status":"error","message":"Tunnel disconnected"}'
+                writer.write(
+                    b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\n"
+                    + f"Content-Length: {len(msg)}\r\nConnection: close\r\n\r\n".encode("ascii")
+                    + msg
+                )
+                await writer.drain()
+                return
+            use_chunked = False
+            wrote_head = False
+            async for ev in self.stream_request(method, path, query=query, headers=headers, body=body):
+                if ev[0] == "head":
+                    status, resp_hdrs = ev[1], ev[2]
+                    try:
+                        reason = HTTPStatus(status).phrase
+                    except Exception:
+                        reason = "OK"
+                    clean_resp = []
+                    has_len = False
+                    is_sse = False
+                    for k, v in resp_hdrs:
+                        kl = k.lower()
+                        if kl in STRIP_RESPONSE_HOP_HEADERS:
+                            continue
+                        if kl == "content-length":
+                            has_len = True
+                        if kl == "content-type" and "text/event-stream" in v.lower():
+                            is_sse = True
+                        clean_resp.append((k, v))
+                    use_chunked = is_sse or (not has_len)
+                    out_lines = [f"HTTP/1.1 {status} {reason}\r\n".encode("latin-1")]
+                    for k, v in clean_resp:
+                        if use_chunked and k.lower() == "content-length":
+                            continue
+                        out_lines.append(f"{k}: {v}\r\n".encode("latin-1"))
+                    if use_chunked:
+                        out_lines.append(b"Transfer-Encoding: chunked\r\n")
+                    out_lines.append(b"Connection: close\r\n\r\n")
+                    writer.write(b"".join(out_lines))
+                    await writer.drain()
+                    wrote_head = True
+                elif ev[0] == "chunk":
+                    chunk = ev[1]
+                    if use_chunked:
+                        writer.write(f"{len(chunk):x}\r\n".encode("ascii") + chunk + b"\r\n")
+                    else:
+                        writer.write(chunk)
+                    await writer.drain()
+            if wrote_head and use_chunked:
+                writer.write(b"0\r\n\r\n")
+                await writer.drain()
+        except Exception:
+            try:
+                err_b = b'{"status":"error","message":"Tunnel bridge error"}'
+                writer.write(
+                    b"HTTP/1.1 502 Bad Gateway\r\nContent-Type: application/json\r\n"
+                    + f"Content-Length: {len(err_b)}\r\nConnection: close\r\n\r\n".encode("ascii")
+                    + err_b
+                )
+                await writer.drain()
+            except Exception:
+                pass
+        finally:
+            try:
+                writer.close()
+                await asyncio.wait_for(writer.wait_closed(), timeout=1.0)
+            except Exception:
+                pass
+__all__ = [
+    "MAX_FRAME_BYTES",
+    "MAX_CHUNK_BYTES",
+    "MAX_HTTP_HEAD_BYTES",
+    "MAX_REQ_BODY_BYTES",
+    "ALLOWED_TUNNEL_METHODS",
+    "ALLOWED_TUNNEL_PATHS",
+    "STRIP_REQUEST_HEADERS",
+    "STRIP_RESPONSE_HOP_HEADERS",
+    "_BRIDGE_SECRET",
+    "TunnelState",
+    "TunnelError",
+    "TunnelClosedError",
+    "TunnelFrameError",
+    "TunnelReplayError",
+    "TunnelCryptoError",
+    "TunnelAuthError",
+    "get_bridge_secret",
+    "verify_bridge_token",
+    "is_tunnel_request",
+    "tunnel_peer_id",
+    "normalize_tunnel_path",
+    "sanitize_tunnel_headers",
+    "TokenBucket",
+    "AsyncTransport",
+    "TcpFrameTransport",
+    "WebSocketTransport",
+    "MuxPeerTransport",
+    "EncryptedChannel",
+    "RelayHub",
+    "create_relay_app",
+    "start_relay_server",
+    "serve_relay",
+    "HostTunnelAgent",
+    "ClientTunnelAgent",
+]
