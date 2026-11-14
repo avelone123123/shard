@@ -376,6 +376,15 @@ def get_soup_install_status():
         return json.loads(json.dumps(_INSTALL_STATE, ensure_ascii=False))
 def _set_install_state(lifecycle_state=None, status=None, stage=None, line=None, pct=None, **extra):
     with _INSTALL_LOCK:
+        if lifecycle_state is not None:
+            _INSTALL_STATE["lifecycle_state"] = lifecycle_state
+        if status is not None:
+            _INSTALL_STATE["status"] = status
+        if stage is not None:
+            _INSTALL_STATE["stage"] = str(stage)
+            _INSTALL_STATE["step"] = str(stage)
+        if pct is not None:
+            _INSTALL_STATE["progress_pct"] = int(pct)
         if line:
             _INSTALL_STATE["logs"].append(str(line))
             if len(_INSTALL_STATE["logs"]) > 200:
