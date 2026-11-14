@@ -1538,3 +1538,113 @@ async def api_training_model_deploy(version_id: str, req: Request):
         data = await req.json()
     except Exception:
         data = {}
+    try:
+        res = training.deploy_version(
+            version_id,
+            prefer=data.get("prefer", "auto"),
+            load_into_engine=bool(data.get("load_into_engine", True)),
+            require_approval=bool(data.get("require_approval", True)),
+        )
+        return {"status": "ok", **res}
+    except PermissionError as e:
+        return JSONResponse(status_code=403, content={"status": "error", "message": str(e)})
+    except KeyError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+    except (ValueError, FileNotFoundError, RuntimeError) as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/training/models/rollback")
+async def api_training_model_rollback(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        res = training.rollback_deployment(
+            target_version_id=data.get("version_id"),
+            load_into_engine=bool(data.get("load_into_engine", True)),
+        )
+        return {"status": "ok", **res}
+    except (KeyError, ValueError) as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/training/audit")
+def api_training_audit(req: Request, limit: int = 100):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"events": feedback.read_audit_log(limit=limit)}
+@app.post("/api/training/feedback/prune")
+def api_training_feedback_prune(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"status": "ok", **feedback.prune_expired_feedback()}
+@app.post("/api/training/backup")
+async def api_training_backup(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    res = training.create_backup(
+        include_runs=bool(data.get("include_runs", True)),
+        include_datasets=bool(data.get("include_datasets", True)),
+    )
+    return res
+@app.post("/api/training/restore")
+async def api_training_restore(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    raw_path = str(data.get("backup_path") or "").strip()
+    if not raw_path:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "backup_path required"})
+    bdir = Path(paths.backups_dir()).resolve()
+    cand = Path(raw_path).resolve()
+    if not cand.is_relative_to(bdir):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Backup archive must live inside SHARD backups directory"})
+    try:
+        return training.restore_backup(str(cand), verify_hashes=bool(data.get("verify_hashes", True)))
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/net/status")
+def api_net_status(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return _net_mgr().status()
+@app.get("/api/net/identity")
+def api_net_identity(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return _identity_payload(_net_mgr().identity)
+@app.get("/api/net/config")
+def api_net_config_get(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return _net_mgr().get_config()
+@app.post("/api/net/config")
+async def api_net_config_post(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    if not isinstance(data, dict):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Expected JSON object"})
+    try:
+        res = _net_mgr().configure(data)
+        cfg = res.get("config") if isinstance(res, dict) and "config" in res else res
+        return {"status": "ok", "config": cfg}
