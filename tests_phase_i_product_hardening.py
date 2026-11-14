@@ -110,3 +110,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
     def test_04_updater_api_endpoints_and_cli_dash_update_normalization(self):
         with patch.object(updater, "fetch_latest_remote_info", return_value={"ok": True, "latest_version": __version__, "source": "github_release", "tag_name": f"v{__version__}", "release_notes": "", "error": None}):
             r = self.client.get("/api/system/update?force=1", headers=self.owner_headers)
+        self.assertEqual(r.status_code, 200)
+        d = r.json()
+        self.assertEqual(d["check"]["state"], "UP_TO_DATE")
+        r_remote = self.client.get("/api/system/update", headers={"Host": "10.0.0.5:8000"})
+        self.assertEqual(r_remote.status_code, 403)
+        with patch.object(cli, "cmd_update") as mocked_upd:
+            cli.main(["-update", "--check", "--json"])
+            self.assertTrue(mocked_upd.called)
+            ns = mocked_upd.call_args[0][0]
+            self.assertTrue(ns.check)
+            self.assertTrue(ns.json)
+    def test_05_soup_lifecycle_and_python_compat(self):
+        self.assertIn("NOT_INSTALLED", soup_adapter.SOUP_LIFECYCLE_STATES)
+        self.assertIn("UPDATE_AVAILABLE", soup_adapter.SOUP_LIFECYCLE_STATES)
+        self.assertIn("UPDATING", soup_adapter.SOUP_LIFECYCLE_STATES)
+        self.assertTrue(soup_adapter._py_compatible((3, 12)))
