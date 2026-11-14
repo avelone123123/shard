@@ -1208,3 +1208,113 @@ def _contributor_identity(req, payload=None):
     if tpeer:
         return f"peer:{tpeer}"
     tok = _extract_bearer(req)
+    valid_pool = set(load_keys()) | LAN.tokens()
+    if tok and _token_in_pool(tok, valid_pool):
+        return f"token:{tok}"
+    client_ip = req.client.host if req.client else "unknown"
+    return f"ip:{client_ip}"
+@app.get("/api/feedback/policy")
+def api_feedback_policy(req: Request):
+    cfg = feedback.get_privacy_config()
+    reg = training.list_model_versions()
+    is_owner = _is_owner_request(req)
+    cid = feedback.pseudonymize_contributor(_contributor_identity(req))
+    return {
+        "allow_feedback": bool(cfg.get("allow_feedback", True)),
+        "allow_remote_feedback": bool(cfg.get("allow_remote_feedback", False)),
+        "require_explicit_consent": bool(cfg.get("require_explicit_consent", True)),
+        "require_manual_review": bool(cfg.get("require_manual_review", True)),
+        "redact_secrets": bool(cfg.get("redact_secrets", True)),
+        "redact_pii": bool(cfg.get("redact_pii", True)),
+        "store_raw_conversations": False,
+        "active_model": engine_instance.active_model_id,
+        "active_version_id": reg.get("active_version_id") or "base",
+        "is_owner": is_owner,
+        "opted_out": feedback.is_contributor_opted_out(cid),
+    }
+@app.post("/api/feedback/submit")
+async def api_feedback_submit(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    ok_fb, retry_fb = _FEEDBACK_LIMITER.check(ip)
+    if not ok_fb:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_fb)}, content={"status": "error", "message": "Too many feedback requests"})
+    is_owner = _is_owner_request(req)
+    if not is_owner and LAN.is_server() and not net_tunnel.is_tunnel_request(req):
+        tok = _extract_bearer(req)
+        if not _token_in_pool(tok, LAN.tokens()):
+            return JSONResponse(status_code=401, content={"status": "error", "message": "Valid LAN participant token required"})
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    src = "local" if is_owner else "remote"
+    hint = _contributor_identity(req, data if is_owner else None)
+    if not is_owner and isinstance(data, dict):
+        data = dict(data)
+        data.pop("contributor_id", None)
+    try:
+        entry = feedback.submit_feedback(data, source=src, client_hint=hint)
+        return {"status": "ok", "id": entry["id"], "entry_status": entry["status"], "redactions": entry["redactions"]}
+    except PermissionError as e:
+        return JSONResponse(status_code=403, content={"status": "error", "message": str(e)})
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/feedback/my")
+def api_feedback_my(req: Request, contributor_id: str = None):
+    is_owner = _is_owner_request(req)
+    if not is_owner and LAN.is_server() and not net_tunnel.is_tunnel_request(req):
+        tok = _extract_bearer(req)
+        if not _token_in_pool(tok, LAN.tokens()):
+            return JSONResponse(status_code=401, content={"status": "error", "message": "Valid LAN participant token required"})
+    cid = contributor_id if (is_owner and contributor_id) else _contributor_identity(req)
+    return feedback.list_contributor_submissions(cid)
+@app.post("/api/feedback/revoke")
+async def api_feedback_revoke(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    ok_fb, retry_fb = _FEEDBACK_LIMITER.check(ip)
+    if not ok_fb:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_fb)}, content={"status": "error", "message": "Too many requests"})
+    is_owner = _is_owner_request(req)
+    if not is_owner and LAN.is_server() and not net_tunnel.is_tunnel_request(req):
+        tok = _extract_bearer(req)
+        if not _token_in_pool(tok, LAN.tokens()):
+            return JSONResponse(status_code=401, content={"status": "error", "message": "Valid LAN participant token required"})
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    cid = data.get("contributor_id") if (is_owner and data.get("contributor_id")) else _contributor_identity(req)
+    res = feedback.revoke_contributor(cid, delete_existing=bool(data.get("delete_existing", True)))
+    return {"status": "ok", **res}
+@app.get("/api/training/overview")
+def api_training_overview(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return training.training_overview()
+@app.get("/api/training/soup")
+def api_training_soup(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return soup_adapter.detect_soup(probe_deps=True)
+@app.post("/api/training/soup/install")
+async def api_training_soup_install(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        st = soup_adapter.install_or_repair_soup(
+            action=str(data.get("action") or "install"),
+            custom_python=data.get("python_executable"),
+            background=bool(data.get("background", True)),
+        )
+        return {"status": "ok", "installer": st}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/training/soup/install/status")
+def api_training_soup_install_status(req: Request):
