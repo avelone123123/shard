@@ -3418,6 +3418,7 @@ const _SOUP_STATE_LABELS = {
     FAILED: ['Ошибка установки', '#f87171']
 };
 function renderTrnOverview(ov, soup) {
+    const s = soup || {};
     const c = (ov.feedback_stats && ov.feedback_stats.counts) || {};
     const elg = (ov.feedback_stats && ov.feedback_stats.eligible_approved) || {};
     const reg = ov.registry || {};
