@@ -745,6 +745,7 @@ def list_training_jobs(limit=50):
                 "current_step": prog.get("current_step"),
                 "total_steps": prog.get("total_steps"),
             }
+            _enrich_job_fields(j)
         return jobs
 def get_training_job(job_id):
     _validate_safe_id(job_id, "job_id")
