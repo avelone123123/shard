@@ -478,3 +478,27 @@ def verify_archive_artifact(archive_path, expected_sha256=None, expect_wheel=Fal
             raise ValueError(f"Corrupted file inside update archive: {bad}")
         for info in zf.infolist():
             name = info.filename.replace("\\", "/")
+            if not name or name.startswith("/") or ".." in name.split("/") or (len(name) > 1 and name[1] == ":"):
+                raise ValueError(f"Unsafe path entry inside update archive: {name}")
+            mode = (info.external_attr >> 16) & 0o170000
+            if mode == 0o120000:
+                raise ValueError(f"Symlink entry inside update archive rejected: {name}")
+            norm = name.strip("/")
+            if norm == "shard_engine/__init__.py" or norm.endswith("/shard_engine/__init__.py"):
+                has_pkg_init = True
+            if norm.endswith(".dist-info/WHEEL") or norm.endswith(".dist-info/METADATA"):
+                has_wheel_meta = True
+    if not has_pkg_init:
+        raise ValueError("Update archive does not contain shard_engine/__init__.py.")
+    if expect_wheel and not has_wheel_meta:
+        raise ValueError("Wheel archive is missing dist-info metadata.")
+    return {"valid": True, "sha256": actual_sha, "size_bytes": ap.stat().st_size}
+def create_update_backup(install_info=None):
+    info = install_info or detect_installation_method()
+    ts = int(time.time())
+    bdir = Path(paths.backups_dir())
+    bdir.mkdir(parents=True, exist_ok=True)
+    state_res = storage.create_state_backup(
+        paths.data_dir(),
+        paths.config_dir(),
+        output_path=bdir / f"pre-update-state-{ts}.zip",
