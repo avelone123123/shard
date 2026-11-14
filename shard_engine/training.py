@@ -577,6 +577,9 @@ def start_training_job(
             raise ValueError("; ".join(errors))
         soup_adapter.write_soup_config(cfg_dict, config_path)
         data_root = paths.data_dir()
+        cmd_preview = list(soup_info.get("command") or []) + ["train", "--config", str(config_path), "--yes"]
+        if dry_run:
+            cmd_preview.append("--dry-run")
         job = {
             "job_id": job_id,
             "host_pid": os.getpid(),
