@@ -548,3 +548,113 @@ def parse_connect_target(target, default_port=None):
         parsed = net_identity.parse_invite_uri(raw)
         return {"kind": "shard_uri", **parsed}
     if net_identity.NODE_ID_RE.match(raw):
+        return {"kind": "node_id", "node_id": raw}
+    if raw.lower().startswith(("ws://", "wss://")):
+        return {"kind": "relay", "relay_url": raw}
+    if raw.lower().startswith(("http://", "https://")):
+        host, port = _extract_host_port(raw, default_port=default_port or lan.active_http_port())
+        return {"kind": "http", "host": host, "port": int(port), "url": _normalize_http_base(raw)}
+    host, port = _extract_host_port(raw, default_port=default_port)
+    clean_host, err = lan.validate_master_host(host)
+    if err:
+        raise ValueError(err)
+    return {"kind": "host_port", "host": clean_host, "port": int(port) if port is not None else None}
+class _LoopRunner:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._loop = None
+        self._thread = None
+        self._ready = threading.Event()
+    def _ensure_started(self):
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive() and self._loop is not None:
+                return self._loop
+            self._ready.clear()
+            loop = asyncio.new_event_loop()
+            self._loop = loop
+            def _run():
+                asyncio.set_event_loop(loop)
+                self._ready.set()
+                try:
+                    loop.run_forever()
+                finally:
+                    loop.close()
+            self._thread = threading.Thread(target=_run, daemon=True)
+            self._thread.start()
+        self._ready.wait(timeout=5.0)
+        return self._loop
+    def run_coro(self, coro, timeout=20.0):
+        loop = self._ensure_started()
+        fut = asyncio.run_coroutine_threadsafe(coro, loop)
+        return fut.result(timeout=timeout)
+    def stop(self):
+        with self._lock:
+            loop = self._loop
+            thread = self._thread
+            self._loop = None
+            self._thread = None
+        if loop is None or thread is None:
+            return
+        if loop.is_running():
+            async def _drain():
+                cur = asyncio.current_task()
+                tasks = [t for t in asyncio.all_tasks() if t is not cur and not t.done()]
+                for t in tasks:
+                    t.cancel()
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                loop.stop()
+            try:
+                fut = asyncio.run_coroutine_threadsafe(_drain(), loop)
+                fut.result(timeout=4.0)
+            except Exception:
+                try:
+                    loop.call_soon_threadsafe(loop.stop)
+                except Exception:
+                    pass
+        if thread.is_alive():
+            thread.join(timeout=3.0)
+def _build_failure_alternatives(offline_only, relay_urls, allow_relay_fallback, direct_endpoints, http_endpoints):
+    alts = []
+    if offline_only:
+        alts.append("offline_only is enabled: disable offline_only to allow P2P over internet or Relay fallback")
+    if not relay_urls:
+        alts.append("Configure one or more self-hosted or community Relay URLs (wss://...) for NAT traversal fallback")
+    elif not allow_relay_fallback:
+        alts.append("Enable allow_relay_fallback=True to allow E2E encrypted Relay fallback when direct connection fails")
+    if direct_endpoints or http_endpoints:
+        alts.append("Use a mesh VPN (WireGuard, Tailscale, Radmin VPN, or ZeroTier) and connect directly to the peer mesh IP")
+        alts.append("Ensure firewall allows inbound TCP on the SHARD port or forward the TCP port on your router")
+    else:
+        alts.append("Provide a valid shard:// invite URI, direct host:port, or configure Discovery/Relay URLs")
+    return alts
+def resolve_and_connect(
+    identity,
+    target_host_id=None,
+    direct_endpoints=(),
+    http_endpoints=(),
+    relay_urls=(),
+    auth_proof=None,
+    preferred_mode="auto",
+    offline_only=False,
+    allow_relay_fallback=True,
+    allow_p2p_direct=True,
+    allow_insecure_local=False,
+    connect_timeout_s=5.0,
+    ping_timeout_s=3.0,
+    reconnect=True,
+    verify_node_id=None,
+    runner=None,
+):
+    pref = str(preferred_mode or "auto").strip().lower()
+    if pref not in VALID_CONNECT_MODES:
+        raise ValueError(f"Unsupported preferred_mode: {preferred_mode}")
+    exp_node_id = verify_node_id or target_host_id
+    if exp_node_id and (not isinstance(exp_node_id, str) or not net_identity.NODE_ID_RE.match(exp_node_id)):
+        raise ValueError("Invalid target or verify node_id")
+    buckets = {p: [] for p in PATH_PRIORITY}
+    seen_candidates = set()
+    for ep in direct_endpoints or ():
+        s = str(ep or "").strip()
+        if not s:
+            continue
