@@ -254,6 +254,72 @@ details.tech-details summary{cursor:pointer;color:#cbd5e1;font-weight:600;}
 </div>
 </div>
 </div>
+<div id="updateModalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeUpdateModal()">
+<div class="modal-card" style="max-width:640px;">
+<div class="modal-header">
+<div>
+<div class="modal-title-row">
+<div class="modal-title">Обновление SHARD (GitHub Releases)</div>
+</div>
+<div id="updModalSubtitle" class="modal-author">Проверка установленной и актуальной версии SHARD</div>
+</div>
+<div class="modal-actions">
+<button class="modal-close-btn" onclick="closeUpdateModal()" title="Закрыть">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</button>
+</div>
+</div>
+<div class="modal-body" style="padding:18px 22px;">
+<div id="updSummaryBox" class="trn-row" style="font-size:12.5px;">Загрузка статуса обновлений...</div>
+<div id="updProgressBox" style="display:none;margin:10px 0;" class="trn-row">
+<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><b id="updPhaseLabel">Подготовка...</b><span id="updPctLabel" style="font-family:monospace;color:#38bdf8;">0%</span></div>
+<div class="glb-track"><div id="updTrackFill" class="glb-fill" style="width:0%;"></div></div>
+<details class="tech-details"><summary>Технический лог обновления</summary><pre id="updLogsPre" style="margin-top:6px;white-space:pre-wrap;max-height:140px;overflow-y:auto;"></pre></details>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+<button class="btn-action" onclick="checkShardUpdates(true)">Проверить сейчас</button>
+<button id="updApplyBtn" class="btn-action active" onclick="applyShardUpdate(false)">Установить обновление</button>
+<button class="btn-action" onclick="rollbackShardUpdate()" style="border-color:#d97706;color:#fbbf24;">Откатить из бэкапа</button>
+</div>
+</div>
+</div>
+</div>
+<div id="browserModalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModelBrowser()">
+<div class="modal-card" style="max-width:960px;height:82vh;display:flex;flex-direction:column;">
+<div class="modal-header">
+<div>
+<div class="modal-title-row">
+<div id="mbModalTitle" class="modal-title">Обзор моделей на компьютере</div>
+</div>
+<div id="mbModalSubtitle" class="modal-author">Выберите локальную модель, папку Hugging Face или файл GGUF</div>
+</div>
+<div class="modal-actions">
+<button class="modal-close-btn" onclick="closeModelBrowser()" title="Закрыть">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</button>
+</div>
+</div>
+<div class="modal-body" style="padding:14px 18px;display:flex;flex-direction:column;gap:10px;overflow:hidden;">
+<div id="mbRootsBar" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+<input id="mbPathInput" class="trn-input" style="flex:1;font-family:Consolas,monospace;" placeholder="Например: D:\Models" onkeydown="if(event.key==='Enter')mbNavigate(this.value)">
+<button class="btn-action" onclick="mbNavigate(document.getElementById('mbPathInput').value)">Открыть</button>
+<input id="mbSearchInput" class="trn-input" style="width:200px;" placeholder="Фильтр по имени..." oninput="mbRenderEntries()">
+<select id="mbFilterMode" class="trn-input" style="width:185px;" onchange="mbNavigate(mbCurrentPath)">
+<option value="all">Все файлы и папки</option>
+<option value="soup">Только для SOUP (HF)</option>
+<option value="gguf">Только GGUF (Инференс)</option>
+<option value="dirs">Только папки</option>
+</select>
+</div>
+<div id="mbBreadcrumbs" style="display:flex;gap:4px;flex-wrap:wrap;font-size:11px;color:#94a3b8;"></div>
+<div style="display:grid;grid-template-columns:1.3fr 1fr;gap:12px;flex:1;min-height:0;overflow:hidden;">
+<div id="mbEntryList" style="border:1px solid #1e2638;border-radius:7px;background:#080b12;overflow-y:auto;"></div>
+<div id="mbInspector" style="border:1px solid #1e2638;border-radius:7px;background:#0a0e18;padding:12px;overflow-y:auto;font-size:12px;">Выберите папку или файл модели слева чтобы увидеть формат и совместимость.</div>
+</div>
+</div>
+</div>
+</div>
 <header>
 <div class="brand">
 <div class="brand-logo-icon">
