@@ -3405,6 +3405,18 @@ async function trnRefresh(probeSoup) {
         trnLoadFeedback(trnCurrentFilter);
     } catch(e) {}
 }
+const _SOUP_STATE_LABELS = {
+    NOT_INSTALLED: ['Не установлен', '#f59e0b'],
+    CHECKING_ENVIRONMENT: ['Проверка среды...', '#38bdf8'],
+    FINDING_PYTHON: ['Поиск Python 3.11–3.13...', '#38bdf8'],
+    CREATING_VENV: ['Создание venv...', '#38bdf8'],
+    INSTALLING: ['Установка SOUP...', '#38bdf8'],
+    VERIFYING: ['Проверка CLI и импортов...', '#38bdf8'],
+    INSTALLED: ['Готов к работе', '#10b981'],
+    UPDATE_AVAILABLE: ['Доступно обновление', '#fbbf24'],
+    UPDATING: ['Обновление SOUP...', '#38bdf8'],
+    FAILED: ['Ошибка установки', '#f87171']
+};
 function renderTrnOverview(ov, soup) {
     const c = (ov.feedback_stats && ov.feedback_stats.counts) || {};
     const elg = (ov.feedback_stats && ov.feedback_stats.eligible_approved) || {};
