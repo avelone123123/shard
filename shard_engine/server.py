@@ -108,3 +108,113 @@ def _net_mgr():
             with net_strategy._DEFAULT_MANAGER_LOCK:
                 net_strategy._DEFAULT_MANAGER = None
     mgr = net_strategy.get_network_manager(
+        asgi_app=app,
+        model_provider=_net_local_models,
+        load_provider=_net_load_provider,
+        status_provider=_net_status_provider,
+    )
+    if _NET_BIND_DIR != cur_dir or getattr(mgr, "_asgi_app", None) is None:
+        _NET_BIND_DIR = cur_dir
+    if getattr(mgr, "_asgi_app", None) is None:
+        mgr._asgi_app = app
+    if getattr(mgr, "_model_provider", None) is None:
+        mgr._model_provider = _net_local_models
+    if getattr(mgr, "_load_provider", None) is None:
+        mgr._load_provider = _net_load_provider
+    if getattr(mgr, "_status_provider", None) is None:
+        mgr._status_provider = _net_status_provider
+    return mgr
+def _safe_node_id():
+    try:
+        return _net_mgr().identity.node_id
+    except Exception:
+        return None
+def _identity_payload(ident):
+    pub_bytes = ident.pubkey_bytes()
+    fp = hashlib.sha256(pub_bytes).hexdigest()
+    return {
+        "node_id": ident.node_id,
+        "pubkey_b64": ident.pubkey_b64,
+        "fingerprint": fp,
+        "fingerprint_short": ":".join(fp[i:i + 4] for i in range(0, 32, 4)),
+        "created_at": getattr(ident, "_created_at", None),
+    }
+@asynccontextmanager
+async def lifespan(_app):
+    LAN.start_runtime()
+    try:
+        _net_mgr()
+    except Exception:
+        pass
+    try:
+        yield
+    finally:
+        try:
+            mgr = getattr(net_strategy, "_DEFAULT_MANAGER", None)
+            if mgr is not None:
+                mgr.shutdown()
+        except Exception:
+            pass
+        try:
+            LAN.stop_runtime()
+        except Exception:
+            pass
+        try:
+            training.shutdown_active_jobs()
+        except Exception:
+            pass
+        try:
+            engine_instance.unload_model()
+        except Exception:
+            pass
+app = FastAPI(title="Shard Local Model Engine and Server", version=__version__, lifespan=lifespan)
+def _extract_host_only(host_hdr):
+    raw = str(host_hdr or "").strip()
+    if not raw:
+        return ""
+    if any(c in raw for c in ("/", "\\", "@", " ", "\t", "\r", "\n")):
+        return None
+    if raw.startswith("[") and "]" in raw:
+        return raw[1:raw.index("]")].lower()
+    if ":" in raw and raw.count(":") == 1:
+        return raw.split(":", 1)[0].lower()
+    return raw.lower()
+def _is_trusted_host(host_hdr):
+    if not host_hdr:
+        return True
+    h = _extract_host_only(host_hdr)
+    if h is None or not h:
+        return False
+    allowed_env = {x.strip().lower() for x in os.environ.get("SHARD_ALLOWED_HOSTS", "").split(",") if x.strip()}
+    if h in allowed_env or h in ("localhost", "127.0.0.1", "::1", "testserver", "testclient"):
+        return True
+    try:
+        ipaddress.ip_address(h)
+        return True
+    except ValueError:
+        pass
+    try:
+        local_name = socket.gethostname().lower()
+        if h == local_name or h == f"{local_name}.local" or h.endswith(".local"):
+            return True
+    except Exception:
+        pass
+    return False
+def _allowed_cors_origin(origin_hdr, host_hdr):
+    if not origin_hdr:
+        return None
+    try:
+        parsed = urlparse(origin_hdr)
+    except Exception:
+        return None
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return None
+    if host_hdr and parsed.netloc.lower() == str(host_hdr).strip().lower():
+        return origin_hdr
+    extra = [x.strip() for x in os.environ.get("SHARD_CORS_ORIGINS", "").split(",") if x.strip()]
+    if origin_hdr in extra:
+        return origin_hdr
+    return None
+def _apply_sec_headers(resp, cors_origin=None):
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
