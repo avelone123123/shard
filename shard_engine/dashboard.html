@@ -3589,7 +3589,7 @@ async function openMyContributions() {
     const modal = document.getElementById('modelModalBackdrop');
     document.getElementById('modalModelTitle').innerText = 'Мои вклады и согласие';
     document.getElementById('modalModelAuthor').innerText = 'Псевдоним участника: ' + String(data.contributor_id || '');
-    document.getElementById('modalStats').innerHTML = data.opted_out ? '<span style="color:#f87171;">Участие отозвано</span>' : '<span style="color:#10b981;">Активный участник</span>';
+    document.getElementById('modalStats').innerHTML = data.opted_out ? '<span style="color:var(--danger);">Участие отозвано</span>' : '<span style="color:var(--success);">Активный участник</span>';
     document.getElementById('modalLaunchBtn').style.display = 'none';
     const hfLink = document.getElementById('modalHfLink');
     if (hfLink) hfLink.style.display = 'none';
