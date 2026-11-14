@@ -878,3 +878,113 @@ async def anthropic_messages(req: Request):
     if stream:
         def anthropic_sse():
             start_ev = {"type": "message_start", "message": {"id": msg_id, "type": "message", "role": "assistant", "content": [], "model": model, "stop_reason": None, "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 0}}}
+            yield f"event: message_start\ndata: {json.dumps(start_ev, ensure_ascii=False)}\n\n"
+            blk_start = {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}
+            yield f"event: content_block_start\ndata: {json.dumps(blk_start, ensure_ascii=False)}\n\n"
+            out_toks = 0
+            for item in engine_instance.generate_stream(normalized, max_tokens, temperature):
+                if item.get("type") in ("content", "thought") and item.get("token"):
+                    delta_ev = {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": item["token"]}}
+                    yield f"event: content_block_delta\ndata: {json.dumps(delta_ev, ensure_ascii=False)}\n\n"
+                elif item.get("type") == "done":
+                    out_toks = item.get("usage", {}).get("completion_tokens", 0)
+            yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
+            msg_delta = {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": out_toks}}
+            yield f"event: message_delta\ndata: {json.dumps(msg_delta)}\n\n"
+            yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
+        return StreamingResponse(anthropic_sse(), media_type="text/event-stream")
+    result = engine_instance.generate_sync(normalized, max_tokens, temperature)
+    return {
+        "id": msg_id,
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": result["content"]}],
+        "model": model,
+        "stop_reason": "end_turn",
+        "usage": {
+            "input_tokens": result.get("usage", {}).get("prompt_tokens", 0),
+            "output_tokens": result.get("usage", {}).get("completion_tokens", 0)
+        }
+    }
+@app.post("/v1/messages/count_tokens")
+async def anthropic_count_tokens(req: Request):
+    data = await req.json()
+    raw_messages = data.get("messages", [])
+    count = sum(len(str(m.get("content", "")).split()) for m in raw_messages)
+    return {"input_tokens": max(1, count)}
+@app.get("/i")
+def installer_script(req: Request, tool: str = "claude", os: str = "linux", key: str = ""):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    tool_clean = tool.lower().strip()
+    os_clean = os.lower().strip()
+    if tool_clean not in _VALID_TOOLS:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Неизвестный инструмент"})
+    cur_keys = load_keys()
+    chosen_key = key.strip() if key else (cur_keys[0] if cur_keys else "sk-shard-local")
+    act_model = engine_instance.active_model_id or "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+    if not _SAFE_KEY_RE.match(chosen_key) or not _SAFE_MODEL_RE.match(act_model):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid parameters"})
+    port = __import__("os").environ.get("SHARD_PORT", "8000")
+    base_v1 = f"http://localhost:{port}/v1"
+    if os_clean == "windows":
+        if tool_clean == "claude":
+            script = '$k = if ($env:SHARD_KEY) { $env:SHARD_KEY } else { "' + chosen_key + '" }\n' + \
+                     '$p = Join-Path $HOME ".claude"\n' + \
+                     'if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force | Out-Null }\n' + \
+                     '$cfg = @{\n' + \
+                     '  hasCompletedOnboarding = $true\n' + \
+                     '  env = @{\n' + \
+                     '    ANTHROPIC_BASE_URL = "' + base_v1 + '"\n' + \
+                     '    ANTHROPIC_AUTH_TOKEN = $k\n' + \
+                     '    ANTHROPIC_DEFAULT_OPUS_MODEL = "' + act_model + '"\n' + \
+                     '    ANTHROPIC_DEFAULT_SONNET_MODEL = "' + act_model + '"\n' + \
+                     '    ANTHROPIC_DEFAULT_HAIKU_MODEL = "' + act_model + '"\n' + \
+                     '  }\n' + \
+                     '} | ConvertTo-Json -Depth 5\n' + \
+                     'Set-Content -Path (Join-Path $p "settings.json") -Value $cfg -Encoding UTF8\n' + \
+                     'Write-Host "[OK] Shard: Claude CLI configured successfully on Windows!" -ForegroundColor Green\n'
+        elif tool_clean == "opencode":
+            script = '$k = if ($env:SHARD_KEY) { $env:SHARD_KEY } else { "' + chosen_key + '" }\n' + \
+                     '$p = Join-Path $HOME ".config\\opencode"\n' + \
+                     'if (!(Test-Path $p)) { New-Item -ItemType Directory -Path $p -Force | Out-Null }\n' + \
+                     '$cfg = @{\n' + \
+                     '  \'$schema\' = "https://opencode.ai/config.json"\n' + \
+                     '  provider = @{\n' + \
+                     '    shard = @{\n' + \
+                     '      npm = "@ai-sdk/openai-compatible"\n' + \
+                     '      name = "Shard"\n' + \
+                     '      options = @{\n' + \
+                     '        baseURL = "' + base_v1 + '"\n' + \
+                     '        apiKey = $k\n' + \
+                     '      }\n' + \
+                     '      models = @{\n' + \
+                     '        "' + act_model + '" = @{ name = "' + act_model.split("/")[-1] + '"; modalities = @{ input = @("text"); output = @("text") }; limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "Qwen/Qwen2.5-Coder-7B-Instruct" = @{ name = "Qwen2.5 Coder 7B"; modalities = @{ input = @("text"); output = @("text") }; limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B" = @{ name = "DeepSeek R1 Distill 7B"; modalities = @{ input = @("text"); output = @("text") }; limit = @{ context = 128000; output = 8192 } }\n' + \
+                     '      }\n' + \
+                     '    }\n' + \
+                     '  }\n' + \
+                     '  model = "shard/' + act_model + '"\n' + \
+                     '} | ConvertTo-Json -Depth 6\n' + \
+                     'Set-Content -Path (Join-Path $p "config.json") -Value $cfg -Encoding UTF8\n' + \
+                     'Write-Host "[OK] Shard: OpenCode configured successfully on Windows!" -ForegroundColor Green\n'
+        else:
+            script = '$k = if ($env:SHARD_KEY) { $env:SHARD_KEY } else { "' + chosen_key + '" }\n' + \
+                     '[Environment]::SetEnvironmentVariable("OPENAI_API_BASE", "' + base_v1 + '", "User")\n' + \
+                     '[Environment]::SetEnvironmentVariable("OPENAI_BASE_URL", "' + base_v1 + '", "User")\n' + \
+                     '[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", $k, "User")\n' + \
+                     'Write-Host "[OK] Shard: Environment variables set for ' + tool_clean + ' on Windows!" -ForegroundColor Green\n'
+        return PlainTextResponse(script, media_type="text/plain; charset=utf-8")
+    if tool_clean == "claude":
+        script = '#!/usr/bin/env bash\n' + \
+                 'KEY="${1:-' + chosen_key + '}"\n' + \
+                 'mkdir -p "$HOME/.claude"\n' + \
+                 'cat << \'EOF\' > "$HOME/.claude/settings.json"\n' + \
+                 '{\n' + \
+                 '  "hasCompletedOnboarding": true,\n' + \
+                 '  "env": {\n' + \
+                 '    "ANTHROPIC_BASE_URL": "' + base_v1 + '",\n' + \
+                 '    "ANTHROPIC_AUTH_TOKEN": "KEY_PLACEHOLDER",\n' + \
+                 '    "ANTHROPIC_DEFAULT_OPUS_MODEL": "' + act_model + '",\n' + \
