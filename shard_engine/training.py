@@ -8,6 +8,7 @@ import time
 import uuid
 from pathlib import Path
 from . import feedback
+from . import model_browser
 from . import paths
 from . import process
 from . import soup_adapter
