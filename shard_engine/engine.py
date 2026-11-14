@@ -768,3 +768,113 @@ class ShardEngine:
                     "parts": [sel_path],
                 }
                 self.detailed_state = "DOWNLOADED"
+                self.model_states[model_id] = "DOWNLOADED"
+                self.load_progress = {
+                    "status": "loading",
+                    "lifecycle_state": "DOWNLOADED",
+                    "model_id": model_id,
+                    "percent": 88,
+                    "stage": "Чтение весов с локального SSD",
+                    "curr_mb": total_mb,
+                    "total_mb": total_mb,
+                    "speed_mb": 0,
+                    "eta_seconds": 1,
+                    "eta_text": "Запуск...",
+                    "current_file": os.path.basename(sel_path),
+                    "message": f"Локальные веса найдены на SSD: {os.path.basename(sel_path)} ({total_mb} МБ, квант {sel['quant']})"
+                }
+            elif is_local_gguf:
+                sel_path = model_id
+                repo_id = "local"
+                f_sz = os.path.getsize(sel_path)
+                total_mb = round(f_sz / (1024 * 1024), 1)
+                sel = {
+                    "path": os.path.basename(sel_path),
+                    "size_bytes": f_sz,
+                    "quant": fit.get("recommended") or "CUSTOM",
+                    "multipart": False,
+                    "parts": [sel_path],
+                }
+                self.detailed_state = "DOWNLOADED"
+                self.model_states[model_id] = "DOWNLOADED"
+            else:
+                self.detailed_state = "QUEUED"
+                self.model_states[model_id] = "QUEUED"
+                self.load_progress = {
+                    "status": "loading",
+                    "lifecycle_state": "QUEUED",
+                    "model_id": model_id,
+                    "percent": 2,
+                    "stage": "Поиск GGUF-репозитория",
+                    "curr_mb": 0,
+                    "total_mb": 0,
+                    "speed_mb": 0,
+                    "eta_seconds": 0,
+                    "eta_text": "Поиск...",
+                    "message": f"Ищу готовый GGUF для {model_id} (квант {fit.get('recommended')})..."
+                }
+                repo_id = gguf_mod.find_gguf_repo(model_id)
+                if self._cancel_load or seq_id != self._load_seq:
+                    return
+                if not repo_id:
+                    _fail("GGUF не найден", f"Для {model_id} не нашёл готовый GGUF-репозиторий на Hugging Face. Попробуйте модель с официально выложенным GGUF (например, Qwen или Gemma).", err_state="VALIDATION_FAILED")
+                    return
+                files = gguf_mod.list_gguf_files(repo_id)
+                if self._cancel_load or seq_id != self._load_seq:
+                    return
+                sel = gguf_mod.select_gguf_file(files, wanted_quant=fit.get("recommended"))
+                if not sel:
+                    _fail("GGUF не найден", f"В {repo_id} нет подходящего GGUF-файла (квант {fit.get('recommended')}).", err_state="VALIDATION_FAILED")
+                    return
+                total_mb = round(sel["size_bytes"] / (1024 * 1024), 1)
+                loc_cand = gguf_mod.find_local_gguf(repo_id, sel.get("quant")) if gguf_mod else None
+                if loc_cand and os.path.isfile(loc_cand.get("path", "")) and loc_cand.get("size_bytes", 0) > 0:
+                    sel_path = loc_cand["path"]
+                else:
+                    sel_path = None
+                    hf_home = _shard_settings.models_dir() or os.environ.get("HF_HOME")
+                    hub_dir = os.path.join(hf_home, "hub", f"models--{repo_id.replace('/', '--')}")
+                    if os.path.isdir(hub_dir):
+                        found_parts = {}
+                        for root, _, fns in os.walk(hub_dir):
+                            for p in sel["parts"]:
+                                base = os.path.basename(p)
+                                if base in fns and base not in found_parts:
+                                    cand_fp = os.path.join(root, base)
+                                    if gguf_mod.validate_gguf_file(cand_fp).get("valid"):
+                                        found_parts[base] = cand_fp
+                        if len(found_parts) == len(sel["parts"]):
+                            sel_path = found_parts[os.path.basename(sel["parts"][0])]
+                if sel_path is None:
+                    est_sec = max(5, int(total_mb / 20))
+                    eta_init = f"~{est_sec} сек" if est_sec < 60 else f"~{est_sec // 60} мин {est_sec % 60} сек"
+                    self.detailed_state = "DOWNLOADING"
+                    self.model_states[model_id] = "DOWNLOADING"
+                    self.load_progress = {
+                        "status": "loading",
+                        "lifecycle_state": "DOWNLOADING",
+                        "model_id": model_id,
+                        "percent": 4,
+                        "stage": "Скачивание весов GGUF",
+                        "curr_mb": 0,
+                        "total_mb": total_mb,
+                        "speed_mb": 0,
+                        "eta_seconds": est_sec,
+                        "eta_text": eta_init,
+                        "current_file": os.path.basename(sel["path"]),
+                        "message": f"Скачивание {repo_id}/{sel['path']} ({total_mb:.0f} МБ, квант {sel['quant']})..."
+                    }
+                    def _dl_progress(got_b, tot_b, speed_bps, cur_fn=None):
+                        if self._cancel_load or seq_id != self._load_seq or self.status != "loading":
+                            return
+                        cur_mb = round(got_b / (1024 * 1024), 1)
+                        eff_tot_mb = round(tot_b / (1024 * 1024), 1) if tot_b and tot_b > 0 else total_mb
+                        eff_tot_mb = max(eff_tot_mb, cur_mb, 0.1)
+                        spd_mb = round(speed_bps / (1024 * 1024), 2) if speed_bps and speed_bps > 0 else 0.0
+                        cur_p = min(88, max(4, round((cur_mb / eff_tot_mb) * 88, 1)))
+                        rem_mb = max(0.0, eff_tot_mb - cur_mb)
+                        rem_sec = max(1, int(rem_mb / max(0.1, spd_mb))) if spd_mb > 0 else 0
+                        eta_t = (f"~{rem_sec} сек" if rem_sec < 60 else f"~{rem_sec // 60} мин {rem_sec % 60} сек") if rem_sec > 0 else "вычисление..."
+                        is_verifying = cur_mb >= eff_tot_mb * 0.995
+                        st_code = "VERIFYING" if is_verifying else "DOWNLOADING"
+                        st_label = "Проверка целостности GGUF" if is_verifying else "Скачивание весов GGUF"
