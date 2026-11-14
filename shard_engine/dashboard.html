@@ -1208,3 +1208,113 @@ async function lanKickMember(ip, block) {
             body: JSON.stringify({ip: ip, block: !!block})
         });
         showToast(block ? 'Заблокирован' : 'Исключён', ip);
+        lanRefresh();
+        srvRefresh();
+    } catch(e) {}
+}
+async function lanUnblockMember(ip) {
+    try {
+        await fetch('/api/lan/members/unblock', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({ip: ip})
+        });
+        showToast('Разблокирован', ip);
+        lanRefresh();
+        srvRefresh();
+    } catch(e) {}
+}
+async function lanRefresh() {
+    const box = document.getElementById('lanStatusBox');
+    if (!box) return;
+    try {
+        const res = await fetch('/api/lan/status', {headers: getAuthHeaders()});
+        if (res.status === 401 || res.status === 403) {
+            box.innerHTML = '<div style="background:#0d1117;border:1px solid #1e3a8a;border-radius:8px;padding:12px;font-size:13px;color:#cbd5e1;">Подключитесь ниже как клиент (введите код доступа или нажмите кнопку для открытого сервера), чтобы получить токен участника.</div>';
+            return;
+        }
+        const st = await res.json();
+        renderLanStatus(st);
+    } catch(e) {
+        box.innerHTML = '<div style="color:#f85149;font-size:13px;">Shard Server недоступен.</div>';
+    }
+}
+let lastLanStatus = null;
+function renderLanStatus(st) {
+    const box = document.getElementById('lanStatusBox');
+    if (!st) { box.innerHTML = ''; return; }
+    lastLanStatus = st;
+    const labels = {off:'выключена', server:'мастер', worker:'вычислительный узел', member:'участник (клиент)'};
+    const colors = {off:'#8b949e', server:'#3fb950', worker:'#58a6ff', member:'#bc8cff'};
+    const mode = st.mode || 'off';
+    const modeColor = colors[mode] || '#8b949e';
+    let html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">' +
+        '<span style="background:#0d1117;border:1px solid ' + modeColor + '44;color:' + modeColor +
+        ';border-radius:20px;padding:2px 10px;font-size:12px;">' + lanEsc(labels[mode] || mode) + '</span>' +
+        '<span style="font-size:13px;color:#e6edf3;">Сеть: ' + lanEsc(st.name || '') + '</span>';
+    if (mode === 'server' && !shardBoot.client_mode) {
+        if (st.open) {
+            html += ' <span style="background:#0d1117;border:1px solid #10b98144;color:#10b981;border-radius:20px;padding:2px 10px;font-size:12px;">открытая</span>' +
+                '<button class="btn-action" style="font-size:11px;padding:2px 10px;" onclick="lanToggleOpen(false)">Закрыть сеть</button>';
+        } else {
+            html += ' <span style="background:#0d1117;border:1px solid #8b949e44;color:#8b949e;border-radius:20px;padding:2px 10px;font-size:12px;">закрытая (код)</span>' +
+                '<button class="btn-action" style="font-size:11px;padding:2px 10px;" onclick="lanToggleOpen(true)">Открыть сеть</button>';
+        }
+    }
+    if (shardBoot.client_mode && clientLanSession && clientLanSession.token) {
+        html += ' <span style="background:#0d1117;border:1px solid #10b98144;color:#10b981;border-radius:20px;padding:2px 10px;font-size:12px;">клиент авторизован</span>';
+    }
+    html += '</div>';
+    if (st.ip) {
+        html += '<div style="font-size:12px;color:#8b949e;">IP этой машины: <b style="color:#e6edf3;">' + lanEsc(st.ip) + '</b>';
+        if (st.pairing_code) {
+            html += ' &middot; Код подключения: <b style="color:#e6edf3;cursor:pointer;" title="Скопировать" data-copy="' + lanEsc(st.pairing_code) + '" onclick="copyValue(this.dataset.copy, \'Код подключения\')">' + lanEsc(st.pairing_code) + '</b>';
+        }
+        html += '</div>';
+    }
+    if (Array.isArray(st.interfaces) && st.interfaces.length) {
+        html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">';
+        for (const it of st.interfaces) {
+            const badgeColor = it.kind === 'vpn' ? '#bc8cff' : '#38bdf8';
+            html += '<span style="background:#0d1117;border:1px solid ' + badgeColor + '44;color:' + badgeColor + ';border-radius:14px;padding:2px 8px;font-size:11px;">[' + lanEsc(it.provider || it.kind) + '] ' + lanEsc(it.ip) + '</span>';
+        }
+        html += '</div>';
+    }
+    if ((mode === 'worker' || mode === 'member') && st.master) {
+        html += '<div style="font-size:12px;color:#8b949e;margin-top:4px;">Подключён к мастеру: <b style="color:#e6edf3;">' +
+            lanEsc(st.master.name || st.master.ip) + '</b> (' + lanEsc(st.master.ip) + ':' + lanEsc(st.master.port) + ')</div>';
+    }
+    const members = st.members || [];
+    const hasWorker = members.some(m => m.role === 'worker' && m.alive);
+    if (members.length) {
+        html += '<div style="font-size:12px;color:#8b949e;margin:10px 0 4px;">Участники (' + members.length + '):</div>';
+        for (const m of members) {
+            const dot = m.alive ? '#10b981' : '#ef4444';
+            const mark = m.alive ? 'на связи' : 'не отвечает';
+            const kickBtns = (mode === 'server' && !shardBoot.client_mode) ? ('<button class="btn-action" style="padding:1px 7px;font-size:10px;" data-ip="' + lanEsc(m.ip) + '" onclick="lanKickMember(this.dataset.ip, false)">Кик</button><button class="btn-action" style="padding:1px 7px;font-size:10px;border-color:#f85149;color:#f85149;" data-ip="' + lanEsc(m.ip) + '" onclick="lanKickMember(this.dataset.ip, true)">Бан</button>') : '';
+            html += '<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:2px 0;flex-wrap:wrap;">' +
+                '<span style="width:8px;height:8px;border-radius:50%;background:' + dot + ';flex:none;"></span>' +
+                '<span style="color:#e6edf3;min-width:120px;">' + lanEsc(m.ip) + '</span>' +
+                '<span style="color:#e6edf3;min-width:110px;">' + lanEsc(m.name) + '</span>' +
+                '<span style="color:#8b949e;">[' + lanEsc(m.role) + ']</span>' +
+                '<span style="color:' + (m.alive ? '#10b981' : '#ef4444') + ';">' + mark + '</span>' + kickBtns + '</div>';
+        }
+        if (mode === 'server' && hasWorker) {
+            html += '<div style="font-size:12px;color:#d29922;margin-top:6px;">Вычислительный узел подключился — ' +
+                'перезагрузите модель, чтобы он получил свою часть весов (кнопка «Загрузить» на вкладке модели).</div>';
+        }
+    }
+    const blockedIps = st.blocked || [];
+    if (blockedIps.length && mode === 'server' && !shardBoot.client_mode) {
+        html += '<div style="font-size:12px;color:#f85149;margin:8px 0 4px;">Заблокированные IP (' + blockedIps.length + '):</div>';
+        for (const bip of blockedIps) {
+            html += '<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:2px 0;">' +
+                '<span style="color:#8b949e;font-family:monospace;">' + lanEsc(bip) + '</span>' +
+                '<button class="btn-action" style="padding:1px 8px;font-size:10px;" data-ip="' + lanEsc(bip) + '" onclick="lanUnblockMember(this.dataset.ip)">Разблокировать</button></div>';
+        }
+    }
+    const peers = (st.peers || []).filter(p => p.role === 'server');
+    if (peers.length && !shardBoot.client_mode) {
+        html += '<div style="font-size:12px;color:#8b949e;margin:10px 0 4px;">Серверы рядом (UDP-маяк):</div>';
+        for (const p of peers) {
+            const isOpen = !!p.open;
