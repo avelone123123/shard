@@ -328,3 +328,113 @@ def verify_envelope(envelope: dict, expected_action: str | None = None, max_skew
     elif "payload" in envelope:
         body = envelope.get("payload")
     else:
+        body = None
+    if not isinstance(body, dict):
+        return False, "invalid_body"
+    sig_b64 = envelope.get("sig")
+    if not isinstance(sig_b64, str) or not sig_b64:
+        return False, "missing_sig"
+    env_no_sig = {k: v for k, v in envelope.items() if k != "sig"}
+    try:
+        payload = canonical_json(env_no_sig)
+    except Exception:
+        return False, "invalid_payload"
+    if not verify_sig(pubkey_b64, node_id, _ACTION_DOMAINS[act], payload, sig_b64):
+        return False, "invalid_signature"
+    return True, "ok"
+def x25519_keypair():
+    priv = X25519PrivateKey.generate()
+    pub_bytes = priv.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+    return priv, pub_bytes
+def x25519_shared_secret(priv, peer_pub_bytes: bytes) -> bytes:
+    if not isinstance(peer_pub_bytes, (bytes, bytearray)):
+        raise TypeError("peer_pub_bytes must be bytes")
+    raw = bytes(peer_pub_bytes)
+    if len(raw) != 32:
+        raise ValueError("X25519 public key must be 32 bytes")
+    peer_pub = X25519PublicKey.from_public_bytes(raw)
+    secret = priv.exchange(peer_pub)
+    if len(secret) != 32 or hmac.compare_digest(secret, b"\x00" * 32):
+        raise ValueError("Invalid X25519 shared secret")
+    return secret
+def derive_handshake_keys(shared_secret: bytes, h1: bytes) -> tuple[bytes, bytes]:
+    if not isinstance(shared_secret, (bytes, bytearray)) or len(shared_secret) < 32:
+        raise ValueError("Invalid shared_secret")
+    if hmac.compare_digest(bytes(shared_secret)[:32], b"\x00" * 32):
+        raise ValueError("All-zero shared_secret")
+    if not isinstance(h1, (bytes, bytearray)) or not h1:
+        raise ValueError("h1 must be non-empty bytes")
+    okm = HKDF(algorithm=hashes.SHA256(), length=64, salt=bytes(h1), info=b"SHARD-HS-KEYS-V1").derive(bytes(shared_secret))
+    return okm[:32], okm[32:64]
+def derive_session_keys(shared_secret: bytes, h_final: bytes) -> tuple[bytes, bytes, bytes, bytes]:
+    if not isinstance(shared_secret, (bytes, bytearray)) or len(shared_secret) < 32:
+        raise ValueError("Invalid shared_secret")
+    if hmac.compare_digest(bytes(shared_secret)[:32], b"\x00" * 32):
+        raise ValueError("All-zero shared_secret")
+    if not isinstance(h_final, (bytes, bytearray)) or not h_final:
+        raise ValueError("h_final must be non-empty bytes")
+    okm = HKDF(algorithm=hashes.SHA256(), length=72, salt=bytes(h_final), info=b"SHARD-SESSION-KEYS-V1").derive(bytes(shared_secret))
+    return okm[0:32], okm[32:64], okm[64:68], okm[68:72]
+def pack_frame_aad(ver: int, msg_type: int, flags: int, stream_id: int, seq: int) -> bytes:
+    for val in (ver, msg_type, flags, stream_id, seq):
+        if isinstance(val, bool) or not isinstance(val, int):
+            raise TypeError("AAD header fields must be integers")
+    return _FRAME_AAD_STRUCT.pack(ver, msg_type, flags, stream_id, seq)
+def unpack_frame_aad(raw16: bytes) -> tuple:
+    if not isinstance(raw16, (bytes, bytearray)) or len(raw16) != 16:
+        raise ValueError("Frame AAD must be exactly 16 bytes")
+    return _FRAME_AAD_STRUCT.unpack(bytes(raw16))
+def _build_nonce(iv4: bytes, seq: int) -> bytes:
+    if not isinstance(iv4, (bytes, bytearray)) or len(iv4) != 4:
+        raise ValueError("iv4 must be 4 bytes")
+    if isinstance(seq, bool) or not isinstance(seq, int) or seq < 0 or seq > 0xFFFFFFFFFFFFFFFF:
+        raise ValueError("seq must be uint64")
+    return bytes(iv4) + struct.pack(">Q", seq)
+def aead_encrypt(key32: bytes, iv4: bytes, seq: int, aad16: bytes, plaintext: bytes) -> bytes:
+    if not isinstance(key32, (bytes, bytearray)) or len(key32) != 32:
+        raise ValueError("key32 must be 32 bytes")
+    if not isinstance(aad16, (bytes, bytearray)):
+        raise TypeError("aad16 must be bytes")
+    if not isinstance(plaintext, (bytes, bytearray)):
+        raise TypeError("plaintext must be bytes")
+    nonce = _build_nonce(iv4, seq)
+    return ChaCha20Poly1305(bytes(key32)).encrypt(nonce, bytes(plaintext), bytes(aad16))
+def aead_decrypt(key32: bytes, iv4: bytes, seq: int, aad16: bytes, ciphertext: bytes) -> bytes:
+    if not isinstance(key32, (bytes, bytearray)) or len(key32) != 32:
+        raise ValueError("key32 must be 32 bytes")
+    if not isinstance(aad16, (bytes, bytearray)):
+        raise TypeError("aad16 must be bytes")
+    if not isinstance(ciphertext, (bytes, bytearray)):
+        raise TypeError("ciphertext must be bytes")
+    nonce = _build_nonce(iv4, seq)
+    return ChaCha20Poly1305(bytes(key32)).decrypt(nonce, bytes(ciphertext), bytes(aad16))
+class InviteManager:
+    def __init__(self, invites_path=None):
+        self._path = os.path.abspath(os.fspath(invites_path)) if invites_path else os.path.abspath(paths.network_invites_file())
+        self._lock = threading.RLock()
+    def _empty_state(self):
+        return {
+            "version": 1,
+            "pepper_b64": b64u_encode(secrets.token_bytes(32)),
+            "invites": [],
+        }
+    def _load_unlocked(self, create_if_missing=False):
+        data = storage.read_json_safe(self._path, default=None, expected_type=dict, quarantine=True, use_backup=True)
+        changed = False
+        if not isinstance(data, dict):
+            data = self._empty_state()
+            changed = create_if_missing
+        if not isinstance(data.get("invites"), list):
+            data["invites"] = []
+            changed = create_if_missing
+        pepper = b""
+        if isinstance(data.get("pepper_b64"), str):
+            try:
+                pepper = b64u_decode(data["pepper_b64"])
+            except Exception:
+                pepper = b""
+        if len(pepper) < 16:
+            pepper = secrets.token_bytes(32)
+            data["pepper_b64"] = b64u_encode(pepper)
+            if create_if_missing or os.path.exists(self._path):
+                changed = True
