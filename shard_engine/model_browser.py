@@ -70,3 +70,27 @@ def _has_subpath_seq(parts_lower, seq):
         return False
     for i in range(len(parts_lower) - n + 1):
         if tuple(parts_lower[i:i + n]) == seq:
+            return True
+    return False
+def is_sensitive_path(path_obj):
+    s = str(path_obj)
+    raw_posix = s.replace("\\", "/").lower()
+    for pref in _POSIX_BLOCKED_PREFIXES:
+        if raw_posix == pref or raw_posix.startswith(pref + "/"):
+            return True
+    try:
+        real = os.path.realpath(s)
+    except Exception:
+        real = s
+    for cand in (s, real):
+        p = Path(cand)
+        parts_lower = [pt.lower() for pt in p.parts if pt not in ("/", "\\")]
+        if len(parts_lower) >= 2 and re.match(r"^[a-z]:", parts_lower[0]) and parts_lower[1] == "windows":
+            return True
+        for pt in parts_lower:
+            if pt in _SENSITIVE_EXACT_NAMES:
+                return True
+        for seq in _SENSITIVE_SUBPATHS:
+            if _has_subpath_seq(parts_lower, seq):
+                return True
+        norm_posix = cand.replace("\\", "/").lower()
