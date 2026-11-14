@@ -1648,3 +1648,113 @@ class NetworkManager:
         if access_mode is not None:
             patch["access_mode"] = access_mode
         if max_participants is not None:
+            patch["max_participants"] = max_participants
+        if direct_p2p_port is not None:
+            patch["direct_p2p_port"] = direct_p2p_port
+        if region is not None:
+            patch["region_hint"] = region
+        if relays is not None:
+            patch["relay_urls"] = relays
+        if discovery_urls is not None:
+            patch["discovery_urls"] = discovery_urls
+        if bandwidth_kbps is not None:
+            patch["bandwidth_kbps"] = bandwidth_kbps
+        if offline_only is not None:
+            patch["offline_only"] = offline_only
+        if allow_insecure_local is not None:
+            patch["allow_insecure_local"] = allow_insecure_local
+        if patch:
+            self.configure(patch)
+        if model is not None:
+            self._host_model_override = str(model).strip() or None
+        if models is not None:
+            self._host_models_override = list(models)
+        self._stop_host_heartbeat()
+        if self._host_agent is not None:
+            try:
+                self._runner.run_coro(self._host_agent.stop(), timeout=6.0)
+            except Exception:
+                pass
+            self._host_agent = None
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        vis = cfg.get("visibility")
+        offline = bool(cfg.get("offline_only"))
+        use_external = (vis != "local") and (not offline)
+        eff_relays = list(cfg.get("relay_urls") or []) if use_external else []
+        p2p_port = int(cfg.get("direct_p2p_port") or 0) if cfg.get("allow_p2p_direct", True) else None
+        eff_asgi = asgi_app if asgi_app is not None else self._asgi_app
+        eff_http = local_http_url or self._local_http_url_override or cfg.get("local_http_url") or None
+        if eff_asgi is None and not eff_http:
+            eff_http = f"http://127.0.0.1:{lan.active_http_port()}"
+        ha = net_tunnel.HostTunnelAgent(
+            identity=self.identity,
+            asgi_app=eff_asgi,
+            local_http_url=None if eff_asgi is not None else eff_http,
+            p2p_host="0.0.0.0",
+            p2p_port=p2p_port,
+            relay_urls=eff_relays,
+            relay_auth_token=(cfg.get("relay_auth_token") or None),
+            peer_authorizer=self._authorize_peer,
+            on_http_request=self._on_host_http_request,
+            rpc_allowed_ports=tuple(cfg.get("rpc_allowed_ports") or ()),
+            allow_insecure_local=bool(cfg.get("allow_insecure_local")),
+            max_tunnels=int(cfg.get("max_participants") or 16),
+        )
+        self._runner.run_coro(ha.start(), timeout=8.0)
+        self._host_agent = ha
+        if use_external and eff_relays:
+            deadline = time.monotonic() + 2.5
+            while time.monotonic() < deadline:
+                if any(ha._relay_connected.values()):
+                    break
+                time.sleep(0.05)
+        with self._lock:
+            self._config["published"] = True
+            self._save_config()
+        if use_external and cfg.get("discovery_urls"):
+            dc = self._make_discovery_client()
+            if vis == "public":
+                reg_res = dc.register_server(self.identity, self._build_public_listing(), ttl_s=int(cfg.get("listing_ttl_s") or 60))
+                if isinstance(reg_res, dict) and not reg_res.get("ok"):
+                    reg_res["warning"] = "Public discovery service is not configured or reachable."
+                self._host_last_disc_res = reg_res
+            elif vis == "private":
+                self._host_last_disc_res = self._publish_private_commitments(dc)
+            self._host_last_hb_at = time.time()
+            self._start_host_heartbeat()
+        else:
+            if vis == "public" and not offline:
+                self._host_last_disc_res = {
+                    "status": "no_discovery_configured",
+                    "ok": False,
+                    "warning": "Public discovery service is not configured or reachable.",
+                }
+            else:
+                self._host_last_disc_res = {"status": "local_only" if vis == "local" else ("offline" if offline else "no_endpoints"), "ok": True}
+        return self.host_status()
+    def unpublish_server(self):
+        self._stop_host_heartbeat()
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        if cfg.get("visibility") == "public" and not cfg.get("offline_only") and cfg.get("discovery_urls"):
+            try:
+                dc = self._make_discovery_client()
+                self._host_last_disc_res = dc.unregister_server(self.identity)
+            except Exception:
+                pass
+        if self._host_agent is not None:
+            try:
+                self._runner.run_coro(self._host_agent.stop(), timeout=6.0)
+            except Exception:
+                pass
+            self._host_agent = None
+        with self._lock:
+            self._config["published"] = False
+            self._save_config()
+        return {"status": "ok", "published": False}
+    def host_status(self):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+            pend_cnt = len(self._peers_state.get("pending_peers") or {})
+            rev_cnt = len(self._peers_state.get("revoked_peers") or {})
