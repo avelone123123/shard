@@ -544,15 +544,20 @@ def _run_install_worker(action, custom_python=None, include_train=True):
         cfg = settings._load()
         cfg["soup_python"] = str(venv_py)
         settings._save(cfg)
-        _append_install_log("Verifying SOUP CLI and training dependencies...", step="Проверка SOUP", pct=90)
-        det = detect_soup(probe_deps=True)
-        if not det.get("available"):
-            raise RuntimeError("soup-cli installation completed but verification failed.")
-        with _INSTALL_LOCK:
-            _INSTALL_STATE["status"] = "completed"
-            _INSTALL_STATE["step"] = f"Готово (soup v{det.get('soup_version') or 'installed'})"
-            _INSTALL_STATE["progress_pct"] = 100
-            _INSTALL_STATE["finished_at"] = time.time()
+        if bak_dir and bak_dir.exists():
+            shutil.rmtree(str(bak_dir), ignore_errors=True)
+        ver_str = ver_report.get("soup_version") or "installed"
+        _set_install_state(
+            lifecycle_state="INSTALLED",
+            status="completed",
+            stage=f"SOUP v{ver_str} установлен и проверен",
+            pct=100,
+            installed_version=ver_str,
+            verification=ver_report,
+            error=None,
+            finished_at=time.time(),
+            line=f"Verification passed! SOUP v{ver_str} is READY.",
+        )
     except Exception as exc:
         with _INSTALL_LOCK:
             _INSTALL_STATE["status"] = "failed"
