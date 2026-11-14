@@ -432,6 +432,51 @@ def verify_soup_environment(py_exe, soup_cmd=None, check_train_deps=True):
         "verified": bool(all_core_ok and (checks["train_deps_ok"] if check_train_deps else True)),
         "core_verified": bool(all_core_ok),
         "soup_version": ver,
+        "checks": checks,
+    }
+def _bootstrap_uv(log_fn):
+    tools_uv = Path(paths.tools_dir()) / "uv"
+    tools_uv.mkdir(parents=True, exist_ok=True)
+    log_fn("Bootstrapping isolated uv toolchain for Python 3.12 provisioning...")
+    r = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--no-input", "--upgrade", "--target", str(tools_uv), "uv"],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        creationflags=_WIN_NO_WINDOW,
+    )
+    if r.returncode != 0:
+        raise RuntimeError(f"Failed to bootstrap uv helper: {(r.stderr or r.stdout)[:240]}")
+    for cand in (tools_uv / "bin" / "uv.exe", tools_uv / "bin" / "uv", tools_uv / "uv.exe", tools_uv / "uv"):
+        if cand.is_file():
+            return str(cand)
+    uv_pkg_bin = tools_uv / "uv" / "__main__.py"
+    if uv_pkg_bin.is_file():
+        return str(tools_uv)
+    return _find_uv_binary()
+def _backup_venv_for_update(venv_dir):
+    if not venv_dir.exists():
+        return None
+    bak = venv_dir.with_name(f"{venv_dir.name}.bak-{int(time.time())}")
+    try:
+        if bak.exists():
+            shutil.rmtree(str(bak), ignore_errors=True)
+        shutil.copytree(str(venv_dir), str(bak), symlinks=True)
+        return bak
+    except Exception:
+        return None
+def _restore_venv_backup(venv_dir, bak_dir):
+    if not bak_dir or not bak_dir.exists():
+        return False
+    try:
+        if venv_dir.exists():
+            shutil.rmtree(str(venv_dir), ignore_errors=True)
+        shutil.move(str(bak_dir), str(venv_dir))
+        return True
+    except Exception:
+        return False
+def _run_install_worker(action, custom_python=None, include_train=True):
+    venv_dir = Path(paths.soup_venv_dir())
     sub = ("Scripts", "python.exe") if os.name == "nt" else ("bin", "python")
     venv_py = venv_dir.joinpath(*sub)
     try:
