@@ -94,3 +94,27 @@ def validate_remote_url(url):
     if host not in _ALLOWED_HTTPS_HOSTS:
         raise ValueError(f"Untrusted update host: {host!r}.")
     return raw
+def validate_git_ref(ref):
+    raw = str(ref or "").strip()
+    if not raw or raw.startswith("-") or not _SAFE_REF_RE.match(raw):
+        raise ValueError(f"Unsafe update reference/version: {ref!r}")
+    return raw
+def _cache_paths():
+    primary = Path(paths.update_cache_file())
+    out = [primary]
+    if not os.environ.get("SHARD_DATA_DIR"):
+        leg = Path(paths.legacy_update_cache_file())
+        if os.path.normcase(str(leg)) != os.path.normcase(str(primary)):
+            out.append(leg)
+    return out
+def _read_cache():
+    for p in _cache_paths():
+        if p.is_file():
+            data = storage.read_json_safe(p, default=None, expected_type=dict, quarantine=True, use_backup=True)
+            if isinstance(data, dict):
+                return data
+    return None
+def _write_cache(payload):
+    for p in _cache_paths():
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
