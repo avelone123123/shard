@@ -108,3 +108,113 @@ def update_privacy_config(updates):
             cfg = get_privacy_config()
             bool_keys = (
                 "allow_feedback",
+                "allow_remote_feedback",
+                "require_explicit_consent",
+                "require_manual_review",
+                "redact_secrets",
+                "redact_pii",
+            )
+            for k in bool_keys:
+                if k in updates:
+                    cfg[k] = bool(updates[k])
+            if "retention_days" in updates:
+                days = int(updates["retention_days"])
+                if days < 1 or days > 3650:
+                    raise ValueError("retention_days must be between 1 and 3650.")
+                cfg["retention_days"] = days
+            if "max_text_chars" in updates:
+                mx = int(updates["max_text_chars"])
+                if mx < 200 or mx > 200000:
+                    raise ValueError("max_text_chars must be between 200 and 200000.")
+                cfg["max_text_chars"] = mx
+            if "min_text_chars" in updates:
+                mn = int(updates["min_text_chars"])
+                if mn < 1 or mn > 500:
+                    raise ValueError("min_text_chars must be between 1 and 500.")
+                cfg["min_text_chars"] = mn
+            cfg["store_raw_conversations"] = False
+            storage.atomic_write_json(_privacy_path(), cfg, fsync=True, backup=True)
+            _append_audit("privacy_config_updated", {"keys": sorted(updates.keys())})
+            return cfg
+def pseudonymize_contributor(raw_id):
+    txt = str(raw_id or "").strip()
+    if not txt:
+        txt = "anonymous"
+    if txt.startswith("contrib-") and len(txt) == 24:
+        return txt
+    key = _privacy_salt()
+    digest = hmac.new(key, txt.encode("utf-8", errors="replace"), hashlib.sha256).hexdigest()[:16]
+    return f"contrib-{digest}"
+def _load_optouts():
+    data = storage.read_json_safe(
+        _optouts_path(),
+        default={},
+        expected_type=dict,
+        quarantine=True,
+        use_backup=True,
+    )
+    return data if isinstance(data, dict) else {}
+def _save_optouts(data):
+    storage.atomic_write_json(_optouts_path(), data, fsync=True, backup=True)
+def is_contributor_opted_out(contributor_id):
+    cid = pseudonymize_contributor(contributor_id)
+    with _LOCK:
+        with storage.file_lock(_optouts_path()):
+            return cid in _load_optouts()
+def opt_in_contributor(contributor_id):
+    cid = pseudonymize_contributor(contributor_id)
+    with _LOCK:
+        with storage.file_lock(_optouts_path()):
+            opts = _load_optouts()
+            removed = opts.pop(cid, None) is not None
+            if removed:
+                _save_optouts(opts)
+                _append_audit("contributor_reopted_in", {"contributor_id": cid})
+            return {"contributor_id": cid, "opted_out": False}
+def sanitize_and_screen(text, cfg, allow_empty=False):
+    if text is None:
+        if allow_empty:
+            return "", [], []
+        raise ValueError("Text field is missing.")
+    s = str(text)
+    if "\x00" in s:
+        raise ValueError("Null bytes are not permitted in feedback text.")
+    s = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]", "", s).strip()
+    max_len = int(cfg.get("max_text_chars", 16000))
+    if len(s) > max_len:
+        raise ValueError(f"Feedback text exceeds maximum length ({max_len} chars).")
+    if not s:
+        if allow_empty:
+            return "", [], []
+        raise ValueError("Feedback text must not be empty.")
+    redactions = []
+    quality_flags = []
+    if len(s) < int(cfg.get("min_text_chars", 2)):
+        quality_flags.append("too_short")
+    if cfg.get("redact_secrets", True):
+        for name, pat in _SECRET_PATTERNS:
+            if pat.search(s):
+                s = pat.sub(f"[REDACTED_{name.upper()}]", s)
+                redactions.append(name)
+    if cfg.get("redact_pii", True):
+        for name, pat in _PII_PATTERNS:
+            if pat.search(s):
+                s = pat.sub(f"[REDACTED_{name.upper()}]", s)
+                redactions.append(name)
+    words = s.split()
+    if len(words) >= 12:
+        uniq_ratio = len(set(w.lower() for w in words)) / len(words)
+        if uniq_ratio < 0.2:
+            quality_flags.append("repetitive_text")
+    return s, sorted(set(redactions)), sorted(set(quality_flags))
+def _load_entries_unlocked():
+    rows, _, _ = storage.read_jsonl_safe(_feedback_path(), quarantine=True)
+    return [r for r in rows if isinstance(r, dict) and r.get("id")]
+def _save_entries_unlocked(entries):
+    p = _feedback_path()
+    payload = "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in entries)
+    storage.atomic_write_text(p, payload, fsync=True, backup=True)
+def _compute_content_hash(prompt, response, better, chosen, rejected):
+    canonical = json.dumps(
+        [prompt or "", response or "", better or "", chosen or "", rejected or ""],
+        ensure_ascii=False,
