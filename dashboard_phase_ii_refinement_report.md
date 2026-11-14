@@ -42,3 +42,10 @@ Per explicit user instruction (**Option B — Modern Slate**), all visual refine
   - Added visual step progress bars (`.trn-progress-track` / `.trn-progress-fill`) computed from `current_step / total_steps`.
   - Fixed `#trnJobBase` placeholder truncation (`Qwen/Qwen2.5-Coder-1.5B-Instruct`), widened left training panel desktop column to `365px`, stopped `Выбрать модель на ПК` button text wrapping (`white-space: nowrap; flex-shrink: 0`), added pipeline stage cue (`Адаптер -> Версия -> Деплой`), wrapped long artifact paths cleanly (`word-break: break-all`), and enclosed `.ds-table` inside horizontally scrollable `.ds-table-wrap`.
 
+## 3. Verification Matrix & Evidence
+
+| Check Category | Status | Scope & Observed Result |
+|---|---|---|
+| Byte Parity & Formatting | Verified | `shard_engine/dashboard.html == dashboard.html` (`327,895` bytes, `4,729` lines, `0` blanks, `0` CRLF, `0` HTML comments, `0` emojis) |
+| JavaScript Syntax | Verified | `node --check` exited `0` on extracted `<script>` blocks after final edit |
+| Backend & Regression Suite | Verified (1 skipped) | `python -m unittest discover -s . -p "tests_*.py" -v` -> Ran `171` tests in `38.346s`, `OK (skipped=1)` (`test_wheel_contents_when_built` skipped because `dist/` wheel was not built); includes `test_09_dashboard_regression_bugs_fixed` |
