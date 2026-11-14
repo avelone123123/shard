@@ -550,3 +550,27 @@ def list_directory(raw_path=None, filter_mode="all", search=None, max_entries=50
             validate_browse_path(parent)
         except PermissionError:
             parent = None
+    q = str(search or "").strip().lower()
+    fmode = str(filter_mode or "all").strip().lower()
+    if fmode == "soup":
+        fmode = "trainable"
+    raw_items = []
+    try:
+        with os.scandir(str(p)) as it:
+            for entry in it:
+                raw_items.append(entry)
+    except PermissionError:
+        raise PermissionError(f"OS denied read permission for {p}")
+    dirs_out = []
+    files_out = []
+    for entry in raw_items:
+        name = entry.name
+        if q and q not in name.lower():
+            continue
+        ep = Path(entry.path)
+        if is_sensitive_path(ep):
+            continue
+        try:
+            if entry.is_symlink():
+                real_e = os.path.realpath(entry.path)
+                if is_sensitive_path(real_e):
