@@ -1098,3 +1098,113 @@ class ShardEngine:
             q_name = (gguf_mod.parse_quant_from_name(model_id) if gguf_mod else None) or "CUSTOM"
             loc_gguf = {"path": model_id, "size_bytes": os.path.getsize(model_id), "quant": q_name}
         elif gguf_mod is not None:
+            loc_gguf = gguf_mod.find_local_gguf(model_id)
+            if loc_gguf:
+                sz_gb = round(loc_gguf["size_bytes"] / (1024 ** 3), 2)
+                q_name = loc_gguf.get("quant") or "CUSTOM"
+        if loc_gguf:
+            vram_ok = hw.get("cuda_available") and sz_gb * 1024 <= max(0, hw.get("vram_free_mb", 0))
+            verdict = "GPU" if vram_ok else "HYBRID"
+            fit = {
+                "verdict": verdict,
+                "recommended": q_name,
+                "layers": 32,
+                "ctx_tokens": 4096,
+                "ngl": 999 if vram_ok else 0,
+                "params_b": round(max(0.5, sz_gb * 1.3), 2),
+                "params_source": "local_gguf",
+                "torch_gpu_ok": False,
+                "tok_s_est": 25.0 if vram_ok else 8.0,
+                "quants": [{"quant": q_name, "ngl": 999 if vram_ok else 0, "vram_gb": sz_gb if vram_ok else 0.0, "ram_gb": 0.0 if vram_ok else sz_gb}],
+            }
+        elif is_local_dir:
+            fit = None
+        else:
+            fit = self._fit_for(model_id)
+        if fit is not None and fit.get("verdict") == "IMPOSSIBLE" and not _lan_pool_fit_ok(fit):
+            pres = self._verdict_presentation("IMPOSSIBLE")
+            msg = fit.get("message_ru") or "Модель не подходит под ваше железо."
+            mmap_note = fit.get("mmap_note") or ""
+            self.detailed_state = "VALIDATION_FAILED"
+            self.model_states[model_id] = "VALIDATION_FAILED"
+            self.active_model_id = prev_loaded_id
+            self.loaded_info = {
+                "model_id": model_id,
+                "status": "error",
+                "lifecycle_state": "VALIDATION_FAILED",
+                "tier": pres[0],
+                "tier_label": pres[1],
+                "color": pres[2],
+                "mode": "veto",
+                "speed_est": 0,
+                "vram_alloc_mb": 0,
+                "ram_alloc_mb": 0,
+                "total_layers": int(fit.get("layers") or 0),
+                "layers_vram": 0,
+                "layers_ram": int(fit.get("layers") or 0),
+                "layers_nvme": 0,
+                "fit": {
+                    "params_b": fit.get("params_b"),
+                    "params_source": fit.get("params_source"),
+                    "verdict": "IMPOSSIBLE",
+                    "quant": fit.get("recommended"),
+                    "est_tok_s": 0.0,
+                    "backend": "gguf"
+                },
+                "loaded_at": time.time()
+            }
+            self.status = "error"
+            self.load_progress = {
+                "status": "error",
+                "lifecycle_state": "VALIDATION_FAILED",
+                "model_id": model_id,
+                "percent": 0,
+                "stage": "Модель не подходит",
+                "curr_mb": 0,
+                "total_mb": 0,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Ошибка",
+                "message": f"{msg} {mmap_note}".strip()
+            }
+            return self.loaded_info
+        self.active_model_id = model_id
+        self.detailed_state = "QUEUED"
+        self.model_states[model_id] = "QUEUED"
+        hw = _hardware.get_hardware_profile()
+        comp = _hardware.evaluate_compatibility(model_id, hw)
+        total_layers = 32
+        mid_low = model_id.lower()
+        if "70b" in mid_low or "72b" in mid_low:
+            total_layers = 80
+        elif "30b" in mid_low or "32b" in mid_low:
+            total_layers = 64
+        elif "14b" in mid_low:
+            total_layers = 48
+        elif any(k in mid_low for k in ["1b", "1.5b", "1.7b", "2b", "3b", "4b"]):
+            total_layers = 28
+        elif any(k in mid_low for k in ["0.5b", "0.6b", "360m", "gpt2"]):
+            total_layers = 12
+        layers_vram = min(total_layers, 28 if comp["tier"] == "PERFECT" else (14 if hw["vram_total_mb"] >= 4000 else 8))
+        layers_ram = total_layers - layers_vram
+        fit_summary = None
+        if fit is not None:
+            pres = self._verdict_presentation(fit.get("verdict"))
+            rec_quant = fit.get("recommended")
+            rec_row = None
+            for r in fit.get("quants", []):
+                if r.get("quant") == rec_quant:
+                    rec_row = r
+                    break
+            total_layers = int(fit.get("layers") or total_layers)
+            verdict = fit.get("verdict")
+            if verdict == "GPU":
+                layers_vram = total_layers
+                layers_ram = 0
+            elif verdict == "HYBRID" and rec_row is not None:
+                layers_vram = min(total_layers, max(0, int(rec_row.get("ngl", 0) or 0)))
+                layers_ram = total_layers - layers_vram
+            fit_summary = {
+                "params_b": fit.get("params_b"),
+                "params_source": fit.get("params_source"),
+                "verdict": verdict,
