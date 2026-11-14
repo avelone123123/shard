@@ -108,3 +108,113 @@ def _to_int(v):
     try:
         return int(float(v))
     except Exception:
+        return 0
+def device_budget(vram_free_mb, ram_free_mb):
+    vram = max(0, int(vram_free_mb or 0) - VRAM_RESERVE_MB)
+    ram = max(0, int(ram_free_mb or 0) - RAM_RESERVE_MB)
+    return vram, ram
+def split_weights(budgets):
+    out = []
+    for vram, ram in budgets:
+        w = int(vram) if int(vram) > 0 else int(ram)
+        out.append(max(0, w))
+    if not any(out):
+        return [1] * len(out)
+    return out
+def speed_score(hw):
+    if not hw:
+        return None
+    raw_name = hw.get("gpu_name")
+    vram = _to_int(hw.get("vram_total_mb"))
+    ram = _to_int(hw.get("ram_total_mb"))
+    if raw_name is None and vram <= 0 and ram <= 0:
+        return None
+    name = str(raw_name or "").lower()
+    has_gpu = bool(name) and not ("none" in name or name in ("cpu", "-", "n/a", "unknown"))
+    if has_gpu:
+        score = None
+        for kw, s in _GPU_SCORE.items():
+            if kw in name:
+                score = s
+                break
+        if score is None:
+            score = 0.40
+        score += min(0.15, max(0, vram) / 24576.0)
+    else:
+        score = 0.10
+        if ram >= 32768:
+            score += 0.05
+    return round(min(1.0, max(0.0, score)), 3)
+def split_weights_scored(budgets, scores):
+    if any(s is None for s in scores):
+        return split_weights(budgets)
+    out = [int(b_v if b_v > 0 else b_r) * s for (b_v, b_r), s in zip(budgets, scores)]
+    out = [int(round(w)) for w in out]
+    if not any(out):
+        return [1] * len(out)
+    return out
+def format_ts_arg(weights):
+    return ",".join(str(int(w)) for w in weights)
+def format_rpc_arg(addrs):
+    return ",".join(str(a) for a in addrs)
+def member_alive(member, now=None):
+    now = time.time() if now is None else now
+    last = float((member or {}).get("last_seen") or 0)
+    return (now - last) <= HEARTBEAT_MISS_LIMIT * HEARTBEAT_INTERVAL_S
+def beacon_payload(name, role, model=None, port=DEFAULT_MASTER_PORT, open_net=False, node_id=None):
+    out = {
+        "app": APP_TAG,
+        "ver": PROTO_VER,
+        "name": str(name)[:64],
+        "role": role,
+        "model": model,
+        "port": int(port),
+        "open": bool(open_net),
+        "ts": time.time(),
+    }
+    if node_id:
+        out["node_id"] = str(node_id)[:64]
+    return out
+def parse_beacon(raw):
+    try:
+        d = json.loads(raw.decode("utf-8", "ignore"))
+    except Exception:
+        return None
+    if not isinstance(d, dict):
+        return None
+    if d.get("app") != APP_TAG or d.get("ver") != PROTO_VER:
+        return None
+    name = str(d.get("name") or "").strip()
+    if not name or len(name) > 64:
+        return None
+    role = str(d.get("role") or "server")
+    if role not in ("server", "worker", "member"):
+        return None
+    try:
+        port = int(d.get("port") or DEFAULT_MASTER_PORT)
+        if not (1 <= port <= 65535):
+            return None
+    except Exception:
+        return None
+    nid = str(d.get("node_id") or "").strip()
+    if nid and not _SAFE_NODE_RE.match(nid):
+        nid = ""
+    out = {
+        "app": APP_TAG,
+        "ver": PROTO_VER,
+        "name": name,
+        "role": role,
+        "model": str(d.get("model"))[:160] if d.get("model") else None,
+        "port": port,
+        "open": bool(d.get("open")),
+        "ts": float(d.get("ts") or time.time()),
+    }
+    if nid:
+        out["node_id"] = nid
+    return out
+def _is_usable_lan_ipv4(addr):
+    try:
+        ip_obj = ipaddress.ip_address(str(addr))
+        if ip_obj.version != 4 or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_unspecified or ip_obj.is_multicast:
+            return False
+        return True
