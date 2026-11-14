@@ -559,13 +559,22 @@ def _run_install_worker(action, custom_python=None, include_train=True):
             line=f"Verification passed! SOUP v{ver_str} is READY.",
         )
     except Exception as exc:
-        with _INSTALL_LOCK:
-            _INSTALL_STATE["status"] = "failed"
-            _INSTALL_STATE["error"] = str(exc)
-            _INSTALL_STATE["step"] = "Ошибка установки"
-            _INSTALL_STATE["finished_at"] = time.time()
-        _append_install_log(f"ERROR: {exc}")
-def install_or_repair_soup(action="install", custom_python=None, background=True):
+        restored = False
+        if action == "update" and bak_dir and bak_dir.exists():
+            _set_install_state(line="Update failed — restoring previous soup-venv backup...")
+            restored = _restore_venv_backup(venv_dir, bak_dir)
+            if restored:
+                _set_install_state(line="Previous SOUP environment restored cleanly.")
+        _set_install_state(
+            lifecycle_state="FAILED",
+            status="failed",
+            stage="Ошибка установки SOUP",
+            pct=0,
+            error=str(exc) + (" (previous SOUP environment restored)" if restored else ""),
+            finished_at=time.time(),
+            line=f"ERROR: {exc}",
+        )
+def install_or_repair_soup(action="install", custom_python=None, background=True, include_train=True):
     act = str(action or "install").strip().lower()
     if act not in ("install", "update", "repair"):
         raise ValueError("action must be install, update, or repair")
