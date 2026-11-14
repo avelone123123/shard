@@ -454,3 +454,27 @@ def startup_check_banner():
         if st == "UPDATE_AVAILABLE":
             return f"SHARD {res['current_version']} | Latest version: {res['latest_version']} | Update available! Run: shard update"
         if st == "UP_TO_DATE":
+            return f"SHARD {res['current_version']} (up to date)"
+        if st == "GITHUB_UNAVAILABLE":
+            return f"SHARD {res['current_version']} (offline mode: GitHub update check unavailable)"
+        return None
+    except Exception:
+        return None
+def verify_archive_artifact(archive_path, expected_sha256=None, expect_wheel=False):
+    ap = Path(archive_path)
+    if not ap.is_file() or ap.stat().st_size == 0:
+        raise ValueError("Downloaded update archive is empty or missing.")
+    actual_sha = storage.sha256_file(ap).lower()
+    if expected_sha256:
+        if actual_sha != str(expected_sha256).strip().lower():
+            raise ValueError(f"Checksum mismatch for downloaded update (expected {expected_sha256[:16]}..., got {actual_sha[:16]}...).")
+    if not zipfile.is_zipfile(str(ap)):
+        raise ValueError("Downloaded update file is not a valid zip/wheel archive.")
+    has_pkg_init = False
+    has_wheel_meta = False
+    with zipfile.ZipFile(str(ap), "r") as zf:
+        bad = zf.testzip()
+        if bad is not None:
+            raise ValueError(f"Corrupted file inside update archive: {bad}")
+        for info in zf.infolist():
+            name = info.filename.replace("\\", "/")
