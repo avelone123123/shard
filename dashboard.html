@@ -456,7 +456,7 @@ main{padding:14px !important;}
 </div>
 <div class="modal-body" style="padding:18px 22px;">
 <label style="font-size:11px;letter-spacing:0.08em;color:var(--text-muted);display:block;margin-bottom:6px;">ПУТЬ К ПАПКЕ</label>
-<input type="text" id="dirPathInput" style="width:100%;background:#0a0d14;border:1px solid #1e2638;border-radius:6px;color:#e2e8f0;padding:9px 12px;font-size:12.5px;font-family:Consolas,monospace;outline:none;box-sizing:border-box;" placeholder="E:\shard-models" onkeydown="if(event.key==='Enter')saveModelsDir()">
+<input type="text" id="dirPathInput" class="trn-input" style="font-family:var(--font-mono);" placeholder="E:\shard-models" onkeydown="if(event.key==='Enter')saveModelsDir()">
 <div style="font-size:11px;color:var(--text-muted);margin:6px 0 14px;">Применится после перезапуска приложения. Папка будет создана автоматически.</div>
 <div id="dirDriveList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
 <div style="display:flex;justify-content:space-between;gap:10px;">
@@ -466,7 +466,7 @@ main{padding:14px !important;}
 </div>
 </div>
 </div>
-<div id="updateModalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeUpdateModal()">
+<div id="updateModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" onclick="if(event.target===this)closeUpdateModal()">
 <div class="modal-card" style="max-width:640px;">
 <div class="modal-header">
 <div>
@@ -484,19 +484,19 @@ main{padding:14px !important;}
 <div class="modal-body" style="padding:18px 22px;">
 <div id="updSummaryBox" class="trn-row" style="font-size:12.5px;">Загрузка статуса обновлений...</div>
 <div id="updProgressBox" style="display:none;margin:10px 0;" class="trn-row">
-<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><b id="updPhaseLabel">Подготовка...</b><span id="updPctLabel" style="font-family:monospace;color:#38bdf8;">0%</span></div>
+<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;"><b id="updPhaseLabel">Подготовка...</b><span id="updPctLabel" style="font-family:var(--font-mono);color:var(--accent-text);font-weight:700;">0%</span></div>
 <div class="glb-track"><div id="updTrackFill" class="glb-fill" style="width:0%;"></div></div>
-<details class="tech-details"><summary>Технический лог обновления</summary><pre id="updLogsPre" style="margin-top:6px;white-space:pre-wrap;max-height:140px;overflow-y:auto;"></pre></details>
+<details class="tech-details"><summary>Технический лог обновления</summary><pre id="updLogsPre" class="trn-log" style="margin-top:6px;max-height:140px;"></pre></details>
 </div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
 <button class="btn-action" onclick="checkShardUpdates(true)">Проверить сейчас</button>
 <button id="updApplyBtn" class="btn-action active" onclick="applyShardUpdate(false)">Установить обновление</button>
-<button class="btn-action" onclick="rollbackShardUpdate()" style="border-color:#d97706;color:#fbbf24;">Откатить из бэкапа</button>
+<button class="v-btn-warn" onclick="rollbackShardUpdate()">Откатить из бэкапа</button>
 </div>
 </div>
 </div>
 </div>
-<div id="browserModalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModelBrowser()">
+<div id="browserModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" onclick="if(event.target===this)closeModelBrowser()">
 <div class="modal-card" style="max-width:960px;height:82vh;display:flex;flex-direction:column;">
 <div class="modal-header">
 <div>
@@ -514,7 +514,7 @@ main{padding:14px !important;}
 <div class="modal-body" style="padding:14px 18px;display:flex;flex-direction:column;gap:10px;overflow:hidden;">
 <div id="mbRootsBar" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-<input id="mbPathInput" class="trn-input" style="flex:1;font-family:Consolas,monospace;" placeholder="Например: D:\Models" onkeydown="if(event.key==='Enter')mbNavigate(this.value)">
+<input id="mbPathInput" class="trn-input" style="flex:1;min-width:180px;font-family:var(--font-mono);" placeholder="Например: D:\Models" onkeydown="if(event.key==='Enter')mbNavigate(this.value)">
 <button class="btn-action" onclick="mbNavigate(document.getElementById('mbPathInput').value)">Открыть</button>
 <input id="mbSearchInput" class="trn-input" style="width:200px;" placeholder="Фильтр по имени..." oninput="mbRenderEntries()">
 <select id="mbFilterMode" class="trn-input" style="width:185px;" onchange="mbNavigate(mbCurrentPath)">
