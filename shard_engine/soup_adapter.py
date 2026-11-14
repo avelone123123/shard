@@ -328,3 +328,113 @@ def _run_install_worker(action, custom_python=None):
             _INSTALL_STATE["finished_at"] = time.time()
     except Exception as exc:
         with _INSTALL_LOCK:
+            _INSTALL_STATE["status"] = "failed"
+            _INSTALL_STATE["error"] = str(exc)
+            _INSTALL_STATE["step"] = "Ошибка установки"
+            _INSTALL_STATE["finished_at"] = time.time()
+        _append_install_log(f"ERROR: {exc}")
+def install_or_repair_soup(action="install", custom_python=None, background=True):
+    act = str(action or "install").strip().lower()
+    if act not in ("install", "update", "repair"):
+        raise ValueError("action must be install, update, or repair")
+    with _INSTALL_LOCK:
+        if _INSTALL_STATE.get("status") == "running":
+            return get_soup_install_status()
+        _INSTALL_STATE.update({
+            "status": "running",
+            "action": act,
+            "progress_pct": 5,
+            "step": "Инициализация установщика SOUP",
+            "logs": [f"Starting SOUP {act}..."],
+            "venv_dir": str(Path(paths.data_dir()) / "soup-venv"),
+            "python_executable": None,
+            "error": None,
+            "started_at": time.time(),
+            "finished_at": None,
+        })
+    if background:
+        t = threading.Thread(target=_run_install_worker, args=(act, custom_python), daemon=True)
+        t.start()
+        return get_soup_install_status()
+    _run_install_worker(act, custom_python)
+    return get_soup_install_status()
+def detect_soup(custom_cmd=None, probe_deps=True):
+    cmd = []
+    source = None
+    py_exe = None
+    probe = None
+    env_cmd = custom_cmd or os.environ.get("SHARD_SOUP_CMD", "").strip() or settings._load().get("soup_command")
+    if env_cmd:
+        parts = _split_cmd(env_cmd)
+        if parts:
+            exe = parts[0]
+            if os.path.isfile(exe) or shutil.which(exe):
+                cmd = parts
+                source = "configured"
+    if not cmd:
+        for cand_py in _candidate_python_paths():
+            is_cur = os.path.normcase(os.path.abspath(cand_py)) == os.path.normcase(os.path.abspath(sys.executable))
+            info = _in_process_probe(check_deps=probe_deps) if is_cur else _probe_python_env(cand_py, check_deps=probe_deps)
+            if info and info.get("present", {}).get("soup_cli"):
+                cmd = [cand_py, "-m", "soup_cli"]
+                py_exe = cand_py
+                probe = info
+                source = "current_env" if is_cur else "venv"
+                break
+    if not cmd:
+        soup_bin = shutil.which("soup")
+        if soup_bin:
+            cmd = [soup_bin]
+            source = "path_bin"
+    soup_version = probe.get("soup_version") if probe else None
+    if cmd and not soup_version:
+        try:
+            ver_res = subprocess.run(
+                cmd + ["--version"],
+                capture_output=True,
+                text=True,
+                timeout=8,
+                creationflags=_WIN_NO_WINDOW,
+            )
+            txt = (ver_res.stdout or ver_res.stderr or "").strip()
+            m = re.search(r"(\d+\.\d+\.\d+(?:[a-zA-Z0-9._-]*)?)", txt)
+            soup_version = m.group(1) if m else (txt[:48] if ver_res.returncode == 0 else None)
+        except Exception:
+            soup_version = None
+    if probe is None:
+        probe = _in_process_probe(check_deps=False)
+        py_exe = sys.executable
+    py_ver = probe.get("py") or list(sys.version_info[:3])
+    py_str = ".".join(str(x) for x in py_ver[:3])
+    py_ok = _py_compatible(py_ver)
+    present = probe.get("present") or {}
+    train_req = ("torch", "transformers", "peft", "trl", "datasets", "accelerate")
+    missing_train = [k for k in train_req if not present.get(k)]
+    hw = hardware.get_hardware_profile()
+    hw_cuda = bool(hw.get("cuda_available")) or bool(probe.get("cuda"))
+    warnings = []
+    if not cmd:
+        if not py_ok:
+            warnings.append(
+                f"Active Python is {py_str}; upstream soup-cli requires Python >=3.11,<3.14. Create a Python 3.12 venv and set SHARD_SOUP_PYTHON."
+            )
+        else:
+            warnings.append("soup-cli is not installed in PATH or SHARD environments.")
+    elif not present.get("soup_cli") and source == "configured":
+        warnings.append("Using configured custom SOUP command; Python dependencies inside external target were not directly verified.")
+    elif missing_train:
+        warnings.append(f"soup-cli found, but training dependencies are missing: {', '.join(missing_train)}. Install with pip install \"soup-cli[train]\".")
+    if cmd and not hw_cuda:
+        warnings.append("No CUDA GPU detected; real LoRA/QLoRA fine-tuning is GPU-bound and may fail or be extremely slow on CPU-only runtimes.")
+    available = bool(cmd)
+    can_train = bool(available and (source in ("configured", "path_bin") or not missing_train))
+    return {
+        "available": available,
+        "source": source,
+        "command": cmd,
+        "python_executable": py_exe,
+        "python_version": py_str,
+        "python_compatible": py_ok,
+        "soup_version": soup_version,
+        "dependencies": present,
+        "missing_train_deps": missing_train,
