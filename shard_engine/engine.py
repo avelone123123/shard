@@ -438,3 +438,113 @@ class ShardEngine:
             "total_tokens_generated": self.total_tokens_generated,
             "last_latency_ms": self.last_latency_ms
         }
+    def is_loaded(self):
+        return bool(self.model is not None or (self.gguf is not None and self.gguf.is_running()))
+    def is_model_active(self, model_id):
+        if not self.is_loaded() or not model_id:
+            return False
+        def _c(x):
+            return re.sub(r"(?i)[-_]?(instruct)?[-_]?gguf$", "", str(x or "").split("/")[-1].lower())
+        tgt = _c(model_id)
+        if self.current_loaded_id and _c(self.current_loaded_id) == tgt:
+            return True
+        if self.gguf and self.gguf.is_running() and self.gguf.model_id and _c(self.gguf.model_id) == tgt:
+            return True
+        return False
+    def detailed_lifecycle_state(self, model_id=None):
+        target = model_id or self.current_loaded_id or self.active_model_id
+        if self.is_loaded() and (not target or self.is_model_active(target)):
+            return "READY"
+        if target and target in self.model_states:
+            st = self.model_states[target]
+            if st in ("DOWNLOADING", "VERIFYING", "LOADING", "QUEUED", "COMPATIBILITY_CHECK") and self.status != "loading":
+                if _is_model_cached_complete(target):
+                    return "DOWNLOADED"
+            return st
+        if self.status == "loading":
+            return self.detailed_state if self.detailed_state in MODEL_LIFECYCLE_STATES else "LOADING"
+        if self.status == "error":
+            return self.detailed_state if self.detailed_state in ("DOWNLOAD_FAILED", "VALIDATION_FAILED", "LOAD_FAILED") else "LOAD_FAILED"
+        if target and _is_model_cached_complete(target):
+            return "DOWNLOADED"
+        return "DISCOVERED"
+    def lifecycle_state(self, model_id=None):
+        target = model_id or self.active_model_id
+        if self.is_loaded() and (not target or self.is_model_active(target)):
+            return "LOADED_IN_MEMORY"
+        if self.status == "loading":
+            return "LOADING"
+        if self.status == "unloading":
+            return "UNLOADING"
+        if self.status == "error":
+            return "ERROR"
+        if target and _is_model_cached_complete(target):
+            return "DOWNLOADED"
+        return "NOT_DOWNLOADED"
+    def _gguf(self):
+        if gguf_mod is None:
+            return None
+        if self.gguf is None:
+            self.gguf = gguf_mod.LlamaBackend()
+        return self.gguf
+    def _fit_for(self, model_id):
+        if _fit_mod is None:
+            return None
+        try:
+            return _fit_mod.fit_report(model_id)
+        except Exception:
+            return None
+    def _verdict_presentation(self, verdict):
+        return {
+            "GPU": ("PERFECT", "ИДЕАЛЬНО (VRAM)", "#22a06b"),
+            "HYBRID": ("RECOMMENDED", "ГИБРИД (VRAM+RAM)", "#d4943a"),
+            "IMPOSSIBLE": ("BLOCKED", "НЕ ЗАПУСТИТСЯ", "#c96a4b"),
+        }.get(verdict, ("UNKNOWN", "НЕИЗВЕСТНО", "#888888"))
+    def _select_dtype_and_device(self, params_b, hw):
+        if not TORCH_AVAILABLE or torch is None:
+            return None, "cpu"
+        if torch.cuda.is_available():
+            fp16_mb = params_b * 2050
+            if fp16_mb <= hw.get("vram_free_mb", 0) + 250:
+                return torch.float16, "cuda"
+            return torch.float16, "auto"
+        if params_b <= 0.9 and hw.get("ram_avail_mb", 4096) >= 2800:
+            return torch.float32, "cpu"
+        return torch.float16, "cpu"
+    def _run_loader(self, model_id, seq_id, prev_loaded_id=None):
+        if prev_loaded_id is None and self.current_loaded_id and self.current_loaded_id != model_id:
+            prev_loaded_id = self.current_loaded_id
+        self.status = "loading"
+        self._cancel_load = False
+        if not TORCH_AVAILABLE:
+            self.status = "error"
+            self.detailed_state = "LOAD_FAILED"
+            self.model_states[model_id] = "LOAD_FAILED"
+            self.current_loaded_id = prev_loaded_id
+            self.active_model_id = prev_loaded_id
+            self.load_progress = {"status": "error", "lifecycle_state": "LOAD_FAILED", "model_id": model_id, "percent": 0, "stage": "Ошибка", "eta_text": "Ошибка", "speed_mb": 0, "message": "PyTorch/Transformers не установлены. Выполните: pip install \"shard-engine[full]\""}
+            return
+        is_local_path = os.path.exists(str(model_id or ""))
+        target_repo = model_id if is_local_path else (model_id if "/" in model_id else f"Qwen/{model_id}")
+        params_b = _hardware.estimate_model_params(model_id)
+        already_cached = is_local_path or _is_model_cached_complete(target_repo)
+        est_mb = max(120, int(params_b * (1950 if params_b <= 3.0 else 650)))
+        est_sec = 3 if already_cached else max(4, int(est_mb / 20))
+        eta_init = f"~{est_sec} сек" if est_sec < 60 else f"~{est_sec // 60} мин {est_sec % 60} сек"
+        init_state = "LOADING" if already_cached else "DOWNLOADING"
+        self.detailed_state = init_state
+        self.model_states[model_id] = init_state
+        self.load_progress = {
+            "status": "loading",
+            "lifecycle_state": init_state,
+            "model_id": model_id,
+            "percent": 75 if already_cached else 5,
+            "stage": "Чтение весов с локального SSD" if already_cached else "Подключение к Hugging Face Hub",
+            "curr_mb": est_mb if already_cached else 0,
+            "total_mb": est_mb,
+            "speed_mb": 0,
+            "eta_seconds": est_sec,
+            "eta_text": eta_init,
+            "message": f"Загрузка с локального SSD: {target_repo}" if already_cached else f"Подготовка скачивания {target_repo}..."
+        }
+        t0 = time.time()
