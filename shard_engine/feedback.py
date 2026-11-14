@@ -876,6 +876,26 @@ def validate_dataset_snapshot(snapshot_id, task=None, check_with_soup=False):
     elif valid_records < 5:
         warnings.append(f"В датасете всего {valid_records} записей; для стабильного LoRA-обучения рекомендуется минимум 10–20 примеров.")
     if invalid_records > 0:
+        errors.append(f"Найдено поврежденных или некорректных записей: {invalid_records}. " + "; ".join(sample_errors))
+    soup_val = None
+    if check_with_soup and not errors:
+        soup_info = soup_adapter.detect_soup(probe_deps=False)
+        if soup_info.get("available"):
+            soup_val = soup_adapter.validate_dataset(soup_info, str(p), fmt=fmt_hint)
+            if soup_val and not soup_val.get("ok"):
+                errors.append(f"SOUP data validate не прошел: {(soup_val.get('stderr') or soup_val.get('stdout') or 'schema error')[:240]}")
+    return {
+        "ok": len(errors) == 0,
+        "snapshot_id": snapshot_id,
+        "format": fmt_hint,
+        "task": task_norm,
+        "total_lines": total_lines,
+        "valid_records": valid_records,
+        "invalid_records": invalid_records,
+        "errors": errors,
+        "warnings": warnings,
+        "soup_validation": soup_val,
+    }
 def compute_stats():
     with _LOCK:
         with storage.file_lock(_feedback_path()):
