@@ -1318,3 +1318,113 @@ async def api_training_soup_install(req: Request):
         return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
 @app.get("/api/training/soup/install/status")
 def api_training_soup_install_status(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"status": "ok", "installer": soup_adapter.get_soup_install_status(), "soup": soup_adapter.detect_soup(probe_deps=False)}
+@app.get("/api/training/privacy")
+def api_training_privacy_get(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return feedback.get_privacy_config()
+@app.post("/api/training/privacy")
+async def api_training_privacy_update(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+        return {"status": "ok", "privacy": feedback.update_privacy_config(data)}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/training/feedback")
+def api_training_feedback_list(req: Request, status: str = None, limit: int = 200):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"entries": feedback.list_feedback(status=status, limit=limit), "stats": feedback.compute_stats()}
+@app.post("/api/training/feedback/{entry_id}/review")
+async def api_training_feedback_review(entry_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+        entry = feedback.review_feedback(
+            entry_id,
+            action=data.get("action"),
+            edited_fields=data.get("edited_fields"),
+        )
+        return {"status": "ok", "entry": entry}
+    except KeyError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/training/datasets")
+def api_training_datasets_list(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"datasets": feedback.list_datasets(), "stats": feedback.compute_stats()}
+@app.post("/api/training/datasets/build")
+async def api_training_datasets_build(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        manifest = feedback.build_dataset_snapshot(
+            task=data.get("task", "sft"),
+            base_model=data.get("base_model") or engine_instance.active_model_id,
+            name=data.get("name"),
+            include_pending=bool(data.get("include_pending", False)),
+            validate_with_soup=bool(data.get("validate_with_soup", True)),
+        )
+        return {"status": "ok", "dataset": manifest}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/training/datasets/{snapshot_id}")
+def api_training_dataset_detail(snapshot_id: str, req: Request, preview: int = 10):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        m = feedback.get_dataset_manifest(snapshot_id)
+        rows = feedback.preview_dataset_records(snapshot_id, limit=preview)
+        return {"dataset": m, "preview": rows}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except FileNotFoundError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+@app.get("/api/training/jobs")
+def api_training_jobs_list(req: Request, limit: int = 50):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"jobs": training.list_training_jobs(limit=limit)}
+@app.post("/api/training/jobs/start")
+async def api_training_jobs_start(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+        job = training.start_training_job(
+            base_model=data.get("base_model"),
+            dataset_snapshot_id=data.get("dataset_snapshot_id"),
+            task=data.get("task", "sft"),
+            params=data.get("params"),
+            dry_run=bool(data.get("dry_run", False)),
+            unload_inference=bool(data.get("unload_inference", True)),
+            experiment_name=data.get("experiment_name"),
+        )
+        return {"status": "ok", "job": job}
+    except (ValueError, KeyError, FileNotFoundError) as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except RuntimeError as e:
+        return JSONResponse(status_code=409, content={"status": "error", "message": str(e)})
+@app.get("/api/training/jobs/{job_id}")
