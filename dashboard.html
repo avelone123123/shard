@@ -548,3 +548,113 @@ macOS
 <div style="font-size:10px;color:var(--text-muted);">deepseek-ai/DeepSeek-R1-Distill-Qwen-7B</div>
 </div>
 <button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', 'ID модели')">Копировать</button>
+</div>
+<div class="model-item">
+<div>
+<div style="font-weight:600;color:#fff;">Llama-3.2-3B</div>
+<div style="font-size:10px;color:var(--text-muted);">meta-llama/Llama-3.2-3B-Instruct</div>
+</div>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('meta-llama/Llama-3.2-3B-Instruct', 'ID модели')">Копировать</button>
+</div>
+<div class="model-item">
+<div>
+<div style="font-weight:600;color:#fff;">Mistral-7B-v0.3</div>
+<div style="font-size:10px;color:var(--text-muted);">mistralai/Mistral-7B-Instruct-v0.3</div>
+</div>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('mistralai/Mistral-7B-Instruct-v0.3', 'ID модели')">Копировать</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tab-chat" class="section">
+<div class="chat-container">
+<div class="chat-sidebar">
+<div class="chat-sidebar-top">
+<button class="btn-new-chat" onclick="createNewChat(true)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+Новый диалог
+</button>
+</div>
+<div class="chat-sessions-list" id="chatSessionsList"></div>
+</div>
+<div class="chat-main">
+<div class="chat-header">
+<div class="chat-header-model">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+<span id="chatActiveModel">Qwen2.5-Coder-7B-Instruct</span>
+<span id="chatLoadingTag" class="chat-loading-tag" style="display:none;"></span>
+</div>
+<div class="chat-header-live">
+<span id="chatFeedbackPolicyBadge" style="color:#8892a4;font-size:11px;cursor:pointer;" onclick="openMyContributions()" title="Просмотр или отзыв вкладов">Вклады и согласие</span>
+<span id="chatCoreBadge">C++20 Zero-Copy / AVX2 ASM</span>
+<span id="chatLiveSpeed" style="color:#38bdf8;">Готов к запросам</span>
+</div>
+</div>
+<div class="chat-body" id="chatBody">
+<div id="chatLoadingCard" class="chat-loading-card" style="display:none;"></div>
+</div>
+<div class="chat-footer">
+<input type="text" id="chatInput" class="chat-input" placeholder="Спросите о чем угодно..." onkeypress="if(event.key==='Enter')sendChat()">
+<button id="chatSendBtn" class="btn-action" onclick="sendChat()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+Отправить
+</button>
+</div>
+</div>
+</div>
+</div>
+<div id="tab-keys" class="section">
+<div class="info-card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+<div>
+<h3>Локальные API Ключи</h3>
+<p style="margin:0;">Ключи для авторизации Cursor, OpenCode, Claude Code и внешних клиентов.</p>
+</div>
+<button class="btn-action" onclick="generateKey()">+ Создать новый ключ</button>
+</div>
+<div id="keysList" style="display:flex;flex-direction:column;gap:8px;"></div>
+</div>
+</div>
+<div id="tab-network" class="section">
+<div class="info-card" style="margin-bottom:16px;">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+<div>
+<h3 style="margin:0 0 4px 0;">Глобальная сеть SHARD (P2P & Relay)</h3>
+<p style="margin:0;font-size:12px;color:var(--text-muted);">Децентрализованная сеть обмена вычислительными узлами: сквозное шифрование ChaCha20-Poly1305, авто-выбор маршрута (LAN &rarr; P2P &rarr; Слепой Relay), без централизованных серверов.</p>
+</div>
+<div style="display:flex;gap:8px;align-items:center;">
+<span id="netGlobalNodeBadge" style="font-size:11px;padding:4px 8px;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#8b949e;font-family:monospace;">Node: ...</span>
+<button class="btn-action" onclick="netRefresh(true)">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+Обновить
+</button>
+</div>
+</div>
+<div class="trn-subtabs" style="margin-bottom:16px;">
+<button id="netSubBtn-browser" class="trn-subbtn active" onclick="netSubTab('browser', this)">Каталог серверов</button>
+<button id="netSubBtn-invites" class="trn-subbtn" onclick="netSubTab('invites', this)">Инвайты и Подключение</button>
+<button id="netSubBtn-host" class="trn-subbtn" onclick="netSubTab('host', this)">Хостинг и Участники</button>
+<button id="netSubBtn-lan" class="trn-subbtn" onclick="netSubTab('lan', this)">Локальный кластер (LAN)</button>
+<button id="netSubBtn-settings" class="trn-subbtn" onclick="netSubTab('settings', this)">Свои серверы и Диагностика</button>
+</div>
+<div id="netActiveConnBanner" style="display:none;background:#0d1117;border:1px solid #238636;border-radius:8px;padding:12px;margin-bottom:16px;"></div>
+<div id="net-panel-browser" class="trn-panel active">
+<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+<input id="netSearchQ" placeholder="Поиск по модели или имени..." class="trn-input" style="flex:2;min-width:180px;" onkeydown="if(event.key==='Enter')netLoadServers()">
+<input id="netSearchRegion" placeholder="Регион (e.g. eu, us, kz)" class="trn-input" style="flex:1;min-width:110px;" onkeydown="if(event.key==='Enter')netLoadServers()">
+<select id="netSearchAccess" class="trn-input" style="flex:1;min-width:110px;" onchange="netLoadServers()">
+<option value="">Все типы доступа</option>
+<option value="open">Открытые</option>
+<option value="invite_only">По инвайту</option>
+<option value="owner_confirm">С подтверждением</option>
+</select>
+<button class="btn-action active" onclick="netLoadServers()">Найти</button>
+</div>
+<div id="netServersGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:12px;">Загрузка серверов...</div>
+</div>
+<div id="net-panel-invites" class="trn-panel">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Подключиться по инвайту или адресу</div>
+<input id="netConnectTarget" placeholder="shard://... или shn_... или IP:порт" class="trn-input" style="margin-bottom:8px;">
