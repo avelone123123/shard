@@ -646,3 +646,27 @@ def _sync_source_archive(zip_path, target_pkg_dir):
             if "shard_engine" in parts:
                 idx = parts.index("shard_engine")
                 rel_parts = parts[idx + 1:]
+                if rel_parts and not info.is_dir():
+                    rel = "/".join(rel_parts)
+                    if not rel.endswith((".pyc", ".pyo")):
+                        pkg_members.append((info.filename, rel))
+        if not pkg_members:
+            raise ValueError("Source archive contains no shard_engine files.")
+        for arc_name, rel in pkg_members:
+            dest = (Path(target_pkg_dir) / rel).resolve()
+            if not dest.is_relative_to(Path(target_pkg_dir).resolve()):
+                raise ValueError(f"Unsafe path in source archive: {rel}")
+            raw = zf.read(arc_name)
+            storage.atomic_write_bytes(dest, raw, fsync=True, backup=False)
+            synced += 1
+    return synced
+def _set_job_state(**kwargs):
+    with _UPDATE_JOB_LOCK:
+        for k, v in kwargs.items():
+            if k == "log" and v:
+                _UPDATE_JOB_STATE["logs"].append(str(v))
+                if len(_UPDATE_JOB_STATE["logs"]) > 200:
+                    _UPDATE_JOB_STATE["logs"] = _UPDATE_JOB_STATE["logs"][-200:]
+            else:
+                _UPDATE_JOB_STATE[k] = v
+def get_update_status():
