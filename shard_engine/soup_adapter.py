@@ -658,3 +658,113 @@ def _run_soup_cmd(soup_info, args, timeout=120, env_extra=None):
             "stdout": (e.stdout or "") if isinstance(e.stdout, str) else "",
             "stderr": f"Command timed out after {timeout}s",
         }
+    except Exception as e:
+        return {"ok": False, "returncode": -1, "stdout": "", "stderr": str(e)}
+def validate_dataset(soup_info, dataset_path, fmt="auto", min_valid_fraction=0.8):
+    return _run_soup_cmd(
+        soup_info,
+        ["data", "validate", str(dataset_path), "--format", str(fmt), "--min-valid-fraction", str(min_valid_fraction)],
+        timeout=90,
+    )
+def clean_dataset(soup_info, input_path, output_path):
+    return _run_soup_cmd(
+        soup_info,
+        ["data", "clean", str(input_path), "-o", str(output_path)],
+        timeout=120,
+    )
+def dry_run_train(soup_info, config_path, timeout=90):
+    return _run_soup_cmd(
+        soup_info,
+        ["train", "--config", str(config_path), "--dry-run", "--yes"],
+        timeout=timeout,
+    )
+def launch_train_popen(soup_info, config_path, log_path, resume=None, run_name=None, env_extra=None):
+    cmd_base = list((soup_info or {}).get("command") or [])
+    if not cmd_base:
+        raise RuntimeError("soup-cli is not installed or configured.")
+    args = ["train", "--config", str(config_path), "--yes"]
+    if run_name:
+        safe_name = _sanitize_experiment_name(run_name)
+        if safe_name:
+            args.extend(["--name", safe_name])
+    if resume:
+        args.extend(["--resume", str(resume)])
+    Path(log_path).parent.mkdir(parents=True, exist_ok=True)
+    log_fh = open(log_path, "a", encoding="utf-8")
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    if env_extra:
+        env.update({str(k): str(v) for k, v in env_extra.items()})
+    proc = subprocess.Popen(
+        cmd_base + args,
+        stdout=log_fh,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=env,
+        creationflags=_WIN_NO_WINDOW,
+    )
+    return proc, log_fh
+def terminate_process(proc):
+    if proc is None:
+        return
+    try:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+    except Exception:
+        pass
+def parse_train_progress(log_path):
+    if not log_path or not os.path.isfile(log_path):
+        return {"lines": [], "last_loss": None, "last_epoch": None, "current_step": None, "total_steps": None}
+    try:
+        with open(log_path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.read().splitlines()
+    except Exception:
+        return {"lines": [], "last_loss": None, "last_epoch": None, "current_step": None, "total_steps": None}
+    last_loss = None
+    last_epoch = None
+    current_step = None
+    total_steps = None
+    for line in lines[-200:]:
+        m_loss = re.search(r"['\"]?loss['\"]?\s*:\s*([0-9]+(?:\.[0-9]+)?)", line)
+        if m_loss:
+            last_loss = float(m_loss.group(1))
+        m_ep = re.search(r"['\"]?epoch['\"]?\s*:\s*([0-9]+(?:\.[0-9]+)?)", line)
+        if m_ep:
+            last_epoch = float(m_ep.group(1))
+        m_step = re.search(r"\b(\d+)\s*/\s*(\d+)\b", line)
+        if m_step and ("%" in line or "it/s" in line or "s/it" in line or "step" in line.lower()):
+            current_step = int(m_step.group(1))
+            total_steps = int(m_step.group(2))
+    return {
+        "lines": lines[-120:],
+        "last_loss": last_loss,
+        "last_epoch": last_epoch,
+        "current_step": current_step,
+        "total_steps": total_steps,
+    }
+def scan_output_artifacts(output_dir):
+    out = Path(output_dir)
+    if not out.exists():
+        return {"checkpoints": [], "adapter_dir": None, "adapter_files": [], "merged_dir": None, "gguf_files": []}
+    checkpoints = []
+    gguf_files = []
+    adapter_dir = None
+    adapter_files = []
+    merged_dir = None
+    for child in sorted(out.iterdir()):
+        if child.is_dir() and child.name.startswith("checkpoint-"):
+            checkpoints.append(str(child))
+        elif child.is_file() and child.suffix.lower() == ".gguf":
+            gguf_files.append(str(child))
+    if (out / "adapter_config.json").is_file():
+        adapter_dir = str(out)
+        adapter_files = sorted(str(p) for p in out.iterdir() if p.is_file())
+    if (out / "config.json").is_file() and any(out.glob("*.safetensors")) and not adapter_dir:
+        merged_dir = str(out)
+    elif (out / "merged" / "config.json").is_file():
+        merged_dir = str(out / "merged")
