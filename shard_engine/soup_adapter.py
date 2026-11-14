@@ -495,7 +495,7 @@ def _run_install_worker(action, custom_python=None, include_train=True):
             _set_install_state(lifecycle_state="CREATING_VENV", stage="Создание изолированного Python 3.12 venv", pct=30)
             if compat["found"]:
                 base_py = compat["python_executable"]
-                _append_install_log(f"Found compatible Python {compat['python_version']}: {base_py}", step="Создание soup-venv", pct=25)
+                _set_install_state(line=f"Found compatible Python {compat['python_version']}: {base_py}")
                 venv_dir.parent.mkdir(parents=True, exist_ok=True)
                 r_venv = subprocess.run(
                     [base_py, "-m", "venv", str(venv_dir)],
