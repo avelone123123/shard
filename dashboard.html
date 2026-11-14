@@ -1159,38 +1159,38 @@ macOS
 </select>
 <label class="v-field-label">Имя снимка (опционально)</label>
 <input id="trnDsName" class="trn-input" placeholder="e.g. coding-v1" style="margin-bottom:8px;">
-<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-bottom:10px;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:10px;cursor:pointer;">
 <input type="checkbox" id="trnDsIncludePending"> Включить непроверенные (pending)
 </label>
 <button class="btn-action active" style="width:100%;justify-content:center;" onclick="trnBuildDataset()">Собрать датасет</button>
-<div style="font-size:12px;font-weight:600;color:#cbd5e1;margin:14px 0 8px;">Сохранённые датасеты</div>
+<div class="v-section-title" style="margin:14px 0 8px;">Сохранённые датасеты</div>
 <div id="trnDsBuildSummary" style="margin-bottom:8px;"></div>
-<div id="trnDatasetsList" style="font-size:12px;color:#8892a4;">Нет датасетов</div>
+<div id="trnDatasetsList" style="font-size:12px;color:var(--text-muted);">Нет датасетов</div>
 </div>
 </div>
 </div>
 <div id="trn-panel-jobs" class="trn-panel">
-<div style="display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start;">
+<div class="v-split-left">
 <div class="trn-row">
-<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">Запуск обучения (SOUP)</div>
-<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Датасет</label>
+<div class="v-section-title" style="margin-bottom:10px;">Запуск обучения (SOUP)</div>
+<label class="v-field-label">Датасет</label>
 <select id="trnJobDataset" class="trn-input" style="margin-bottom:8px;"></select>
-<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Базовая модель (HF ID или локальная папка)</label>
-<input id="trnJobBase" class="trn-input" placeholder="Qwen/Qwen2.5-Coder-1.5B-Instruct (HF ID или локальная HF-папка)" oninput="checkTrainingBaseHint()" style="margin-bottom:6px;">
-<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
-<button class="btn-action" type="button" onclick="openModelBrowser('training')" style="padding:4px 10px;font-size:11px;">Выбрать модель на ПК</button>
-<span id="trnBaseCompatHint" style="font-size:11px;color:#8892a4;">Для SOUP нужна HF-модель (config.json + safetensors), не .gguf</span>
+<label class="v-field-label">Базовая модель (HF ID или локальная папка)</label>
+<input id="trnJobBase" class="trn-input" placeholder="Qwen/Qwen2.5-Coder-1.5B-Instruct" oninput="checkTrainingBaseHint()" style="margin-bottom:6px;">
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+<button class="btn-action" type="button" onclick="openModelBrowser('training')" style="padding:5px 10px;font-size:11.5px;white-space:nowrap;flex-shrink:0;">Выбрать модель на ПК</button>
+<span id="trnBaseCompatHint" style="font-size:12px;color:var(--text-muted);">Для SOUP нужна HF-модель (config.json + safetensors), не .gguf</span>
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
 <div>
-<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Метод</label>
+<label class="v-field-label">Метод</label>
 <select id="trnJobTask" class="trn-input">
 <option value="sft">SFT</option>
 <option value="dpo">DPO</option>
 </select>
 </div>
 <div>
-<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Квантование</label>
+<label class="v-field-label">Квантование</label>
 <select id="trnJobQuant" class="trn-input">
 <option value="4bit">4bit (QLoRA)</option>
 <option value="8bit">8bit</option>
@@ -1200,24 +1200,24 @@ macOS
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
 <div>
-<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Эпохи</label>
+<label class="v-field-label">Эпохи</label>
 <input id="trnJobEpochs" type="number" class="trn-input" value="3" min="1" max="50">
 </div>
 <div>
-<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Learning Rate</label>
+<label class="v-field-label">Learning Rate</label>
 <input id="trnJobLr" class="trn-input" value="0.00002">
 </div>
 </div>
-<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-bottom:6px;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:6px;cursor:pointer;">
 <input type="checkbox" id="trnJobUnload" checked> Выгрузить модель инференса перед стартом (защита от OOM)
 </label>
-<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-bottom:10px;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:10px;cursor:pointer;">
 <input type="checkbox" id="trnJobDryRun"> Dry-Run (проверить конфиг soup.yaml без обучения)
 </label>
 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
-<div><div style="font-size:10px;color:#8892a4;margin-bottom:3px;">Batch Size</div><input id="trnJobBatchSize" class="trn-input" value="auto" placeholder="auto"></div>
-<div><div style="font-size:10px;color:#8892a4;margin-bottom:3px;">Grad Accum</div><input id="trnJobGradAccum" type="number" class="trn-input" value="4" min="1" max="128"></div>
-<div><div style="font-size:10px;color:#8892a4;margin-bottom:3px;">Max Length</div><input id="trnJobMaxLength" type="number" class="trn-input" value="2048" min="64" max="131072"></div>
+<div><label class="v-field-label" style="font-size:11px;">Batch Size</label><input id="trnJobBatchSize" class="trn-input" value="auto" placeholder="auto"></div>
+<div><label class="v-field-label" style="font-size:11px;">Grad Accum</label><input id="trnJobGradAccum" type="number" class="trn-input" value="4" min="1" max="128"></div>
+<div><label class="v-field-label" style="font-size:11px;">Max Length</label><input id="trnJobMaxLength" type="number" class="trn-input" value="2048" min="64" max="131072"></div>
 </div>
 <div style="display:flex;gap:8px;margin-bottom:6px;">
 <button class="btn-action" type="button" onclick="trnRunPreflight()" style="flex:1;justify-content:center;">Проверить готовность (Preflight)</button>
@@ -1226,32 +1226,32 @@ macOS
 <div id="trnPreflightBox" style="font-size:11.5px;margin-bottom:6px;"></div>
 </div>
 <div>
-<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Задания обучения</div>
+<div class="v-section-title">Задания обучения</div>
 <div id="trnJobsList">Нет заданий</div>
 <div id="trnJobLogBox" style="display:none;margin-top:10px;">
-<div style="font-size:11px;color:#38bdf8;margin-bottom:4px;" id="trnJobLogTitle">Лог задания</div>
+<div style="font-size:12px;font-weight:700;color:var(--accent-text);margin-bottom:4px;" id="trnJobLogTitle">Лог задания</div>
 <pre id="trnJobLogPre" class="trn-log"></pre>
 </div>
 </div>
 </div>
 </div>
 <div id="trn-panel-versions" class="trn-panel">
-<div style="font-size:12px;color:#8892a4;margin-bottom:10px;">Каждая обученная версия проверяется сравнением Baseline vs Candidate. Для деплоя требуется явное подтверждение владельца.</div>
+<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">Каждая обученная версия проверяется сравнением Baseline vs Candidate. Для деплоя требуется явное подтверждение владельца.</div>
 <div id="trnVersionsList">Нет зарегистрированных версий</div>
 </div>
 <div id="trn-panel-privacy" class="trn-panel">
 <div class="trn-row">
-<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">Политика приватности и прав доступа</div>
-<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<div class="v-section-title" style="margin-bottom:10px;">Политика приватности и прав доступа</div>
+<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="prvAllowFeedback"> Разрешить сбор явных отзывов в интерфейсе
 </label>
-<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="prvAllowRemote"> Разрешить удалённым клиентам LAN отправлять отзывы (по умолчанию ВЫКЛ)
 </label>
-<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="prvRequireConsent"> Требовать явную галочку согласия для каждого вклада
 </label>
-<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="prvRequireReview"> Требовать ручную модерацию владельцем перед экспортом в датасет
 </label>
 <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
