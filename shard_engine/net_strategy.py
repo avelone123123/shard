@@ -438,3 +438,113 @@ def probe_direct_e2e_tcp(host, port, expected_host_id, identity, auth_proof=None
     if not host_s:
         return {"ok": False, "endpoint": "", "rtt_ms": None, "node_id": None, "reason": "invalid_host"}
     try:
+        port_num = int(port)
+        if not (1 <= port_num <= 65535):
+            return {"ok": False, "endpoint": f"{host_s}:{port}", "rtt_ms": None, "node_id": None, "reason": "invalid_port"}
+    except Exception:
+        return {"ok": False, "endpoint": f"{host_s}:{port}", "rtt_ms": None, "node_id": None, "reason": "invalid_port"}
+    ep = f"[{host_s}]:{port_num}" if ":" in host_s else f"{host_s}:{port_num}"
+    if not isinstance(expected_host_id, str) or not net_identity.NODE_ID_RE.match(expected_host_id):
+        return {"ok": False, "endpoint": ep, "rtt_ms": None, "node_id": None, "reason": "invalid_host_id"}
+    to_s = max(0.3, float(timeout))
+    async def _probe():
+        agent = net_tunnel.ClientTunnelAgent(
+            identity=identity,
+            target_host_id=expected_host_id,
+            mode="direct",
+            direct_endpoints=[ep],
+            auth_proof=auth_proof,
+            connect_timeout_s=to_s,
+            ping_timeout_s=to_s,
+            reconnect=False,
+            verify_ping=True,
+        )
+        try:
+            ok = await agent.connect()
+            st = agent.status()
+            if ok and agent.state == TunnelState.CONNECTED and st.get("rtt_ms") is not None:
+                return {"ok": True, "endpoint": ep, "rtt_ms": st.get("rtt_ms"), "node_id": expected_host_id, "reason": "ok"}
+            return {"ok": False, "endpoint": ep, "rtt_ms": None, "node_id": None, "reason": st.get("last_error") or "probe_failed"}
+        except Exception as exc:
+            return {"ok": False, "endpoint": ep, "rtt_ms": None, "node_id": None, "reason": f"{type(exc).__name__}:{exc}"}
+        finally:
+            try:
+                await agent.disconnect()
+            except Exception:
+                pass
+    return _run_coro_sync(_probe(), timeout=to_s * 3.0 + 2.0)
+def _extract_host_port(endpoint, default_port=None):
+    raw = str(endpoint or "").strip()
+    if not raw:
+        return "", default_port
+    if "://" in raw:
+        parsed = urlsplit(raw)
+        host = (parsed.hostname or "").strip()
+        port = parsed.port or default_port
+        return host, port
+    if raw.startswith("[") and "]:" in raw:
+        host, port_s = raw[1:].split("]:", 1)
+        try:
+            return host.strip(), int(port_s)
+        except Exception:
+            return host.strip(), default_port
+    if raw.startswith("[") and raw.endswith("]"):
+        return raw[1:-1].strip(), default_port
+    if ":" in raw and raw.count(":") == 1:
+        host, port_s = raw.rsplit(":", 1)
+        try:
+            return host.strip(), int(port_s)
+        except Exception:
+            return host.strip(), default_port
+    return raw, default_port
+def _local_vpn_networks():
+    nets = list(_VPN_NETS)
+    try:
+        for item in lan.local_interfaces():
+            if item.get("kind") == "vpn" and item.get("cidr"):
+                try:
+                    nets.append(ipaddress.ip_network(item["cidr"], strict=False))
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return nets
+def classify_endpoint_path(endpoint):
+    raw = str(endpoint or "").strip()
+    if raw.lower().startswith(("ws://", "wss://")):
+        return "relay"
+    host, _ = _extract_host_port(raw)
+    low = host.lower()
+    if not low:
+        return "direct_p2p"
+    if lan.is_loopback(low) or low == "localhost.localdomain":
+        return "same_machine"
+    try:
+        ip_obj = ipaddress.ip_address(low)
+    except ValueError:
+        return "direct_p2p"
+    if ip_obj.is_loopback:
+        return "same_machine"
+    if ip_obj.version == 4:
+        for net in _local_vpn_networks():
+            if ip_obj in net:
+                return "direct_p2p"
+        for net in _LAN_NETS_V4:
+            if ip_obj in net:
+                return "direct_lan"
+        return "direct_p2p"
+    for net in _LAN_NETS_V6:
+        if ip_obj in net:
+            return "direct_lan"
+    return "direct_p2p"
+def _is_local_or_lan_endpoint(endpoint):
+    ptype = classify_endpoint_path(endpoint)
+    return ptype in ("same_machine", "direct_lan")
+def parse_connect_target(target, default_port=None):
+    raw = str(target or "").strip()
+    if not raw:
+        raise ValueError("Connection target is required")
+    if raw.lower().startswith("shard://"):
+        parsed = net_identity.parse_invite_uri(raw)
+        return {"kind": "shard_uri", **parsed}
+    if net_identity.NODE_ID_RE.match(raw):
