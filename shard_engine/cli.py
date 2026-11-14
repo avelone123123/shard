@@ -445,41 +445,30 @@ def cmd_update(args):
             if as_json:
                 print(json.dumps(res, ensure_ascii=False, indent=2))
             else:
-                break
-        parts.append(int(num) if num else 0)
-    return tuple(parts)
-def cmd_update(args):
-    print_banner()
-    print(f"Installed version: {__app_name__} {__version__}")
-    check_only = bool(getattr(args, "check", False))
-    try:
-        import requests
-        r = requests.get(f"https://pypi.org/pypi/{__app_name__}/json", timeout=6)
-    except Exception as e:
-        print(f"Unable to reach PyPI: {e}")
-        print("Upgrade manually when online with: pip install --upgrade shard-engine")
-        sys.exit(1)
-    if r.status_code == 404:
-        print(f"{__app_name__} is not published on PyPI yet (HTTP 404).")
-        print("Local or editable installations can be updated from Git:")
-        print("  pip install --upgrade git+https://github.com/avelone123123/shard.git")
-        return
-    if r.status_code != 200:
-        print(f"PyPI returned HTTP {r.status_code}.")
-        sys.exit(1)
-    latest = (r.json().get("info") or {}).get("version") or ""
-    if not latest:
-        print("Could not determine latest version from PyPI metadata.")
-        return
-    if _parse_ver_tuple(latest) > _parse_ver_tuple(__version__):
-        print(f"Update available: {__version__} -> {latest}")
-        if check_only:
-            print("Run: pip install --upgrade shard-engine")
+                print(f"Rollback completed cleanly ({res.get('method')}). Restart SHARD to apply.")
             return
-        print("Upgrading via pip (user config, keys, and models will remain untouched)...")
-        proc = subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", __app_name__])
-        sys.exit(proc.returncode)
-    print(f"SHARD is up to date ({__version__}).")
+        except Exception as e:
+            if as_json:
+                print(json.dumps({"status": "failed", "error": str(e)}, ensure_ascii=False, indent=2))
+            else:
+                print(f"[ERROR] Rollback failed: {e}")
+            sys.exit(1)
+    prerelease = bool(getattr(args, "prerelease", False))
+    target = getattr(args, "target", None)
+    force = bool(getattr(args, "force", False))
+    if check_only:
+        chk = updater.check_for_updates(force=True, timeout=4.0, allow_network=True, allow_prerelease=prerelease)
+        if as_json:
+            print(json.dumps({"install": inst, "check": chk}, ensure_ascii=False, indent=2))
+            return
+        print(f"Install method:    {inst.get('method')} ({inst.get('package_dir')})")
+        print(f"Update status:     {chk.get('state')}")
+        print(f"Latest version:    {chk.get('latest_version') or 'unknown'} (source: {chk.get('source') or 'n/a'})")
+        if chk.get("state") == "UPDATE_AVAILABLE":
+            print(f"Update available:  {__version__} -> {chk.get('latest_version')}")
+            if chk.get("release_notes"):
+                print(f"Release notes:\n{str(chk['release_notes'])[:500]}")
+            print("Run 'shard update' to install safely with automatic backup & rollback.")
 def cmd_list(args):
     from .hf_hub import browse_models
     print_banner()
