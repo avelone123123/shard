@@ -3605,9 +3605,11 @@ function renderTrnDatasets(datasets) {
     document.getElementById('trnDatasetsList').innerHTML = datasets.map(d =>
         '<div style="padding:7px;border:1px solid #1e2638;border-radius:5px;margin-bottom:6px;background:#0a0d14;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
         '<div><div style="color:#e2e8f0;font-weight:600;">' + lanEsc(d.snapshot_id) + '</div>' +
-        '<div style="font-size:11px;color:#8892a4;">' + lanEsc(d.task) + '/' + lanEsc(d.format) + ' | записей: ' + d.record_count + ' | dedup: ' + (d.dedup_removed || 0) + '</div></div>' +
-        '<button class="fb-btn" data-id="' + escHtml(d.snapshot_id) + '" onclick="trnPreviewDataset(this.dataset.id)">Просмотр</button>' +
-        '</div>'
+        '<div style="font-size:11px;color:#8892a4;">' + lanEsc(d.task) + '/' + lanEsc(d.format) + ' | валидных: ' + (d.valid_records !== undefined ? d.valid_records : d.record_count) + ' | откл.: ' + (d.rejected_records || 0) + ' | dedup: ' + (d.dedup_removed || 0) + '</div></div>' +
+        '<div style="display:flex;gap:6px;">' +
+        '<button class="fb-btn" data-id="' + escHtml(d.snapshot_id) + '" onclick="trnValidateDataset(this.dataset.id)">Проверить</button>' +
+        '<button class="fb-btn" data-id="' + escHtml(d.snapshot_id) + '" onclick="trnPreviewDataset(this.dataset.id, 1)">Просмотр</button>' +
+        '</div></div>'
     ).join('') || 'Нет датасетов';
 }
 async function trnPreviewDataset(snapshotId) {
