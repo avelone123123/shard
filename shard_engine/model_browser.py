@@ -190,3 +190,27 @@ def map_gguf_to_hf_base(path_or_name):
         if "qwen" in stem_low:
             suggested = f"Qwen/{stem}"
         elif "llama" in stem_low:
+            suggested = f"meta-llama/{stem}"
+        elif "deepseek" in stem_low:
+            suggested = f"deepseek-ai/{stem}"
+        elif "gemma" in stem_low:
+            suggested = f"google/{stem}"
+        elif "mistral" in stem_low:
+            suggested = f"mistralai/{stem}"
+        elif "phi" in stem_low:
+            suggested = f"microsoft/{stem}"
+        elif "smollm" in stem_low:
+            suggested = f"HuggingFaceTB/{stem}"
+    local_hf = None
+    cached_locally = False
+    if suggested:
+        cache_folder_name = f"models--{suggested.replace('/', '--')}"
+        for hub_root in gguf_backend.all_hub_dirs():
+            cand_dir = Path(hub_root) / cache_folder_name / "snapshots"
+            if cand_dir.is_dir():
+                for snap in sorted(cand_dir.iterdir()):
+                    if snap.is_dir() and (snap / "config.json").is_file() and any(snap.glob("*.safetensors")):
+                        local_hf = str(snap)
+                        cached_locally = True
+                        break
+            if cached_locally:
