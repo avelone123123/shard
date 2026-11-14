@@ -988,3 +988,113 @@ def installer_script(req: Request, tool: str = "claude", os: str = "linux", key:
                  '    "ANTHROPIC_BASE_URL": "' + base_v1 + '",\n' + \
                  '    "ANTHROPIC_AUTH_TOKEN": "KEY_PLACEHOLDER",\n' + \
                  '    "ANTHROPIC_DEFAULT_OPUS_MODEL": "' + act_model + '",\n' + \
+                 '    "ANTHROPIC_DEFAULT_SONNET_MODEL": "' + act_model + '",\n' + \
+                 '    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "' + act_model + '"\n' + \
+                 '  }\n' + \
+                 '}\n' + \
+                 'EOF\n' + \
+                 'sed -i "s/KEY_PLACEHOLDER/$KEY/g" "$HOME/.claude/settings.json"\n' + \
+                 'echo "[OK] Shard: Claude CLI settings.json configured successfully."\n'
+    elif tool_clean == "opencode":
+        script = '#!/usr/bin/env bash\n' + \
+                 'KEY="${1:-' + chosen_key + '}"\n' + \
+                 'mkdir -p "$HOME/.config/opencode"\n' + \
+                 'cat << \'EOF\' > "$HOME/.config/opencode/config.json"\n' + \
+                 '{\n' + \
+                 '  "$schema": "https://opencode.ai/config.json",\n' + \
+                 '  "provider": {\n' + \
+                 '    "shard": {\n' + \
+                 '      "npm": "@ai-sdk/openai-compatible",\n' + \
+                 '      "name": "Shard",\n' + \
+                 '      "options": {\n' + \
+                 '        "baseURL": "' + base_v1 + '",\n' + \
+                 '        "apiKey": "KEY_PLACEHOLDER"\n' + \
+                 '      },\n' + \
+                 '      "models": {\n' + \
+                 '        "' + act_model + '": { "name": "' + act_model.split("/")[-1] + '", "modalities": {"input":["text"],"output":["text"]}, "limit": {"context":128000,"output":8192} },\n' + \
+                 '        "Qwen/Qwen2.5-Coder-7B-Instruct": { "name": "Qwen2.5 Coder 7B", "modalities": {"input":["text"],"output":["text"]}, "limit": {"context":128000,"output":8192} }\n' + \
+                 '      }\n' + \
+                 '    }\n' + \
+                 '  },\n' + \
+                 '  "model": "shard/' + act_model + '"\n' + \
+                 '}\n' + \
+                 'EOF\n' + \
+                 'sed -i "s/KEY_PLACEHOLDER/$KEY/g" "$HOME/.config/opencode/config.json"\n' + \
+                 'echo "[OK] Shard: OpenCode config.json configured successfully."\n'
+    else:
+        script = '#!/usr/bin/env bash\n' + \
+                 'KEY="${1:-' + chosen_key + '}"\n' + \
+                 'export OPENAI_API_BASE="' + base_v1 + '"\n' + \
+                 'export OPENAI_BASE_URL="' + base_v1 + '"\n' + \
+                 'export OPENAI_API_KEY="$KEY"\n' + \
+                 'echo "[OK] Shard: OPENAI_API_BASE and OPENAI_API_KEY exported for ' + tool_clean + '."\n'
+    return PlainTextResponse(script, media_type="text/plain; charset=utf-8")
+@app.post("/api/lan/create")
+async def api_lan_create(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    data = await req.json()
+    st = LAN.create((data.get("name") or "").strip() or None,
+                    open_net=bool(data.get("open")),
+                    model=(data.get("model") or "").strip() or None)
+    return {"status": "ok", **st}
+@app.post("/api/lan/model")
+async def api_lan_model(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    data = await req.json()
+    return LAN.set_model((data.get("model") or "").strip())
+@app.post("/api/lan/open")
+async def api_lan_open(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    data = await req.json()
+    return LAN.set_open(bool(data.get("open")))
+@app.post("/api/lan/join")
+async def api_lan_join(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    data = await req.json()
+    return LAN.join((data.get("ip") or "").strip(), data.get("code") or "",
+                    share=bool(data.get("share")),
+                    port=int(data.get("port") or DEFAULT_MASTER_PORT))
+@app.post("/api/lan/pair")
+async def api_lan_pair(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    ok_tot, retry_tot = _PAIR_TOTAL_LIMITER.check(ip)
+    if not ok_tot:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_tot)}, content={"status": "error", "message": "Too many pairing attempts"})
+    ok_fail, retry_fail = _PAIR_FAIL_LIMITER.check(ip, record=False)
+    if not ok_fail:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_fail)}, content={"status": "error", "message": "Pairing temporarily rate-limited"})
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    payload, err = LAN.handle_pair(
+        data.get("code") or "",
+        ip,
+        (data.get("name") or "").strip() or None,
+        share=bool(data.get("share")),
+        client_id=data.get("client_id"),
+    )
+    if err:
+        _PAIR_FAIL_LIMITER.record(ip)
+        return JSONResponse(status_code=403, content={"status": "error", "message": err})
+    return {"status": "ok", **payload}
+@app.post("/api/lan/heartbeat")
+async def api_lan_heartbeat(req: Request):
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    ip = req.client.host if req.client else ""
+    ok = LAN.handle_heartbeat(
+        ip,
+        data.get("token") or "",
+        hw=data.get("hw"),
+        rpc_port=data.get("rpc_port"),
