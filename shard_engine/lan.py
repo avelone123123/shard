@@ -218,3 +218,113 @@ def _is_usable_lan_ipv4(addr):
         if ip_obj.version != 4 or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_unspecified or ip_obj.is_multicast:
             return False
         return True
+    except ValueError:
+        return False
+def _classify_iface(iface_name, ip_str, netmask=None, is_default=False):
+    low = str(iface_name or "").lower()
+    ip_obj = ipaddress.IPv4Address(ip_str)
+    kind = "lan"
+    provider = None
+    for hint, prov in _VPN_HINTS:
+        if hint in low:
+            kind = "vpn"
+            provider = prov
+            break
+    if kind == "lan":
+        if ip_obj in ipaddress.IPv4Network("26.0.0.0/8"):
+            kind = "vpn"
+            provider = "radmin"
+        elif ip_obj in ipaddress.IPv4Network("100.64.0.0/10"):
+            kind = "vpn"
+            provider = "tailscale"
+        elif ip_obj in ipaddress.IPv4Network("25.0.0.0/8"):
+            kind = "vpn"
+            provider = "hamachi"
+    if kind == "lan" and any(h in low for h in _VIRTUAL_IFACE_HINTS):
+        kind = "virtual"
+        provider = "virtual"
+    bcast = None
+    cidr = None
+    if netmask:
+        try:
+            net_if = ipaddress.IPv4Interface(f"{ip_str}/{netmask}")
+            cidr = str(net_if.network)
+            if net_if.network.prefixlen < 31:
+                bcast = str(net_if.network.broadcast_address)
+        except Exception:
+            bcast = None
+    if bcast is None:
+        bcast = ip_str.rsplit(".", 1)[0] + ".255"
+    return {
+        "ip": ip_str,
+        "interface": str(iface_name or "unknown"),
+        "kind": kind,
+        "provider": provider or kind,
+        "cidr": cidr,
+        "broadcast": bcast,
+        "is_default": bool(is_default),
+    }
+def _default_route_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        return ip if _is_usable_lan_ipv4(ip) else None
+    except Exception:
+        return None
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+def _route_local_ip_for(target_host):
+    if not target_host or is_loopback(target_host):
+        return "127.0.0.1"
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect((str(target_host), 8000))
+        ip = s.getsockname()[0]
+        if _is_usable_lan_ipv4(ip) or is_loopback(ip):
+            return ip
+    except Exception:
+        pass
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+    return None
+def local_interfaces():
+    def_ip = _default_route_ip()
+    entries = {}
+    try:
+        import psutil
+        stats = {}
+        try:
+            stats = psutil.net_if_stats()
+        except Exception:
+            stats = {}
+        addrs = psutil.net_if_addrs()
+        for iface, items in addrs.items():
+            st = stats.get(iface)
+            if st is not None and not st.isup:
+                continue
+            for item in items:
+                if getattr(item, "family", None) == socket.AF_INET:
+                    addr = str(getattr(item, "address", "") or "").strip()
+                    if not _is_usable_lan_ipv4(addr):
+                        continue
+                    mask = getattr(item, "netmask", None)
+                    info = _classify_iface(iface, addr, netmask=mask, is_default=(addr == def_ip))
+                    if addr not in entries or info["kind"] != "virtual":
+                        entries[addr] = info
+    except Exception:
+        pass
+    if def_ip and def_ip not in entries:
+        entries[def_ip] = _classify_iface("default", def_ip, is_default=True)
+    try:
+        for res in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            addr = str(res[4][0] or "").strip()
+            if _is_usable_lan_ipv4(addr) and addr not in entries:
+                entries[addr] = _classify_iface("host", addr, is_default=(addr == def_ip))
+    except Exception:
