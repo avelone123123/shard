@@ -768,3 +768,113 @@ def resolve_and_connect(
             continue
         if tr_kind == "http":
             res = probe_direct_http(ep, expected_node_id=exp_node_id, identity=identity, timeout=min(float(connect_timeout_s), float(ping_timeout_s)))
+            attempts.append({"path_type": ptype, "transport": "http", "endpoint": ep, "ok": bool(res["ok"]), "rtt_ms": res.get("rtt_ms"), "reason": res.get("reason")})
+            if res["ok"]:
+                return {
+                    "ok": True,
+                    "state": TunnelState.CONNECTED.value,
+                    "mode": "direct",
+                    "path_type": ptype,
+                    "transport": "http",
+                    "endpoint": ep,
+                    "relay_url": None,
+                    "local_url": res["url"],
+                    "rtt_ms": res["rtt_ms"],
+                    "peer_node_id": res.get("node_id") or exp_node_id,
+                    "ping": res.get("ping"),
+                    "bootstrap": res.get("bootstrap"),
+                    "agent": None,
+                    "attempts": attempts,
+                    "reason": "ok",
+                    "alternatives": [],
+                }
+    last_reason = next((a["reason"] for a in reversed(attempts) if a.get("reason") and not str(a["reason"]).startswith("skipped_")), None)
+    if not last_reason:
+        last_reason = "no_reachable_endpoints" if ordered else "no_endpoints_provided"
+    return {
+        "ok": False,
+        "state": TunnelState.FAILED.value,
+        "mode": None,
+        "path_type": None,
+        "transport": None,
+        "endpoint": None,
+        "relay_url": None,
+        "local_url": None,
+        "rtt_ms": None,
+        "peer_node_id": exp_node_id,
+        "agent": None,
+        "attempts": attempts,
+        "reason": last_reason,
+        "alternatives": _build_failure_alternatives(offline_only, relay_urls, allow_relay_fallback, direct_endpoints, http_endpoints),
+    }
+def network_diagnostics(probe_public=False, offline_only=False, port=None, stun_servers=None, include_platform=True, include_wireguard=True):
+    http_port = int(port or lan.active_http_port())
+    lan_rep = lan.connectivity_report(probe_public=False)
+    stun_rep = stun_nat_profile(stun_servers=stun_servers, offline_only=offline_only) if probe_public else {
+        "ok": False,
+        "offline_only": bool(offline_only),
+        "nat_type": "unknown",
+        "symmetric_nat": None,
+        "endpoints": [],
+        "reason": "skipped",
+    }
+    wg_rep = net_wireguard.detect_wireguard() if include_wireguard else None
+    plat_rep = None
+    if include_platform:
+        if os.name == "nt":
+            plat_rep = net_platform_win.windows_diagnostics(port=http_port, extra_ports=(lan.BEACON_PORT,))
+        elif sys.platform.startswith("linux"):
+            plat_rep = net_platform_linux.linux_diagnostics(ports=(http_port, lan.BEACON_PORT))
+        else:
+            plat_rep = {"platform": sys.platform, "supported": False}
+    return {
+        "port": http_port,
+        "offline_only": bool(offline_only),
+        "lan": lan_rep,
+        "stun": stun_rep,
+        "wireguard": wg_rep,
+        "platform": plat_rep,
+    }
+class NetworkManager:
+    def __init__(
+        self,
+        config_path=None,
+        peers_path=None,
+        identity_path=None,
+        invites_path=None,
+        asgi_app=None,
+        local_http_url=None,
+        model_provider=None,
+        load_provider=None,
+        status_provider=None,
+    ):
+        self._lock = threading.RLock()
+        self._config_path_override = os.path.abspath(os.fspath(config_path)) if config_path else None
+        self._peers_path_override = os.path.abspath(os.fspath(peers_path)) if peers_path else None
+        self._identity_path_override = os.path.abspath(os.fspath(identity_path)) if identity_path else None
+        self._invites_path_override = os.path.abspath(os.fspath(invites_path)) if invites_path else None
+        self._asgi_app = asgi_app
+        self._local_http_url_override = local_http_url
+        self._model_provider = model_provider
+        self._load_provider = load_provider
+        self._status_provider = status_provider
+        self._identity = None
+        self._invites = None
+        self._runner = _LoopRunner()
+        self._config = self._load_config()
+        self._peers_state = self._load_peers()
+        self._host_agent = None
+        self._host_hb_stop = threading.Event()
+        self._host_hb_thread = None
+        self._host_last_disc_res = None
+        self._host_last_hb_at = None
+        self._host_model_override = None
+        self._host_models_override = None
+        self._client_agent = None
+        self._client_state = TunnelState.READY.value
+        self._client_mode = None
+        self._client_path_type = None
+        self._client_endpoint = None
+        self._client_relay_url = None
+        self._client_local_url = None
+        self._client_rtt_ms = None
