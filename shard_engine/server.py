@@ -1978,3 +1978,113 @@ def api_server_workspace(req: Request):
             "lifecycle_state": eng_st.get("lifecycle_state"),
         },
         "shared_chats": ws.get("shared_chats", [])[-30:],
+        "community_messages": ws.get("community_messages", [])[-100:],
+        "model_issues": ws.get("model_issues", [])[-100:],
+    }
+@app.post("/api/server/shared-chat")
+async def api_server_shared_chat(req: Request):
+    ok, role, actor_name = _resolve_server_actor(req)
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника"})
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    prompt = str(data.get("prompt") or "").strip()[:8000]
+    if not prompt:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Пустой запрос"})
+    chat_id = str(data.get("chat_id") or "").strip()
+    author = str(data.get("author") or actor_name or "Участник").strip()[:48]
+    max_tokens = min(2048, max(32, int(data.get("max_tokens") or 512)))
+    temperature = max(0.0, min(2.0, float(data.get("temperature") or 0.7)))
+    now = time.time()
+    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
+        ws = _load_workspace_unlocked()
+        chats = ws.setdefault("shared_chats", [])
+        target_chat = None
+        for ch in chats:
+            if ch.get("id") == chat_id:
+                target_chat = ch
+                break
+        if target_chat is None:
+            chat_id = f"schat-{uuid.uuid4().hex[:8]}"
+            target_chat = {
+                "id": chat_id,
+                "title": prompt[:56],
+                "created_at": now,
+                "updated_at": now,
+                "messages": [],
+            }
+            chats.append(target_chat)
+            if len(chats) > 30:
+                ws["shared_chats"] = chats[-30:]
+        target_chat["messages"].append({
+            "id": f"m-{uuid.uuid4().hex[:8]}",
+            "role": "user",
+            "author": author,
+            "content": prompt,
+            "ts": now,
+        })
+        history_msgs = [{"role": m["role"], "content": m["content"]} for m in target_chat["messages"][-12:] if m.get("role") in ("user", "assistant")]
+        _save_workspace_unlocked(ws)
+    result = engine_instance.generate_sync(history_msgs, max_tokens=max_tokens, temperature=temperature)
+    reply_text = str(result.get("content") or "").strip()
+    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
+        ws = _load_workspace_unlocked()
+        target_chat = None
+        for ch in ws.get("shared_chats", []):
+            if ch.get("id") == chat_id:
+                target_chat = ch
+                break
+        if target_chat is not None:
+            target_chat["messages"].append({
+                "id": f"m-{uuid.uuid4().hex[:8]}",
+                "role": "assistant",
+                "author": engine_instance.active_model_id or "SHARD AI",
+                "content": reply_text,
+                "telemetry": result.get("telemetry", {}),
+                "ts": time.time(),
+            })
+            target_chat["updated_at"] = time.time()
+            if len(target_chat["messages"]) > 100:
+                target_chat["messages"] = target_chat["messages"][-100:]
+            _save_workspace_unlocked(ws)
+    return {"status": "ok", "chat_id": chat_id, "chat": target_chat, "reply": reply_text, "telemetry": result.get("telemetry", {})}
+@app.delete("/api/server/shared-chat/{chat_id}")
+def api_server_shared_chat_delete(chat_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
+        ws = _load_workspace_unlocked()
+        before = len(ws.get("shared_chats", []))
+        ws["shared_chats"] = [c for c in ws.get("shared_chats", []) if c.get("id") != chat_id]
+        _save_workspace_unlocked(ws)
+    return {"status": "ok", "deleted": len(ws["shared_chats"]) < before}
+@app.get("/api/server/community")
+def api_server_community_get(req: Request):
+    ok, _, _ = _resolve_server_actor(req)
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника"})
+    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
+        ws = _load_workspace_unlocked()
+    return {"status": "ok", "messages": ws.get("community_messages", [])[-100:]}
+@app.post("/api/server/community")
+async def api_server_community_post(req: Request):
+    ok, role, actor_name = _resolve_server_actor(req)
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника"})
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    text = str(data.get("text") or "").strip()[:2000]
+    if not text:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Пустое сообщение"})
+    author = str(data.get("author") or actor_name or "Участник").strip()[:48]
+    msg = {
+        "id": f"cmsg-{uuid.uuid4().hex[:8]}",
+        "author": author,
+        "role": role,
+        "text": text,
+        "ts": time.time(),
