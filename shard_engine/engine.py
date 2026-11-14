@@ -548,3 +548,113 @@ class ShardEngine:
             "message": f"Загрузка с локального SSD: {target_repo}" if already_cached else f"Подготовка скачивания {target_repo}..."
         }
         t0 = time.time()
+        stop_ticker = False
+        def _ticker():
+            nonlocal stop_ticker
+            hf_home = _shard_settings.models_dir() or os.environ.get("HF_HOME")
+            hub_dir = os.path.join(hf_home, "hub", f"models--{target_repo.replace('/', '--')}", "blobs")
+            last_bytes = 0
+            last_t = t0
+            while not stop_ticker and self.status == "loading" and seq_id == self._load_seq:
+                time.sleep(0.8)
+                if stop_ticker or self._cancel_load:
+                    break
+                p = self.load_progress.get("percent", 5)
+                if p < 88 and os.path.exists(hub_dir):
+                    curr_bytes = 0
+                    try:
+                        for fn in os.listdir(hub_dir):
+                            fp = os.path.join(hub_dir, fn)
+                            if os.path.isfile(fp):
+                                curr_bytes += os.path.getsize(fp)
+                    except Exception:
+                        pass
+                    cur_mb = round(curr_bytes / (1024 * 1024), 1)
+                    if cur_mb > 2:
+                        now_t = time.time()
+                        dt_int = max(0.2, now_t - last_t)
+                        spd = round(((curr_bytes - last_bytes) / (1024 * 1024)) / dt_int, 1)
+                        if spd <= 0.1:
+                            spd = round(cur_mb / max(0.5, now_t - t0), 1)
+                        last_bytes = curr_bytes
+                        last_t = now_t
+                        target_total = max(est_mb, int(cur_mb * 1.08))
+                        cur_p = min(88, max(int(p), int((cur_mb / max(1, target_total)) * 88)))
+                        rem_sec = max(1, int((target_total - cur_mb) / max(0.5, spd)))
+                        eta_t = f"~{rem_sec} сек" if rem_sec < 60 else f"~{rem_sec // 60} мин {rem_sec % 60} сек"
+                        if self.load_progress.get("status") == "loading":
+                            self.load_progress.update({
+                                "lifecycle_state": "DOWNLOADING",
+                                "percent": cur_p,
+                                "curr_mb": cur_mb,
+                                "total_mb": target_total,
+                                "speed_mb": spd,
+                                "eta_seconds": rem_sec,
+                                "eta_text": eta_t,
+                                "stage": "Скачивание весов с Hugging Face",
+                                "message": f"Скачано {cur_mb} из {target_total} МБ ({cur_p}%) | {spd} МБ/с | Осталось: {eta_t}"
+                            })
+        if not already_cached:
+            threading.Thread(target=_ticker, daemon=True).start()
+        try:
+            hw = _hardware.get_hardware_profile()
+            chosen_dtype, dev_target = self._select_dtype_and_device(params_b, hw)
+            adapter_cfg_path = os.path.join(target_repo, "adapter_config.json") if is_local_path and os.path.isdir(target_repo) else None
+            is_peft_adapter = bool(adapter_cfg_path and os.path.isfile(adapter_cfg_path) and not os.path.isfile(os.path.join(target_repo, "config.json")))
+            base_or_dir = target_repo
+            if is_peft_adapter:
+                with open(adapter_cfg_path, "r", encoding="utf-8") as af:
+                    base_or_dir = json.load(af).get("base_model_name_or_path") or target_repo
+            trust_remote = os.environ.get("SHARD_TRUST_REMOTE_CODE", "0") == "1"
+            tok = AutoTokenizer.from_pretrained(target_repo if os.path.isfile(os.path.join(target_repo, "tokenizer_config.json")) else base_or_dir, trust_remote_code=trust_remote)
+            if self._cancel_load or seq_id != self._load_seq:
+                stop_ticker = True
+                return
+            self.detailed_state = "LOADING"
+            self.model_states[model_id] = "LOADING"
+            load_kw = {"low_cpu_mem_usage": True, "trust_remote_code": trust_remote}
+            if chosen_dtype is not None:
+                load_kw["dtype"] = chosen_dtype
+            is_heavy = (not is_local_path) and params_b >= 12.0
+            mdl = None
+            if is_heavy:
+                try:
+                    from airllm import AutoModel as AirAutoModel
+                    mdl = AirAutoModel.from_pretrained(base_or_dir)
+                except Exception:
+                    mdl = None
+            if mdl is None:
+                if dev_target == "auto":
+                    try:
+                        mdl = AutoModelForCausalLM.from_pretrained(base_or_dir, device_map="auto", **load_kw)
+                    except Exception:
+                        mdl = AutoModelForCausalLM.from_pretrained(base_or_dir, **load_kw)
+                else:
+                    mdl = AutoModelForCausalLM.from_pretrained(base_or_dir, **load_kw)
+                    if dev_target == "cuda" and torch.cuda.is_available():
+                        mdl = mdl.to("cuda")
+            if is_peft_adapter:
+                try:
+                    from peft import PeftModel
+                    mdl = PeftModel.from_pretrained(mdl, target_repo)
+                except ImportError as peft_err:
+                    raise RuntimeError("LoRA-адаптер требует установленный peft или предварительное merge-объединение весов.") from peft_err
+            if self._cancel_load or seq_id != self._load_seq:
+                stop_ticker = True
+                del mdl
+                gc.collect()
+                return
+            if hasattr(mdl, "eval"):
+                mdl.eval()
+            stop_ticker = True
+            if tok.pad_token is None:
+                tok.pad_token = tok.eos_token
+            self.tokenizer = tok
+            self.model = mdl
+            self.current_loaded_id = model_id
+            self.active_model_id = model_id
+            self.status = "ready"
+            self.detailed_state = "READY"
+            self.model_states[model_id] = "READY"
+            self.load_progress = {
+                "status": "ready",
