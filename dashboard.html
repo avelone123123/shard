@@ -4687,11 +4687,11 @@ function checkTrainingBaseHint() {
         return;
     }
     if (v.toLowerCase().includes('.gguf') || v.toLowerCase().endsWith('-gguf')) {
-        hint.style.color = '#f87171';
+        hint.style.color = 'var(--danger)';
         hint.innerText = 'Внимание: файлы/репо .gguf подходят только для инференса и заблокированы для обучения SOUP. Нажмите «Выбрать модель на ПК» или укажите базовый HF ID (например Qwen/Qwen2.5-Coder-1.5B-Instruct).';
         return;
     }
-    hint.style.color = '#10b981';
+    hint.style.color = 'var(--success)';
     hint.innerText = 'Формат допустим для SOUP (выполните Preflight перед запуском).';
 }
 window.onload = function() {
@@ -4711,6 +4711,19 @@ window.onload = function() {
     updateGuide();
     updateDownloadedBadge();
 };
+document.addEventListener('keydown', function(ev) {
+if (ev.key === 'Escape') {
+['modelModalBackdrop', 'dirModalBackdrop', 'updateModalBackdrop', 'browserModalBackdrop'].forEach(function(id) {
+const el = document.getElementById(id);
+if (el && getComputedStyle(el).display !== 'none') {
+if (id === 'modelModalBackdrop' && typeof closeModelCard === 'function') closeModelCard();
+else if (id === 'dirModalBackdrop' && typeof closeDirPicker === 'function') closeDirPicker();
+else if (id === 'updateModalBackdrop' && typeof closeUpdateModal === 'function') closeUpdateModal();
+else if (id === 'browserModalBackdrop' && typeof closeModelBrowser === 'function') closeModelBrowser();
+}
+});
+}
+});
 </script>
 </body>
 </html>
