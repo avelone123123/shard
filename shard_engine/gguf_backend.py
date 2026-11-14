@@ -548,3 +548,113 @@ def _extract_archive(archive_path, target_dir):
             for member in t.getmembers():
                 norm = member.name.replace("\\", "/").lstrip("/")
                 if not norm or ".." in norm.split("/") or (":" in norm.split("/")[0]):
+                    raise ValueError(f"Unsafe tar entry: {member.name}")
+                if member.issym() or member.islnk() or member.ischr() or member.isblk() or member.isfifo():
+                    raise ValueError(f"Unsupported special tar entry: {member.name}")
+                dest = (base / norm).resolve()
+                if not dest.is_relative_to(base):
+                    raise ValueError(f"Path traversal in tar entry: {member.name}")
+                if member.isdir():
+                    dest.mkdir(parents=True, exist_ok=True)
+                elif member.isfile():
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    src = t.extractfile(member)
+                    if src is not None:
+                        with src, open(dest, "wb") as dst:
+                            shutil.copyfileobj(src, dst)
+def _platform_llama_assets():
+    if sys.platform == "win32":
+        use_cuda = os.environ.get("SHARD_LLAMA_CUDA", "0") == "1" and _nvidia_present()
+        return [_ASSET_CUDART, _ASSET_CUDA] if use_cuda else [_ASSET_CPU]
+    arch = platform.machine().lower()
+    if sys.platform.startswith("linux") and arch in ("x86_64", "amd64"):
+        return [_ASSET_LINUX_CPU]
+    if sys.platform == "darwin":
+        return [_ASSET_MAC_ARM] if "arm" in arch or "aarch64" in arch else [_ASSET_MAC_X64]
+    return []
+def ensure_llama_server(progress_cb=None):
+    found = find_llama_server()
+    if found:
+        return found
+    assets = _platform_llama_assets()
+    if not assets:
+        raise RuntimeError(f"llama-server не найден. Установите llama.cpp и укажите SHARD_LLAMA_SERVER ({_RUNTIME_DIR})")
+    rt_dir = _RUNTIME_DIR
+    os.makedirs(rt_dir, exist_ok=True)
+    for asset in assets:
+        dest = os.path.join(rt_dir, asset)
+        if not os.path.isfile(dest):
+            if progress_cb:
+                progress_cb(0, 0, 0)
+            try:
+                _download_file(f"{_RELEASE_URL}/{asset}", dest, progress_cb)
+            except Exception as e:
+                if sys.platform == "darwin":
+                    raise RuntimeError(f"llama-server не найден. Выполните: brew install llama.cpp ({e})")
+                raise RuntimeError(f"Не удалось скачать llama-server ({asset}): {e}. Можно задать SHARD_LLAMA_SERVER.")
+        _extract_archive(dest, rt_dir)
+    found = find_llama_server()
+    if not found:
+        raise RuntimeError(f"{_server_bin_name()} не найден после установки ({rt_dir})")
+    if os.name != "nt":
+        try:
+            os.chmod(found, os.stat(found).st_mode | 0o111)
+        except Exception:
+            pass
+    return found
+def compute_ngl(verdict, fit_ngl=0):
+    if verdict == "GPU":
+        return 999
+    if verdict == "HYBRID":
+        return max(0, int(fit_ngl))
+    return 0
+def default_threads():
+    cores = os.cpu_count() or 4
+    return max(2, cores // 2)
+def _free_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+class LlamaBackend:
+    def __init__(self):
+        self.proc = None
+        self.port = None
+        self.model_id = None
+        self.gguf_path = None
+        self.started_at = 0.0
+        self.ctx_tokens = 4096
+        self.ngl = 0
+    def is_running(self):
+        return self.proc is not None and self.proc.poll() is None
+    def start(self, gguf_path, ctx_tokens, ngl, threads, model_id, server_path=None,
+              wait_timeout=180.0, on_wait=None, rpc_servers=None,
+              tensor_split=None):
+        self.stop()
+        server_path = server_path or find_llama_server()
+        if not server_path:
+            server_path = ensure_llama_server()
+        self.gguf_path = gguf_path
+        self.model_id = model_id
+        self.ctx_tokens = int(ctx_tokens)
+        self.ngl = int(ngl)
+        self.port = _free_port()
+        cmd = [
+            server_path,
+            "-m", gguf_path,
+            "--host", "127.0.0.1",
+            "--port", str(self.port),
+            "-c", str(self.ctx_tokens),
+            "-ngl", str(self.ngl),
+            "-t", str(threads),
+            "--parallel", "1",
+        ]
+        if rpc_servers:
+            cmd += ["--rpc", str(rpc_servers)]
+        if tensor_split:
+            cmd += ["-ts", str(tensor_split)]
+        kw = {}
+        if os.name == "nt":
+            kw["creationflags"] = _CREATE_NO_WINDOW
+        self.proc = subprocess.Popen(
