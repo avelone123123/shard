@@ -3967,7 +3967,7 @@ async function trnStartJob() {
     if (!res.ok) {
         showToast('Ошибка запуска', data.message || 'Не удалось запустить обучение');
         const box = document.getElementById('trnPreflightBox');
-        if (box) box.innerHTML = '<div class="trn-row" style="color:#f87171;">' + lanEsc(data.message || 'Ошибка запуска') + '</div>';
+        if (box) box.innerHTML = '<div class="trn-row" style="color:var(--danger);">' + lanEsc(data.message || 'Ошибка запуска') + '</div>';
         return;
     }
     showToast('Обучение', data.job.job_id + ' (' + (data.job.lifecycle_state || data.job.status) + ')');
@@ -3978,21 +3978,23 @@ function renderTrnJobs(jobs) {
     document.getElementById('trnJobsList').innerHTML = jobs.map(j => {
         const p = j.progress || {};
         const lstate = j.lifecycle_state || j.status;
-        const ptxt = (p.last_epoch != null ? ('epoch ' + p.last_epoch + ' ') : '') + (p.current_step != null ? ('step ' + p.current_step + '/' + (p.total_steps || '?') + ' ') : '') + (p.last_loss != null ? ('loss=' + p.last_loss) : '');
+        const progPct = (p.current_step != null && p.total_steps) ? Math.min(100, Math.round((Number(p.current_step) / Math.max(1, Number(p.total_steps))) * 100)) : 0;
+        const progBar = progPct > 0 ? ('<div class="trn-progress-track"><div class="trn-progress-fill" style="width:' + progPct + '%;background:' + (j.status === 'failed' ? 'var(--danger)' : (j.status === 'completed' ? 'var(--success)' : 'var(--accent)')) + ';"></div></div>') : '';
+        const ptxt = (p.last_epoch != null ? ('epoch ' + p.last_epoch + ' ') : '') + (p.current_step != null ? ('step ' + p.current_step + '/' + (p.total_steps || '?') + (progPct ? ' (' + progPct + '%) ' : ' ')) : '') + (p.last_loss != null ? ('loss=' + p.last_loss) : '');
         const cmdTxt = Array.isArray(j.command) && j.command.length ? j.command.join(' ') : '';
         return '<div class="trn-row">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
-            '<div><b>' + lanEsc(j.job_id) + '</b> <span style="color:#38bdf8;">[' + lanEsc(lstate) + ' / ' + lanEsc(j.status) + ']</span>' + (j.pid ? (' <span style="font-size:10px;color:#64748b;">PID ' + j.pid + '</span>') : '') + ' <span style="color:#8892a4;font-size:11px;">' + lanEsc(j.task) + ' | ' + lanEsc(j.base_model) + '</span></div>' +
+            '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;"><b>' + lanEsc(j.job_id) + '</b><span class="compat-pill ' + (j.status === 'completed' || lstate === 'COMPLETED' ? 'compat-ok' : (j.status === 'failed' || lstate === 'FAILED' ? 'compat-no' : 'compat-warn')) + '">' + lanEsc(lstate + ' / ' + j.status) + '</span>' + (j.pid ? ('<span style="font-size:10.5px;color:var(--text-muted);font-family:var(--font-mono);">PID ' + j.pid + '</span>') : '') + '<span style="color:var(--text-muted);font-size:11px;word-break:break-word;">' + lanEsc(j.task) + ' | ' + lanEsc(j.base_model) + '</span></div>' +
             '<div style="display:flex;gap:6px;">' +
             '<button class="fb-btn" data-id="' + escHtml(j.job_id) + '" onclick="trnInspectJob(this.dataset.id)">Логи</button>' +
-            (j.status === 'running' ? '<button class="fb-btn" style="color:#f87171;" data-id="' + escHtml(j.job_id) + '" onclick="trnCancelJob(this.dataset.id)">Отменить</button>' : '') +
+            (j.status === 'running' ? '<button class="fb-btn" style="color:var(--danger);" data-id="' + escHtml(j.job_id) + '" onclick="trnCancelJob(this.dataset.id)">Отменить</button>' : '') +
             ((j.status === 'failed' || j.status === 'cancelled' || j.status === 'interrupted') ? '<button class="fb-btn" data-id="' + escHtml(j.job_id) + '" onclick="trnResumeJob(this.dataset.id)">Продолжить</button>' : '') +
             '</div></div>' +
-            (ptxt ? '<div style="font-size:11px;color:#10b981;margin-top:4px;">' + lanEsc(ptxt) + '</div>' : '') +
-            (j.error ? '<div style="font-size:11px;color:#f87171;margin-top:4px;">' + lanEsc(j.error) + '</div>' : '') +
-            (cmdTxt ? '<details class="tech-details"><summary>Команда SOUP и параметры</summary><div style="font-family:monospace;margin-top:4px;">' + lanEsc(cmdTxt) + '</div></details>' : '') +
+            (ptxt ? '<div style="font-size:11px;color:' + (j.status === 'failed' ? 'var(--warning)' : 'var(--success)') + ';margin-top:5px;">' + lanEsc(ptxt) + progBar + '</div>' : progBar) +
+            (j.error ? '<div style="font-size:11px;color:var(--danger);margin-top:4px;">' + lanEsc(j.error) + '</div>' : '') +
+            (cmdTxt ? '<details class="tech-details"><summary>Команда SOUP и параметры</summary><div style="font-family:var(--font-mono);margin-top:4px;">' + lanEsc(cmdTxt) + '</div></details>' : '') +
             '</div>';
-    }).join('') || '<div class="trn-row" style="color:#64748b;">Заданий пока нет.</div>';
+    }).join('') || '<div class="trn-row" style="color:var(--text-muted);">Заданий пока нет.</div>';
 }
 async function trnInspectJob(jobId) {
     const res = await fetch('/api/training/jobs/' + encodeURIComponent(jobId));
@@ -4022,7 +4024,7 @@ function renderTrnVersions(reg) {
         const evalTxt = cmp ? ('Baseline: ' + (cmp.baseline_accuracy * 100).toFixed(1) + '% -> Candidate: ' + (cmp.candidate_accuracy * 100).toFixed(1) + '% (' + (cmp.delta_accuracy >= 0 ? '+' : '') + (cmp.delta_accuracy * 100).toFixed(1) + '%)') : ('Eval: ' + (v.eval_status || 'not_run'));
         return '<div class="trn-row">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">' +
-            '<div><b>' + lanEsc(v.version_id) + '</b> ' + (v.deployed ? '<span style="color:#10b981;font-weight:700;">[АКТИВНА В SHARD]</span>' : '<span style="color:#94a3b8;">[' + lanEsc(v.approval_status) + ']</span>') + ' <span style="font-size:11px;color:#64748b;">' + lanEsc(v.artifact_type) + ' | от ' + lanEsc(v.parent_version) + '</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><b>' + lanEsc(v.version_id) + '</b>' + (v.deployed ? '<span class="compat-pill compat-ok">АКТИВНА В SHARD</span>' : '<span class="compat-pill ' + (v.approval_status === 'approved' ? 'compat-info' : (v.approval_status === 'rejected' ? 'compat-no' : 'compat-warn')) + '">' + lanEsc(v.approval_status) + '</span>') + '<span style="font-size:11px;color:var(--text-muted);">Адаптер -> Версия -> Деплой (' + lanEsc(v.artifact_type) + ' | от ' + lanEsc(v.parent_version) + ')</span></div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
             '<button class="fb-btn" data-id="' + escHtml(v.version_id) + '" onclick="trnEvalVersion(this.dataset.id)">Оценить (Eval)</button>' +
             '<button class="fb-btn" data-id="' + escHtml(v.version_id) + '" onclick="trnPrepareVersion(this.dataset.id, \'merged\')">Merge HF</button>' +
@@ -4030,9 +4032,9 @@ function renderTrnVersions(reg) {
             '<button class="fb-btn selected" data-id="' + escHtml(v.version_id) + '" onclick="trnApproveVersion(this.dataset.id, true)">Одобрить</button>' +
             '<button class="btn-action active" style="padding:3px 10px;font-size:11px;" data-id="' + escHtml(v.version_id) + '" onclick="trnDeployVersion(this.dataset.id)">Деплой</button>' +
             '</div></div>' +
-            '<div style="font-size:12px;color:#cbd5e1;">' + lanEsc(evalTxt) + ' | артефакт: <code style="color:#38bdf8;">' + lanEsc(v.artifact_path) + '</code></div>' +
+            '<div style="font-size:12px;color:var(--text-secondary);word-break:break-word;">' + lanEsc(evalTxt) + ' | артефакт: <code style="color:var(--accent-text);word-break:break-all;">' + lanEsc(v.artifact_path) + '</code></div>' +
             '</div>';
-    }).join('') || '<div class="trn-row" style="color:#64748b;">Версий моделей ещё нет. Завершите обучение чтобы создать первую версию.</div>';
+    }).join('') || '<div class="trn-row" style="color:var(--text-muted);">Версий моделей ещё нет. Завершите обучение чтобы создать первую версию.</div>';
 }
 async function trnEvalVersion(vid) {
     const res = await fetch('/api/training/models/' + encodeURIComponent(vid) + '/evaluate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
