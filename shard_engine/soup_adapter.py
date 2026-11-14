@@ -532,8 +532,8 @@ def _run_install_worker(action, custom_python=None, include_train=True):
         for line in proc.stdout:
             s = line.strip()
             if s:
-                _append_install_log(s)
-        rc = proc.wait(timeout=900)
+                _set_install_state(line=s)
+        rc = proc.wait(timeout=1200)
         if rc != 0:
             raise RuntimeError(f"pip install soup-cli[train] exited with code {rc}")
         cfg = settings._load()
