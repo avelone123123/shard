@@ -262,3 +262,27 @@ def classify_model_path(target_path, deep_size=False):
                     False,
                     reason,
                     suggested_base=sug,
+                )
+            return {
+                "path": str(p),
+                "name": p.name,
+                "is_dir": False,
+                "format": "gguf_inference",
+                "format_label": "GGUF (Инференс)" if val.get("valid") else "GGUF (Повреждён)",
+                "valid": bool(val.get("valid")),
+                "quant": quant,
+                "size_bytes": sz,
+                "size_str": _fmt_size(sz),
+                "compatibility": compat,
+            }
+        if ext == ".safetensors":
+            parent = p.parent
+            has_cfg = (parent / "config.json").is_file()
+            has_adp = (parent / "adapter_config.json").is_file()
+            if has_cfg:
+                compat = _compat_block(
+                    False,
+                    "Для GGUF-инференса конвертируйте или выберите GGUF-вариант.",
+                    True,
+                    "Используется родительская папка модели Hugging Face.",
+                    True,
