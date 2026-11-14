@@ -878,3 +878,113 @@ macOS
 <select id="trnJobTask" class="trn-input">
 <option value="sft">SFT</option>
 <option value="dpo">DPO</option>
+</select>
+</div>
+<div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Квантование</label>
+<select id="trnJobQuant" class="trn-input">
+<option value="4bit">4bit (QLoRA)</option>
+<option value="8bit">8bit</option>
+<option value="none">none (FP16)</option>
+</select>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+<div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Эпохи</label>
+<input id="trnJobEpochs" type="number" class="trn-input" value="3" min="1" max="50">
+</div>
+<div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Learning Rate</label>
+<input id="trnJobLr" class="trn-input" value="0.00002">
+</div>
+</div>
+<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-bottom:6px;cursor:pointer;">
+<input type="checkbox" id="trnJobUnload" checked> Выгрузить модель инференса перед стартом (защита от OOM)
+</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-bottom:10px;cursor:pointer;">
+<input type="checkbox" id="trnJobDryRun"> Dry-Run (проверить конфиг soup.yaml без обучения)
+</label>
+<button class="btn-action active" style="width:100%;justify-content:center;" onclick="trnStartJob()">Запустить обучение</button>
+</div>
+<div>
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Задания обучения</div>
+<div id="trnJobsList">Нет заданий</div>
+<div id="trnJobLogBox" style="display:none;margin-top:10px;">
+<div style="font-size:11px;color:#38bdf8;margin-bottom:4px;" id="trnJobLogTitle">Лог задания</div>
+<pre id="trnJobLogPre" class="trn-log"></pre>
+</div>
+</div>
+</div>
+</div>
+<div id="trn-panel-versions" class="trn-panel">
+<div style="font-size:12px;color:#8892a4;margin-bottom:10px;">Каждая обученная версия проверяется сравнением Baseline vs Candidate. Для деплоя требуется явное подтверждение владельца.</div>
+<div id="trnVersionsList">Нет зарегистрированных версий</div>
+</div>
+<div id="trn-panel-privacy" class="trn-panel">
+<div class="trn-row">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">Политика приватности и прав доступа</div>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="prvAllowFeedback"> Разрешить сбор явных отзывов в интерфейсе
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="prvAllowRemote"> Разрешить удалённым клиентам LAN отправлять отзывы (по умолчанию ВЫКЛ)
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="prvRequireConsent"> Требовать явную галочку согласия для каждого вклада
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="prvRequireReview"> Требовать ручную модерацию владельцем перед экспортом в датасет
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="prvRedactSecrets"> Автоматически редактировать API-ключи, токены и секреты перед записью
+</label>
+<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:12px;cursor:pointer;">
+<input type="checkbox" id="prvRedactPii"> Автоматически маскировать email и телефоны перед записью
+</label>
+<div style="font-size:11px;color:#64748b;margin-bottom:12px;">Хранение сырых переписок отключено на уровне ядра: обычные чаты и API-вызовы никогда не сохраняются без явного вклада пользователя. Удалённые клиенты не имеют доступа к запуску обучения, датасетам и деплою (HTTP 403).</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<button class="btn-action active" onclick="trnSavePrivacy()">Сохранить настройки приватности</button>
+<button class="btn-action" onclick="trnBackupState()">Создать бэкап состояния</button>
+<button class="btn-action" onclick="trnPruneFeedback()">Очистить истёкшие отзывы</button>
+</div>
+<div id="trnBackupOut" style="font-size:11px;color:#94a3b8;margin-top:8px;"></div>
+</div>
+</div>
+</div>
+</div>
+<div id="tab-server" class="section">
+<div class="info-card" style="margin-bottom:16px;">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+<div>
+<h3 style="margin:0 0 4px 0;">Рабочее пространство сервера SHARD (Hosted Server Dashboard)</h3>
+<p style="margin:0;font-size:12px;color:var(--text-muted);">Единая панель управления вашим ИИ-сервером, общим чатом участников, вычислительным пулом, сообществом и баг-трекером модели.</p>
+</div>
+<div style="display:flex;gap:8px;align-items:center;">
+<span id="srvRoleBadge" style="font-size:11px;padding:4px 8px;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#10b981;font-family:monospace;">Роль: Владелец</span>
+<button class="btn-action" onclick="srvRefresh()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+Обновить
+</button>
+</div>
+</div>
+<div id="srvDiscoveryWarn" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:12px;"></div>
+<div class="trn-subtabs" style="margin-bottom:16px;">
+<button class="trn-subbtn active" onclick="srvSubTab('overview', this)">Обзор и Создание</button>
+<button class="trn-subbtn" onclick="srvSubTab('shared-chat', this)">Общий ИИ-чат</button>
+<button class="trn-subbtn" onclick="srvSubTab('members', this)">Участники и Вычисления</button>
+<button class="trn-subbtn" onclick="srvSubTab('community', this)">Чат сообщества</button>
+<button class="trn-subbtn" onclick="srvSubTab('issues', this)">Проблемы модели (Issues)</button>
+</div>
+<div id="srv-panel-overview" class="trn-panel active">
+<div class="trn-grid" id="srvOverviewCards" style="margin-bottom:14px;"></div>
+<div id="srvCreateOwnerBox" class="trn-row">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Быстрое создание или обновление сервера SHARD</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+<input id="srvCreateName" class="trn-input" placeholder="Имя сервера (e.g. Team-Coder-Server)">
+<select id="srvCreateMode" class="trn-input">
+<option value="lan_and_global">LAN + Global (инвайты и P2P/Relay)</option>
+<option value="lan">Только локальная сеть (LAN / VPN)</option>
+<option value="global">Только Global Network</option>
+</select>
+<select id="srvCreateVisibility" class="trn-input">
