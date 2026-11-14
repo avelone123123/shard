@@ -3486,8 +3486,8 @@ async function trnInstallSoup(actionOrFlag, includeTrain) {
     try {
         const res = await fetch('/api/training/soup/install', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({force_recreate: !!forceRepair})
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({action: action, include_train: includeTrain !== false, background: true})
         });
         const d = await res.json();
         showToast('Установка SOUP', d.stage || d.status || 'Запущена');
