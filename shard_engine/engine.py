@@ -1208,3 +1208,113 @@ class ShardEngine:
                 "params_b": fit.get("params_b"),
                 "params_source": fit.get("params_source"),
                 "verdict": verdict,
+                "quant": rec_quant,
+                "est_tok_s": fit.get("tok_s_est"),
+                "backend": "gguf"
+            }
+            if rec_row is not None and verdict in ("GPU", "HYBRID"):
+                fit_summary["vram_gb"] = rec_row.get("vram_gb")
+                fit_summary["ram_gb"] = rec_row.get("ram_gb")
+            bench_us = self.native_core.benchmark_avx2(1000)
+            self.loaded_info = {
+                "model_id": model_id,
+                "status": "loading",
+                "lifecycle_state": "QUEUED",
+                "tier": pres[0],
+                "tier_label": pres[1],
+                "mode": f"GGUF (llama.cpp), квант {rec_quant}",
+                "speed_est": fit.get("tok_s_est") or comp["speed_est"],
+                "vram_alloc_mb": int(round((rec_row or {}).get("vram_gb", 0) * 1024)),
+                "ram_alloc_mb": int(round((rec_row or {}).get("ram_gb", 0) * 1024)),
+                "total_layers": total_layers,
+                "layers_vram": layers_vram,
+                "layers_ram": layers_ram,
+                "layers_nvme": 0,
+                "native_avx2_us": bench_us,
+                "fit": fit_summary,
+                "loaded_at": time.time()
+            }
+        else:
+            bench_us = self.native_core.benchmark_avx2(1000)
+            self.loaded_info = {
+                "model_id": model_id,
+                "status": "loading",
+                "lifecycle_state": "QUEUED",
+                "tier": comp["tier"],
+                "tier_label": comp["tier_label"],
+                "mode": comp["mode"],
+                "speed_est": comp["speed_est"],
+                "vram_alloc_mb": comp["vram_alloc_mb"],
+                "ram_alloc_mb": comp["ram_alloc_mb"],
+                "total_layers": total_layers,
+                "layers_vram": layers_vram,
+                "layers_ram": layers_ram,
+                "layers_nvme": 0,
+                "native_avx2_us": bench_us,
+                "loaded_at": time.time()
+            }
+        if self.gguf is not None and self.gguf.is_running() and self.gguf.model_id != model_id:
+            try:
+                self.gguf.stop()
+            except Exception:
+                pass
+            self.current_loaded_id = None
+        if self.model is not None and self.current_loaded_id != model_id:
+            self.model = None
+            self.tokenizer = None
+            self.current_loaded_id = None
+            if TORCH_AVAILABLE and torch is not None and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gc.collect()
+        self._load_seq += 1
+        seq_id = self._load_seq
+        force_torch = os.environ.get("SHARD_FORCE_TORCH", "0") == "1"
+        use_gguf = (not force_torch) and (loc_gguf is not None or (fit is not None and (not fit.get("torch_gpu_ok")))) and gguf_mod is not None
+        if use_gguf:
+            t = threading.Thread(target=self._run_loader_gguf, args=(model_id, seq_id, fit, prev_loaded_id), daemon=True)
+        else:
+            t = threading.Thread(target=self._run_loader, args=(model_id, seq_id, prev_loaded_id), daemon=True)
+        t.start()
+        return self.loaded_info
+    def unload_model(self):
+        self._cancel_load = True
+        self._cancel_gen = True
+        self._load_seq += 1
+        prev_id = self.current_loaded_id or self.active_model_id
+        if self.gguf is not None:
+            try:
+                self.gguf.stop()
+            except Exception:
+                pass
+        self.current_loaded_id = None
+        self.model = None
+        self.tokenizer = None
+        self.loaded_info = {}
+        if TORCH_AVAILABLE and torch is not None and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
+        self.status = "idle"
+        self.detailed_state = "DOWNLOADED" if (prev_id and _is_model_cached_complete(prev_id)) else "DISCOVERED"
+        if prev_id:
+            self.model_states[prev_id] = self.detailed_state
+        self.load_progress = {"status": "idle", "lifecycle_state": self.detailed_state, "percent": 0, "stage": "Выгружена", "eta_text": "", "speed_mb": 0, "message": "Модель выгружена, ОЗУ и VRAM освобождены."}
+        if os.environ.get("SHARD_CLEAR_ACTIVE_ON_UNLOAD") == "1":
+            self.active_model_id = None
+            try:
+                _storage.atomic_write_json(
+                    self.active_model_file,
+                    {"model_id": "", "unloaded_at": time.time()},
+                    fsync=False,
+                    backup=True,
+                )
+            except Exception:
+                pass
+        return {"status": "unloaded"}
+    def _build_prompt(self, messages):
+        if self.tokenizer is not None and hasattr(self.tokenizer, "apply_chat_template") and getattr(self.tokenizer, "chat_template", None):
+            try:
+                return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            except Exception:
+                pass
+        parts = []
+        for m in messages:
