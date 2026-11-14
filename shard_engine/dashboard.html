@@ -4503,7 +4503,7 @@ function closeModelBrowser() {
 }
 async function mbLoadRoots() {
     const bar = document.getElementById('mbRootsBar');
-    if (bar) bar.innerHTML = '<span style="font-size:11px;color:#8892a4;">Поиск дисков и папок моделей...</span>';
+    if (bar) bar.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">Поиск дисков и папок моделей...</span>';
     try {
         const res = await fetch('/api/models/browser/roots', {headers: getAuthHeaders()});
         if (!res.ok) return;
