@@ -988,3 +988,113 @@ class LanManager:
                     if not tpeer and not (cid and m.get("client_id") == cid) and m.get("ip") != ip:
                         continue
                 elif m.get("client_id"):
+                    if cid and m.get("client_id") != cid:
+                        continue
+                    if not cid and m.get("ip") != ip:
+                        continue
+                else:
+                    if m.get("ip") != ip:
+                        continue
+                if m.get("ip") != ip:
+                    m["ip"] = ip
+                    need_save = True
+                if transport:
+                    clean_t = str(transport).strip().lower()[:24]
+                    if clean_t and m.get("transport") != clean_t:
+                        m["transport"] = clean_t
+                        need_save = True
+                if tpeer and m.get("tunnel_peer") != tpeer:
+                    m["tunnel_peer"] = tpeer
+                    need_save = True
+                if clean_rpc_host and m.get("rpc_host") != clean_rpc_host:
+                    m["rpc_host"] = clean_rpc_host
+                    need_save = True
+                m["last_seen"] = now
+                if hw and isinstance(hw, dict):
+                    if not m.get("hw"):
+                        need_save = True
+                    m["hw"] = hw
+                    pk_key = m.get("client_id") or m["ip"]
+                    self._record_hw_peak(pk_key, hw.get("vram_free_mb"), hw.get("ram_avail_mb"))
+                if rpc_port:
+                    rp = int(rpc_port)
+                    if 1 <= rp <= 65535 and m.get("rpc_port") != rp:
+                        m["rpc_port"] = rp
+                        need_save = True
+                if not need_save and (now - self._last_hb_save) >= 30.0:
+                    need_save = True
+                if need_save:
+                    self._last_hb_save = now
+                    self._save()
+                return True
+            return False
+    def handle_leave(self, ip, token, client_id=None, tunnel_peer=None):
+        tok = str(token or "")
+        if not tok:
+            return False
+        tpeer = str(tunnel_peer or "").strip()[:80] or None
+        cid = str(client_id or "").strip()[:64] or None
+        with self._lock:
+            before = len(self._state.get("members", []))
+            kept = []
+            removed_keys = []
+            for m in self._state.get("members", []):
+                mtok = str(m.get("token") or "")
+                tok_match = bool(mtok) and secrets.compare_digest(mtok, tok)
+                if m.get("tunnel_peer") and tpeer:
+                    id_match = m.get("tunnel_peer") == tpeer
+                elif cid and m.get("client_id"):
+                    id_match = m.get("client_id") == cid
+                else:
+                    id_match = m.get("ip") == ip
+                if tok_match and id_match:
+                    removed_keys.append(m.get("client_id") or m.get("ip"))
+                    continue
+                kept.append(m)
+            self._state["members"] = kept
+            dropped = len(kept) < before
+            if dropped:
+                for rk in removed_keys:
+                    self._hw_peak.pop(rk, None)
+                self._save()
+            return dropped
+    def kick_member(self, target, block=False):
+        tgt = str(target or "").strip()
+        if not tgt:
+            return {"status": "error", "message": "Не указан участник"}
+        with self._lock:
+            before = len(self._state.get("members", []))
+            kept = []
+            removed = []
+            for m in self._state.get("members", []):
+                matches = tgt in (m.get("client_id"), m.get("ip"), m.get("tunnel_peer"), m.get("name"))
+                if matches:
+                    removed.append(m.get("client_id") or m.get("ip") or tgt)
+                    continue
+                kept.append(m)
+            self._state["members"] = kept
+            if block:
+                bl = self._state.setdefault("blocked", [])
+                for rk in (removed or [tgt]):
+                    if rk and rk not in bl:
+                        bl.append(rk)
+            for rk in removed:
+                self._hw_peak.pop(rk, None)
+            self._save()
+        return {"status": "ok", "kicked": len(removed), "blocked": bool(block), "target": tgt}
+    def unblock_member(self, target):
+        tgt = str(target or "").strip()
+        if not tgt:
+            return {"status": "error", "message": "Не указан участник"}
+        with self._lock:
+            bl = self._state.get("blocked") or []
+            was = tgt in bl
+            self._state["blocked"] = [x for x in bl if x != tgt]
+            self._save()
+        return {"status": "ok", "unblocked": was, "target": tgt}
+    def preview_info(self):
+        now = time.time()
+        with self._lock:
+            mode = self._state.get("mode")
+            name = self._state.get("name")
+            nid = self._state.get("node_id")
