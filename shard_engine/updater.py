@@ -286,3 +286,27 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                         "tag_name": best_tag,
                         "release_url": f"https://github.com/{GITHUB_REPO}/releases/tag/{best_tag}",
                         "release_notes": "",
+                        "published_at": None,
+                        "asset_url": f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{best_tag}.zip",
+                        "asset_name": f"{best_tag}.zip",
+                        "asset_size": None,
+                        "asset_sha256": None,
+                        "prerelease": False,
+                    }
+            elif rt.status_code in (403, 429):
+                rate_limited = True
+                last_err = f"GitHub Tags rate limit (HTTP {rt.status_code})"
+        except Exception as e:
+            last_err = str(e)
+    try:
+        rp = _http_get(PYPI_JSON_URL, timeout=timeout)
+        if rp.status_code == 200:
+            pdata = rp.json() or {}
+            ver = str((pdata.get("info") or {}).get("version") or "").strip()
+            if is_valid_version_str(ver) and (allow_prerelease or not is_prerelease_version(ver)):
+                urls = pdata.get("urls") or []
+                whl = next((u for u in urls if str(u.get("packagetype")) == "bdist_wheel"), None) or (urls[0] if urls else {})
+                return {
+                    "ok": True,
+                    "source": "pypi",
+                    "latest_version": ver,
