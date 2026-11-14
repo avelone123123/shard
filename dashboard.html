@@ -3738,3 +3738,113 @@ async function srvSendSharedChat() {
     const auth = document.getElementById('srvSharedChatAuthor');
     const btn = document.getElementById('srvSharedChatBtn');
     const text = (inp && inp.value || '').trim();
+    if (!text) return;
+    inp.value = '';
+    if (btn) btn.disabled = true;
+    try {
+        const res = await fetch('/api/server/shared-chat', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({prompt: text, author: (auth && auth.value || '').trim() || 'Participant'})
+        });
+        const d = await res.json();
+        if (!res.ok) showToast('Ошибка чата', d.message || 'Модель не готова или нет доступа');
+        await srvRefresh();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось отправить запрос');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+async function srvSendCommunityMsg() {
+    const inp = document.getElementById('srvCommunityInput');
+    const auth = document.getElementById('srvCommunityAuthor');
+    const text = (inp && inp.value || '').trim();
+    if (!text) return;
+    inp.value = '';
+    try {
+        const res = await fetch('/api/server/community', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({text: text, author: (auth && auth.value || '').trim() || 'Participant'})
+        });
+        if (res.ok) srvRefresh();
+    } catch(e) {}
+}
+async function srvCreateIssue() {
+    const tEl = document.getElementById('srvIssueTitle');
+    const pEl = document.getElementById('srvIssuePrompt');
+    const eEl = document.getElementById('srvIssueExpected');
+    const title = (tEl && tEl.value || '').trim();
+    const prompt = (pEl && pEl.value || '').trim();
+    const expected = (eEl && eEl.value || '').trim();
+    if (!title && !prompt) { showToast('Заполните поля', 'Укажите заголовок или prompt'); return; }
+    try {
+        const res = await fetch('/api/server/issues', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({title: title || 'Проблема ответа модели', prompt: prompt, expected_output: expected})
+        });
+        if (res.ok) {
+            if (tEl) tEl.value = '';
+            if (pEl) pEl.value = '';
+            if (eEl) eEl.value = '';
+            showToast('Репорт сохранён', 'Добавлен в список проблем модели');
+            srvRefresh();
+        }
+    } catch(e) {}
+}
+async function srvResolveIssue(issueId, st) {
+    try {
+        await fetch('/api/server/issues/' + encodeURIComponent(issueId) + '/status', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({status: st || 'resolved'})
+        });
+        srvRefresh();
+    } catch(e) {}
+}
+function applyClientIsolationUi() {
+    ['navMarketBtn', 'navConnectBtn', 'navKeysBtn', 'navTrainingBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    const srvOwnerBox = document.getElementById('srvCreateOwnerBox');
+    if (srvOwnerBox) srvOwnerBox.style.display = 'none';
+    document.querySelectorAll('.owner-only-hw').forEach(el => { el.style.display = 'none'; });
+    ['lanCreateCard', 'lanJoinCard', 'lanOffWrap', 'lanInviteBtn', 'lanDiagBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    const clientCard = document.getElementById('lanClientCard');
+    if (clientCard) clientCard.style.display = 'block';
+    loadLanPreview();
+    const netTab = document.getElementById('tab-network');
+    if (netTab) {
+        const titleEl = netTab.querySelector('h3');
+        if (titleEl) titleEl.innerText = 'Подключение к серверу SHARD';
+    }
+    if (shardBoot.active_model) {
+        activeModelId = shardBoot.active_model;
+        const shortName = shardBoot.active_model.split('/').pop();
+        const hwModelEl = document.getElementById('hwModel');
+        if (hwModelEl) hwModelEl.innerText = shortName;
+        const chatModelEl = document.getElementById('chatActiveModel');
+        if (chatModelEl) chatModelEl.innerText = shortName;
+    }
+    const targetTab = (clientLanSession && clientLanSession.token) ? 'chat' : 'network';
+    const targetBtn = document.getElementById(targetTab === 'chat' ? 'navChatBtn' : 'navNetworkBtn');
+    showTab(targetTab, targetBtn);
+}
+window.onload = function() {
+    initChatSessions();
+    loadFeedbackPolicy();
+    setPollRate(5000);
+    if (shardBoot && shardBoot.client_mode) {
+        applyClientIsolationUi();
+        fetchClientBootstrap();
+        return;
+    }
+    fetchHardware();
+    loadKeys();
+    loadModels();
