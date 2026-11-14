@@ -521,31 +521,14 @@ def _run_install_worker(action, custom_python=None, include_train=True):
                     if ln.strip():
                         _set_install_state(line=ln.strip())
                 if r_uv.returncode != 0 or not venv_py.is_file():
-                    raise RuntimeError(f"uv venv failed: {(r_uv.stderr or r_uv.stdout)[:300]}")
-            else:
-                raise RuntimeError(
-                    "Compatible Python (>=3.11,<3.14) not found on this machine. Install Python 3.12 (e.g. 'winget install Python.Python.3.12' on Windows or 'uv python install 3.12') and retry."
-                )
-        with _INSTALL_LOCK:
-            _INSTALL_STATE["venv_dir"] = str(venv_dir)
-            _INSTALL_STATE["python_executable"] = str(venv_py)
-        _append_install_log(f"Upgrading pip in {venv_py}...", step="Обновление pip", pct=45)
-        subprocess.run(
-            [str(venv_py), "-m", "pip", "install", "--upgrade", "pip"],
-            capture_output=True,
-            text=True,
-            timeout=180,
-            creationflags=_WIN_NO_WINDOW,
-        )
-        _append_install_log("Installing soup-cli[train] (this may take several minutes)...", step="Установка soup-cli[train]", pct=65)
-        pip_cmd = [str(venv_py), "-m", "pip", "install", "--upgrade", "soup-cli[train]"]
-        proc = subprocess.Popen(
-            pip_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            creationflags=_WIN_NO_WINDOW,
-        )
+                    raise RuntimeError(f"Failed to provision Python 3.12 venv: {(r_uv.stderr or r_uv.stdout)[:300]}")
+        _set_install_state(venv_dir=str(venv_dir), python_executable=str(venv_py))
+        pkg_spec = "soup-cli[train]" if include_train else "soup-cli"
+        target_lifecycle = "UPDATING" if action == "update" else "INSTALLING"
+        _set_install_state(lifecycle_state=target_lifecycle, stage=f"Установка {pkg_spec}", pct=55, line=f"Running pip install --upgrade {pkg_spec}...")
+        subprocess.run([str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", "pip"], capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
+        pip_cmd = [str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", pkg_spec]
+        proc = subprocess.Popen(pip_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, creationflags=_WIN_NO_WINDOW)
         for line in proc.stdout:
             s = line.strip()
             if s:
