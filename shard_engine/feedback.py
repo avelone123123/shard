@@ -548,3 +548,113 @@ def build_dataset_snapshot(task="sft", base_model=None, name=None, include_pendi
                     if soup_val and not soup_val.get("ok"):
                         try:
                             jsonl_path.unlink()
+                        except Exception:
+                            pass
+                        raise ValueError(
+                            f"SOUP dataset validation failed: {(soup_val.get('stderr') or soup_val.get('stdout') or 'invalid schema')[:240]}"
+                        )
+            rel_path = storage.normalize_rel_path(str(jsonl_path), paths.data_dir())
+            manifest = {
+                "snapshot_id": snap_id,
+                "name": name or snap_id,
+                "task": task_norm,
+                "format": fmt,
+                "base_model": base_model,
+                "path": str(jsonl_path),
+                "rel_path": rel_path,
+                "created_at": time.time(),
+                "record_count": len(rows),
+                "total_approved_checked": total_checked,
+                "dedup_removed": dedup_removed,
+                "skip_reasons": skip_reasons,
+                "redacted_entries": redacted_entries,
+                "sources": {"local": local_count, "remote": remote_count},
+                "source_contributors": sorted(contrib_ids),
+                "avg_record_chars": round(sum(char_lengths) / len(char_lengths), 1) if char_lengths else 0,
+                "min_record_chars": min(char_lengths) if char_lengths else 0,
+                "sha256": file_sha,
+                "soup_validation": soup_val,
+            }
+            manifest_path = ds_dir / f"{snap_id}.manifest.json"
+            try:
+                storage.atomic_write_json(manifest_path, manifest, fsync=True, backup=False)
+            except Exception:
+                try:
+                    if jsonl_path.exists():
+                        jsonl_path.unlink()
+                except Exception:
+                    pass
+                raise
+            if included_entries:
+                for inc_e in included_entries:
+                    ds_ids = list(inc_e.get("included_in_datasets") or [])
+                    if snap_id not in ds_ids:
+                        ds_ids.append(snap_id)
+                    inc_e["included_in_datasets"] = ds_ids
+                _save_entries_unlocked(entries)
+            _append_audit("dataset_snapshot_created", {
+                "snapshot_id": snap_id,
+                "task": task_norm,
+                "record_count": len(rows),
+                "sha256": file_sha[:16],
+            })
+            return manifest
+def _hydrate_manifest(m, opts=None):
+    if not isinstance(m, dict):
+        return m
+    resolved = storage.resolve_portable_path(m.get("path"), m.get("rel_path"), paths.data_dir())
+    m["path"] = resolved
+    exists = bool(resolved and os.path.isfile(resolved))
+    m["exists"] = exists
+    expected_sha = m.get("sha256")
+    integrity_ok = False
+    if exists and expected_sha:
+        try:
+            integrity_ok = storage.sha256_file(resolved) == expected_sha
+        except Exception:
+            integrity_ok = False
+    m["integrity_ok"] = integrity_ok
+    if opts is None:
+        opts = _load_optouts()
+    contribs = set(m.get("source_contributors") or [])
+    m["tainted_revoked"] = bool(contribs & set(opts.keys()))
+    return m
+def list_datasets():
+    ds_dir = _datasets_dir()
+    opts = _load_optouts()
+    out = []
+    for p in sorted(ds_dir.glob("*.manifest.json"), reverse=True):
+        try:
+            m = storage.read_json_safe(p, default=None, expected_type=dict, quarantine=False, use_backup=False)
+            if isinstance(m, dict) and m.get("snapshot_id"):
+                out.append(_hydrate_manifest(m, opts=opts))
+        except Exception:
+            continue
+    out.sort(key=lambda x: float(x.get("created_at") or 0), reverse=True)
+    return out
+def get_dataset_manifest(snapshot_id):
+    if not snapshot_id or "/" in snapshot_id or "\\" in snapshot_id or ".." in snapshot_id:
+        raise ValueError("Invalid snapshot_id.")
+    mp = _datasets_dir() / f"{snapshot_id}.manifest.json"
+    if not mp.is_file():
+        raise FileNotFoundError(f"Dataset snapshot '{snapshot_id}' not found.")
+    m = storage.read_json_safe(mp, default=None, expected_type=dict, quarantine=True, use_backup=False)
+    if not m:
+        raise ValueError(f"Corrupted dataset manifest '{snapshot_id}'.")
+    return _hydrate_manifest(m)
+def verify_dataset_integrity(snapshot_id):
+    m = get_dataset_manifest(snapshot_id)
+    if not m.get("exists"):
+        raise FileNotFoundError(f"Dataset file missing for snapshot '{snapshot_id}'.")
+    if not m.get("integrity_ok"):
+        raise ValueError(f"Dataset checksum verification failed for '{snapshot_id}' (corrupted or modified file).")
+    return m
+def preview_dataset_records(snapshot_id, limit=10):
+    m = get_dataset_manifest(snapshot_id)
+    p = Path(m["path"])
+    if not p.is_file():
+        return []
+    rows = []
+    with open(p, "r", encoding="utf-8", errors="replace") as f:
+        for ln in f:
+            if not ln.strip():
