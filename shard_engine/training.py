@@ -115,6 +115,8 @@ def _load_jobs():
             _hydrate_job_paths(j)
         return out
 def _save_jobs(jobs):
+    for j in (jobs or []):
+        _enrich_job_fields(j)
     p = _jobs_path()
     with storage.file_lock(p):
         _atomic_write_json(p, jobs, backup=True)
