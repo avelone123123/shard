@@ -168,10 +168,11 @@ Every feature listed below is verified directly against the [SHARD source tree](
 
 ### Installation
 
-#### Option 1: Install via pip from GitHub (Recommended)
-Run SHARD from any directory without manually cloning the repository:
+#### Option 1: Install via PyPI (Recommended)
+Install SHARD directly from PyPI in any environment:
 ```bash
-# Core install: CLI, FastAPI server, web dashboard, GGUF (llama.cpp) + LAN clustering
+pip install shard-engine
+
 pip install "git+https://github.com/avelone123123/shard.git"
 
 # Full install: adds PyTorch/Transformers safetensors & Hugging Face extras
