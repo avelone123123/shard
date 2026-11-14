@@ -2858,3 +2858,113 @@ function saveChatSessions() {
 }
 function initChatSessions() {
     try {
+        const stored = localStorage.getItem('shard_chat_sessions_v1');
+        if (stored) chatSessions = JSON.parse(stored);
+    } catch(e) {
+        chatSessions = [];
+    }
+    if (!Array.isArray(chatSessions) || chatSessions.length === 0) {
+        const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+        chatSessions = [fresh];
+        activeChatId = fresh.id;
+        saveChatSessions();
+    } else {
+        activeChatId = chatSessions[0].id;
+    }
+    renderChatSessionsList();
+    renderActiveChatMessages();
+}
+function renderChatSessionsList() {
+    const list = document.getElementById('chatSessionsList');
+    if (!list) return;
+    list.innerHTML = '';
+    chatSessions.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'chat-session-item' + (s.id === activeChatId ? ' active' : '');
+        item.onclick = () => selectChat(s.id);
+        const iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-right:8px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'chat-session-title';
+        titleSpan.innerText = s.title || 'Новый диалог';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'chat-del-btn';
+        delBtn.title = 'Удалить диалог';
+        delBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+        delBtn.onclick = (e) => deleteChat(s.id, e);
+        item.innerHTML = iconSvg;
+        item.appendChild(titleSpan);
+        item.appendChild(delBtn);
+        list.appendChild(item);
+    });
+}
+function renderActiveChatMessages() {
+    const chatBody = document.getElementById('chatBody');
+    if (!chatBody) return;
+    chatBody.innerHTML = '';
+    const cur = chatSessions.find(s => s.id === activeChatId);
+    if (!cur || cur.messages.length === 0) {
+        chatBody.innerHTML = '<div id="chatEmptyState" style="margin:auto;text-align:center;color:var(--text-muted);padding:40px 20px;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="1.5" style="margin-bottom:12px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:14px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Диалог пуст</div><div style="font-size:12px;">Задайте любой вопрос или задачу активной модели</div></div>';
+        return;
+    }
+    cur.messages.forEach((msg, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'msg-wrapper';
+        if (msg.role === 'user') {
+            wrap.innerHTML = '<div class="msg-user">' + escapeHtml(msg.content) + '</div>';
+        } else {
+            const histId = 'hist-' + idx;
+            const hasThought = msg.reasoning && msg.reasoning.trim().length > 0;
+            let thinkHtml = '';
+            if (hasThought) {
+                thinkHtml = '<div id="think-panel-' + histId + '" class="think-panel"><div class="think-header" onclick="toggleThink(\'' + histId + '\')"><div class="think-title"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span id="think-label-' + histId + '">Думал ' + formatDuration(msg.thoughtSec || 0) + '</span></div><svg id="think-arrow-' + histId + '" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg></div><div id="think-body-' + histId + '" class="think-content">' + escapeHtml(msg.reasoning) + '</div></div>';
+            }
+            let telemHtml = '';
+            if (msg.totalSec || msg.speedVal) {
+                const timeStr = (hasThought && msg.thoughtSec > 0) ? formatDuration(msg.totalSec) + ' (размышления: ' + formatDuration(msg.thoughtSec) + ')' : formatDuration(msg.totalSec || 0);
+                const tokensVal = (msg.usage && msg.usage.total_tokens) ? msg.usage.total_tokens : (msg.tokensCount || '-');
+                telemHtml = '<div class="telemetry-row"><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + (msg.speedVal || 0) + ' токенов/сек</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + tokensVal + ' токенов</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div></div>';
+            }
+            wrap.innerHTML = '<div class="msg-assistant">' + thinkHtml + '<div class="msg-content">' + escapeHtml(msg.content) + '</div>' + telemHtml + buildFeedbackWidgetHtml(idx, cur.messages, idx) + '</div>';
+        }
+        chatBody.appendChild(wrap);
+    });
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+function selectChat(chatId) {
+    if (isChatStreaming) return;
+    activeChatId = chatId;
+    renderChatSessionsList();
+    renderActiveChatMessages();
+    const input = document.getElementById('chatInput');
+    if (input) input.focus();
+}
+function createNewChat(switchNow) {
+    if (isChatStreaming) return;
+    const cur = chatSessions.find(s => s.id === activeChatId);
+    if (cur && cur.messages.length === 0) {
+        renderChatSessionsList();
+        renderActiveChatMessages();
+        const input = document.getElementById('chatInput');
+        if (input) input.focus();
+        return;
+    }
+    const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+    chatSessions.unshift(fresh);
+    activeChatId = fresh.id;
+    saveChatSessions();
+    renderChatSessionsList();
+    renderActiveChatMessages();
+    const input = document.getElementById('chatInput');
+    if (input) input.focus();
+}
+function deleteChat(chatId, e) {
+    if (e) e.stopPropagation();
+    if (isChatStreaming) return;
+    chatSessions = chatSessions.filter(s => s.id !== chatId);
+    if (chatSessions.length === 0) {
+        const fresh = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+        chatSessions.push(fresh);
+        activeChatId = fresh.id;
+    } else if (activeChatId === chatId) {
+        activeChatId = chatSessions[0].id;
+    }
