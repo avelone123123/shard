@@ -1978,3 +1978,113 @@ class NetworkManager:
             self._client_peer_node_id = peer_nid
             boot = res.get("bootstrap")
             if isinstance(boot, dict):
+                server_info["name"] = server_info.get("name") or boot.get("server_name")
+                server_info["model"] = server_info.get("model") or boot.get("active_model")
+                server_info["is_loaded"] = boot.get("is_loaded")
+            server_info["node_id"] = peer_nid
+            server_info["endpoint"] = res["endpoint"]
+            self._client_server_info = server_info
+            self._client_attempts = list(res.get("attempts") or [])
+            self._client_last_error = None
+            self._client_alternatives = []
+            self._append_history({
+                "target": str(target),
+                "node_id": peer_nid,
+                "name": server_info.get("name") or "",
+                "mode": res["mode"],
+                "path_type": res["path_type"],
+                "endpoint": res["endpoint"],
+                "relay_url": res.get("relay_url"),
+                "rtt_ms": res.get("rtt_ms"),
+                "ok": True,
+                "connected_at": now,
+                "disconnected_at": None,
+                "reason": "ok",
+            })
+            return self.status()
+        self._client_agent = None
+        self._client_state = TunnelState.FAILED.value
+        self._client_mode = None
+        self._client_path_type = None
+        self._client_endpoint = None
+        self._client_relay_url = None
+        self._client_local_url = None
+        self._client_rtt_ms = None
+        self._client_peer_node_id = target_nid
+        self._client_server_info = server_info
+        self._client_attempts = list(res.get("attempts") or [])
+        self._client_last_error = res.get("reason")
+        self._client_alternatives = list(res.get("alternatives") or [])
+        self._append_history({
+            "target": str(target),
+            "node_id": target_nid,
+            "name": server_info.get("name") or "",
+            "mode": None,
+            "path_type": None,
+            "endpoint": None,
+            "relay_url": None,
+            "rtt_ms": None,
+            "ok": False,
+            "connected_at": now,
+            "disconnected_at": now,
+            "reason": res.get("reason"),
+        })
+        st = self.status()
+        st["ok"] = False
+        return st
+    def disconnect(self):
+        ag = self._client_agent
+        self._client_agent = None
+        if ag is not None:
+            try:
+                self._runner.run_coro(ag.disconnect(), timeout=5.0)
+            except Exception:
+                pass
+        was_conn = self._client_state in (TunnelState.CONNECTED.value, TunnelState.RELAY_CONNECTED.value, TunnelState.RECONNECTING.value)
+        if was_conn:
+            with self._lock:
+                hist = self._peers_state.get("connection_history") or []
+                for item in reversed(hist):
+                    if isinstance(item, dict) and item.get("ok") and item.get("disconnected_at") is None:
+                        item["disconnected_at"] = time.time()
+                        break
+                self._save_peers()
+        self._client_state = TunnelState.DISCONNECTED.value
+        self._client_mode = None
+        self._client_path_type = None
+        self._client_endpoint = None
+        self._client_relay_url = None
+        self._client_local_url = None
+        self._client_rtt_ms = None
+        return self.status()
+    def status(self):
+        with self._lock:
+            cfg = self.get_config(include_secrets=False)
+            hist = copy.deepcopy(self._peers_state.get("connection_history") or [])
+            pins = copy.deepcopy(self._peers_state.get("tofu_pins") or {})
+        ag = self._client_agent
+        bytes_tx = 0
+        bytes_rx = 0
+        state = self._client_state
+        mode = self._client_mode
+        local_url = self._client_local_url
+        rtt_ms = self._client_rtt_ms
+        relay_url = self._client_relay_url
+        last_err = self._client_last_error
+        if ag is not None:
+            ast = ag.status()
+            state = ast.get("state") or state
+            mode = ast.get("mode") or mode
+            local_url = ast.get("local_url") or local_url
+            rtt_ms = ast.get("rtt_ms") if ast.get("rtt_ms") is not None else rtt_ms
+            relay_url = ast.get("relay_url") or relay_url
+            bytes_tx = int(ast.get("bytes_tx") or 0)
+            bytes_rx = int(ast.get("bytes_rx") or 0)
+            if ast.get("last_error"):
+                last_err = ast["last_error"]
+        ok = state in (TunnelState.CONNECTED.value, TunnelState.RELAY_CONNECTED.value)
+        return {
+            "ok": ok,
+            "state": state,
+            "mode": mode,
+            "path_type": self._client_path_type,
