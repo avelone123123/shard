@@ -30,3 +30,19 @@ Phase I hardened SHARD's user-facing reliability across README installation inst
   - Added 10-state SOUP lifecycle (`NOT_INSTALLED`, `CHECKING_ENVIRONMENT`, `FINDING_PYTHON`, `CREATING_VENV`, `INSTALLING`, `VERIFYING`, `INSTALLED`, `UPDATE_AVAILABLE`, `UPDATING`, `FAILED`), `find_compatible_python()`, isolated venv paths (`paths.soup_venv_dir()`), and remote upstream `0.77.2` check.
   - Updated `training.py` with `_LIFECYCLE_MAP`, `_job_lifecycle_state()`, `_enrich_job_fields()`, `preflight_training_check()`, and `.gguf` rejection with HF base resolution via `model_browser`.
 
+### 2.4 Secure Model File Browser (`shard_engine/model_browser.py`, `shard_engine/server.py`)
+- **Causes & Fixes Found During Testing:**
+  - `model_browser.classify_model_path()` called nonexistent `gguf_backend.extract_quant` -> fixed to `gguf_backend.parse_quant_from_name(p.name)` and attached `suggested_base` on invalid/untrained GGUFs as well.
+  - Critical security bypass: `model_browser.list_directory()` previously fell back silently to `models_dir` before calling `validate_browse_path()` when an explicit non-existent/blocked path (e.g., `~/.ssh`, `\\server\share\models`) was requested -> fixed to validate any explicit `raw_path` BEFORE default fallback and raise `PermissionError` (HTTP `403`) on UNC paths and sensitive/system dirs (`C:\Windows`, `.ssh`, browser profiles, SHARD secrets).
+  - Added `"soup"` -> `"trainable"` alias and `"dirs"` file filter in directory listings.
+  - Dynamic Windows drive enumeration with volume labels and free GB (`list_roots()`), format detection (`gguf_inference`, `hf_model_dir`, `hf_hub_cache`, `safetensors_file`, `lora_adapter`), and owner-only `/api/models/browser/*` routes.
+
+### 2.5 Dataset Preview Modal & Creation Stats (`shard_engine/feedback.py`, `dashboard.html`, `shard_engine/dashboard.html`)
+- **Causes:**
+  - Dashboard preview JS referenced typo DOM id `modalModelBody` (instead of `modelModalBody`) and dead field `d.sample_records`.
+  - Dataset creation returned minimal counts without full structured validation/skip breakdowns.
+- **Fix:**
+  - Added `valid_records`, `rejected_records`, `source_feedback_count`, `dedup_removed`, `validation_status`, `creation_summary` in `feedback.build_dataset_snapshot()`, plus `_extract_structured_record()`, `preview_dataset_paginated()`, and `validate_dataset_snapshot()`.
+  - Fixed `modelModalBody`, `<span id="modalHfLink">`, paginated `/api/training/datasets/{id}/preview?page=...` rendering with `valid`/`invalid` badges, and `trnDsBuildSummary` stats box.
+
+### 2.6 Dashboard Synchronization & JS Syntax Corruption Fixed (`shard_engine/dashboard.html`, `dashboard.html`)
