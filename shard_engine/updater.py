@@ -406,3 +406,27 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
             "asset_url": cached.get("asset_url") if isinstance(cached, dict) else None,
             "asset_name": cached.get("asset_name") if isinstance(cached, dict) else None,
             "asset_size": cached.get("asset_size") if isinstance(cached, dict) else None,
+            "asset_sha256": cached.get("asset_sha256") if isinstance(cached, dict) else None,
+            "cached": False,
+            "install_method": inst,
+            "error": err_msg,
+            "checked_at": time.time(),
+        }
+        return payload
+    latest_ver = remote["latest_version"]
+    cmp_res = compare_versions(cur_ver, latest_ver)
+    state = "UPDATE_AVAILABLE" if cmp_res > 0 else "UP_TO_DATE"
+    payload = {
+        "schema_version": 1,
+        "state": state,
+        "current_version": cur_ver,
+        "latest_version": latest_ver,
+        "tag_name": remote.get("tag_name"),
+        "update_available": cmp_res > 0,
+        "source": remote.get("source"),
+        "release_url": remote.get("release_url"),
+        "release_notes": remote.get("release_notes") or "",
+        "published_at": remote.get("published_at"),
+        "asset_url": remote.get("asset_url"),
+        "asset_name": remote.get("asset_name"),
+        "asset_size": remote.get("asset_size"),
