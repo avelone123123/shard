@@ -1047,6 +1047,7 @@ def scan_output_artifacts(output_dir):
     adapter_dir = None
     adapter_files = []
     merged_dir = None
+    search_dirs = [out] + [c for c in sorted(out.iterdir()) if c.is_dir() and not c.name.startswith("checkpoint-") and c.name != "merged"]
     for child in sorted(out.iterdir()):
         if child.is_dir() and child.name.startswith("checkpoint-"):
             checkpoints.append(str(child))
