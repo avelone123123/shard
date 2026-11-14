@@ -2088,7 +2088,7 @@ async function netLoadPeers() {
         const blk = data.revoked || [];
         let html = '';
         if (pend.length > 0) {
-            html += '<div style="font-size:12px;font-weight:600;color:#fbbf24;margin-bottom:6px;">Запросы на подключение (' + pend.length + '):</div>';
+            html += '<div style="font-size:12px;font-weight:600;color:var(--warning);margin-bottom:6px;">Запросы на подключение (' + pend.length + '):</div>';
             html += pend.map(p => {
                 const pid = escHtml(p.node_id || p.peer_node_id || '');
                 return '<div style="background:#0d1117;border:1px solid #d29922;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">' +
