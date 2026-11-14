@@ -218,3 +218,113 @@ def _safe_id(val, prefix):
     return cleaned[:64]
 def _register_version_from_job(job):
     with _STATE_LOCK:
+        reg = _load_registry()
+        for existing in reg["versions"]:
+            if existing.get("job_id") == job["job_id"]:
+                return existing
+        art = job.get("artifacts") or {}
+        if art.get("gguf_files"):
+            art_type = "gguf"
+            art_path = art["gguf_files"][0]
+        elif art.get("merged_dir"):
+            art_type = "merged_hf"
+            art_path = art["merged_dir"]
+        elif art.get("adapter_dir"):
+            art_type = "lora_adapter"
+            art_path = art["adapter_dir"]
+        else:
+            art_type = "output_dir"
+            art_path = job["output_dir"]
+        ver_num = len(reg["versions"]) + 1
+        version_id = f"v{ver_num}-{uuid.uuid4().hex[:6]}"
+        data_root = paths.data_dir()
+        gguf_p = art["gguf_files"][0] if art.get("gguf_files") else None
+        ver = {
+            "version_id": version_id,
+            "created_at": time.time(),
+            "parent_version": reg.get("active_version_id") or "base",
+            "base_model": job["base_model"],
+            "job_id": job["job_id"],
+            "dataset_snapshot_id": job["dataset_snapshot_id"],
+            "task": job["task"],
+            "artifact_type": art_type,
+            "artifact_path": art_path,
+            "rel_path": storage.normalize_rel_path(art_path, data_root),
+            "adapter_dir": art.get("adapter_dir"),
+            "adapter_rel_dir": storage.normalize_rel_path(art.get("adapter_dir"), data_root),
+            "merged_dir": art.get("merged_dir"),
+            "merged_rel_dir": storage.normalize_rel_path(art.get("merged_dir"), data_root),
+            "gguf_path": gguf_p,
+            "gguf_rel_path": storage.normalize_rel_path(gguf_p, data_root),
+            "training_completed": True,
+            "eval_status": "not_run",
+            "eval_baseline": None,
+            "eval_candidate": None,
+            "comparison": None,
+            "approval_status": "pending",
+            "deployed": False,
+            "deployed_at": None,
+            "notes": "",
+        }
+        reg["versions"].insert(0, ver)
+        _save_registry(reg)
+        feedback._append_audit("model_version_registered", {
+            "version_id": version_id,
+            "job_id": job["job_id"],
+            "artifact_type": art_type,
+        })
+        return ver
+def _watch_job(job_id, proc, log_fh, custom_cmd=None):
+    try:
+        rc = proc.wait()
+    except Exception:
+        rc = -1
+    finally:
+        try:
+            log_fh.close()
+        except Exception:
+            pass
+    with _STATE_LOCK:
+        _ACTIVE_PROCS.pop(job_id, None)
+        _LOG_HANDLES.pop(job_id, None)
+        jobs = _load_jobs()
+        target = None
+        for j in jobs:
+            if j.get("job_id") == job_id:
+                target = j
+                break
+        if target is None:
+            return
+        if target.get("status") == "cancelled":
+            target["returncode"] = rc
+            target["finished_at"] = time.time()
+            _save_jobs(jobs)
+            return
+        target["returncode"] = rc
+        target["finished_at"] = time.time()
+        art = soup_adapter.scan_output_artifacts(target["output_dir"])
+        target["artifacts"] = art
+        prog = soup_adapter.parse_train_progress(target.get("log_path"))
+        target["progress"] = {
+            "last_loss": prog.get("last_loss"),
+            "last_epoch": prog.get("last_epoch"),
+            "current_step": prog.get("current_step"),
+            "total_steps": prog.get("total_steps"),
+        }
+        if rc == 0:
+            target["status"] = "completed"
+            target["training_completed"] = True
+            _save_jobs(jobs)
+            ver = _register_version_from_job(target)
+            jobs = _load_jobs()
+            for j in jobs:
+                if j.get("job_id") == job_id:
+                    j["model_version_id"] = ver["version_id"]
+                    break
+            _save_jobs(jobs)
+            feedback._append_audit("training_job_completed", {"job_id": job_id, "version_id": ver["version_id"]})
+        else:
+            target["status"] = "failed"
+            target["training_completed"] = False
+            tail = prog.get("lines", [])[-5:]
+            target["error"] = f"Soup training exited with code {rc}: " + (" | ".join(tail)[:300] if tail else "check train.log")
