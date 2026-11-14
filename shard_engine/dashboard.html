@@ -3668,10 +3668,13 @@ async function trnPreviewDataset(snapshotId, page) {
             ? (pagerHtml + '<table class="ds-table"><thead><tr><th>#</th><th>Тип</th><th>Prompt / Контекст</th><th>Chosen / Ответ</th><th>Rejected / Статус</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' + pagerHtml)
             : '<div style="color:#64748b;padding:24px;text-align:center;">В датасете нет записей</div>';
         modal.style.display = 'flex';
-    } catch(e) {}
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
 }
-async function trnStartJob() {
-    const payload = {
+function _collectTrainingPayload() {
+    const bsRaw = ((document.getElementById('trnJobBatchSize') || {}).value || 'auto').trim();
+    return {
         dataset_snapshot_id: document.getElementById('trnJobDataset').value,
         base_model: document.getElementById('trnJobBase').value.trim() || null,
         task: document.getElementById('trnJobTask').value,
