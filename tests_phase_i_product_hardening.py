@@ -126,3 +126,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
         self.assertIn("UPDATE_AVAILABLE", soup_adapter.SOUP_LIFECYCLE_STATES)
         self.assertIn("UPDATING", soup_adapter.SOUP_LIFECYCLE_STATES)
         self.assertTrue(soup_adapter._py_compatible((3, 12)))
+        self.assertFalse(soup_adapter._py_compatible((3, 14)))
+        self.assertFalse(soup_adapter._py_compatible((3, 10)))
+        with self.assertRaises((ValueError, PermissionError)):
+            soup_adapter._validate_custom_python("C:\\Windows\\notepad.exe; calc")
+        with self.assertRaises(ValueError):
+            soup_adapter._validate_custom_python("python.exe; calc")
+        fake_py = self._root / "python312" / "python.exe"
+        fake_py.parent.mkdir(parents=True, exist_ok=True)
+        fake_py.write_text("", encoding="utf-8")
+        mock_probe = {"py": [3, 12, 4], "soup_version": "0.70.0", "present": {"soup_cli": True, "torch": True, "transformers": True, "peft": True, "trl": True, "datasets": True}, "cuda_available": False}
+        mock_run = type("_R", (), {"returncode": 0, "stdout": "soup 0.70.0", "stderr": ""})()
+        with patch.object(soup_adapter, "check_latest_soup_version", return_value={"latest_version": "0.77.2", "source": "pypi", "error": None}):
+            with patch.object(soup_adapter, "_candidate_python_paths", return_value=[str(fake_py)]):
+                with patch.object(soup_adapter, "_probe_python_env", return_value=mock_probe):
+                    with patch("subprocess.run", return_value=mock_run):
+                        det = soup_adapter.detect_soup(probe_deps=True, check_remote=True)
