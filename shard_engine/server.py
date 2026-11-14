@@ -438,3 +438,113 @@ def api_get_downloaded_models(req: Request):
                 })
         except Exception:
             for item in os.listdir(hub_dir):
+                if item.startswith("models--"):
+                    clean_id = item.replace("models--", "").replace("--", "/")
+                    if clean_id.lower() in seen_ids:
+                        continue
+                    seen_ids.add(clean_id.lower())
+                    full_p = os.path.join(hub_dir, item)
+                    sz = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(full_p) for f in fs if os.path.exists(os.path.join(r, f)))
+                    sz_mb = round(sz / (1024 * 1024), 1)
+                    sz_str = f"{round(sz_mb / 1024, 2)} ГБ" if sz_mb >= 1024 else f"{sz_mb} МБ"
+                    total_bytes += sz
+                    models.append({
+                        "id": clean_id,
+                        "author": clean_id.split("/")[0] if "/" in clean_id else "Community",
+                        "name": clean_id.split("/")[-1],
+                        "size_bytes": sz,
+                        "size_mb": sz_mb,
+                        "size_str": sz_str,
+                        "is_active": engine_instance.is_model_active(clean_id),
+                        "last_modified": int(os.path.getmtime(full_p)),
+                        "compatibility": evaluate_compatibility(clean_id, hw)
+                    })
+    models.sort(key=lambda x: x["size_bytes"], reverse=True)
+    return {
+        "models": models,
+        "total_models": len(models),
+        "total_size_gb": round(total_bytes / (1024 ** 3), 2),
+        "disk_free_gb": hw.get("disk_free_gb", 0)
+    }
+@app.delete("/api/models/downloaded")
+@app.post("/api/models/delete")
+async def api_delete_downloaded_model(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    model_id = ""
+    try:
+        data = await req.json()
+        model_id = str(data.get("model_id", "")).strip()
+    except Exception:
+        pass
+    if not model_id:
+        model_id = str(req.query_params.get("model_id", "")).strip()
+    if not model_id:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "model_id required"})
+    if "\\" in model_id or ".." in model_id or not _SAFE_HF_REPO_RE.match(model_id):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid model_id format"})
+    if engine_instance.active_model_id == model_id or engine_instance.current_loaded_id == model_id:
+        engine_instance.unload_model()
+    hf_home = os.environ.get("HF_HOME") or settings.models_dir()
+    hub_dir = os.path.join(hf_home, "hub")
+    freed_bytes = 0
+    try:
+        from huggingface_hub import scan_cache_dir
+        cache = scan_cache_dir(hub_dir)
+        target_repo = None
+        for r in cache.repos:
+            if r.repo_id.lower() == model_id.lower() or r.repo_id.split("/")[-1].lower() == model_id.lower():
+                target_repo = r
+                break
+        if target_repo:
+            freed_bytes = target_repo.size_on_disk
+            rev_hashes = [rev.commit_hash for rev in target_repo.revisions]
+            if rev_hashes:
+                strategy = cache.delete_revisions(*rev_hashes)
+                strategy.execute()
+    except Exception:
+        pass
+    norm_name = "models--" + model_id.replace("/", "--")
+    hub_root = Path(hub_dir).resolve()
+    folder_path = (hub_root / norm_name).resolve()
+    if folder_path.is_relative_to(hub_root) and folder_path != hub_root and folder_path.exists():
+        if freed_bytes == 0:
+            freed_bytes = sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(str(folder_path)) for f in fs if os.path.exists(os.path.join(r, f)))
+        shutil.rmtree(str(folder_path), ignore_errors=True)
+    sz_mb = round(freed_bytes / (1024 * 1024), 1)
+    freed_str = f"{round(sz_mb / 1024, 2)} ГБ" if sz_mb >= 1024 else f"{sz_mb} МБ"
+    return {"status": "ok", "deleted": model_id, "freed_str": freed_str, "freed_bytes": freed_bytes}
+@app.get("/api/keys")
+def api_get_keys(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    keys = load_keys()
+    return {"keys": keys}
+@app.post("/api/keys/generate")
+def api_gen_key(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    keys = load_keys()
+    new_key = f"sk-shard-{secrets.token_hex(8)}"
+    keys.append(new_key)
+    save_keys(keys)
+    return {"key": new_key, "keys": keys}
+@app.delete("/api/keys")
+@app.post("/api/keys/delete")
+async def api_del_key(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    target = ""
+    try:
+        data = await req.json()
+        target = str(data.get("key", "")).strip()
+    except Exception:
+        pass
+    if not target:
+        target = str(req.query_params.get("key", "")).strip()
+    keys = load_keys()
+    matched = None
