@@ -768,3 +768,113 @@ def deploy_version(version_id, prefer="auto", load_into_engine=True, require_app
         raise PermissionError(f"Model version '{version_id}' must be approved by the owner before deployment.")
     pref = str(prefer or "auto").strip().lower()
     target_path = None
+    if pref == "gguf" and ver.get("gguf_path"):
+        target_path = ver["gguf_path"]
+    elif pref == "merged" and ver.get("merged_dir"):
+        target_path = ver["merged_dir"]
+    elif pref == "adapter" and ver.get("adapter_dir"):
+        target_path = ver["adapter_dir"]
+    else:
+        target_path = ver.get("gguf_path") or ver.get("merged_dir") or ver.get("artifact_path")
+    if not target_path or not os.path.exists(str(target_path)):
+        raise FileNotFoundError(f"Deployable model artifact not found for version '{version_id}': {target_path}")
+    with _STATE_LOCK:
+        reg = _load_registry()
+        prev_vid = reg.get("active_version_id")
+        prev_model = reg.get("active_engine_model_id") or engine_instance.active_model_id
+    load_res = None
+    if load_into_engine:
+        load_res = engine_instance.load_model(str(target_path))
+        if isinstance(load_res, dict) and load_res.get("mode") == "veto":
+            raise RuntimeError(f"Deployment blocked by SHARD hardware fit check for '{target_path}'.")
+    else:
+        _sync_active_model_file(target_path)
+    with _STATE_LOCK:
+        reg = _load_registry()
+        reg["previous_version_id"] = prev_vid
+        reg["previous_engine_model_id"] = prev_model
+        reg["active_version_id"] = version_id
+        reg["active_engine_model_id"] = str(target_path)
+        now = time.time()
+        deployed_ver = None
+        for item in reg["versions"]:
+            is_target = item.get("version_id") == version_id
+            item["deployed"] = is_target
+            if is_target:
+                item["deployed_at"] = now
+                deployed_ver = dict(item)
+        _save_registry(reg)
+    feedback._append_audit("model_version_deployed", {
+        "version_id": version_id,
+        "artifact_path": str(target_path),
+        "previous_version_id": prev_vid,
+    })
+    return {
+        "status": "deployed",
+        "version": deployed_ver,
+        "artifact_path": str(target_path),
+        "previous_version_id": prev_vid,
+        "previous_engine_model_id": prev_model,
+        "engine_load": load_res,
+    }
+def rollback_deployment(target_version_id=None, load_into_engine=True):
+    if target_version_id is not None:
+        _validate_safe_id(target_version_id, "version_id")
+    with _STATE_LOCK:
+        reg = _load_registry()
+        cur_vid = reg.get("active_version_id")
+        prev_vid = target_version_id or reg.get("previous_version_id")
+        prev_model = reg.get("previous_engine_model_id")
+        if prev_vid:
+            chosen_ver = None
+            for item in reg["versions"]:
+                if item.get("version_id") == prev_vid:
+                    chosen_ver = item
+                    break
+            if chosen_ver is None:
+                raise KeyError(f"Rollback target version '{prev_vid}' not found.")
+            restore_path = chosen_ver.get("gguf_path") or chosen_ver.get("merged_dir") or chosen_ver.get("artifact_path")
+        elif prev_model:
+            restore_path = prev_model
+        elif reg["versions"]:
+            restore_path = reg["versions"][-1].get("base_model")
+        else:
+            raise ValueError("No previous model version or baseline recorded to roll back to.")
+    if not restore_path:
+        raise ValueError("Unable to resolve previous model ID or artifact path for rollback.")
+    rp_str = str(restore_path)
+    is_local_target = bool(prev_vid) or os.path.isabs(rp_str) or rp_str.lower().endswith(".gguf") or "\\" in rp_str
+    if is_local_target and not os.path.exists(rp_str):
+        raise FileNotFoundError(f"Rollback artifact not found at '{rp_str}'.")
+    load_res = None
+    if load_into_engine:
+        load_res = engine_instance.load_model(rp_str)
+    else:
+        _sync_active_model_file(rp_str)
+    with _STATE_LOCK:
+        reg = _load_registry()
+        reg["previous_version_id"] = cur_vid
+        reg["previous_engine_model_id"] = reg.get("active_engine_model_id")
+        reg["active_version_id"] = prev_vid
+        reg["active_engine_model_id"] = rp_str
+        for item in reg["versions"]:
+            item["deployed"] = bool(prev_vid and item.get("version_id") == prev_vid)
+        _save_registry(reg)
+    feedback._append_audit("model_rollback_executed", {
+        "from_version_id": cur_vid,
+        "to_version_id": prev_vid,
+        "restored_model": rp_str,
+    })
+    return {
+        "status": "rolled_back",
+        "from_version_id": cur_vid,
+        "restored_version_id": prev_vid,
+        "restored_model": rp_str,
+        "engine_load": load_res,
+    }
+def create_backup(output_path=None, include_runs=True, include_datasets=True):
+    res = storage.create_state_backup(
+        paths.data_dir(),
+        paths.config_dir(),
+        output_path=output_path,
+        include_runs=include_runs,
