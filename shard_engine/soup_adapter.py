@@ -438,3 +438,113 @@ def detect_soup(custom_cmd=None, probe_deps=True):
         "soup_version": soup_version,
         "dependencies": present,
         "missing_train_deps": missing_train,
+        "cuda_available": hw_cuda,
+        "gpu_name": hw.get("gpu_name"),
+        "vram_total_mb": hw.get("vram_total_mb", 0),
+        "capabilities": {
+            "validate_data": available,
+            "train": can_train,
+            "eval": can_train,
+            "merge": can_train,
+            "export_gguf": available,
+        },
+        "warnings": warnings,
+        "install_hint": "python3.12 -m venv ~/.soup-venv && pip install \"soup-cli[train]\"",
+        "compatible_python": find_compatible_python(),
+        "installer": get_soup_install_status(),
+    }
+def _yaml_scalar(value):
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return repr(value)
+    s = str(value)
+    return json.dumps(s, ensure_ascii=False)
+def dump_yaml(data, indent=0):
+    lines = []
+    prefix = "  " * indent
+    if isinstance(data, dict):
+        for k, v in data.items():
+            key_str = str(k)
+            if isinstance(v, dict):
+                if v:
+                    lines.append(f"{prefix}{key_str}:")
+                    lines.append(dump_yaml(v, indent + 1))
+                else:
+                    lines.append(f"{prefix}{key_str}: {{}}")
+            elif isinstance(v, list):
+                if v:
+                    lines.append(f"{prefix}{key_str}:")
+                    lines.append(dump_yaml(v, indent + 1))
+                else:
+                    lines.append(f"{prefix}{key_str}: []")
+            else:
+                lines.append(f"{prefix}{key_str}: {_yaml_scalar(v)}")
+    elif isinstance(data, list):
+        for item in data:
+            if isinstance(item, dict):
+                first = True
+                for ik, iv in item.items():
+                    if first:
+                        if isinstance(iv, (dict, list)):
+                            lines.append(f"{prefix}- {ik}:")
+                            lines.append(dump_yaml(iv, indent + 2))
+                        else:
+                            lines.append(f"{prefix}- {ik}: {_yaml_scalar(iv)}")
+                        first = False
+                    else:
+                        if isinstance(iv, (dict, list)):
+                            lines.append(f"{prefix}  {ik}:")
+                            lines.append(dump_yaml(iv, indent + 2))
+                        else:
+                            lines.append(f"{prefix}  {ik}: {_yaml_scalar(iv)}")
+            elif isinstance(item, list):
+                lines.append(f"{prefix}-")
+                lines.append(dump_yaml(item, indent + 1))
+            else:
+                lines.append(f"{prefix}- {_yaml_scalar(item)}")
+    else:
+        lines.append(f"{prefix}{_yaml_scalar(data)}")
+    return "\n".join(lines)
+def _sanitize_experiment_name(name):
+    if name is None:
+        return None
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", str(name).strip()).strip("-")
+    return cleaned[:64] or None
+def build_soup_config(base_model, dataset_path, output_dir, task="sft", fmt=None, experiment_name=None, params=None):
+    errors = []
+    params = dict(params or {})
+    base = str(base_model or "").strip()
+    if not base or "\x00" in base:
+        errors.append("base_model must be a non-empty Hugging Face model ID or local path.")
+    train_path = str(dataset_path or "").strip()
+    if not train_path or "\x00" in train_path:
+        errors.append("dataset_path must be non-empty.")
+    out_dir = str(output_dir or "").strip()
+    if not out_dir or "\x00" in out_dir:
+        errors.append("output_dir must be non-empty.")
+    task_norm = str(task or "sft").strip().lower()
+    if task_norm not in SOUP_VALID_TASKS:
+        errors.append(f"Unsupported task '{task_norm}'. Allowed: {', '.join(SOUP_VALID_TASKS)}.")
+    default_fmt = "dpo" if task_norm == "dpo" else "chatml"
+    fmt_norm = str(fmt or params.get("data_format") or default_fmt).strip().lower()
+    if fmt_norm not in SOUP_VALID_FORMATS:
+        errors.append(f"Unsupported data.format '{fmt_norm}'. Allowed: {', '.join(SOUP_VALID_FORMATS)}.")
+    backend = str(params.get("backend") or "transformers").strip().lower()
+    if backend not in SOUP_VALID_BACKENDS:
+        errors.append(f"Unsupported backend '{backend}'. Allowed: {', '.join(SOUP_VALID_BACKENDS)}.")
+    try:
+        epochs = int(params.get("epochs", 3))
+        if epochs < 1 or epochs > 50:
+            errors.append("epochs must be between 1 and 50.")
+    except (TypeError, ValueError):
+        epochs = 3
+        errors.append("epochs must be an integer.")
+    try:
+        lr = float(params.get("lr", 2e-5))
+        if lr <= 0 or lr > 0.1:
+            errors.append("lr must be > 0 and <= 0.1.")
+    except (TypeError, ValueError):
+        lr = 2e-5
