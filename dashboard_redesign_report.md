@@ -113,3 +113,16 @@ Note: Uncommitted pre-existing Phase I.1 edits (`pyproject.toml`, `shard_engine/
 - **BEFORE**: `before_01_market.png` .. `before_12_tablet_training.png`, metrics in `before_report.json`
 - **AFTER**: `after_01_market.png` .. `after_17_downloaded_tab.png`, metrics in `after_report.json`
 
+---
+
+## 6. Classification & Remaining Notes
+
+- **IMPLEMENTED & BROWSER VERIFIED**:
+  - Complete Vintage Computing × Modern Developer Workstation palette, typography, bevels, dark phosphor terminal blocks, focus states, SVG favicon, modal dialogs & `Escape` closing across all 7 main tabs, subtabs, update modal, dataset preview/pagination, training preflight, model card modal, model browser, toast repositioning, and responsive desktop (`1440x900`) + tablet (`1024x768`) layouts.
+  - All 170 active unit tests passing after final edits.
+- **NOT VERIFIED**:
+  - Narrow phone viewport (`375px` width) and live streaming chat message bubble + SOUP live installer progress bar animations were redesigned in CSS/HTML tokens (`chat-loading-card`, `glb-*`, `@media (max-width:760px)`), but not triggered end-to-end against a loaded GGUF model or active installer run during this visual pass.
+  - `Silkscreen` font uses Latin bitmap glyphs cleanly (`SHARD`, `RUNTIME`, `BASE ENDPOINT`), falling back automatically to uppercase `JetBrains Mono` for Cyrillic labels — expected font metric behavior, no clipping observed.
+  - If editing `dashboard.html` through an IDE with Format-on-Save active, note the IDE's HTML formatter can re-inject CRLF and blank lines into open buffers; direct sync kept both copies cleanly at `0` blank lines.
+- **BLOCKED**:
+  - None (`website/index.html` landing page intentionally untouched per task scope).
