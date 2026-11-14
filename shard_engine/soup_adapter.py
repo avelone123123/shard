@@ -486,12 +486,13 @@ def _run_install_worker(action, custom_python=None, include_train=True):
             _set_install_state(lifecycle_state="UPDATING", stage="Создание резервной копии SOUP venv", pct=12, line="Backing up existing soup-venv before update...")
             bak_dir = _backup_venv_for_update(venv_dir)
         if action == "repair" and venv_dir.exists():
-            _append_install_log(f"Removing existing venv at {venv_dir} for clean repair...", step="Очистка окружения", pct=10)
+            _set_install_state(lifecycle_state="CHECKING_ENVIRONMENT", stage="Очистка повреждённого venv", pct=14, line=f"Removing {venv_dir} for clean repair...")
             shutil.rmtree(venv_dir, ignore_errors=True)
-        _append_install_log("Searching for compatible Python (3.11 - 3.13)...", step="Поиск Python 3.11–3.13", pct=15)
+        _set_install_state(lifecycle_state="FINDING_PYTHON", stage="Поиск совместимого Python 3.11–3.13", pct=20, line="Searching for compatible Python (>=3.11,<3.14)...")
         compat = find_compatible_python(custom_python=custom_python)
-        uv_bin = shutil.which("uv")
+        uv_bin = compat.get("uv_executable") or _find_uv_binary()
         if not venv_py.is_file():
+            _set_install_state(lifecycle_state="CREATING_VENV", stage="Создание изолированного Python 3.12 venv", pct=30)
             if compat["found"]:
                 base_py = compat["python_executable"]
                 _append_install_log(f"Found compatible Python {compat['python_version']}: {base_py}", step="Создание soup-venv", pct=25)
