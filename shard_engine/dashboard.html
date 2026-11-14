@@ -885,14 +885,14 @@ macOS
 <div class="chat-main">
 <div class="chat-header">
 <div class="chat-header-model">
-<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
 <span id="chatActiveModel">Qwen2.5-Coder-7B-Instruct</span>
 <span id="chatLoadingTag" class="chat-loading-tag" style="display:none;"></span>
 </div>
 <div class="chat-header-live">
-<span id="chatFeedbackPolicyBadge" style="color:#8892a4;font-size:11px;cursor:pointer;" onclick="openMyContributions()" title="Просмотр или отзыв вкладов">Вклады и согласие</span>
+<span id="chatFeedbackPolicyBadge" style="color:var(--text-secondary);font-size:12px;cursor:pointer;text-decoration:underline;" onclick="openMyContributions()" title="Просмотр или отзыв вкладов">Вклады и согласие</span>
 <span id="chatCoreBadge">C++20 Zero-Copy / AVX2 ASM</span>
-<span id="chatLiveSpeed" style="color:#38bdf8;">Готов к запросам</span>
+<span id="chatLiveSpeed" style="color:var(--accent-text);font-weight:700;">Готов к запросам</span>
 </div>
 </div>
 <div class="chat-body" id="chatBody">
@@ -928,7 +928,7 @@ macOS
 <p style="margin:0;font-size:12px;color:var(--text-muted);">Децентрализованная сеть обмена вычислительными узлами: сквозное шифрование ChaCha20-Poly1305, авто-выбор маршрута (LAN &rarr; P2P &rarr; Слепой Relay), без централизованных серверов.</p>
 </div>
 <div style="display:flex;gap:8px;align-items:center;">
-<span id="netGlobalNodeBadge" style="font-size:11px;padding:4px 8px;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#8b949e;font-family:monospace;">Node: ...</span>
+<span id="netGlobalNodeBadge" class="compat-pill compat-neutral">Node: ...</span>
 <button class="btn-action" onclick="netRefresh(true)">
 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
 Обновить
