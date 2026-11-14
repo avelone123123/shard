@@ -190,3 +190,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
             "response": "Ownership ensures memory safety example #0.",
             "rating": "up",
             "consent_given": True,
+        }, source="local")
+        feedback.review_feedback(dup["id"], "approve")
+        snap = feedback.build_dataset_snapshot(task="sft", name="rust-help", validate_with_soup=False)
+        self.assertEqual(snap["valid_records"], 25)
+        self.assertEqual(snap["source_feedback_count"], 26)
+        self.assertGreaterEqual(snap["dedup_removed"], 1)
+        self.assertEqual(snap["validation_status"], "schema_valid")
+        dpo_rej = feedback.submit_feedback({"prompt": "Only up", "response": "Not a pair", "rating": "up", "consent_given": True}, source="local")
+        feedback.review_feedback(dpo_rej["id"], "approve")
+        fb_ok = feedback.submit_feedback({"prompt": "Good q", "response": "Bad a", "better_response": "Good a", "rating": "correction", "consent_given": True}, source="local")
+        feedback.review_feedback(fb_ok["id"], "approve")
+        dpo_snap = feedback.build_dataset_snapshot(task="dpo", name="dpo-check", validate_with_soup=False)
+        self.assertGreaterEqual(dpo_snap["rejected_records"], 1)
+        p1 = self.client.get(f"/api/training/datasets/{snap['snapshot_id']}/preview?page=1&page_size=20", headers=self.owner_headers)
+        self.assertEqual(p1.status_code, 200)
+        d1 = p1.json()
