@@ -478,6 +478,37 @@ def preflight_training_check(base_model=None, dataset_snapshot_id=None, task="sf
     with _STATE_LOCK:
         active = _active_job_unlocked(reconcile_jobs())
         if active is not None:
+            msg = f"Уже выполняется активная задача обучения: {active.get('job_id')}."
+            checks.append({"name": "active_job", "label": "Очередь задач", "status": "fail", "message": msg, "detail": ""})
+            errors.append(msg)
+    task_norm = str(task or (ds_val.get("task") if ds_val else "sft") or "sft").strip().lower()
+    cfg_params = dict(params or {})
+    if not soup_info.get("cuda_available") and cfg_params.get("quantization") in (None, "", "4bit", "8bit"):
+        cfg_params["quantization"] = "none"
+    _, cfg_errs = soup_adapter.build_soup_config(
+        base_model=resolved_base_str or raw_base or "Qwen/Qwen2.5-1.5B-Instruct",
+        dataset_path=(ds_val.get("snapshot_id") or "dataset.jsonl") if ds_val else "dataset.jsonl",
+        output_dir=str(_runs_dir() / "preflight-preview"),
+        task=task_norm,
+        fmt=(ds_val.get("format") if ds_val else "chatml"),
+        params=cfg_params,
+    )
+    if cfg_errs:
+        msg = "; ".join(cfg_errs)
+        checks.append({"name": "config", "label": "Параметры SOUP", "status": "fail", "message": msg, "detail": ""})
+        errors.append(msg)
+    else:
+        checks.append({"name": "config", "label": "Параметры SOUP", "status": "pass", "message": "Конфигурация soup.yaml валидна.", "detail": ""})
+    return {
+        "ready": len(errors) == 0,
+        "checks": checks,
+        "errors": errors,
+        "warnings": warnings,
+        "resolved_base": resolved_base_str,
+        "suggested_hf_models": suggested_hf,
+        "dataset_validation": ds_val,
+        "soup": soup_info,
+    }
 def start_training_job(
     base_model=None,
     dataset_snapshot_id=None,
