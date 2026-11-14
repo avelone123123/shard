@@ -177,11 +177,8 @@ pip install "shard-engine[full]"
 Соңғы әзірлеуші нұсқасын тікелей GitHub-тан орнату үшін:
 ```bash
 pip install "git+https://github.com/avelone123123/shard.git"
-
-# Толық орнату: PyTorch/Transformers safetensors және Hugging Face модульдерін қосады
 pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
-*PyPI туралы ескертпе:* `shard-engine` пакеті PyPI индексіндегі алғашқы жарияланымды күтуде. PyPI-де жарияланғаннан кейін `pip install shard-engine` және `pip install "shard-engine[full]"` тікелей PyPI-ден қолжетімді болады.
 
 Орнатудан кейін бірден ортаны тексеріңіз:
 ```bash
