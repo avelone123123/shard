@@ -1428,3 +1428,113 @@ async def api_training_jobs_start(req: Request):
     except RuntimeError as e:
         return JSONResponse(status_code=409, content={"status": "error", "message": str(e)})
 @app.get("/api/training/jobs/{job_id}")
+def api_training_job_detail(job_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        return {"job": training.get_training_job(job_id)}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except KeyError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+@app.post("/api/training/jobs/{job_id}/cancel")
+def api_training_job_cancel(job_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        return {"status": "ok", "job": training.cancel_training_job(job_id)}
+    except KeyError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+@app.post("/api/training/jobs/{job_id}/resume")
+async def api_training_job_resume(job_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        job = training.resume_training_job(job_id, checkpoint=data.get("checkpoint", "auto"))
+        return {"status": "ok", "job": job}
+    except KeyError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+    except (RuntimeError, FileNotFoundError) as e:
+        return JSONResponse(status_code=409, content={"status": "error", "message": str(e)})
+@app.get("/api/training/models")
+def api_training_models_list(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return training.list_model_versions()
+@app.post("/api/training/models/{version_id}/evaluate")
+async def api_training_model_evaluate(version_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        ver = training.evaluate_version(
+            version_id,
+            tasks_inline=data.get("tasks"),
+            min_accuracy=float(data.get("min_accuracy", 0.0)),
+        )
+        return {"status": "ok", "version": ver}
+    except KeyError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+    except (ValueError, FileNotFoundError) as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except RuntimeError as e:
+        return JSONResponse(status_code=409, content={"status": "error", "message": str(e)})
+@app.post("/api/training/models/{version_id}/prepare")
+async def api_training_model_prepare(version_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        ver = training.prepare_version_artifact(
+            version_id,
+            target=data.get("target", "merged"),
+            quant=data.get("quant", "q4_k_m"),
+        )
+        return {"status": "ok", "version": ver}
+    except KeyError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+    except (ValueError, FileNotFoundError, RuntimeError) as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/training/models/{version_id}/approve")
+async def api_training_model_approve(version_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        ver = training.approve_version(
+            version_id,
+            approved=bool(data.get("approved", True)),
+            notes=data.get("notes"),
+        )
+        return {"status": "ok", "version": ver}
+    except KeyError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+@app.post("/api/training/models/{version_id}/deploy")
+async def api_training_model_deploy(version_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
