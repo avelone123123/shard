@@ -3743,7 +3743,7 @@ function renderTrnJobs(jobs) {
         const cmdTxt = Array.isArray(j.command) && j.command.length ? j.command.join(' ') : '';
         return '<div class="trn-row">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
-            '<div><b>' + lanEsc(j.job_id) + '</b> <span style="color:#38bdf8;">[' + lanEsc(j.status) + ']</span> <span style="color:#8892a4;font-size:11px;">' + lanEsc(j.task) + ' | ' + lanEsc(j.base_model) + '</span></div>' +
+            '<div><b>' + lanEsc(j.job_id) + '</b> <span style="color:#38bdf8;">[' + lanEsc(lstate) + ' / ' + lanEsc(j.status) + ']</span>' + (j.pid ? (' <span style="font-size:10px;color:#64748b;">PID ' + j.pid + '</span>') : '') + ' <span style="color:#8892a4;font-size:11px;">' + lanEsc(j.task) + ' | ' + lanEsc(j.base_model) + '</span></div>' +
             '<div style="display:flex;gap:6px;">' +
             '<button class="fb-btn" data-id="' + escHtml(j.job_id) + '" onclick="trnInspectJob(this.dataset.id)">Логи</button>' +
             (j.status === 'running' ? '<button class="fb-btn" style="color:#f87171;" data-id="' + escHtml(j.job_id) + '" onclick="trnCancelJob(this.dataset.id)">Отменить</button>' : '') +
