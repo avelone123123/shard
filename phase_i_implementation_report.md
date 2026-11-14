@@ -126,3 +126,19 @@ Result:
     - Submitted 5 entries (`POST /api/feedback/submit`), approved via `POST /api/training/feedback/{id}/review`, built snapshot (`POST /api/training/datasets/build`) -> HTTP `200`, `valid_records=5`, `rejected_records=0`, `source_feedback_count=5`, `validation_status="schema_valid"`.
     - Paginated preview `page=1&page_size=3` & `page=2&page_size=3` -> HTTP `200`, `total_pages=2`, `records_len=2` on page 2.
     - Validation `POST /api/training/datasets/{id}/validate` -> HTTP `200`, `ok=True`, `valid_records=5`, `invalid_records=0`.
+    - Preflight `POST /api/training/preflight` on `.gguf` -> HTTP `200`, `ready=False`, `base_model` fail with `suggested_hf_models=["Qwen/qwen-test"]`; on local HF dir -> `base_model="pass"`, `dataset="pass"`, `disk="pass"`, `config="pass"`, fails only cleanly on missing local `soup_env` (`NOT_INSTALLED`).
+
+---
+
+## 5. Honest Workflow Classification Matrix
+
+| Workflow | Classification | Evidence & Notes |
+| --- | --- | --- |
+| PyPI README install docs update | `VERIFIED` | `README.md`, `README.ru.md`, `README.kz.md` updated and inspected via `Select-String`. |
+| SHARD version check (`cli -update --check --json`, `/api/system/update`) | `VERIFIED` | Executed live against GitHub release `v1.8.0` -> `UP_TO_DATE`; error fallback & cache tested in unit tests. |
+| SHARD update apply + Zip Slip / SHA-256 + rollback | `PARTIALLY VERIFIED` | Mocked zip/pip/rollback flow preserving user keys & settings passed (`test_02`, `test_03`); live self-upgrade overwrite of active repo was intentionally not executed to avoid altering working tree. |
+| Model File Browser drives, formats, HF/GGUF inspection & security | `VERIFIED` | Verified against real drives `C:\`/`D:\`, real `D:\shard-models\hub`, `~\.cache\huggingface\hub`, HTTP `403` blocks on `System32`, UNC, `.ssh`, and `test_06`. |
+| Dataset build stats, paginated preview & schema validation | `VERIFIED` | Verified end-to-end via live `TestClient` API calls (submit -> approve -> build -> p1/p2 preview -> validate) and `test_07`. |
+| Training preflight validation & GGUF blocking | `VERIFIED` | Verified via non-mocked `TestClient` API (`ready=False` with `.gguf` + HF base suggestion; `base_model=pass` on SafeTensors HF dir) and `test_08`. |
+| Real SOUP venv creation & PyTorch LoRA training run on this Windows PC | `BLOCKED` | Host has only Python `3.14.4` (no Python `3.11-3.13` and no `uv`), while upstream `soup-cli 0.77.2` requires `>=3.11,<3.14`; PyTorch in host environment is CPU-only. Full lifecycle transitions & dry-run subprocess orchestration are mocked-verified in `test_05`, `test_08`, and `tests_training_ecosystem.py`. |
+| Dashboard HTML/JS structure, syntax & endpoint wiring | `VERIFIED` | `node --check` rc=`0`, 0 missing `onclick` handlers, byte-identical `dashboard.html` & `shard_engine/dashboard.html`, served HTTP `200` at `/`, asserted by `test_09`. |
