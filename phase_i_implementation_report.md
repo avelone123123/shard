@@ -110,3 +110,19 @@ Result:
   - `python -m shard_engine.cli training soup` -> cleanly reported `Available: NO`, `Python Runtime: 3.14.4 (SOUP compatible <3.14: NO)`, `SOUP Engine` incompatible warning + install hint.
 - **Host Python / SOUP Environment Discovery:**
   - `py -0p` / `soup_adapter.find_compatible_python()`: only `Python 3.14.4` installed on host (`found: False`, `uv_available: False`).
+  - `soup_adapter.detect_soup(probe_deps=True, check_remote=True)`: returned `available=False`, `lifecycle_state="NOT_INSTALLED"`, live upstream `latest_version="0.77.2"`, `python_compatible=False`, missing deps `["peft", "trl", "datasets"]`.
+- **Live Non-Mocked API & Filesystem Checks (isolated temp `SHARD_*_DIR` + real host drives):**
+  - `GET /api/system/update?force=1` (with `X-Shard-Owner-Token`): HTTP `200`, `UP_TO_DATE`, `1.8.0`.
+  - `GET /api/models/browser/roots`: HTTP `200`, 2 real drives (`C:\` 78.8 GB free, `D:\` labeled `Ventoy` 905.0 GB free) and 5 shortcuts (`D:\shard-models`, `~\.cache\huggingface\hub`, etc.).
+  - Real `model_browser.list_directory()` on `~\.cache\huggingface\hub` (8 items, classified `hf_hub_cache` incl. `models--Qwen--Qwen2.5-Coder-1.5B-Instruct-GGUF`) and `D:\shard-models\hub` (`models--Qwen--Qwen2.5-Coder-1.5B-Instruct`, `models--Qwen--Qwen2.5-Coder-1.5B-Instruct-GGUF` valid=`True`, `3B`, `7B`).
+  - Sensitive/UNC path blocking (`PermissionError` -> HTTP `403`):
+    - `C:\Windows\System32` -> `403 Access to system or sensitive credential directory is blocked.`
+    - `\\server\share\models` -> `403 Network UNC paths are not permitted.`
+    - `C:\Users\avelo\.ssh` -> `403 Access to system or sensitive credential directory is blocked.`
+  - Format inspection (`POST /api/models/browser/inspect`):
+    - `.gguf` file -> `format="gguf_inference"`, `quant="Q4_K_M"`, `gguf_inference.supported=True`, `soup_training.supported=False`, `suggested_base_model="Qwen/qwen-test"`.
+    - Local HF dir (`config.json` + `tokenizer_config.json` + `model.safetensors`) -> `format="hf_model_dir"`, `soup_training.supported=True`.
+  - Feedback -> Approve -> Dataset Build -> Paginated Preview -> Validate -> Preflight:
+    - Submitted 5 entries (`POST /api/feedback/submit`), approved via `POST /api/training/feedback/{id}/review`, built snapshot (`POST /api/training/datasets/build`) -> HTTP `200`, `valid_records=5`, `rejected_records=0`, `source_feedback_count=5`, `validation_status="schema_valid"`.
+    - Paginated preview `page=1&page_size=3` & `page=2&page_size=3` -> HTTP `200`, `total_pages=2`, `records_len=2` on page 2.
+    - Validation `POST /api/training/datasets/{id}/validate` -> HTTP `200`, `ok=True`, `valid_records=5`, `invalid_records=0`.
