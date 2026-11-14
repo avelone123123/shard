@@ -254,3 +254,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
                 "task": "sft",
                 "params": {"batch_size": 2, "gradient_accumulation_steps": 4, "max_length": 1024},
             }, headers=self.owner_headers)
+            self.assertEqual(pf_good.status_code, 200)
+            self.assertTrue(pf_good.json()["ready"])
+            with self.assertRaises(ValueError):
+                training.start_training_job(base_model=str(gguf_path), dataset_snapshot_id=snap["snapshot_id"])
+            with patch.object(soup_adapter, "dry_run_train", return_value={"ok": True, "returncode": 0, "stdout": "Dry run ok", "stderr": ""}):
+                job = training.start_training_job(
+                    base_model="Qwen/Qwen2.5-Coder-1.5B-Instruct",
+                    dataset_snapshot_id=snap["snapshot_id"],
+                    dry_run=True,
+                )
+        self.assertEqual(job["status"], "completed")
+        self.assertEqual(job["lifecycle_state"], "COMPLETED")
+        self.assertTrue(isinstance(job["command"], list) and len(job["command"]) > 0)
+    def test_09_dashboard_regression_bugs_fixed(self):
+        root_html = Path("dashboard.html").read_bytes()
+        pkg_html = Path("shard_engine/dashboard.html").read_bytes()
