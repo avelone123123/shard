@@ -1947,6 +1947,8 @@ def main(argv=None):
     if raw_argv[0] == "network" and ("-h" in raw_argv or "--help" in raw_argv or len(raw_argv) == 1):
         cmd_network(argparse.Namespace(net_action=None))
         return
+    if raw_argv[0] in ("-update", "--update"):
+        raw_argv = ["update", *raw_argv[1:]]
     if "-h" in raw_argv or "--help" in raw_argv:
         cmd_help()
         return
