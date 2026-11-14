@@ -358,3 +358,27 @@ def classify_model_path(target_path, deep_size=False):
                 "size_bytes": sz,
                 "size_str": _fmt_size(sz) + ("+" if partial else ""),
                 "model_type": cfg.get("model_type"),
+                "compatibility": compat,
+            }
+        if adp and (any(p.glob("adapter_model*")) or "base_model_name_or_path" in adp):
+            sz, _ = _bounded_dir_size(p, max_files=60)
+            base_ref = adp.get("base_model_name_or_path")
+            compat = _compat_block(
+                bool(gguf_files),
+                "Для запуска в GGUF выполните Merge & Export GGUF во вкладке «Версии»." if not gguf_files else "Готов GGUF.",
+                True,
+                "PEFT/LoRA-адаптер поддерживается PyTorch.",
+                False,
+                "Это папка обученного LoRA-адаптера (чекпоинт), а не полная базовая модель. Используйте базовую модель или --resume.",
+                suggested_base=base_ref,
+            )
+            return {
+                "path": str(p),
+                "name": p.name,
+                "is_dir": True,
+                "format": "lora_adapter",
+                "format_label": "LoRA Адаптер (Чекпоинт)",
+                "valid": True,
+                "base_model_name_or_path": base_ref,
+                "size_bytes": sz,
+                "size_str": _fmt_size(sz),
