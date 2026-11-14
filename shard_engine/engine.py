@@ -328,3 +328,113 @@ class ShardEngine:
         if isinstance(saved_obj, dict) and saved_obj.get("model_id"):
             saved_model = str(saved_obj.get("model_id")).strip() or saved_model
         self.active_model_id = saved_model
+        self.status = "idle"
+        self.detailed_state = "DISCOVERED"
+        self.model_states = {}
+        self.loaded_info = {}
+        self.total_tokens_generated = 0
+        self.last_latency_ms = 0
+        self.native_core = shard_native
+        self.model = None
+        self.tokenizer = None
+        self.gguf = None
+        self.current_loaded_id = None
+        self._cancel_load = False
+        self._cancel_gen = False
+        self._load_seq = 0
+        self.load_progress = {"status": "idle", "lifecycle_state": "DISCOVERED", "percent": 0, "message": "Готов к выбору и запуску модели", "eta_text": "", "stage": "Ожидание", "speed_mb": 0}
+        if os.environ.get("SHARD_AUTOLOAD", "0") == "1" and _is_model_cached_complete(self.active_model_id):
+            self.load_model(self.active_model_id)
+    def cancel_operation(self):
+        self._cancel_gen = True
+        self._cancel_load = True
+        self._load_seq += 1
+        was_loading = (self.status == "loading")
+        if was_loading and self.active_model_id:
+            self.model_states[self.active_model_id] = "CANCELLED"
+            self.detailed_state = "CANCELLED"
+        if self.status in ("loading", "generating"):
+            self.status = "ready" if self.is_loaded() else "idle"
+        if not self.is_loaded():
+            self.active_model_id = self.current_loaded_id
+        self.load_progress = {"status": "idle", "lifecycle_state": "CANCELLED", "percent": 0, "message": "Операция остановлена пользователем", "eta_text": "", "stage": "Остановлено", "speed_mb": 0}
+        return {"status": "cancelled", "engine_status": self.status, "lifecycle_state": "CANCELLED"}
+    def on_tqdm_update(self, curr, total, rate, desc):
+        if self.status != "loading" or self._cancel_load or not total or total <= 0:
+            return
+        if total > 100000:
+            pct = min(88, max(5, round((curr / total) * 88, 1)))
+            speed_mb = round(rate / (1024 * 1024), 1) if rate else 18.0
+            eff_rate = rate if (rate and rate > 0) else (18 * 1024 * 1024)
+            eta_sec = max(1, int((total - curr) / eff_rate))
+            eta_text = f"~{eta_sec} сек" if eta_sec < 60 else f"~{eta_sec // 60} мин {eta_sec % 60} сек"
+            curr_mb = round(curr / (1024 * 1024), 1)
+            total_mb = round(total / (1024 * 1024), 1)
+            self.detailed_state = "DOWNLOADING"
+            if self.active_model_id:
+                self.model_states[self.active_model_id] = "DOWNLOADING"
+            self.load_progress = {
+                "status": "loading",
+                "lifecycle_state": "DOWNLOADING",
+                "model_id": self.active_model_id,
+                "percent": pct,
+                "stage": "Скачивание весов с Hugging Face",
+                "curr_mb": curr_mb,
+                "total_mb": total_mb,
+                "speed_mb": speed_mb,
+                "eta_seconds": eta_sec,
+                "eta_text": eta_text,
+                "message": f"Скачано {curr_mb} из {total_mb} МБ ({pct}%) | {speed_mb} МБ/с | Осталось: {eta_text}"
+            }
+        elif total > 1:
+            pct = min(99, max(86, 86 + int((curr / total) * 13)))
+            eta_sec = max(1, int((total - curr) * 0.05))
+            eta_text = f"~{eta_sec} сек"
+            prev_c = self.load_progress.get("curr_mb", 0)
+            prev_t = self.load_progress.get("total_mb", 0)
+            prev_s = self.load_progress.get("speed_mb", 0)
+            self.detailed_state = "LOADING"
+            if self.active_model_id:
+                self.model_states[self.active_model_id] = "LOADING"
+            self.load_progress = {
+                "status": "loading",
+                "lifecycle_state": "LOADING",
+                "model_id": self.active_model_id,
+                "percent": pct,
+                "stage": "Размещение тензоров в памяти",
+                "curr_mb": prev_c,
+                "total_mb": prev_t,
+                "speed_mb": prev_s,
+                "eta_seconds": eta_sec,
+                "eta_text": eta_text,
+                "message": f"Инициализация слоев ({curr}/{total}) в памяти | Осталось: {eta_text}"
+            }
+    def get_status(self):
+        hw = _hardware.get_hardware_profile()
+        gguf_info = None
+        if self.gguf is not None:
+            try:
+                gguf_info = self.gguf.info()
+            except Exception:
+                gguf_info = None
+        loaded = self.is_loaded()
+        effective_active = self.current_loaded_id if loaded else (self.active_model_id if self.status == "loading" else None)
+        return {
+            "status": self.status,
+            "lifecycle_state": self.lifecycle_state(),
+            "detailed_state": self.detailed_lifecycle_state(),
+            "active_model": effective_active,
+            "selected_model": self.active_model_id,
+            "current_loaded": self.current_loaded_id,
+            "is_loaded": loaded,
+            "load_progress": self.load_progress,
+            "loaded_info": self.loaded_info,
+            "hardware": hw,
+            "gguf": gguf_info,
+            "native_engine": {
+                "active": self.native_core.is_native_active,
+                "version": self.native_core.version
+            },
+            "total_tokens_generated": self.total_tokens_generated,
+            "last_latency_ms": self.last_latency_ms
+        }
