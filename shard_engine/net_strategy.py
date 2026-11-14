@@ -1318,3 +1318,113 @@ class NetworkManager:
                 "pubkey_b64": ch.peer_pubkey_b64,
                 "peer_info": ch.transport.peer_info(),
                 "bytes_tx": int(ch.bytes_tx),
+                "bytes_rx": int(ch.bytes_rx),
+                "approved_at": meta.get("approved_at") if isinstance(meta, dict) else None,
+                "invite_id": meta.get("invite_id") if isinstance(meta, dict) else None,
+                "label": meta.get("label") if isinstance(meta, dict) else "",
+                "requests": meta.get("requests", 0) if isinstance(meta, dict) else 0,
+                "last_seen": meta.get("last_seen") if isinstance(meta, dict) else None,
+                "max_requests_per_min": meta.get("max_requests_per_min") if isinstance(meta, dict) else None,
+                "bandwidth_kbps": meta.get("bandwidth_kbps") if isinstance(meta, dict) else None,
+            })
+        return out
+    def list_pending_peers(self):
+        with self._lock:
+            return list(copy.deepcopy(list((self._peers_state.get("pending_peers") or {}).values())))
+    def list_authorized_peers(self):
+        with self._lock:
+            return list(copy.deepcopy(list((self._peers_state.get("authorized_peers") or {}).values())))
+    def list_revoked_peers(self):
+        with self._lock:
+            return list(copy.deepcopy(list((self._peers_state.get("revoked_peers") or {}).values())))
+    def approve_peer(self, peer_node_id, label="", max_requests_per_min=None, bandwidth_kbps=None):
+        pid = str(peer_node_id or "").strip()
+        if not net_identity.NODE_ID_RE.match(pid):
+            raise ValueError("Invalid peer_node_id")
+        now = time.time()
+        with self._lock:
+            pend = self._peers_state.setdefault("pending_peers", {}).pop(pid, None)
+            self._peers_state.setdefault("revoked_peers", {}).pop(pid, None)
+            auth_map = self._peers_state.setdefault("authorized_peers", {})
+            prev = auth_map.get(pid) if isinstance(auth_map.get(pid), dict) else {}
+            rec = {
+                "node_id": pid,
+                "pubkey_b64": (pend or {}).get("pubkey_b64") or prev.get("pubkey_b64"),
+                "approved_at": now,
+                "invite_id": prev.get("invite_id"),
+                "grant_mode": "owner_confirm",
+                "approved_manually": True,
+                "label": str(label or prev.get("label") or "approved")[:64],
+                "last_seen": now,
+                "requests": int(prev.get("requests") or 0),
+                "max_requests_per_min": int(max_requests_per_min) if max_requests_per_min is not None else prev.get("max_requests_per_min"),
+                "bandwidth_kbps": int(bandwidth_kbps) if bandwidth_kbps is not None else prev.get("bandwidth_kbps"),
+            }
+            auth_map[pid] = rec
+            self._save_peers()
+            return {"status": "ok", "peer": copy.deepcopy(rec)}
+    def reject_peer(self, peer_node_id, reason="rejected", block=False):
+        pid = str(peer_node_id or "").strip()
+        if not net_identity.NODE_ID_RE.match(pid):
+            raise ValueError("Invalid peer_node_id")
+        now = time.time()
+        with self._lock:
+            self._peers_state.setdefault("pending_peers", {}).pop(pid, None)
+            self._peers_state.setdefault("authorized_peers", {}).pop(pid, None)
+            self._peers_state.setdefault("revoked_peers", {})[pid] = {
+                "node_id": pid,
+                "revoked_at": now,
+                "reason": str(reason or "rejected")[:64],
+                "blocked": bool(block),
+            }
+            self._save_peers()
+        closed = self._close_peer_channels_sync(pid, reason=str(reason or "rejected"))
+        return {"status": "ok", "node_id": pid, "closed_tunnels": closed, "blocked": bool(block)}
+    def kick_peer(self, peer_node_id, reason="kicked", block=True):
+        return self.reject_peer(peer_node_id, reason=reason, block=block)
+    def block_peer(self, peer_node_id, reason="blocked"):
+        return self.reject_peer(peer_node_id, reason=reason, block=True)
+    def unblock_peer(self, peer_node_id):
+        pid = str(peer_node_id or "").strip()
+        if not net_identity.NODE_ID_RE.match(pid):
+            raise ValueError("Invalid peer_node_id")
+        with self._lock:
+            removed = self._peers_state.setdefault("revoked_peers", {}).pop(pid, None)
+            self._save_peers()
+        return {"status": "ok", "node_id": pid, "unblocked": removed is not None}
+    def set_peer_quota(self, peer_node_id, max_requests_per_min=None, bandwidth_kbps=None):
+        pid = str(peer_node_id or "").strip()
+        if not net_identity.NODE_ID_RE.match(pid):
+            raise ValueError("Invalid peer_node_id")
+        with self._lock:
+            auth_map = self._peers_state.setdefault("authorized_peers", {})
+            rec = auth_map.get(pid)
+            if not isinstance(rec, dict):
+                return {"status": "error", "message": "Peer not authorized"}
+            rec["max_requests_per_min"] = int(max_requests_per_min) if max_requests_per_min is not None else None
+            rec["bandwidth_kbps"] = int(bandwidth_kbps) if bandwidth_kbps is not None else None
+            self._save_peers()
+            return {"status": "ok", "peer": copy.deepcopy(rec)}
+    def _current_model_name(self):
+        if self._host_model_override:
+            return self._host_model_override
+        if callable(self._model_provider):
+            try:
+                return self._model_provider() or None
+            except Exception:
+                pass
+        try:
+            st = lan.LAN.status(include_secrets=False)
+            if st.get("target_model"):
+                return st.get("target_model")
+        except Exception:
+            pass
+        return None
+    def _current_load_value(self):
+        if callable(self._load_provider):
+            try:
+                return float(self._load_provider())
+            except Exception:
+                pass
+        return 0.0
+    def _collect_direct_endpoints_for_host(self):
