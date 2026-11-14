@@ -3779,18 +3779,18 @@ async function trnLoadFeedback(statusFilter, btn) {
     box.innerHTML = entries.map(e => {
         const flags = (e.redactions && e.redactions.length) ? ' <span style="color:var(--warning);">[маскировано: ' + lanEsc(e.redactions.join(',')) + ']</span>' : '';
         return '<div class="trn-row">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;color:#8892a4;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;color:var(--text-muted);">' +
             '<span><b>' + lanEsc(e.id) + '</b> | рейтинг: ' + lanEsc(e.rating) + ' | источник: ' + lanEsc(e.source) + flags + '</span>' +
             '<div style="display:flex;gap:6px;">' +
             (e.status !== 'approved' ? '<button class="fb-btn selected" data-id="' + escHtml(e.id) + '" onclick="trnReviewFb(this.dataset.id, \'approve\')">Одобрить</button>' : '') +
             (e.status !== 'rejected' ? '<button class="fb-btn" data-id="' + escHtml(e.id) + '" onclick="trnReviewFb(this.dataset.id, \'reject\')">Отклонить</button>' : '') +
-            '<button class="fb-btn" style="color:#f87171;" data-id="' + escHtml(e.id) + '" onclick="trnReviewFb(this.dataset.id, \'delete\')">Удалить</button>' +
+            '<button class="fb-btn" style="color:var(--danger);" data-id="' + escHtml(e.id) + '" onclick="trnReviewFb(this.dataset.id, \'delete\')">Удалить</button>' +
             '</div></div>' +
-            '<div style="font-size:12px;color:#e2e8f0;margin-bottom:4px;"><b>Prompt:</b> ' + lanEsc(e.prompt) + '</div>' +
-            (e.response ? '<div style="font-size:12px;color:#94a3b8;margin-bottom:4px;"><b>Response:</b> ' + lanEsc(e.response) + '</div>' : '') +
-            (e.better_response ? '<div style="font-size:12px;color:#10b981;"><b>Correction:</b> ' + lanEsc(e.better_response) + '</div>' : '') +
+            '<div style="font-size:12px;color:var(--text);margin-bottom:4px;"><b>Prompt:</b> ' + lanEsc(e.prompt) + '</div>' +
+            (e.response ? '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px;"><b>Response:</b> ' + lanEsc(e.response) + '</div>' : '') +
+            (e.better_response ? '<div style="font-size:12px;color:var(--success);"><b>Correction:</b> ' + lanEsc(e.better_response) + '</div>' : '') +
             '</div>';
-    }).join('') || '<div class="trn-row" style="color:#64748b;">Нет записей со статусом "' + lanEsc(trnCurrentFilter) + '".</div>';
+    }).join('') || '<div class="trn-row" style="color:var(--text-muted);">Нет записей со статусом "' + lanEsc(trnCurrentFilter) + '".</div>';
 }
 async function trnReviewFb(id, action) {
     const res = await fetch('/api/training/feedback/' + encodeURIComponent(id) + '/review', {
@@ -3805,7 +3805,7 @@ async function trnReviewFb(id, action) {
 }
 async function trnBuildDataset() {
     const sumBox = document.getElementById('trnDsBuildSummary');
-    if (sumBox) sumBox.innerHTML = '<div class="trn-row" style="font-size:12px;color:#38bdf8;">Формирование и валидация снапшота датасета...</div>';
+    if (sumBox) sumBox.innerHTML = '<div class="trn-row" style="font-size:12px;color:var(--accent-text);">Формирование и валидация снапшота датасета...</div>';
     const payload = {
         task: document.getElementById('trnDsTask').value,
         name: document.getElementById('trnDsName').value.trim() || null,
@@ -3818,17 +3818,17 @@ async function trnBuildDataset() {
     });
     const data = await res.json();
     if (!res.ok) {
-        if (sumBox) sumBox.innerHTML = '<div class="trn-row" style="font-size:12px;color:#f87171;">Ошибка: ' + lanEsc(data.message || 'Не удалось собрать снимок') + '</div>';
+        if (sumBox) sumBox.innerHTML = '<div class="trn-row" style="font-size:12px;color:var(--danger);">Ошибка: ' + lanEsc(data.message || 'Не удалось собрать снимок') + '</div>';
         showToast('Ошибка датасета', data.message || 'Не удалось собрать снимок');
         return;
     }
     const ds = data.dataset || {};
     if (sumBox) {
         const skippedTxt = JSON.stringify(ds.skip_reasons || {});
-        sumBox.innerHTML = '<div class="trn-row" style="border-color:rgba(16,185,129,0.4);background:rgba(16,185,129,0.06);font-size:12px;">' +
-            '<div style="color:#10b981;font-weight:700;margin-bottom:4px;">Снимок собран: ' + lanEsc(ds.snapshot_id) + ' (' + lanEsc(ds.validation_status || 'valid') + ')</div>' +
+        sumBox.innerHTML = '<div class="trn-row" style="border-color:var(--success-border);background:var(--success-bg);font-size:12px;">' +
+            '<div style="color:var(--success);font-weight:700;margin-bottom:4px;">Снимок собран: ' + lanEsc(ds.snapshot_id) + ' (' + lanEsc(ds.validation_status || 'valid') + ')</div>' +
             '<div>Проверено отзывов: <b>' + (ds.source_feedback_count || ds.total_approved_checked || 0) + '</b> | Валидных записей: <b>' + (ds.valid_records || ds.record_count || 0) + '</b> | Отклонено: <b>' + (ds.rejected_records || 0) + '</b> | Дублей удалено: <b>' + (ds.dedup_removed || 0) + '</b></div>' +
-            '<div style="font-size:11px;color:#94a3b8;margin-top:3px;">Причины пропуска: ' + lanEsc(skippedTxt) + ' | SHA256: ' + lanEsc(String(ds.sha256 || '').slice(0, 16)) + '...</div>' +
+            '<div style="font-size:11px;color:var(--text-secondary);margin-top:3px;">Причины пропуска: ' + lanEsc(skippedTxt) + ' | SHA256: ' + lanEsc(String(ds.sha256 || '').slice(0, 16)) + '...</div>' +
             '</div>';
     }
     showToast('Датасет собран', ds.snapshot_id + ' (' + ds.record_count + ' записей)');
@@ -3842,9 +3842,9 @@ function renderTrnDatasets(datasets) {
         if (prevVal) sel.value = prevVal;
     }
     document.getElementById('trnDatasetsList').innerHTML = datasets.map(d =>
-        '<div style="padding:7px;border:1px solid #1e2638;border-radius:5px;margin-bottom:6px;background:#0a0d14;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
-        '<div><div style="color:#e2e8f0;font-weight:600;">' + lanEsc(d.snapshot_id) + '</div>' +
-        '<div style="font-size:11px;color:#8892a4;">' + lanEsc(d.task) + '/' + lanEsc(d.format) + ' | валидных: ' + (d.valid_records !== undefined ? d.valid_records : d.record_count) + ' | откл.: ' + (d.rejected_records || 0) + ' | dedup: ' + (d.dedup_removed || 0) + '</div></div>' +
+        '<div style="padding:7px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;background:var(--surface-elevated);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
+        '<div><div style="color:var(--text);font-weight:600;">' + lanEsc(d.snapshot_id) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);">' + lanEsc(d.task) + '/' + lanEsc(d.format) + ' | валидных: ' + (d.valid_records !== undefined ? d.valid_records : d.record_count) + ' | откл.: ' + (d.rejected_records || 0) + ' | dedup: ' + (d.dedup_removed || 0) + '</div></div>' +
         '<div style="display:flex;gap:6px;">' +
         '<button class="fb-btn" data-id="' + escHtml(d.snapshot_id) + '" onclick="trnValidateDataset(this.dataset.id)">Проверить</button>' +
         '<button class="fb-btn" data-id="' + escHtml(d.snapshot_id) + '" onclick="trnPreviewDataset(this.dataset.id, 1)">Просмотр</button>' +
