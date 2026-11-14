@@ -658,3 +658,55 @@ def preview_dataset_records(snapshot_id, limit=10):
     with open(p, "r", encoding="utf-8", errors="replace") as f:
         for ln in f:
             if not ln.strip():
+                continue
+            try:
+                rows.append(json.loads(ln))
+            except Exception:
+                continue
+            if len(rows) >= max(1, int(limit)):
+                break
+    return rows
+def compute_stats():
+    with _LOCK:
+        with storage.file_lock(_feedback_path()):
+            entries = _load_entries_unlocked()
+        counts = {"total": 0, "pending": 0, "approved": 0, "rejected": 0, "deleted": 0, "included_in_dataset": 0}
+        ratings = {"up": 0, "down": 0, "correction": 0, "ab": 0}
+        sources = {"local": 0, "remote": 0}
+        sft_eligible = 0
+        dpo_eligible = 0
+        redacted_count = 0
+        for e in entries:
+            counts["total"] += 1
+            st = e.get("status", "pending")
+            if st in counts:
+                counts[st] += 1
+            if st == "deleted":
+                continue
+            if e.get("included_in_datasets"):
+                counts["included_in_dataset"] += 1
+            rt = e.get("rating", "up")
+            if rt in ratings:
+                ratings[rt] += 1
+            src = e.get("source", "local")
+            if src in sources:
+                sources[src] += 1
+            if e.get("redactions"):
+                redacted_count += 1
+            if st == "approved":
+                s_rec, _ = _entry_to_sft_record(e)
+                if s_rec is not None:
+                    sft_eligible += 1
+                d_rec, _ = _entry_to_dpo_record(e)
+                if d_rec is not None:
+                    dpo_eligible += 1
+        datasets = list_datasets()
+        return {
+            "counts": counts,
+            "ratings": ratings,
+            "sources": sources,
+            "redacted_entries": redacted_count,
+            "eligible_approved": {"sft": sft_eligible, "dpo": dpo_eligible},
+            "dataset_count": len(datasets),
+            "opted_out_contributors": len(_load_optouts()),
+        }
