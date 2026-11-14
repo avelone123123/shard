@@ -1254,19 +1254,19 @@ macOS
 <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="prvRequireReview"> Требовать ручную модерацию владельцем перед экспортом в датасет
 </label>
-<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:8px;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="prvRedactSecrets"> Автоматически редактировать API-ключи, токены и секреты перед записью
 </label>
-<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e2e8f0;margin-bottom:12px;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);margin-bottom:12px;cursor:pointer;">
 <input type="checkbox" id="prvRedactPii"> Автоматически маскировать email и телефоны перед записью
 </label>
-<div style="font-size:11px;color:#64748b;margin-bottom:12px;">Хранение сырых переписок отключено на уровне ядра: обычные чаты и API-вызовы никогда не сохраняются без явного вклада пользователя. Удалённые клиенты не имеют доступа к запуску обучения, датасетам и деплою (HTTP 403).</div>
+<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Хранение сырых переписок отключено на уровне ядра: обычные чаты и API-вызовы никогда не сохраняются без явного вклада пользователя. Удалённые клиенты не имеют доступа к запуску обучения, датасетам и деплою (HTTP 403).</div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;">
 <button class="btn-action active" onclick="trnSavePrivacy()">Сохранить настройки приватности</button>
 <button class="btn-action" onclick="trnBackupState()">Создать бэкап состояния</button>
 <button class="btn-action" onclick="trnPruneFeedback()">Очистить истёкшие отзывы</button>
 </div>
-<div id="trnBackupOut" style="font-size:11px;color:#94a3b8;margin-top:8px;"></div>
+<div id="trnBackupOut" style="font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
 </div>
 </div>
 </div>
@@ -1279,14 +1279,14 @@ macOS
 <p style="margin:0;font-size:12px;color:var(--text-muted);">Единая панель управления вашим ИИ-сервером, общим чатом участников, вычислительным пулом, сообществом и баг-трекером модели.</p>
 </div>
 <div style="display:flex;gap:8px;align-items:center;">
-<span id="srvRoleBadge" style="font-size:11px;padding:4px 8px;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#10b981;font-family:monospace;">Роль: Владелец</span>
+<span id="srvRoleBadge" class="compat-pill compat-ok">Роль: Владелец</span>
 <button class="btn-action" onclick="srvRefresh()">
 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
 Обновить
 </button>
 </div>
 </div>
-<div id="srvDiscoveryWarn" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:12px;"></div>
+<div id="srvDiscoveryWarn" class="v-alert-warn" style="display:none;margin-bottom:12px;"></div>
 <div class="trn-subtabs" style="margin-bottom:16px;">
 <button class="trn-subbtn active" onclick="srvSubTab('overview', this)">Обзор и Создание</button>
 <button class="trn-subbtn" onclick="srvSubTab('shared-chat', this)">Общий ИИ-чат</button>
@@ -1297,23 +1297,23 @@ macOS
 <div id="srv-panel-overview" class="trn-panel active">
 <div class="trn-grid" id="srvOverviewCards" style="margin-bottom:14px;"></div>
 <div id="srvCreateOwnerBox" class="trn-row">
-<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Быстрое создание или обновление сервера SHARD</div>
-<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
-<input id="srvCreateName" class="trn-input" placeholder="Имя сервера (e.g. Team-Coder-Server)">
-<select id="srvCreateMode" class="trn-input">
+<div class="v-section-title">Быстрое создание или обновление сервера SHARD</div>
+<div class="v-grid-4" style="margin-bottom:10px;">
+<div><label class="v-field-label" for="srvCreateName">Имя сервера</label><input id="srvCreateName" class="trn-input" placeholder="Team-Coder-Server"></div>
+<div><label class="v-field-label" for="srvCreateMode">Режим сети</label><select id="srvCreateMode" class="trn-input">
 <option value="lan_and_global">LAN + Global (инвайты и P2P/Relay)</option>
 <option value="lan">Только локальная сеть (LAN / VPN)</option>
 <option value="global">Только Global Network</option>
-</select>
-<select id="srvCreateVisibility" class="trn-input">
+</select></div>
+<div><label class="v-field-label" for="srvCreateVisibility">Видимость</label><select id="srvCreateVisibility" class="trn-input">
 <option value="private">Приватный (по коду / инвайту)</option>
 <option value="public">Публичный (в каталоге Discovery)</option>
 <option value="local">Локальный</option>
-</select>
-<input id="srvCreateRegion" class="trn-input" placeholder="Регион (kz, ru, eu, us)">
+</select></div>
+<div><label class="v-field-label" for="srvCreateRegion">Регион</label><input id="srvCreateRegion" class="trn-input" placeholder="kz, ru, eu, us"></div>
 </div>
 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#cbd5e1;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);cursor:pointer;">
 <input type="checkbox" id="srvCreateOpen"> Открытый вход в LAN без ввода кода (open mode)
 </label>
 <button class="btn-action active" onclick="srvCreateUnified()">Запустить / Обновить сервер</button>
