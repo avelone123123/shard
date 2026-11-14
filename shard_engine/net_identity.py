@@ -768,3 +768,113 @@ def validate_external_service_url(url: str, kind: str = "discovery", allow_insec
         return False, "blocked_hostname", {}
     if host in ("metadata", "instance-data") or host.startswith("metadata.") or any(host.endswith(suf) for suf in (".local", ".internal", ".arpa")):
         return False, "blocked_hostname", {}
+    resolved_objs = []
+    literal_ip = None
+    try:
+        literal_ip = ipaddress.ip_address(host)
+    except ValueError:
+        literal_ip = None
+    if literal_ip is not None:
+        resolved_objs.append(literal_ip)
+    else:
+        if _NONCANONICAL_IP_RE.match(host):
+            return False, "noncanonical_ip_blocked", {}
+        try:
+            infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        except OSError:
+            return False, "dns_resolution_failed", {}
+        seen_ips = set()
+        for info in infos:
+            sockaddr = info[4]
+            if not sockaddr:
+                continue
+            ip_str = str(sockaddr[0]).split("%", 1)[0]
+            try:
+                ip_obj = ipaddress.ip_address(ip_str)
+            except ValueError:
+                return False, "invalid_resolved_ip", {}
+            norm_ip = str(ip_obj)
+            if norm_ip not in seen_ips:
+                seen_ips.add(norm_ip)
+                resolved_objs.append(ip_obj)
+        if not resolved_objs:
+            return False, "dns_resolution_empty", {}
+    for ip_obj in resolved_objs:
+        reason = _classify_ip_block(ip_obj, allow_loopback=allow_local)
+        if reason:
+            return False, reason, {}
+        if is_insecure_scheme and not _is_loopback_ip(ip_obj):
+            return False, "insecure_scheme_non_local", {}
+    return True, "ok", {
+        "url": url,
+        "kind": kind,
+        "scheme": scheme,
+        "host": host,
+        "port": port,
+        "path": parsed.path or "/",
+        "resolved_ips": [str(ip_obj) for ip_obj in resolved_objs],
+        "insecure_local": is_insecure_scheme or any(_is_loopback_ip(x) for x in resolved_objs),
+    }
+def _has_secret_or_path(val: str) -> bool:
+    low = val.lower()
+    if any(tok in low for tok in _SECRET_SUBSTRINGS):
+        return True
+    if _PATH_HINT_RE.search(val):
+        return True
+    if "\\" in val:
+        return True
+    if val.count("/") > 1:
+        return True
+    return False
+def _clean_text(val, max_len: int) -> str | None:
+    if not isinstance(val, str):
+        return None
+    cleaned = "".join(ch for ch in val if ord(ch) >= 32 and ord(ch) != 127).strip()
+    if not cleaned or _has_secret_or_path(cleaned):
+        return None
+    return cleaned[:max_len]
+def _sanitize_model_id(val) -> str | None:
+    if not isinstance(val, str):
+        return None
+    s = val.strip()
+    if not s or len(s) > 192 or _has_secret_or_path(s):
+        return None
+    if s.lower().endswith((".gguf", ".safetensors", ".bin", ".pt", ".pth", ".ckpt")) and ("/" in s or "\\" in s):
+        return None
+    if not _SAFE_MODEL_RE.match(s):
+        return None
+    return s
+def _is_public_ip_str(val) -> str | None:
+    if not isinstance(val, str):
+        return None
+    s = val.strip().strip("[]")
+    if not s or "%" in s:
+        return None
+    try:
+        ip_obj = ipaddress.ip_address(s)
+    except ValueError:
+        return None
+    if _classify_ip_block(ip_obj, allow_loopback=False) is not None:
+        return None
+    return str(ip_obj)
+def _sanitize_relay_url(val) -> str | None:
+    if not isinstance(val, str):
+        return None
+    s = val.strip()
+    if not s or len(s) > 512 or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in s):
+        return None
+    if "\\" in s or "\x23" in s or any(tok in s.lower() for tok in _SECRET_SUBSTRINGS):
+        return None
+    try:
+        parsed = urlsplit(s)
+    except Exception:
+        return None
+    if (parsed.scheme or "").lower() != "wss":
+        return None
+    if parsed.username is not None or parsed.password is not None or "@" in parsed.netloc or parsed.query or parsed.fragment:
+        return None
+    if ".." in (parsed.path or ""):
+        return None
+    try:
+        port = parsed.port
+    except ValueError:
