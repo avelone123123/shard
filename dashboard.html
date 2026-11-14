@@ -3422,6 +3422,13 @@ function renderTrnOverview(ov, soup) {
     const c = (ov.feedback_stats && ov.feedback_stats.counts) || {};
     const elg = (ov.feedback_stats && ov.feedback_stats.eligible_approved) || {};
     const reg = ov.registry || {};
+    const stKey = s.lifecycle_state || (s.available ? 'INSTALLED' : 'NOT_INSTALLED');
+    const stMeta = _SOUP_STATE_LABELS[stKey] || [stKey, '#94a3b8'];
+    const updInfo = (_shardUpdateInfo && _shardUpdateInfo.check) || {};
+    const shardUpdTxt = updInfo.state === 'UPDATE_AVAILABLE' ? ('Обновление -> v' + lanEsc(updInfo.latest_version)) : (updInfo.state === 'UP_TO_DATE' ? 'Актуальная версия' : 'Статус: ' + lanEsc(updInfo.state || 'кэш'));
+    const curVer = s.soup_version ? ('v' + lanEsc(s.soup_version)) : 'Не установлен';
+    const latVer = s.latest_version ? (' (актуал.: v' + lanEsc(s.latest_version) + ')') : '';
+    const pyStr = s.python_version || s.host_python_version || '-';
     document.getElementById('trnOverviewCards').innerHTML =
         '<div class="trn-stat"><div class="trn-stat-label">SOUP Движок</div><div class="trn-stat-val" style="color:' + (soup.available ? '#10b981' : '#f59e0b') + ';">' + (soup.available ? ('v' + lanEsc(soup.soup_version || 'ok')) : 'Не установлен') + '</div><div class="trn-stat-sub">Python ' + lanEsc(soup.python_version) + ' | CUDA: ' + (soup.cuda_available ? 'да' : 'нет') + '</div></div>' +
         '<div class="trn-stat"><div class="trn-stat-label">Очередь отзывов</div><div class="trn-stat-val">' + (c.approved || 0) + ' одобр. / ' + (c.pending || 0) + ' ожид.</div><div class="trn-stat-sub">Готово для SFT: ' + (elg.sft || 0) + ' | DPO: ' + (elg.dpo || 0) + '</div></div>' +
