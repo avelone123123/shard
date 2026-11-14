@@ -233,7 +233,7 @@ def _candidate_python_paths():
         cands.append(str(saved["soup_python"]).strip())
     sub = ("Scripts", "python.exe") if os.name == "nt" else ("bin", "python")
     for base in (
-        Path(paths.data_dir()) / "soup-venv",
+        Path(paths.soup_venv_dir()),
         Path.home() / ".soup-venv",
         Path.home() / ".soup" / "venv",
     ):
