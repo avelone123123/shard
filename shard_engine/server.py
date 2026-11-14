@@ -320,6 +320,12 @@ def api_client_bootstrap(req: Request):
     is_owner = _is_owner_request(req)
     st = LAN.status(include_secrets=False)
     is_loaded = engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
+    upd = None
+    if is_owner:
+        try:
+            upd = updater.check_for_updates(force=False, allow_network=False)
+        except Exception:
+            upd = None
     return {
         "is_owner": is_owner,
         "client_mode": not is_owner,
