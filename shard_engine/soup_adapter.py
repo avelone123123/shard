@@ -270,6 +270,23 @@ def _probe_python_version_fast(py_exe, timeout=4):
     except Exception:
         return None
     return None
+def _find_uv_binary():
+    w = shutil.which("uv")
+    if w:
+        return w
+    sub = ("bin", "uv.exe") if os.name == "nt" else ("bin", "uv")
+    t_uv = Path(paths.tools_dir()) / "uv" / sub[0] / sub[1]
+    if t_uv.is_file():
+        return str(t_uv)
+    if os.name == "nt":
+        for cand in (
+            Path.home() / ".local" / "bin" / "uv.exe",
+            Path.home() / ".cargo" / "bin" / "uv.exe",
+            Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft" / "WinGet" / "Links" / "uv.exe",
+        ):
+            if cand.is_file():
+                return str(cand)
+    return None
 def find_compatible_python(custom_python=None):
     raw_cands = []
     if custom_python:
