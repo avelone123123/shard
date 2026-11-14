@@ -142,3 +142,27 @@ def detect_installation_method(probe_git=True):
                     method = "wheel"
         except Exception:
             pass
+        if method == "pypi":
+            if (parent_dir / ".git").is_dir() and (parent_dir / "pyproject.toml").is_file():
+                method = "git_clone"
+                editable = True
+            elif (parent_dir / "pyproject.toml").is_file():
+                method = "editable_source"
+                editable = True
+    git_bin = shutil.which("git")
+    git_dirty = False
+    git_branch = None
+    git_commit = None
+    repo_root = str(parent_dir) if method in ("git_clone", "editable_source") else None
+    if probe_git and method == "git_clone" and git_bin and repo_root:
+        try:
+            st = subprocess.run([git_bin, "status", "--porcelain", "--untracked-files=no"], cwd=repo_root, capture_output=True, text=True, timeout=5, creationflags=_WIN_NO_WINDOW)
+            git_dirty = bool((st.stdout or "").strip())
+            br = subprocess.run([git_bin, "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_root, capture_output=True, text=True, timeout=5, creationflags=_WIN_NO_WINDOW)
+            if br.returncode == 0:
+                git_branch = br.stdout.strip()
+            cm = subprocess.run([git_bin, "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True, timeout=5, creationflags=_WIN_NO_WINDOW)
+            if cm.returncode == 0:
+                git_commit = cm.stdout.strip()
+        except Exception:
+            pass
