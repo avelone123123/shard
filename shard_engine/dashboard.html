@@ -3646,15 +3646,15 @@ async function trnRefresh(probeSoup) {
 }
 const _SOUP_STATE_LABELS = {
     NOT_INSTALLED: ['Не установлен', 'var(--warning)'],
-    CHECKING_ENVIRONMENT: ['Проверка среды...', '#38bdf8'],
-    FINDING_PYTHON: ['Поиск Python 3.11–3.13...', '#38bdf8'],
-    CREATING_VENV: ['Создание venv...', '#38bdf8'],
-    INSTALLING: ['Установка SOUP...', '#38bdf8'],
-    VERIFYING: ['Проверка CLI и импортов...', '#38bdf8'],
-    INSTALLED: ['Готов к работе', '#10b981'],
-    UPDATE_AVAILABLE: ['Доступно обновление', '#fbbf24'],
-    UPDATING: ['Обновление SOUP...', '#38bdf8'],
-    FAILED: ['Ошибка установки', '#f87171']
+    CHECKING_ENVIRONMENT: ['Проверка среды...', 'var(--accent)'],
+    FINDING_PYTHON: ['Поиск Python 3.11–3.13...', 'var(--accent)'],
+    CREATING_VENV: ['Создание venv...', 'var(--accent)'],
+    INSTALLING: ['Установка SOUP...', 'var(--accent)'],
+    VERIFYING: ['Проверка CLI и импортов...', 'var(--accent)'],
+    INSTALLED: ['Готов к работе', 'var(--success)'],
+    UPDATE_AVAILABLE: ['Доступно обновление', 'var(--warning)'],
+    UPDATING: ['Обновление SOUP...', 'var(--accent)'],
+    FAILED: ['Ошибка установки', 'var(--danger)']
 };
 function renderTrnOverview(ov, soup) {
     const s = soup || {};
@@ -3662,20 +3662,20 @@ function renderTrnOverview(ov, soup) {
     const elg = (ov.feedback_stats && ov.feedback_stats.eligible_approved) || {};
     const reg = ov.registry || {};
     const stKey = s.lifecycle_state || (s.available ? 'INSTALLED' : 'NOT_INSTALLED');
-    const stMeta = _SOUP_STATE_LABELS[stKey] || [stKey, '#94a3b8'];
+    const stMeta = _SOUP_STATE_LABELS[stKey] || [stKey, 'var(--text-muted)'];
     const updInfo = (_shardUpdateInfo && _shardUpdateInfo.check) || {};
     const shardUpdTxt = updInfo.state === 'UPDATE_AVAILABLE' ? ('Обновление -> v' + lanEsc(updInfo.latest_version)) : (updInfo.state === 'UP_TO_DATE' ? 'Актуальная версия' : 'Статус: ' + lanEsc(updInfo.state || 'кэш'));
     const curVer = s.soup_version ? ('v' + lanEsc(s.soup_version)) : 'Не установлен';
     const latVer = s.latest_version ? (' (актуал.: v' + lanEsc(s.latest_version) + ')') : '';
     const pyStr = s.python_version || s.host_python_version || '-';
     document.getElementById('trnOverviewCards').innerHTML =
-        '<div class="trn-stat"><div class="trn-stat-label">SHARD Рантайм</div><div class="trn-stat-val" style="color:' + (updInfo.state === 'UPDATE_AVAILABLE' ? '#fbbf24' : '#10b981') + ';">v' + lanEsc((updInfo.current_version) || (shardBoot && shardBoot.version) || '1.8.0') + '</div><div class="trn-stat-sub">' + shardUpdTxt + ' &bull; <a href="#" onclick="openUpdateModal();return false;" style="color:#38bdf8;">Обновления</a></div></div>' +
+        '<div class="trn-stat"><div class="trn-stat-label">SHARD Рантайм</div><div class="trn-stat-val" style="color:' + (updInfo.state === 'UPDATE_AVAILABLE' ? 'var(--warning)' : 'var(--success)') + ';">v' + lanEsc((updInfo.current_version) || (shardBoot && shardBoot.version) || '1.8.0') + '</div><div class="trn-stat-sub">' + shardUpdTxt + ' &bull; <a href="#" onclick="openUpdateModal();return false;" style="color:var(--accent-text);">Обновления</a></div></div>' +
         '<div class="trn-stat"><div class="trn-stat-label">SOUP Движок</div><div class="trn-stat-val" style="color:' + stMeta[1] + ';">' + curVer + '</div><div class="trn-stat-sub">' + lanEsc(stMeta[0]) + latVer + ' &bull; Python ' + lanEsc(pyStr) + ' &bull; CUDA: ' + (s.cuda_available ? 'да' : 'нет') + '</div></div>' +
         '<div class="trn-stat"><div class="trn-stat-label">Очередь отзывов</div><div class="trn-stat-val">' + (c.approved || 0) + ' одобр. / ' + (c.pending || 0) + ' ожид.</div><div class="trn-stat-sub">SFT: ' + (elg.sft || 0) + ' | DPO: ' + (elg.dpo || 0) + ' | Датасетов: ' + ((ov.datasets || []).length) + ' | Заданий: ' + ((ov.jobs || []).length) + '</div></div>' +
         '<div class="trn-stat"><div class="trn-stat-label">Активная версия</div><div class="trn-stat-val" style="font-size:15px;">' + lanEsc(reg.active_version_id || 'Базовая модель') + '</div><div class="trn-stat-sub">Откат: ' + lanEsc(reg.previous_version_id || reg.previous_engine_model_id || 'нет') + '</div></div>';
-    const warnsHtml = (s.warnings || []).map(w => '<div style="color:#fbbf24;margin-top:4px;">' + lanEsc(w) + '</div>').join('');
-    const errHtml = s.error_explanation ? ('<div style="color:#f87171;margin-top:6px;padding:8px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:6px;">' + lanEsc(s.error_explanation) + '</div>') : '';
-    const updBtn = s.update_available ? ('<button class="btn-action active" style="padding:4px 11px;font-size:11px;background:#d97706;border-color:#f59e0b;color:#fff;" onclick="trnInstallSoup(\'update\', true)">Обновить SOUP (v' + lanEsc(s.soup_version) + ' -> v' + lanEsc(s.latest_version) + ')</button>') : '';
+    const warnsHtml = (s.warnings || []).map(w => '<div style="color:var(--warning);margin-top:4px;">' + lanEsc(w) + '</div>').join('');
+    const errHtml = s.error_explanation ? ('<div style="color:var(--danger);margin-top:6px;padding:8px;background:var(--danger-bg);border:1px solid var(--danger-border);border-radius:var(--radius-sm);">' + lanEsc(s.error_explanation) + '</div>') : '';
+    const updBtn = s.update_available ? ('<button class="v-btn-warn" onclick="trnInstallSoup(\'update\', true)">Обновить SOUP (v' + lanEsc(s.soup_version) + ' -> v' + lanEsc(s.latest_version) + ')</button>') : '';
     const installBtn = (!s.available || stKey === 'FAILED') ? '<button class="btn-action active" style="padding:4px 11px;font-size:11px;" onclick="trnInstallSoup(\'install\', true)">Установить SOUP (Python 3.12 venv)</button>' : '';
     const trainDepsBtn = (s.available && !(s.capabilities && s.capabilities.train)) ? '<button class="btn-action active" style="padding:4px 11px;font-size:11px;" onclick="trnInstallSoup(\'install\', true)">Доустановить [train] пакеты</button>' : '';
     const actionBtns = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">' +
@@ -3686,14 +3686,14 @@ function renderTrnOverview(ov, soup) {
     const inst = s.installer || {};
     const techLogs = [].concat(inst.logs || [], s.warnings || []).join('\n') || ('Command: ' + (s.command || []).join(' '));
     const techDetails = '<details class="tech-details"><summary>Технические детали среды SOUP (venv, Python, зависимости)</summary>' +
-        '<div style="margin-top:6px;font-family:monospace;line-height:1.5;">' +
-        '<div>Venv: ' + lanEsc(s.venv_path || '-') + ' | Runtime Python: ' + lanEsc(s.runtime_python || '-') + '</div>' +
-        '<div>Host Python: ' + lanEsc(s.host_python_version || '-') + ' | Installed SOUP: ' + lanEsc(s.soup_version || '-') + ' | Remote latest: ' + lanEsc(s.latest_version || '-') + '</div>' +
+        '<div style="margin-top:6px;font-family:var(--font-mono);line-height:1.5;">' +
+        '<div>Venv: ' + lanEsc(s.venv_dir || s.venv_path || '-') + ' | Runtime Python: ' + lanEsc(s.python_executable || s.runtime_python || '-') + '</div>' +
+        '<div>Host Python: ' + lanEsc(s.host_python_version || s.python_version || '-') + ' | Installed SOUP: ' + lanEsc(s.soup_version || '-') + ' | Remote latest: ' + lanEsc(s.latest_version || '-') + '</div>' +
         '<div>Train deps OK: ' + (s.capabilities && s.capabilities.train ? 'YES' : ('NO (missing: ' + lanEsc((s.missing_train_deps || []).join(', ')) + ')')) + '</div>' +
         '<pre style="margin-top:6px;white-space:pre-wrap;max-height:140px;overflow-y:auto;">' + lanEsc(techLogs) + '</pre></div></details>';
     document.getElementById('trnSoupBanner').innerHTML =
         '<div><b>Цикл:</b> CREATE -> SHARE -> CONNECT -> USE -> FEEDBACK -> TRAIN -> IMPROVE -> DEPLOY</div>' +
-        '<div style="color:#94a3b8;margin-top:4px;"><b>Архитектура:</b> ' + lanEsc((ov.architecture_notes && ov.architecture_notes.distributed_training) || '') + '</div>' +
+        '<div style="color:var(--text-secondary);margin-top:4px;"><b>Архитектура:</b> ' + lanEsc((ov.architecture_notes && ov.architecture_notes.distributed_training) || '') + '</div>' +
         errHtml + warnsHtml + actionBtns +
         '<div id="trnSoupInstallBox" style="margin-top:8px;"></div>' + techDetails;
     if (inst && (inst.running || inst.lifecycle_state === 'FAILED' || inst.status === 'failed')) {
