@@ -1208,3 +1208,113 @@ class NetworkManager:
         if not ok:
             if reason == "invite_exhausted" and ex_invite_id:
                 m = _INVITE_ID_RE.match(proof_s.strip())
+                if m and m.group(1) == ex_invite_id:
+                    with self._lock:
+                        cur = self._peers_state.get("authorized_peers", {}).get(peer_node_id)
+                        if isinstance(cur, dict):
+                            cur["last_seen"] = now
+                            self._save_peers()
+                    return True
+            return False
+        with self._lock:
+            auth_map = self._peers_state.setdefault("authorized_peers", {})
+            pend_map = self._peers_state.setdefault("pending_peers", {})
+            prev = auth_map.get(peer_node_id) if isinstance(auth_map.get(peer_node_id), dict) else {}
+            auth_map[peer_node_id] = {
+                "node_id": peer_node_id,
+                "pubkey_b64": peer_pubkey_b64,
+                "approved_at": now,
+                "invite_id": inv_rec.get("invite_id") if isinstance(inv_rec, dict) else None,
+                "grant_mode": "invite_only",
+                "approved_manually": bool(prev.get("approved_manually")),
+                "label": inv_rec.get("label") if isinstance(inv_rec, dict) else "",
+                "last_seen": now,
+                "requests": int(prev.get("requests") or 0),
+                "max_requests_per_min": prev.get("max_requests_per_min"),
+                "bandwidth_kbps": prev.get("bandwidth_kbps"),
+            }
+            pend_map.pop(peer_node_id, None)
+            self._save_peers()
+        return True
+    def _on_host_http_request(self, info):
+        peer_id = str((info or {}).get("peer_node_id") or "").strip()
+        if not peer_id:
+            return
+        now_m = time.monotonic()
+        with self._lock:
+            if peer_id in (self._peers_state.get("revoked_peers") or {}):
+                raise PermissionError("Peer revoked")
+            auth_rec = (self._peers_state.get("authorized_peers") or {}).get(peer_id)
+            if isinstance(auth_rec, dict):
+                auth_rec["last_seen"] = time.time()
+                auth_rec["requests"] = int(auth_rec.get("requests") or 0) + 1
+            rpm_limit = None
+            bw_kbps = None
+            if isinstance(auth_rec, dict):
+                rpm_limit = auth_rec.get("max_requests_per_min")
+                bw_kbps = auth_rec.get("bandwidth_kbps")
+            if rpm_limit is None:
+                rpm_limit = int(self._config.get("per_peer_rpm") or 0) or None
+            if bw_kbps is None:
+                bw_kbps = int(self._config.get("bandwidth_kbps") or 0) or None
+            if rpm_limit is not None and int(rpm_limit) > 0:
+                win = self._peer_req_windows.setdefault(peer_id, [])
+                cutoff = now_m - 60.0
+                win[:] = [t for t in win if t >= cutoff]
+                if len(win) >= int(rpm_limit):
+                    raise PermissionError("Peer request quota exceeded")
+                win.append(now_m)
+            if bw_kbps is not None and int(bw_kbps) > 0 and self._host_agent is not None:
+                total_bytes = 0
+                for ch in list(self._host_agent._active_channels):
+                    if ch.peer_node_id == peer_id:
+                        total_bytes += int(ch.bytes_tx + ch.bytes_rx)
+                prev_t, prev_b = self._peer_bw_windows.get(peer_id, (now_m, total_bytes))
+                dt = now_m - prev_t
+                if dt >= 1.0:
+                    rate_kbps = ((max(0, total_bytes - prev_b)) * 8.0 / 1000.0) / dt
+                    self._peer_bw_windows[peer_id] = (now_m, total_bytes)
+                    if rate_kbps > float(bw_kbps):
+                        raise PermissionError("Peer bandwidth quota exceeded")
+                elif peer_id not in self._peer_bw_windows:
+                    self._peer_bw_windows[peer_id] = (now_m, total_bytes)
+    def _close_peer_channels_sync(self, peer_node_id, reason="kicked"):
+        ha = self._host_agent
+        if ha is None:
+            return 0
+        async def _close():
+            closed = 0
+            for ch in list(ha._active_channels):
+                if ch.peer_node_id == peer_node_id:
+                    closed += 1
+                    ha._active_channels.discard(ch)
+                    try:
+                        await ch.send_close(reason)
+                    except Exception:
+                        pass
+                    try:
+                        await ch.close()
+                    except Exception:
+                        pass
+            return closed
+        try:
+            return int(self._runner.run_coro(_close(), timeout=5.0) or 0)
+        except Exception:
+            return 0
+    def list_connected_peers(self):
+        out = []
+        ha = self._host_agent
+        if ha is None:
+            return out
+        with self._lock:
+            auth_map = copy.deepcopy(self._peers_state.get("authorized_peers") or {})
+        for ch in list(ha._active_channels):
+            if not ch.is_established:
+                continue
+            pid = ch.peer_node_id
+            meta = auth_map.get(pid) if pid else None
+            out.append({
+                "node_id": pid,
+                "pubkey_b64": ch.peer_pubkey_b64,
+                "peer_info": ch.transport.peer_info(),
+                "bytes_tx": int(ch.bytes_tx),
