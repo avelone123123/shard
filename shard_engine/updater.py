@@ -238,3 +238,27 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                             pass
                 if not asset_url:
                     asset_url = data.get("zipball_url") or f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{tag}.zip"
+                return {
+                    "ok": True,
+                    "source": "github_release",
+                    "latest_version": ver,
+                    "tag_name": tag,
+                    "release_url": data.get("html_url") or f"https://github.com/{GITHUB_REPO}/releases/tag/{tag}",
+                    "release_notes": (data.get("body") or "").strip(),
+                    "published_at": data.get("published_at"),
+                    "asset_url": asset_url,
+                    "asset_name": whl_asset.get("name") if whl_asset else f"shard-{ver}.zip",
+                    "asset_size": asset_size,
+                    "asset_sha256": asset_sha256,
+                    "prerelease": bool(data.get("prerelease")),
+                }
+        elif r.status_code in (403, 429):
+            rate_limited = True
+            last_err = f"GitHub API rate limit (HTTP {r.status_code})"
+        elif r.status_code != 404:
+            last_err = f"GitHub Releases HTTP {r.status_code}"
+    except Exception as e:
+        last_err = str(e)
+    if not rate_limited:
+        try:
+            rt = _http_get(GITHUB_API_TAGS, timeout=timeout, headers=headers)
