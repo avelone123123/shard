@@ -1538,3 +1538,113 @@ async function netLoadServers() {
         const u = new URL('/api/net/servers', window.location.origin);
         if (q) u.searchParams.set('q', q);
         if (reg) u.searchParams.set('region', reg);
+        if (acc) u.searchParams.set('access', acc);
+        const res = await fetch(u.toString(), {headers: getAuthHeaders()});
+        const data = await res.json();
+        const srvs = data.servers || [];
+        if (srvs.length === 0) {
+            grid.innerHTML = '<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;background:#0d1117;border:1px solid #21262d;border-radius:8px;">Серверы не найдены. Опубликуйте свой сервер или подключитесь по инвайту.</div>';
+            return;
+        }
+        grid.innerHTML = srvs.map(s => {
+            const m = s.listing || s.metadata || s;
+            const name = escHtml(m.name || 'SHARD Node');
+            const model = escHtml(m.active_model || m.model_id || 'Без активной модели');
+            const nid = escHtml(s.node_id || m.node_id || '');
+            const region = escHtml(m.region || 'global');
+            const access = escHtml(m.access_policy || m.access_mode || 'open');
+            const direct = (m.direct_endpoints && m.direct_endpoints.length) ? '<span style="color:#238636;">Direct P2P</span>' : '<span style="color:#d29922;">Relay</span>';
+            const loadVal = Math.round((m.load || 0) * 100);
+            return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;">' +
+                '<div>' +
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">' +
+                '<div style="font-size:13px;font-weight:600;color:#fff;">' + name + '</div>' +
+                '<span style="font-size:10px;padding:2px 6px;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#8b949e;">' + region + '</span>' +
+                '</div>' +
+                '<div style="font-size:12px;color:#58a6ff;font-weight:500;margin-bottom:6px;">' + model + '</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;">' + nid + '</div>' +
+                '<div style="font-size:11px;color:#8b949e;display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
+                '<span>Маршрут: ' + direct + '</span>' +
+                '<span>Доступ: ' + access + '</span>' +
+                '<span>Нагрузка: ' + loadVal + '%</span>' +
+                '</div>' +
+                '</div>' +
+                '<button class="btn-action active" style="width:100%;justify-content:center;" data-nid="' + nid + '" onclick="netConnectTargetServer(this.dataset.nid)">Подключиться</button>' +
+                '</div>';
+        }).join('');
+    } catch(e) {
+        grid.innerHTML = '<div style="grid-column:1/-1;padding:16px;color:#f85149;font-size:13px;">Ошибка связи с Discovery-сервером.</div>';
+    }
+}
+async function netConnectTargetServer(nodeId) {
+    showToast('Подключение...', 'Инициализация туннеля к ' + nodeId.substring(0, 16) + '...');
+    try {
+        const res = await fetch('/api/net/connect', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({target: nodeId, mode: 'auto'})
+        });
+        const data = await res.json();
+        if (data.state === 'connected' || data.state === 'relay_connected') {
+            showToast('Успешно', 'Соединение установлено через ' + (data.mode || 'auto') + ' (' + (data.rtt_ms || 0) + ' ms)');
+            netRefresh(true);
+        } else {
+            showToast('Не удалось', data.error || ('Статус: ' + data.state));
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netConnectDirect() {
+    const target = (document.getElementById('netConnectTarget') || {}).value.trim();
+    const mode = (document.getElementById('netConnectMode') || {}).value || 'auto';
+    if (!target) { showToast('Введите адрес', 'Нужен shard:// URI или Node ID'); return; }
+    showToast('Подключение...', target.substring(0, 24));
+    try {
+        const res = await fetch('/api/net/connect', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({target: target, mode: mode})
+        });
+        const data = await res.json();
+        if (data.state === 'connected' || data.state === 'relay_connected') {
+            showToast('Подключено', 'Маршрут: ' + (data.mode || mode) + ' RTT: ' + (data.rtt_ms || 0) + ' ms');
+            netRefresh(true);
+        } else {
+            showToast('Ошибка', data.error || ('Состояние: ' + data.state));
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netDisconnect() {
+    try {
+        const res = await fetch('/api/net/disconnect', {method: 'POST', headers: getAuthHeaders()});
+        showToast('Отключено', 'Сетевой туннель закрыт');
+        netRefresh(true);
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netCreateInvite() {
+    const ttl = parseInt((document.getElementById('netInviteTtl') || {}).value || '86400', 10);
+    const maxUses = parseInt((document.getElementById('netInviteMaxUses') || {}).value || '1', 10);
+    const label = (document.getElementById('netInviteLabel') || {}).value.trim();
+    try {
+        const res = await fetch('/api/net/invites', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({ttl_s: ttl, max_uses: maxUses, label: label})
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            if (data.uri) {
+                copyValue(data.uri, 'URI инвайта');
+            } else {
+                showToast('Инвайт создан', 'Инвайт добавлен в список');
+            }
+            netLoadInvites();
+        } else {
+            showToast('Ошибка', data.message || 'Не удалось создать инвайт');
+        }
+    } catch(e) {
