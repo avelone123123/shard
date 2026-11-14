@@ -218,3 +218,113 @@ def _compute_content_hash(prompt, response, better, chosen, rejected):
     canonical = json.dumps(
         [prompt or "", response or "", better or "", chosen or "", rejected or ""],
         ensure_ascii=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+def _prune_expired_unlocked(entries, cfg):
+    days = int(cfg.get("retention_days") or 90)
+    cutoff = time.time() - (days * 86400.0)
+    kept = []
+    removed = 0
+    for e in entries:
+        st = e.get("status")
+        ts = float(e.get("updated_at") or e.get("created_at") or 0)
+        if st in ("deleted", "rejected", "pending") and ts > 0 and ts < cutoff:
+            removed += 1
+            continue
+        kept.append(e)
+    return kept, removed
+def prune_expired_feedback():
+    with _LOCK:
+        with storage.file_lock(_feedback_path()):
+            cfg = get_privacy_config()
+            entries = _load_entries_unlocked()
+            kept, removed = _prune_expired_unlocked(entries, cfg)
+            if removed > 0:
+                _save_entries_unlocked(kept)
+                _append_audit("feedback_retention_pruned", {"removed": removed, "retention_days": cfg.get("retention_days")})
+            return {"removed": removed, "remaining": len(kept), "retention_days": cfg.get("retention_days")}
+def submit_feedback(payload, source="local", client_hint=None):
+    if not isinstance(payload, dict):
+        raise ValueError("Feedback payload must be a JSON object.")
+    src = "remote" if str(source).lower() == "remote" else "local"
+    with _LOCK:
+        with storage.file_lock(_feedback_path()):
+            cfg = get_privacy_config()
+            if not cfg.get("allow_feedback", True):
+                raise PermissionError("Feedback collection is disabled by the server owner.")
+            if src == "remote" and not cfg.get("allow_remote_feedback", False):
+                raise PermissionError("Remote client feedback contributions are disabled by server privacy policy.")
+            consent_given = bool(payload.get("consent_given"))
+            if cfg.get("require_explicit_consent", True) and not consent_given:
+                raise PermissionError("Explicit user consent (consent_given=true) is required before storing feedback.")
+            raw_cid = payload.get("contributor_id") or client_hint or ("local-owner" if src == "local" else "remote-client")
+            cid = pseudonymize_contributor(raw_cid)
+            if is_contributor_opted_out(cid):
+                raise PermissionError("Contributor has opted out and revoked training participation.")
+            rating = str(payload.get("rating") or "up").strip().lower()
+            if rating not in VALID_RATINGS:
+                raise ValueError(f"Invalid rating '{rating}'. Allowed: {', '.join(VALID_RATINGS)}.")
+            prompt, r1, f1 = sanitize_and_screen(payload.get("prompt"), cfg, allow_empty=False)
+            response, r2, f2 = sanitize_and_screen(payload.get("response"), cfg, allow_empty=(rating == "ab"))
+            better, r3, f3 = sanitize_and_screen(payload.get("better_response"), cfg, allow_empty=True)
+            chosen, r4, f4 = sanitize_and_screen(payload.get("chosen"), cfg, allow_empty=True)
+            rejected, r5, f5 = sanitize_and_screen(payload.get("rejected"), cfg, allow_empty=True)
+            if rating == "ab":
+                if not chosen or not rejected:
+                    raise ValueError("A/B preference feedback requires non-empty 'chosen' and 'rejected' responses.")
+                if chosen.strip() == rejected.strip():
+                    raise ValueError("A/B preference 'chosen' and 'rejected' must differ.")
+            elif rating == "correction" and not better and not chosen:
+                raise ValueError("Correction feedback requires 'better_response' or 'chosen'.")
+            elif not response and not (chosen and rejected):
+                raise ValueError("Feedback requires a non-empty 'response' or A/B pair.")
+            if rating in ("down", "correction") and better and response and better.strip() != response.strip():
+                if not chosen:
+                    chosen = better
+                if not rejected:
+                    rejected = response
+            all_redactions = sorted(set(r1 + r2 + r3 + r4 + r5))
+            all_flags = sorted(set(f1 + f2 + f3 + f4 + f5))
+            if all_redactions:
+                all_flags = sorted(set(all_flags + ["redacted_sensitive_data"]))
+            status = "pending" if cfg.get("require_manual_review", True) else "approved"
+            now = time.time()
+            entry = {
+                "id": f"fb-{uuid.uuid4().hex[:12]}",
+                "created_at": now,
+                "updated_at": now,
+                "source": src,
+                "contributor_id": cid,
+                "model_id": str(payload.get("model_id") or "").strip(),
+                "model_version": str(payload.get("model_version") or "base").strip(),
+                "rating": rating,
+                "prompt": prompt,
+                "response": response,
+                "better_response": better,
+                "chosen": chosen,
+                "rejected": rejected,
+                "consent_given": consent_given,
+                "consent_scope": "local_owner_dataset",
+                "status": status,
+                "redactions": all_redactions,
+                "quality_flags": all_flags,
+                "content_hash": _compute_content_hash(prompt, response, better, chosen, rejected),
+            }
+            storage.append_jsonl_locked(_feedback_path(), entry, fsync=True)
+            _append_audit("feedback_submitted", {
+                "id": entry["id"],
+                "source": src,
+                "rating": rating,
+                "status": status,
+                "redactions": all_redactions,
+            })
+            return entry
+def list_feedback(status=None, limit=200, include_deleted=False):
+    with _LOCK:
+        with storage.file_lock(_feedback_path()):
+            entries = _load_entries_unlocked()
+        out = []
+        for e in reversed(entries):
+            st = e.get("status")
+            if st == "deleted" and not include_deleted:
+                continue
