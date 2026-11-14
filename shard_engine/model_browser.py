@@ -646,3 +646,27 @@ def inspect_model_target(path_or_id, remember=False):
     if remember:
         settings.add_recent_model_path(raw)
     return {
+        "path": raw,
+        "name": raw,
+        "is_dir": False,
+        "format": "hf_repo_gguf" if is_gguf_repo else "hf_repo_id",
+        "format_label": "HF Репозиторий (GGUF)" if is_gguf_repo else "HF Репозиторий (Base)",
+        "valid": True,
+        "size_str": "Hugging Face Hub",
+        "compatibility": compat,
+    }
+def resolve_and_validate_training_base(base_model):
+    raw = str(base_model or "").strip()
+    if not raw or "\x00" in raw:
+        raise ValueError("base_model must be specified or loaded in SHARD.")
+    if raw.startswith("\\\\") or raw.startswith("//"):
+        raise ValueError("Network UNC paths are not permitted as base_model.")
+    if os.path.exists(os.path.expanduser(raw)) or raw.lower().endswith((".gguf", ".safetensors")):
+        if not os.path.exists(os.path.expanduser(raw)):
+            if raw.lower().endswith(".gguf"):
+                hf_map = map_gguf_to_hf_base(raw)
+                hint = f" Suggested base model: {hf_map['suggested_hf_base_repo']}" if hf_map.get("suggested_hf_base_repo") else ""
+                raise ValueError(f"Training requires a Hugging Face model ID or HF directory as base_model, not a quantized .gguf file.{hint}")
+            raise FileNotFoundError(f"Local model path not found: {raw}")
+        info = classify_model_path(raw, deep_size=False)
+        soup_comp = info.get("compatibility", {}).get("soup_training", {})
