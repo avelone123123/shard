@@ -848,6 +848,34 @@ def validate_dataset_snapshot(snapshot_id, task=None, check_with_soup=False):
     task_norm = str(task or m.get("task") or "sft").strip().lower()
     if task_norm == "dpo" and str(m.get("format") or "").lower() != "dpo":
         errors.append("Задача DPO требует датасет в формате dpo (prompt/chosen/rejected).")
+    total_lines = 0
+    valid_records = 0
+    invalid_records = 0
+    sample_errors = []
+    with open(p, "r", encoding="utf-8", errors="replace") as f:
+        for line_no, ln in enumerate(f, start=1):
+            stripped = ln.strip()
+            if not stripped:
+                continue
+            total_lines += 1
+            try:
+                parsed = json.loads(stripped)
+                item = _extract_structured_record(parsed, "dpo" if task_norm == "dpo" else fmt_hint, line_no, total_lines - 1)
+                if item["validation_status"] == "valid":
+                    valid_records += 1
+                else:
+                    invalid_records += 1
+                    if len(sample_errors) < 5:
+                        sample_errors.append(f"Line {line_no}: {item['validation_error']}")
+            except Exception as e:
+                invalid_records += 1
+                if len(sample_errors) < 5:
+                    sample_errors.append(f"Line {line_no}: invalid JSON ({e})")
+    if valid_records == 0:
+        errors.append("В датасете нет ни одной валидной записи для обучения.")
+    elif valid_records < 5:
+        warnings.append(f"В датасете всего {valid_records} записей; для стабильного LoRA-обучения рекомендуется минимум 10–20 примеров.")
+    if invalid_records > 0:
 def compute_stats():
     with _LOCK:
         with storage.file_lock(_feedback_path()):
