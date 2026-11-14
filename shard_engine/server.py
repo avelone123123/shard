@@ -1411,11 +1411,13 @@ async def api_training_soup_install(req: Request):
         data = await req.json()
     except Exception:
         data = {}
+    action = str(data.get("action") or ("repair" if data.get("force_recreate") else "install")).strip().lower()
     try:
         st = soup_adapter.install_or_repair_soup(
-            action=str(data.get("action") or "install"),
+            action=action,
             custom_python=data.get("python_executable"),
             background=bool(data.get("background", True)),
+            include_train=bool(data.get("include_train", True)),
         )
         return {"status": "ok", "installer": st}
     except Exception as e:
