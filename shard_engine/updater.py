@@ -694,3 +694,27 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
     backup_ptr = None
     tmp_dir = None
     try:
+        with storage.file_lock(lock_path, timeout=2.0):
+            if inst["method"] == "packaged":
+                raise RuntimeError("Packaged standalone builds cannot self-update in place. Download the latest release zip from GitHub Releases and extract while SHARD is stopped.")
+            if not inst.get("writable"):
+                raise PermissionError(f"No write permission to {inst['package_dir']}. Run from a virtualenv, elevate permissions, or use 'pip install --user --upgrade {__app_name__}'.")
+            try:
+                from . import training
+                jobs = training.list_training_jobs(limit=10)
+                if any(j.get("status") in ("running", "validating", "queued") for j in jobs):
+                    raise RuntimeError("Cannot update SHARD while a training job is active.")
+            except ImportError:
+                pass
+            usage = shutil.disk_usage(str(paths.data_dir()))
+            if usage.free < MIN_UPDATE_FREE_BYTES:
+                raise RuntimeError(f"Insufficient disk space for safe update ({round(usage.free / (1024 * 1024), 1)} MB free, need at least 150 MB).")
+            if target_version:
+                target_version = validate_git_ref(target_version).lstrip("vV")
+                if not allow_prerelease and is_prerelease_version(target_version):
+                    raise ValueError("Prerelease builds are not installed unless explicitly allowed.")
+            chk = check_for_updates(force=True, timeout=4.0, allow_network=True, allow_prerelease=allow_prerelease)
+            if not target_version and chk.get("state") in ("GITHUB_UNAVAILABLE", "CHECK_FAILED"):
+                raise RuntimeError(chk.get("error") or "GitHub update check failed.")
+            desired_ver = target_version or chk.get("latest_version")
+            if not force and desired_ver and compare_versions(__version__, desired_ver) <= 0:
