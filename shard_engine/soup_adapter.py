@@ -218,3 +218,113 @@ def find_compatible_python(custom_python=None):
             info = _probe_python_version_fast(cand)
             if not info:
                 continue
+            ver = info.get("ver") or []
+            exe_real = info.get("exe") or cand
+        if _py_compatible(ver):
+            compatible.append({
+                "python_executable": exe_real,
+                "python_version": ".".join(str(x) for x in ver[:3]),
+            })
+    best = compatible[0] if compatible else None
+    return {
+        "found": best is not None,
+        "python_executable": best["python_executable"] if best else None,
+        "python_version": best["python_version"] if best else None,
+        "uv_available": bool(uv_bin),
+        "candidates": compatible,
+    }
+def get_soup_install_status():
+    with _INSTALL_LOCK:
+        return json.loads(json.dumps(_INSTALL_STATE, ensure_ascii=False))
+def _append_install_log(line, step=None, pct=None):
+    with _INSTALL_LOCK:
+        if line:
+            _INSTALL_STATE["logs"].append(str(line))
+            if len(_INSTALL_STATE["logs"]) > 200:
+                _INSTALL_STATE["logs"] = _INSTALL_STATE["logs"][-200:]
+        if step is not None:
+            _INSTALL_STATE["step"] = str(step)
+        if pct is not None:
+            _INSTALL_STATE["progress_pct"] = int(pct)
+def _run_install_worker(action, custom_python=None):
+    venv_dir = Path(paths.data_dir()) / "soup-venv"
+    sub = ("Scripts", "python.exe") if os.name == "nt" else ("bin", "python")
+    venv_py = venv_dir.joinpath(*sub)
+    try:
+        if action == "repair" and venv_dir.exists():
+            _append_install_log(f"Removing existing venv at {venv_dir} for clean repair...", step="Очистка окружения", pct=10)
+            shutil.rmtree(venv_dir, ignore_errors=True)
+        _append_install_log("Searching for compatible Python (3.11 - 3.13)...", step="Поиск Python 3.11–3.13", pct=15)
+        compat = find_compatible_python(custom_python=custom_python)
+        uv_bin = shutil.which("uv")
+        if not venv_py.is_file():
+            if compat["found"]:
+                base_py = compat["python_executable"]
+                _append_install_log(f"Found compatible Python {compat['python_version']}: {base_py}", step="Создание soup-venv", pct=25)
+                venv_dir.parent.mkdir(parents=True, exist_ok=True)
+                r_venv = subprocess.run(
+                    [base_py, "-m", "venv", str(venv_dir)],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    creationflags=_WIN_NO_WINDOW,
+                )
+                if r_venv.returncode != 0 or not venv_py.is_file():
+                    raise RuntimeError(f"Failed to create venv: {(r_venv.stderr or r_venv.stdout)[:300]}")
+            elif uv_bin:
+                _append_install_log("Using uv to provision Python 3.12 venv...", step="Создание Python 3.12 venv (uv)", pct=25)
+                venv_dir.parent.mkdir(parents=True, exist_ok=True)
+                r_uv = subprocess.run(
+                    [uv_bin, "venv", "--python", "3.12", str(venv_dir)],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                    creationflags=_WIN_NO_WINDOW,
+                )
+                if r_uv.returncode != 0 or not venv_py.is_file():
+                    raise RuntimeError(f"uv venv failed: {(r_uv.stderr or r_uv.stdout)[:300]}")
+            else:
+                raise RuntimeError(
+                    "Compatible Python (>=3.11,<3.14) not found on this machine. Install Python 3.12 (e.g. 'winget install Python.Python.3.12' on Windows or 'uv python install 3.12') and retry."
+                )
+        with _INSTALL_LOCK:
+            _INSTALL_STATE["venv_dir"] = str(venv_dir)
+            _INSTALL_STATE["python_executable"] = str(venv_py)
+        _append_install_log(f"Upgrading pip in {venv_py}...", step="Обновление pip", pct=45)
+        subprocess.run(
+            [str(venv_py), "-m", "pip", "install", "--upgrade", "pip"],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            creationflags=_WIN_NO_WINDOW,
+        )
+        _append_install_log("Installing soup-cli[train] (this may take several minutes)...", step="Установка soup-cli[train]", pct=65)
+        pip_cmd = [str(venv_py), "-m", "pip", "install", "--upgrade", "soup-cli[train]"]
+        proc = subprocess.Popen(
+            pip_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            creationflags=_WIN_NO_WINDOW,
+        )
+        for line in proc.stdout:
+            s = line.strip()
+            if s:
+                _append_install_log(s)
+        rc = proc.wait(timeout=900)
+        if rc != 0:
+            raise RuntimeError(f"pip install soup-cli[train] exited with code {rc}")
+        cfg = settings._load()
+        cfg["soup_python"] = str(venv_py)
+        settings._save(cfg)
+        _append_install_log("Verifying SOUP CLI and training dependencies...", step="Проверка SOUP", pct=90)
+        det = detect_soup(probe_deps=True)
+        if not det.get("available"):
+            raise RuntimeError("soup-cli installation completed but verification failed.")
+        with _INSTALL_LOCK:
+            _INSTALL_STATE["status"] = "completed"
+            _INSTALL_STATE["step"] = f"Готово (soup v{det.get('soup_version') or 'installed'})"
+            _INSTALL_STATE["progress_pct"] = 100
+            _INSTALL_STATE["finished_at"] = time.time()
+    except Exception as exc:
+        with _INSTALL_LOCK:
