@@ -2968,3 +2968,113 @@ function deleteChat(chatId, e) {
     } else if (activeChatId === chatId) {
         activeChatId = chatSessions[0].id;
     }
+    saveChatSessions();
+    renderChatSessionsList();
+    renderActiveChatMessages();
+}
+async function sendChat() {
+    if (isChatStreaming) return;
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    let currentChat = chatSessions.find(s => s.id === activeChatId);
+    if (!currentChat) {
+        currentChat = {id: 'chat_' + Date.now(), title: 'Новый диалог', createdAt: Date.now(), messages: []};
+        chatSessions.unshift(currentChat);
+        activeChatId = currentChat.id;
+    }
+    if (currentChat.title === 'Новый диалог') {
+        currentChat.title = text.length > 26 ? text.slice(0, 26) + '...' : text;
+        renderChatSessionsList();
+    }
+    currentChat.messages.push({role: 'user', content: text});
+    saveChatSessions();
+    const emptyState = document.getElementById('chatEmptyState');
+    if (emptyState) emptyState.remove();
+    isChatStreaming = true;
+    document.getElementById('chatSendBtn').disabled = true;
+    const chatBody = document.getElementById('chatBody');
+    const userWrap = document.createElement('div');
+    userWrap.className = 'msg-wrapper';
+    userWrap.innerHTML = '<div class="msg-user">' + escapeHtml(text) + '</div>';
+    chatBody.appendChild(userWrap);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    const msgId = 'msg-' + Date.now();
+    const asstWrap = document.createElement('div');
+    asstWrap.className = 'msg-wrapper';
+    asstWrap.innerHTML = '<div class="msg-assistant"><div id="think-panel-' + msgId + '" class="think-panel" style="display:none;"><div class="think-header" onclick="toggleThink(\'' + msgId + '\')"><div class="think-title"><span id="think-pulse-' + msgId + '" class="think-pulse"></span><span id="think-label-' + msgId + '">Размышления...</span></div><svg id="think-arrow-' + msgId + '" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition:transform 0.15s;"><polyline points="6 9 12 15 18 9"/></svg></div><div id="think-body-' + msgId + '" class="think-content"></div></div><div id="content-' + msgId + '" class="msg-content"></div><div id="telemetry-' + msgId + '" class="telemetry-row" style="display:none;"></div></div>';
+    chatBody.appendChild(asstWrap);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    const thinkLabel = document.getElementById('think-label-' + msgId);
+    const thinkBody = document.getElementById('think-body-' + msgId);
+    const thinkPulse = document.getElementById('think-pulse-' + msgId);
+    const contentBox = document.getElementById('content-' + msgId);
+    const telemetryBox = document.getElementById('telemetry-' + msgId);
+    const liveSpeed = document.getElementById('chatLiveSpeed');
+    const tStart = performance.now();
+    let hasThoughtEnded = false;
+    let tokensCount = 0;
+    let fullReasoning = '';
+    let fullContent = '';
+    const thinkTimer = setInterval(() => {
+        if (!hasThoughtEnded) {
+            const elapsed = (performance.now() - tStart) / 1000;
+            thinkLabel.innerText = 'Думает (' + elapsed.toFixed(1) + ' сек)...';
+        }
+    }, 100);
+    try {
+        const historyPayload = currentChat.messages.map(m => ({role: m.role, content: m.content}));
+        const res = await fetch('/v1/chat/completions', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({model: activeModelId, messages: historyPayload, stream: true})
+        });
+        if (!res.ok) {
+            clearInterval(thinkTimer);
+            const errJson = await res.json().catch(() => ({}));
+            const errMsg = (errJson && errJson.error && errJson.error.message) || errJson.message || ('HTTP ' + res.status);
+            contentBox.innerText = (res.status === 401 || res.status === 403)
+                ? ('Доступ к чату требует авторизации: перейдите во вкладку «Сеть» и подключитесь как клиент (' + errMsg + ').')
+                : ('Ошибка запроса: ' + errMsg);
+            return;
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let thoughtSec = 0;
+        let totalSec = 0;
+        let speedVal = 0;
+        let usageData = {prompt_tokens: 0, completion_tokens: 0, total_tokens: 0};
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, {stream: true});
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed === 'data: [DONE]') continue;
+                if (trimmed.startsWith('data: ')) {
+                    try {
+                        const payload = JSON.parse(trimmed.slice(6));
+                        const choice = payload.choices && payload.choices[0];
+                        if (choice && choice.delta) {
+                            if (choice.delta.reasoning_content) {
+                                document.getElementById('think-panel-' + msgId).style.display = 'block';
+                                thinkBody.innerText += choice.delta.reasoning_content;
+                                fullReasoning += choice.delta.reasoning_content;
+                                tokensCount++;
+                            }
+                            if (choice.delta.content !== undefined && choice.delta.content !== null) {
+                                if (!hasThoughtEnded) {
+                                    hasThoughtEnded = true;
+                                    clearInterval(thinkTimer);
+                                    thoughtSec = (performance.now() - tStart) / 1000;
+                                    thinkPulse.style.display = 'none';
+                                    if (thinkBody.innerText.trim().length > 0) {
+                                        thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
+                                    } else {
+                                        const tp = document.getElementById('think-panel-' + msgId);
+                                        if (tp) tp.style.display = 'none';
+                                    }
