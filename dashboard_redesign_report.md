@@ -74,3 +74,16 @@ Note: Uncommitted pre-existing Phase I.1 edits (`pyproject.toml`, `shard_engine/
 
 ---
 
+## 4. Components Redesigned & Visual Fixes
+
+1. **Global Chrome & Navigation**: Sticky `#D4D0C8` workstation top bar, beveled SVG hex shard logo, `Silkscreen` pixel-display wordmark (`SHARD`), `#shardVersionPill` update badge, top-right hardware telemetry panel (`.hw-bar`), folder-tab style `.nav-tabs` merging into `#ECEAE3` canvas on active tab.
+2. **Favicon & Keyboard Accessibility**: Inline data-URI SVG favicon eliminated the `404 /favicon.ico` error; `:focus-visible` outlines (`2px solid var(--accent)`, observed in Chromium as `rgb(0, 128, 128) solid 2px`), modal `role="dialog"` / `aria-modal="true"`, and `Escape` handler closing `#modelModalBackdrop`, `#dirModalBackdrop`, `#updateModalBackdrop`, `#browserModalBackdrop`.
+3. **Model Market & Downloaded View**: Search wrapper spans full width on row 1 alongside storage directory & PC browser buttons, `.filter-tabs` (`flex: 1 1 100%`) sit cleanly on row 2; fixed missing `.btn-review` rule; replaced undefined `--purple` / `--purple-bg` with `--info` / `--info-bg` on `"SSD СТРИМИНГ (NVMe)"`; placed `SSD КЭШ` pill cleanly on `.model-author` metadata row.
+4. **Connect & API**: Widened sidebar column (`375px`) with `11.5px` `.ep-val` so `http://localhost:8000/v1/chat/completions` renders cleanly on one line; phosphor `#18201F` script/config terminal blocks with high-contrast copy controls and ping card.
+5. **Chat, Keys, Network/LAN, Server Hub**: Framed missing `.info-card` panels with `#6E6B64` borders and inset bevels; styled structured chat bubbles, collapsible reasoning panel, bottom-right `.toast` placement so `.hw-bar` telemetry is never covered; converted `lanRefresh()` hex-alpha concatenation (`+ '44'`) to semantic `.compat-pill` badges; added explicit `<label class="v-field-label">` tags above `#srvCreateOwnerBox` fields with responsive `.v-grid-4` -> 2-column -> 1-column breakpoints.
+6. **Training (SOUP), Dataset Preview, Update & Model Browser Modals**: High-density `.trn-stat` telemetry cards, zebra-striped `.ds-table` + pagination strip (`.ds-pager`), crisp `.pf-item` preflight pass/warn indicators, drive & shortcut `.mb-root` pills, file inspector split pane (`.v-browser-split`), and light paper modals with subtle backdrop dimming instead of blurred dark glass.
+
+---
+
+## 5. Browser & Automated Test Verification
+
