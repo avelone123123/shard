@@ -387,14 +387,51 @@ def _set_install_state(lifecycle_state=None, status=None, stage=None, line=None,
             _INSTALL_STATE["progress_pct"] = int(pct)
         if line:
             _INSTALL_STATE["logs"].append(str(line))
-            if len(_INSTALL_STATE["logs"]) > 200:
-                _INSTALL_STATE["logs"] = _INSTALL_STATE["logs"][-200:]
-        if step is not None:
-            _INSTALL_STATE["step"] = str(step)
-        if pct is not None:
-            _INSTALL_STATE["progress_pct"] = int(pct)
-def _run_install_worker(action, custom_python=None):
-    venv_dir = Path(paths.data_dir()) / "soup-venv"
+            if len(_INSTALL_STATE["logs"]) > 300:
+                _INSTALL_STATE["logs"] = _INSTALL_STATE["logs"][-300:]
+        for k, v in extra.items():
+            _INSTALL_STATE[k] = v
+def verify_soup_environment(py_exe, soup_cmd=None, check_train_deps=True):
+    checks = {
+        "venv_present": False,
+        "python_executable_ok": False,
+        "python_compatible": False,
+        "cli_executable_ok": False,
+        "cli_version_ok": False,
+        "module_imports_ok": False,
+        "train_deps_ok": False,
+    }
+    venv_dir = Path(paths.soup_venv_dir())
+    checks["venv_present"] = bool(venv_dir.is_dir() and ((venv_dir / "pyvenv.cfg").is_file() or (py_exe and os.path.isfile(py_exe))))
+    if py_exe and os.path.isfile(py_exe):
+        checks["python_executable_ok"] = True
+        probe = _probe_python_env(py_exe, check_deps=True, timeout=15)
+        if probe:
+            checks["python_compatible"] = _py_compatible(probe.get("py"))
+            present = probe.get("present") or {}
+            checks["module_imports_ok"] = bool(present.get("soup_cli"))
+            train_req = ("torch", "transformers", "peft", "trl", "datasets", "accelerate")
+            checks["train_deps_ok"] = all(present.get(k) for k in train_req) if check_train_deps else True
+    soup_bin_dir = os.path.dirname(py_exe) if py_exe else ""
+    soup_bin = os.path.join(soup_bin_dir, "soup.exe" if os.name == "nt" else "soup")
+    cmd = list(soup_cmd or ([] if not py_exe else [py_exe, "-m", "soup_cli"]))
+    checks["cli_executable_ok"] = bool(os.path.isfile(soup_bin) or shutil.which("soup") or (cmd and os.path.isfile(cmd[0])))
+    ver = None
+    if cmd:
+        try:
+            vr = subprocess.run(cmd + ["--version"], capture_output=True, text=True, timeout=12, creationflags=_WIN_NO_WINDOW)
+            txt = (vr.stdout or vr.stderr or "").strip()
+            m = re.search(r"(\d+\.\d+\.\d+(?:[a-zA-Z0-9._-]*)?)", txt)
+            if vr.returncode == 0 and m:
+                checks["cli_version_ok"] = True
+                ver = m.group(1)
+        except Exception:
+            pass
+    all_core_ok = checks["python_executable_ok"] and checks["python_compatible"] and checks["cli_executable_ok"] and checks["cli_version_ok"] and checks["module_imports_ok"]
+    return {
+        "verified": bool(all_core_ok and (checks["train_deps_ok"] if check_train_deps else True)),
+        "core_verified": bool(all_core_ok),
+        "soup_version": ver,
     sub = ("Scripts", "python.exe") if os.name == "nt" else ("bin", "python")
     venv_py = venv_dir.joinpath(*sub)
     try:
