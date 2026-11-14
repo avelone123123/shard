@@ -768,3 +768,113 @@ class LanManager:
                     "name": info.get("name"),
                     "role": info.get("role"),
                     "model": info.get("model"),
+                    "port": info.get("port"),
+                    "open": bool(info.get("open")),
+                })
+        ifaces = local_interfaces()
+        host_ips = [x["ip"] for x in ifaces if x["kind"] != "virtual"] or [x["ip"] for x in ifaces]
+        primary_ip = host_ips[0] if host_ips else local_ip()
+        master_info = st.get("master")
+        if isinstance(master_info, dict) and not include_secrets:
+            master_info = {
+                "ip": master_info.get("ip"),
+                "port": master_info.get("port"),
+                "name": master_info.get("name"),
+            }
+        rpc = self.rpc_targets()
+        out = {
+            "mode": st.get("mode"),
+            "name": st.get("name"),
+            "ip": primary_ip,
+            "ips": host_ips,
+            "interfaces": [x for x in ifaces if x["kind"] != "virtual"] if include_secrets else [],
+            "http_port": active_http_port(),
+            "pairing_code": st.get("pairing_code") if include_secrets else None,
+            "open": bool(st.get("open")),
+            "master": master_info,
+            "members": members_out,
+            "peers": peers,
+            "rpc": rpc,
+            "target_model": st.get("target_model"),
+            "heartbeat_state": self._hb_state,
+            "rebalance_note": self._rebal_note,
+            "constants": {
+                "beacon_port": BEACON_PORT,
+                "beacon_interval_s": BEACON_INTERVAL_S,
+                "heartbeat_interval_s": HEARTBEAT_INTERVAL_S,
+                "heartbeat_miss_limit": HEARTBEAT_MISS_LIMIT,
+                "rebalance_interval_s": REBALANCE_INTERVAL_S,
+            },
+        }
+        if st.get("mode") == "server":
+            try:
+                out["pool_capacity_mb"] = self.pool_capacity_mb()
+            except Exception:
+                pass
+        net_sum = self.network_summary()
+        if net_sum is not None:
+            out["network"] = net_sum
+        return out
+    def build_invite(self):
+        with self._lock:
+            mode = self._state.get("mode")
+            code = self._state.get("pairing_code")
+            open_net = bool(self._state.get("open"))
+            name = self._state.get("name")
+        if mode != "server":
+            return {"status": "error", "message": "Приглашение доступно только на сервере SHARD"}
+        port = active_http_port()
+        ifaces = [x for x in local_interfaces() if x["kind"] != "virtual"]
+        if not ifaces:
+            ifaces = local_interfaces()
+        targets = []
+        for x in ifaces:
+            ip = x["ip"]
+            cmd = f"shard lan join {ip}" + ("" if open_net else f" --code {code}") + (f" --port {port}" if port != DEFAULT_MASTER_PORT else "")
+            targets.append({
+                "ip": ip,
+                "kind": x["kind"],
+                "provider": x["provider"],
+                "interface": x["interface"],
+                "url": f"http://{ip}:{port}/",
+                "cli_command": cmd,
+            })
+        return {
+            "status": "ok",
+            "name": name,
+            "port": port,
+            "open": open_net,
+            "pairing_code": code,
+            "targets": targets,
+        }
+    def create(self, name=None, open_net=False, model=None):
+        with self._lock:
+            if self._state.get("mode") == "server":
+                if model:
+                    return self.set_model(model)
+                return self.status()
+        self.off(quiet=True)
+        tm = str(model).strip() if model else None
+        with self._lock:
+            self._state.update({
+                "mode": "server",
+                "name": (name or self._state.get("name") or socket.gethostname() or "shard")[:64],
+                "pairing_code": gen_pairing_code(),
+                "members": [],
+                "master": None,
+                "open": bool(open_net),
+                "created_at": time.time(),
+                "target_model": tm or None,
+            })
+            self._hb_state = "server"
+            self._save()
+        self._start_threads("server")
+        return self.status()
+    def set_model(self, model_id):
+        model_id = str(model_id or "").strip()
+        with self._lock:
+            if self._state.get("mode") != "server":
+                return {"status": "error", "message": "Модель задаётся только на сервере shard-сети"}
+            if not model_id:
+                return {"status": "error", "message": "Пустое имя модели"}
+            self._state["target_model"] = model_id
