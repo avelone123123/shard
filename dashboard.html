@@ -1868,3 +1868,113 @@ async function netRunDiag() {
     const el = document.getElementById('netDiagOutput');
     if (!el) return;
     el.innerText = 'Запуск диагностики (платформа, WireGuard, STUN NAT)...';
+    try {
+        const res = await fetch('/api/net/diagnostics?nat=1', {headers: getAuthHeaders()});
+        const data = await res.json();
+        el.innerText = JSON.stringify(data, null, 2);
+    } catch(e) {
+        el.innerText = 'Ошибка выполнения диагностики: ' + e.message;
+    }
+}
+async function lanJoinQuick(ip, port) {
+    const res = await fetch('/api/lan/join', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ip: ip, code: '', share: true, port: port})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('Подключено', 'К сети: ' + (data.master || ip) + (data.warning ? ' (без расшаривания: ' + data.warning + ')' : ' (ваше VRAM/RAM расшарено)'));
+        lanRefresh();
+    } else {
+        showToast('Ошибка подключения', data.message || 'Проверьте IP');
+    }
+}
+async function lanJoin() {
+    const ip = document.getElementById('lanJoinIp').value.trim();
+    const port = parseInt((document.getElementById('lanJoinPort') || {}).value || '8000', 10) || 8000;
+    const code = document.getElementById('lanJoinCode').value.trim().toUpperCase();
+    const share = document.getElementById('lanShare').checked;
+    if (!ip) { showToast('Заполните поле', 'Нужен IP мастера'); return; }
+    const res = await fetch('/api/lan/join', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ip: ip, port: port, code: code, share: share})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('Подключено', 'К сети: ' + (data.master || ip) + (data.warning ? ' (без расшаривания)' : ''));
+        lanRefresh();
+    } else {
+        showToast('Ошибка подключения', data.message || 'Проверьте IP и код');
+    }
+}
+async function lanOff() {
+    const res = await fetch('/api/lan/off', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+    });
+    const data = await res.json();
+    showToast('Сеть отключена', 'Режим: ' + (data.mode || 'off'));
+    lanRefresh();
+}
+async function updateDownloadedBadge() {
+    try {
+        const res = await fetch('/api/models/downloaded');
+        const data = await res.json();
+        const badge = document.getElementById('downloadedBadgeCount');
+        if (badge && data.models) badge.innerText = data.models.length;
+    } catch(e) {}
+}
+async function loadDownloadedModels() {
+    currentCategory = 'downloaded';
+    const grid = document.getElementById('modelsGrid');
+    const badgeEl = document.getElementById('modelsCountBadge');
+    if (badgeEl) badgeEl.innerText = 'Сканирование весов на SSD...';
+    try {
+        const res = await fetch('/api/models/downloaded');
+        const data = await res.json();
+        const models = data.models || [];
+        const countBadge = document.getElementById('downloadedBadgeCount');
+        if (countBadge) countBadge.innerText = models.length;
+        if (badgeEl) {
+            badgeEl.innerHTML = '<span style="color:#60a5fa;font-weight:600;">Локальное хранилище SSD:</span> занято ' + data.total_size_gb + ' ГБ &bull; свободно ' + data.disk_free_gb + ' ГБ &bull; сохранено моделей: ' + models.length;
+        }
+        grid.innerHTML = '';
+        if (models.length === 0) {
+            grid.innerHTML = '<div style="color:var(--text-muted);padding:32px;font-size:13px;grid-column:1/-1;text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:8px;">На диске нет скачанных моделей. Выберите модель из каталога и нажмите «Запустить».</div>';
+            return;
+        }
+        models.forEach(m => {
+            const card = document.createElement('div');
+            card.className = 'model-card';
+            const isActive = Boolean(m.is_active || (isEngineLoaded && !isModelLoading && m.id === activeModelId));
+            const midEsc = escHtml(m.id);
+            const mnameEsc = escHtml(m.name);
+            const msizeEsc = escHtml(m.size_str);
+            const btnActiveHtml = isActive ? '<button class="btn-action active" disabled style="cursor:default;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Активна</button>' : '<button class="btn-action" data-id="' + midEsc + '" onclick="loadModel(this.dataset.id)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Использовать</button>';
+            const deleteBtnHtml = '<button class="btn-delete" data-id="' + midEsc + '" data-name="' + mnameEsc + '" data-size="' + msizeEsc + '" onclick="deleteDownloadedModel(this.dataset.id, this.dataset.name, this.dataset.size)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Удалить</button>';
+            card.innerHTML = '<div class="card-top">' +
+                '<div style="cursor:pointer;" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)">' +
+                    '<div class="model-title" style="display:flex;align-items:center;gap:6px;">' + mnameEsc + '</div>' +
+                    '<div class="model-author">' + escHtml(m.author) + '</div>' +
+                '</div>' +
+                '<div style="display:flex;gap:6px;align-items:center;">' +
+                    '<span class="compat-badge" style="background:rgba(37,99,235,0.1);color:#60a5fa;border:1px solid rgba(37,99,235,0.25);font-family:Consolas,monospace;">SSD: ' + msizeEsc + '</span>' +
+                '</div>' +
+            '</div>' +
+            '<div class="card-desc" style="cursor:pointer;" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)">Локальные веса модели сохранены на SSD. Доступны для мгновенного инференса без обращения к сети.</div>' +
+            '<div class="card-specs">' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ' + escHtml((m.compatibility && m.compatibility.speed_est) || '45-75 ток/сек') + '</div>' +
+                '<div class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> ' + escHtml((m.compatibility && m.compatibility.mode) || '100% GPU VRAM') + '</div>' +
+            '</div>' +
+            '<div class="card-bottom" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">' +
+                '<button class="btn-review" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg> Обзор</button>' +
+                '<div style="display:flex;gap:8px;align-items:center;">' +
+                    btnActiveHtml +
+                    deleteBtnHtml +
+                '</div>' +
+            '</div>';
+            grid.appendChild(card);
+        });
+    } catch(e) {
+        grid.innerHTML = '<div style="color:#ef4444;padding:24px;font-size:13px;grid-column:1/-1;">Не удалось загрузить список моделей на SSD.</div>';
+    }
