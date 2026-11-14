@@ -286,3 +286,27 @@ def classify_model_path(target_path, deep_size=False):
                     True,
                     "Используется родительская папка модели Hugging Face.",
                     True,
+                    "Используется родительская папка Hugging Face с config.json — подходит для обучения SOUP.",
+                    resolved_base=str(parent),
+                )
+            elif has_adp:
+                adp_cfg = _read_json_small(parent / "adapter_config.json") or {}
+                compat = _compat_block(
+                    False,
+                    "LoRA-адаптер требует слияния (Merge) и экспорта в GGUF.",
+                    True,
+                    "LoRA-адаптер загружается поверх базовой модели.",
+                    False,
+                    "Вы выбрали файл весов LoRA-адаптера. Для нового обучения SOUP нужна базовая модель (config.json + *.safetensors).",
+                    suggested_base=adp_cfg.get("base_model_name_or_path"),
+                )
+            else:
+                compat = _compat_block(
+                    False,
+                    "Не является GGUF-файлом.",
+                    False,
+                    "Рядом отсутствует config.json.",
+                    False,
+                    "Отдельный файл .safetensors без config.json и токенизатора нельзя загрузить для обучения SOUP.",
+                )
+            return {
