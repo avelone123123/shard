@@ -108,3 +108,113 @@ _BLOCKED_V6_NETS = (
 )
 _BLOCKED_HOST_EXACT = {"localhost", "metadata", "instance-data"}
 _BLOCKED_HOST_SUFFIXES = (".localhost", ".local", ".internal", ".arpa")
+_PUBLIC_LISTING_ROLES = {"server", "worker", "relay", "host", "node"}
+_SAFE_TAG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
+_SAFE_VER_RE = re.compile(r"^[A-Za-z0-9._+-]{1,32}$")
+_SAFE_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}(?:/[A-Za-z0-9][A-Za-z0-9._:-]{0,95})?$")
+_SECRET_SUBSTRINGS = ("shinv1_", "sk-shard-", "shard-owner-", "shard://", "privkey", "bearer ")
+_PATH_HINT_RE = re.compile(r"(?:^[A-Za-z]:[\\/]|^\\\\|^~[\\/]|^/|\.\.[\\/]|[\\/]\.\.)")
+def b64u_encode(raw: bytes) -> str:
+    if not isinstance(raw, (bytes, bytearray)):
+        raise TypeError("raw must be bytes")
+    return base64.urlsafe_b64encode(bytes(raw)).rstrip(b"=").decode("ascii")
+def b64u_decode(s: str) -> bytes:
+    if not isinstance(s, str):
+        raise ValueError("Expected base64url string")
+    val = s.strip()
+    if val == "":
+        return b""
+    if not _B64U_RE.match(val):
+        raise ValueError("Invalid base64url characters")
+    if "=" in val and len(val) % 4 != 0:
+        raise ValueError("Invalid base64url padding")
+    raw_val = val.rstrip("=")
+    if len(raw_val) % 4 == 1:
+        raise ValueError("Invalid base64url length")
+    pad = "=" * ((4 - (len(raw_val) % 4)) % 4)
+    return base64.urlsafe_b64decode((raw_val + pad).encode("ascii"))
+def canonical_json(obj) -> bytes:
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
+def derive_node_id(pk_raw: bytes) -> str:
+    if not isinstance(pk_raw, (bytes, bytearray)):
+        raise TypeError("pk_raw must be bytes")
+    raw = bytes(pk_raw)
+    if len(raw) != 32:
+        raise ValueError("Ed25519 raw public key must be 32 bytes")
+    return "shn_" + hashlib.sha256(b"shard-node-id-v1:" + raw).digest()[:20].hex()
+class NodeIdentity:
+    def __init__(self, identity_path=None):
+        self._path = os.path.abspath(os.fspath(identity_path)) if identity_path else os.path.abspath(paths.network_identity_file())
+        self._lock = threading.RLock()
+        self.sk = None
+        self.pk = None
+        self.node_id = ""
+        self.disc_seq = 0
+        self._created_at = 0.0
+        self._load_or_create()
+    def _persist_unlocked(self, created_at=None):
+        sk_raw = self.sk.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption())
+        if created_at is not None:
+            self._created_at = float(created_at)
+        elif not self._created_at:
+            self._created_at = time.time()
+        payload = {
+            "version": 1,
+            "alg": "ed25519",
+            "node_id": self.node_id,
+            "pubkey_b64": self.pubkey_b64,
+            "privkey_b64": b64u_encode(sk_raw),
+            "disc_seq": int(self.disc_seq),
+            "created_at": self._created_at,
+        }
+        storage.atomic_write_json(self._path, payload, indent=2, fsync=True, backup=True, restrict=True)
+    def _load_or_create(self):
+        with self._lock, storage.file_lock(self._path):
+            data = storage.read_json_safe(self._path, default=None, expected_type=dict, quarantine=True, use_backup=True)
+            if isinstance(data, dict) and isinstance(data.get("privkey_b64"), str):
+                try:
+                    sk_raw = b64u_decode(data["privkey_b64"])
+                    if len(sk_raw) == 32:
+                        sk = Ed25519PrivateKey.from_private_bytes(sk_raw)
+                        pk = sk.public_key()
+                        pk_raw = pk.public_bytes(Encoding.Raw, PublicFormat.Raw)
+                        nid = derive_node_id(pk_raw)
+                        seq = max(0, int(data.get("disc_seq") or 0))
+                        self.sk = sk
+                        self.pk = pk
+                        self.node_id = nid
+                        self.disc_seq = seq
+                        self._created_at = float(data.get("created_at") or time.time())
+                        if data.get("node_id") != nid or data.get("pubkey_b64") != self.pubkey_b64:
+                            self._persist_unlocked(created_at=self._created_at)
+                        else:
+                            storage.restrict_file_permissions(self._path)
+                        return
+                except Exception:
+                    pass
+            self.sk = Ed25519PrivateKey.generate()
+            self.pk = self.sk.public_key()
+            pk_raw = self.pk.public_bytes(Encoding.Raw, PublicFormat.Raw)
+            self.node_id = derive_node_id(pk_raw)
+            self.disc_seq = 0
+            self._created_at = time.time()
+            self._persist_unlocked(created_at=self._created_at)
+    def pubkey_bytes(self) -> bytes:
+        return self.pk.public_bytes(Encoding.Raw, PublicFormat.Raw)
+    @property
+    def pubkey_b64(self) -> str:
+        return b64u_encode(self.pubkey_bytes())
+    def sign_bytes(self, domain_prefix: bytes, data: bytes) -> str:
+        if not isinstance(domain_prefix, (bytes, bytearray)):
+            raise TypeError("domain_prefix must be bytes")
+        if not isinstance(data, (bytes, bytearray)):
+            raise TypeError("data must be bytes")
+        sig = self.sk.sign(bytes(domain_prefix) + bytes(data))
+        return b64u_encode(sig)
+    def next_seq(self) -> int:
+        with self._lock, storage.file_lock(self._path):
+            data = storage.read_json_safe(self._path, default=None, expected_type=dict, quarantine=False, use_backup=True)
+            cur = int(self.disc_seq)
+            if isinstance(data, dict):
+                try:
+                    cur = max(cur, int(data.get("disc_seq") or 0))
