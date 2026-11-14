@@ -574,3 +574,27 @@ def list_directory(raw_path=None, filter_mode="all", search=None, max_entries=50
             if entry.is_symlink():
                 real_e = os.path.realpath(entry.path)
                 if is_sensitive_path(real_e):
+                    continue
+        except Exception:
+            continue
+        try:
+            is_d = entry.is_dir(follow_symlinks=False)
+        except Exception:
+            continue
+        if is_d:
+            try:
+                info = classify_model_path(entry.path, deep_size=False)
+            except PermissionError:
+                continue
+            except Exception:
+                info = {"path": entry.path, "name": name, "is_dir": True, "format": "directory", "format_label": "Папка", "valid": False, "size_str": "", "compatibility": _compat_block(False, "", False, "", False, "")}
+            if fmode == "trainable" and info.get("format") not in ("directory", "hf_model_dir", "hf_hub_cache"):
+                continue
+            dirs_out.append(info)
+        else:
+            if fmode == "dirs":
+                continue
+            ext = ep.suffix.lower()
+            if ext not in (".gguf", ".safetensors") and name not in ("config.json", "adapter_config.json"):
+                continue
+            try:
