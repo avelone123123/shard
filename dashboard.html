@@ -2198,3 +2198,113 @@ function updateGuide() {
         '</div>';
         const pre = document.getElementById('codeAiderManual');
         if (pre) pre.innerText = cmd;
+    } else if (currentTool === 'zed') {
+        const filePath = (currentOS === 'windows') ? '%APPDATA%\\Zed\\settings.json' : '~/.config/zed/settings.json';
+        const zedCfg = {
+            "language_models": {
+                "openai": {
+                    "version": "1",
+                    "api_url": "http://localhost:8000/v1",
+                    "available_models": [
+                        {
+                            "name": activeModelId,
+                            "display_name": "Shard " + activeModelId.split('/').pop(),
+                            "max_tokens": 8192
+                        }
+                    ]
+                }
+            }
+        };
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к настройкам Zed:</div>' +
+            '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте провайдер OpenAI с локальным URL в settings.json:</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeZedManual"></pre><button class="btn-copy" onclick="copyText(\'codeZedManual\', \'Конфиг Zed скопирован\')">Скопировать</button></div>' +
+        '</div>';
+        const pre = document.getElementById('codeZedManual');
+        if (pre) pre.innerText = JSON.stringify(zedCfg, null, 2);
+    } else {
+        manualBox.innerHTML = '<div class="guide-steps">' +
+            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Переменные окружения (Environment Variables):</div>' +
+            '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeEnvManual"></pre><button class="btn-copy" onclick="copyEnvManual()">Скопировать</button></div>' +
+            '<div>Любой совместимый инструмент подтянет локальный сервер автоматически.</div>' +
+        '</div>';
+        const pre = document.getElementById('codeEnvManual');
+        if (pre) {
+            pre.innerText = (currentOS === 'windows') ?
+                '$env:OPENAI_API_BASE="http://localhost:8000/v1"\n$env:OPENAI_API_KEY="' + keyFallback + '"' :
+                'export OPENAI_API_BASE="http://localhost:8000/v1"\nexport OPENAI_API_KEY="' + keyFallback + '"';
+        }
+    }
+}
+function copyCurrentScript() {
+    const text = document.getElementById('guideScriptCode').innerText;
+    navigator.clipboard.writeText(text);
+    showToast('Команда скопирована', 'Вставьте команду в Терминал и нажмите Enter');
+}
+function copyText(id, toastMsg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText);
+    showToast('Скопировано', toastMsg);
+}
+async function runPingTest() {
+    const el = document.getElementById('pingStatusText');
+    el.innerHTML = '<span style="color:#38bdf8;">Выполняется проверка соединения...</span>';
+    try {
+        const t0 = performance.now();
+        const res = await fetch('/v1/ping');
+        const dt = (performance.now() - t0).toFixed(1);
+        const data = await res.json();
+        el.innerHTML = '<span style="color:#10b981;font-weight:600;">200 OK — Эндпоинт активен!</span> Задержка: <b>' + dt + ' мс</b> | Ядро: <b>' + data.engine + '</b>';
+        showToast('Эндпоинт доступен', 'Отклик: ' + dt + ' мс');
+    } catch(e) {
+        el.innerHTML = '<span style="color:#ef4444;font-weight:600;">Ошибка соединения</span> Проверьте запущен ли локальный сервер Shard';
+    }
+}
+let isModelLoading = false;
+let isEngineLoaded = false;
+let engineLifecycleState = 'NOT_DOWNLOADED';
+let loadingModelId = '';
+let currentLoadingPercent = 0;
+let hwPollTimer = null;
+function setPollRate(ms) {
+    if (hwPollTimer) clearInterval(hwPollTimer);
+    hwPollTimer = setInterval(shardBoot.client_mode ? fetchClientBootstrap : fetchHardware, ms);
+}
+async function fetchClientBootstrap() {
+    try {
+        const res = await fetch('/api/client/bootstrap', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const d = await res.json();
+        shardBoot = Object.assign({}, shardBoot, d);
+        if (d.active_model) {
+            activeModelId = d.active_model;
+            const shortName = d.active_model.split('/').pop();
+            const hwModelEl = document.getElementById('hwModel');
+            if (hwModelEl) {
+                hwModelEl.innerText = shortName;
+                hwModelEl.style.color = '#10b981';
+            }
+            const chatModelEl = document.getElementById('chatActiveModel');
+            if (chatModelEl) chatModelEl.innerText = shortName;
+        }
+    } catch(e) {}
+}
+function updateLoadingUI(isLoading, lp) {
+    const banner = document.getElementById('globalLoadingBanner');
+    const chatTag = document.getElementById('chatLoadingTag');
+    const chatCard = document.getElementById('chatLoadingCard');
+    const chatSpeed = document.getElementById('chatLiveSpeed');
+    const hwModel = document.getElementById('hwModel');
+    if (!banner) return;
+    if (isLoading && lp) {
+        banner.style.display = 'block';
+        const modelId = lp.model_id || activeModelId || '';
+        const shortName = modelId.split('/').pop();
+        const pct = lp.percent || 0;
+        const eta = lp.eta_text || 'вычисление...';
+        const speed = lp.speed_mb || 0;
+        const currMb = lp.curr_mb || 0;
+        const totalMb = lp.total_mb || 0;
+        const stage = lp.stage || 'Подготовка тензоров...';
