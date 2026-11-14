@@ -23,3 +23,16 @@ Isolated server `uvicorn shard_engine.server:app --host 127.0.0.1 --port 18090` 
    - `1024x768` tablet Market view had horizontal overflow: `scrollWidth: 1034 > innerWidth: 1024` (`overflowX: true`), and squeezed the search bar next to category buttons.
    - `#srvCreateOwnerBox` on the `Сервер SHARD` tab used an unlabeled 4-column input row without explicit field labels.
    - Root `dashboard.html` and `shard_engine/dashboard.html` had diverged earlier in whitespace/CRLF formatting, causing `tests_phase_i_product_hardening.py` `test_09_dashboard_regression_bugs_fixed` to fail before edits.
+
+---
+
+## 2. Design Decisions & Final Design Tokens
+
+To replace the dark-neon aesthetic without harming developer readability during long sessions, classic 1980s–1990s workstation chrome (`#D4D0C8`, `#008080` Teal) was paired with warm paper-cream work surfaces (`#ECEAE3`, `#F5F3EC`) and subtle dot-matrix canvas texture, while preserving dark phosphor terminal wells (`#18201F`) for code snippets, audit logs, and installation scripts.
+
+### Final `:root` Token System (`shard_engine/dashboard.html` lines 12–63)
+
+| Token | Value | Role |
+|---|---|---|
+| `--bg` | `#ECEAE3` | Warm workstation backdrop with subtle `1px` dot grid |
+| `--surface` | `#DCD9CF` | Recessed chrome buttons & tab rails |
