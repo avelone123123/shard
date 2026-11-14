@@ -3593,7 +3593,7 @@ async function openMyContributions() {
     document.getElementById('modalLaunchBtn').style.display = 'none';
     const hfLink = document.getElementById('modalHfLink');
     if (hfLink) hfLink.style.display = 'none';
-    const rowsHtml = (data.submissions || []).map(s => '<div class="trn-row"><b>' + escHtml(s.id) + '</b> [' + escHtml(s.status) + '] rating=' + escHtml(s.rating) + '</div>').join('') || '<div style="color:#64748b;">Вы ещё не отправляли вкладов.</div>';
+    const rowsHtml = (data.submissions || []).map(s => '<div class="trn-row"><b>' + escHtml(s.id) + '</b> [' + escHtml(s.status) + '] rating=' + escHtml(s.rating) + '</div>').join('') || '<div style="color:var(--text-muted);">Вы ещё не отправляли вкладов.</div>';
     document.getElementById('modelModalBody').innerHTML = '<div style="margin-bottom:12px;"><button class="btn-delete" onclick="revokeMyParticipation()">Отозвать согласие и удалить неопубликованные вклады</button></div>' + rowsHtml;
     modal.style.display = 'flex';
 }
@@ -3645,7 +3645,7 @@ async function trnRefresh(probeSoup) {
     } catch(e) {}
 }
 const _SOUP_STATE_LABELS = {
-    NOT_INSTALLED: ['Не установлен', '#f59e0b'],
+    NOT_INSTALLED: ['Не установлен', 'var(--warning)'],
     CHECKING_ENVIRONMENT: ['Проверка среды...', '#38bdf8'],
     FINDING_PYTHON: ['Поиск Python 3.11–3.13...', '#38bdf8'],
     CREATING_VENV: ['Создание venv...', '#38bdf8'],
