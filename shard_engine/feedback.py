@@ -764,6 +764,34 @@ def preview_dataset_paginated(snapshot_id, page=1, page_size=20):
     p = Path(m["path"])
     page_num = max(1, int(page or 1))
     size_num = max(1, min(100, int(page_size or 20)))
+    if not p.is_file():
+        return {
+            "snapshot_id": snapshot_id,
+            "dataset": m,
+            "page": page_num,
+            "page_size": size_num,
+            "total_records": 0,
+            "valid_count": 0,
+            "invalid_count": 0,
+            "total_pages": 1,
+            "records": [],
+            "error": "Dataset JSONL file missing on disk",
+        }
+    fmt_hint = m.get("format") or m.get("task") or "chatml"
+    records = []
+    valid_count = 0
+    invalid_count = 0
+    start_idx = (page_num - 1) * size_num
+    end_idx = start_idx + size_num
+    idx = 0
+    with open(p, "r", encoding="utf-8", errors="replace") as f:
+        for line_no, ln in enumerate(f, start=1):
+            stripped = ln.strip()
+            if not stripped:
+                continue
+            item = None
+            try:
+                parsed = json.loads(stripped)
 def compute_stats():
     with _LOCK:
         with storage.file_lock(_feedback_path()):
