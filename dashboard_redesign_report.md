@@ -87,3 +87,16 @@ Note: Uncommitted pre-existing Phase I.1 edits (`pyproject.toml`, `shard_engine/
 
 ## 5. Browser & Automated Test Verification
 
+### Playwright Headless Chromium Verification (`task-5589`, after final edits)
+- **Desktop (`1440x900`) & Tablet (`1024x768`)**:
+  - `console_errors`: `[]` (`0` errors, down from `1` 404 before)
+  - `page_errors`: `[]`
+  - `http_errors`: `[]`
+  - `scrollWidth` desktop `1440x900`: `1440` (`overflow1440: false`)
+  - `scrollWidth` tablet `1024x768`: `1024` on Market (`after_11_tablet_market.png`) and `1024` on Training (`after_12_tablet_training.png`) (`overflowX: false`, fixing the BEFORE `1034 > 1024` overflow)
+- **Interactive Triggers Exercised Live**:
+  - Market search (`Qwen` / `Кодинг` filter count updated `107 -> 80`, `Скачанные на SSD` tab opened).
+  - Model Card modal (`Обзор` on `Qwen2.5-Coder-1.5B-Instruct`): fetched 4,573-char spec & README (`after_13_model_card.png`), closed cleanly with `Escape`.
+  - Connect & API: switched tool (`Cursor IDE`), toggled manual/script mode (`guideManualSection` visible), ran Ping test -> `"200 OK — Эндпоинт активен! Задержка: 15.0 мс | Ядро: shard-local-engine"`.
+  - Network & LAN: switched `#netSubBtn-lan` (`#net-panel-lan` visible), rendered interface badges `[lan]`, `[radmin]`, UDP beacon (`after_15_network_lan.png`).
+  - Server Hub: verified 4 labeled inputs (`['Имя сервера', 'Режим сети', 'Видимость', 'Регион']`) and 4 overview cards (`after_06_server.png`).
