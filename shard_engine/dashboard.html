@@ -3462,7 +3462,7 @@ function renderTrnOverview(ov, soup) {
     }
 }
 let soupInstallPollTimer = null;
-async function trnInstallSoup(forceRepair) {
+function _renderSoupInstallerBox(inst) {
     const box = document.getElementById('trnSoupInstallBox');
     if (box) box.innerText = 'Запуск установщика SOUP в изолированном Python 3.11-3.13 venv...';
     try {
