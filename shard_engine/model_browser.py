@@ -478,3 +478,27 @@ def list_roots():
     for d in settings.available_drives():
         lbl = _volume_label(d["path"])
         drives.append({
+            "path": d["path"],
+            "label": lbl or d["path"],
+            "free_gb": d.get("free_gb", 0),
+            "total_gb": d.get("total_gb", 0),
+        })
+    shortcuts = []
+    cand_shortcuts = [
+        ("shard_models", "Модели SHARD", settings.models_dir()),
+        ("hf_cache", "Кэш Hugging Face", os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub")),
+        ("training_runs", "Обучение и чекпоинты SOUP", paths.training_runs_dir()),
+        ("downloads", "Загрузки", os.path.join(os.path.expanduser("~"), "Downloads")),
+        ("home", "Домашняя папка", os.path.expanduser("~")),
+    ]
+    for key, title, p in cand_shortcuts:
+        try:
+            vp = validate_browse_path(p)
+            shortcuts.append({"id": key, "label": title, "path": str(vp), "exists": vp.exists()})
+        except Exception:
+            pass
+    recent = []
+    for rp in settings.recent_model_paths():
+        if os.path.exists(rp):
+            try:
+                recent.append(classify_model_path(rp, deep_size=False))
