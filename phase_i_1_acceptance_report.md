@@ -27,3 +27,17 @@ Tested inside clean virtual environments outside the repository directory (`%TEM
   - `ERROR: No matching distribution found for shard-engine`
 - `venv_full\Scripts\pip.exe install --no-cache-dir "shard-engine[full]"` -> exited `1`:
   - `ERROR: No matching distribution found for shard-engine[full]`
+- Direct PyPI HTTP probes (`User-Agent: pip/25.0`):
+  - `https://pypi.org/pypi/shard-engine/json` -> `HTTP 404 Not Found`
+  - `https://pypi.org/simple/shard-engine/` -> `HTTP 404 Not Found`
+  - `https://pypi.org/pypi/shard/json` -> `HTTP 200` (unrelated `shard 0.1.0` package by Bruno Amaral)
+
+### 1.2 Packaging Defect Fixed & Local Wheel Verification (`VERIFIED`)
+- **Defect found**: [pyproject.toml](file:///c:/Users/avelo/Desktop/my%20projects/shard/pyproject.toml) mixed PEP 639 `license = "MIT"` with deprecated classifier `"License :: OSI Approved :: MIT License"`, causing `python -m build` to fail under `setuptools==84.2.1`.
+- **Fix applied**: Removed the deprecated license classifier from [pyproject.toml](file:///c:/Users/avelo/Desktop/my%20projects/shard/pyproject.toml).
+- **Verified locally** in `%TEMP%\shard_pypi_accept\venv_wheel` (`Python 3.14.4`, Windows 11 AMD64):
+  - `python -m build` produced `shard_engine-1.8.0.tar.gz` and `shard_engine-1.8.0-py3-none-any.whl`.
+  - `pip show shard-engine`: `Version: 1.8.0`, `Requires: cryptography, fastapi, httpx, psutil, pydantic, requests, uvicorn, websockets`.
+  - `[full]` ML dependencies verified in `venv_wheel`: `torch 2.15.0`, `transformers 5.23.0`, `accelerate 1.15.0`, `safetensors 0.8.0`, `huggingface_hub 2.4.0`.
+  - Packaged dashboard asset inside site-packages: `dashboard.html` (`300591` bytes).
+  - CLI checks run outside repository (`%TEMP%\shard_pypi_accept`) with isolated `SHARD_*_DIR`:
