@@ -1417,7 +1417,7 @@ function getAuthHeaders(extra) {
 function showToast(title, sub) {
     const el = document.getElementById('toast');
     if (toastTimeout) clearTimeout(toastTimeout);
-    el.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><div><div class="toast-title">' + escHtml(title) + '</div><div class="toast-sub">' + escHtml(sub) + '</div></div>';
+    el.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><div><div class="toast-title">' + escHtml(title) + '</div><div class="toast-sub">' + escHtml(sub) + '</div></div>';
     el.classList.add('visible');
     toastTimeout = setTimeout(() => { el.classList.remove('visible'); }, 3200);
 }
