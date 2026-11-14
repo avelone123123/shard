@@ -328,3 +328,113 @@ def local_interfaces():
             if _is_usable_lan_ipv4(addr) and addr not in entries:
                 entries[addr] = _classify_iface("host", addr, is_default=(addr == def_ip))
     except Exception:
+        pass
+    rank = {"lan": 0, "vpn": 1, "virtual": 2}
+    ordered = sorted(
+        entries.values(),
+        key=lambda x: (
+            rank.get(x["kind"], 3),
+            0 if x["is_default"] else 1,
+            0 if x["ip"].startswith("192.168.") else 1,
+            x["ip"],
+        ),
+    )
+    return ordered
+def local_ips():
+    ifaces = local_interfaces()
+    real = [x["ip"] for x in ifaces if x["kind"] != "virtual"]
+    if real:
+        return real
+    return [x["ip"] for x in ifaces]
+def local_ip():
+    ips = local_ips()
+    if ips:
+        return ips[0]
+    try:
+        ip = socket.gethostbyname(socket.gethostname())
+        if _is_usable_lan_ipv4(ip):
+            return ip
+    except Exception:
+        pass
+    return "127.0.0.1"
+def _broadcast_targets():
+    seen = set()
+    targets = []
+    for item in local_interfaces():
+        if item["kind"] == "virtual":
+            continue
+        src = item["ip"]
+        bcast = item.get("broadcast")
+        if bcast and (src, bcast) not in seen:
+            seen.add((src, bcast))
+            targets.append((src, bcast))
+    for bcast in ("255.255.255.255", "<broadcast>"):
+        if ("", bcast) not in seen:
+            seen.add(("", bcast))
+            targets.append(("", bcast))
+    return targets
+def detect_tailscale():
+    exe = shutil.which("tailscale")
+    if not exe and os.name == "nt":
+        cand = r"C:\Program Files\Tailscale\tailscale.exe"
+        if os.path.isfile(cand):
+            exe = cand
+    if not exe:
+        return {"installed": False, "running": False, "ip": None, "dns_name": None, "online_peers": 0}
+    try:
+        r = subprocess.run(
+            [exe, "status", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=2.5,
+            creationflags=_CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+        if r.returncode != 0 or not r.stdout.strip():
+            return {"installed": True, "running": False, "ip": None, "dns_name": None, "online_peers": 0}
+        data = json.loads(r.stdout)
+        self_info = data.get("Self") or {}
+        ts_ips = [ip for ip in (self_info.get("TailscaleIPs") or []) if "." in str(ip)]
+        peers = data.get("Peer") or {}
+        online = sum(1 for p in peers.values() if isinstance(p, dict) and p.get("Online"))
+        return {
+            "installed": True,
+            "running": str(data.get("BackendState") or "").lower() == "running",
+            "state": data.get("BackendState"),
+            "ip": ts_ips[0] if ts_ips else None,
+            "dns_name": (self_info.get("DNSName") or "").rstrip(".") or None,
+            "online_peers": online,
+        }
+    except Exception:
+        return {"installed": True, "running": False, "ip": None, "dns_name": None, "online_peers": 0}
+def stun_probe(timeout=2.0):
+    servers = [("stun.l.google.com", 19302), ("stun.cloudflare.com", 3478)]
+    tx_id = secrets.token_bytes(12)
+    magic = 0x2112A442
+    req = struct.pack("!HHI12s", 0x0001, 0, magic, tx_id)
+    for host, port in servers:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout)
+        try:
+            sock.sendto(req, (host, port))
+            data, _ = sock.recvfrom(1024)
+            if len(data) < 20:
+                continue
+            msg_type, msg_len, r_magic, r_tx = struct.unpack("!HHI12s", data[:20])
+            if msg_type != 0x0101 or r_magic != magic or r_tx != tx_id:
+                continue
+            pos = 20
+            end = min(len(data), 20 + msg_len)
+            while pos + 4 <= end:
+                attr_type, attr_len = struct.unpack("!HH", data[pos:pos + 4])
+                pos += 4
+                val = data[pos:pos + attr_len]
+                pos += (attr_len + 3) & ~3
+                if attr_type == 0x0020 and len(val) >= 8 and val[1] == 0x01:
+                    xport = struct.unpack("!H", val[2:4])[0] ^ (magic >> 16)
+                    xip = struct.unpack("!I", val[4:8])[0] ^ magic
+                    return {"ok": True, "public_ip": str(ipaddress.IPv4Address(xip)), "public_port": xport, "server": host}
+                if attr_type == 0x0001 and len(val) >= 8 and val[1] == 0x01:
+                    p = struct.unpack("!H", val[2:4])[0]
+                    ip_raw = struct.unpack("!I", val[4:8])[0]
+                    return {"ok": True, "public_ip": str(ipaddress.IPv4Address(ip_raw)), "public_port": p, "server": host}
+        except Exception:
