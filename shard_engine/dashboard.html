@@ -3683,7 +3683,10 @@ function _collectTrainingPayload() {
         params: {
             quantization: document.getElementById('trnJobQuant').value,
             epochs: parseInt(document.getElementById('trnJobEpochs').value || '3', 10),
-            lr: parseFloat(document.getElementById('trnJobLr').value || '0.00002')
+            lr: parseFloat(document.getElementById('trnJobLr').value || '0.00002'),
+            batch_size: bsRaw === 'auto' ? 'auto' : (parseInt(bsRaw, 10) || 'auto'),
+            gradient_accumulation_steps: parseInt(((document.getElementById('trnJobGradAccum') || {}).value || '4'), 10),
+            max_length: parseInt(((document.getElementById('trnJobMaxLength') || {}).value || '2048'), 10)
         }
     };
     const res = await fetch('/api/training/jobs/start', {
