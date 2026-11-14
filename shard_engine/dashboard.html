@@ -1812,7 +1812,7 @@ function renderNetStatus(st) {
     if (cli.state && cli.state !== 'disconnected') {
         if (banner) {
             banner.style.display = 'block';
-            const modeBadge = cli.state === 'relay_connected' ? '<span style="color:#d29922;font-weight:600;">[Слепой Relay]</span>' : '<span style="color:#238636;font-weight:600;">[Direct P2P/LAN]</span>';
+            const modeBadge = cli.state === 'relay_connected' ? '<span style="color:var(--warning);font-weight:600;">[Слепой Relay]</span>' : '<span style="color:var(--success);font-weight:600;">[Direct P2P/LAN]</span>';
             const rttText = cli.rtt_ms ? (' &bull; ' + cli.rtt_ms + ' ms') : '';
             const txrx = (cli.bytes_tx || cli.bytes_rx) ? (' &bull; TX: ' + formatBytes(cli.bytes_tx || 0) + ' / RX: ' + formatBytes(cli.bytes_rx || 0)) : '';
             banner.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
