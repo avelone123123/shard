@@ -658,3 +658,113 @@ def resolve_and_connect(
         s = str(ep or "").strip()
         if not s:
             continue
+        ptype = classify_endpoint_path(s)
+        if ptype == "relay":
+            continue
+        key = ("e2e_tcp", s)
+        if key not in seen_candidates:
+            seen_candidates.add(key)
+            buckets[ptype].append({"path_type": ptype, "transport": "e2e_tcp", "endpoint": s})
+    for h_url in http_endpoints or ():
+        base = _normalize_http_base(h_url)
+        if not base:
+            continue
+        ptype = classify_endpoint_path(base)
+        if ptype == "relay":
+            continue
+        key = ("http", base)
+        if key not in seen_candidates:
+            seen_candidates.add(key)
+            buckets[ptype].append({"path_type": ptype, "transport": "http", "endpoint": base})
+    for rurl in relay_urls or ():
+        s = str(rurl or "").strip()
+        if not s:
+            continue
+        key = ("relay_ws", s)
+        if key not in seen_candidates:
+            seen_candidates.add(key)
+            buckets["relay"].append({"path_type": "relay", "transport": "relay_ws", "endpoint": s})
+    ordered = []
+    for ptype in PATH_PRIORITY:
+        ordered.extend(buckets[ptype])
+    attempts = []
+    def _exec(coro):
+        if runner is not None:
+            return runner.run_coro(coro, timeout=float(connect_timeout_s) + float(ping_timeout_s) + 5.0)
+        return _run_coro_sync(coro, timeout=float(connect_timeout_s) + float(ping_timeout_s) + 5.0)
+    for cand in ordered:
+        ptype = cand["path_type"]
+        tr_kind = cand["transport"]
+        ep = cand["endpoint"]
+        if pref == "relay" and ptype != "relay":
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_mode_relay"})
+            continue
+        if pref == "direct" and ptype == "relay":
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_mode_direct"})
+            continue
+        if pref == "lan" and ptype not in ("same_machine", "direct_lan"):
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_mode_lan"})
+            continue
+        if pref == "p2p" and ptype == "relay":
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_mode_p2p"})
+            continue
+        if ptype == "direct_p2p" and not allow_p2p_direct:
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_p2p_disabled"})
+            continue
+        if ptype == "relay" and pref != "relay" and not allow_relay_fallback:
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_relay_disabled"})
+            continue
+        if offline_only and (ptype == "relay" or (ptype == "direct_p2p" and not _is_local_or_lan_endpoint(ep))):
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "skipped_offline_only"})
+            continue
+        if tr_kind in ("e2e_tcp", "relay_ws"):
+            if not exp_node_id:
+                attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": "missing_target_node_id"})
+                continue
+            agent = net_tunnel.ClientTunnelAgent(
+                identity=identity,
+                target_host_id=exp_node_id,
+                mode="relay" if tr_kind == "relay_ws" else "direct",
+                direct_endpoints=[ep] if tr_kind == "e2e_tcp" else (),
+                relay_urls=[ep] if tr_kind == "relay_ws" else (),
+                auth_proof=auth_proof,
+                allow_insecure_local=allow_insecure_local,
+                connect_timeout_s=float(connect_timeout_s),
+                ping_timeout_s=float(ping_timeout_s),
+                reconnect=bool(reconnect),
+                verify_ping=True,
+            )
+            try:
+                ok = _exec(agent.connect())
+            except Exception as exc:
+                ok = False
+                agent._last_error = f"{type(exc).__name__}:{exc}"
+            st = agent.status()
+            expected_state = TunnelState.RELAY_CONNECTED.value if tr_kind == "relay_ws" else TunnelState.CONNECTED.value
+            if ok and st.get("state") == expected_state and st.get("rtt_ms") is not None and st.get("local_url"):
+                attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": True, "rtt_ms": st["rtt_ms"], "reason": "ok"})
+                return {
+                    "ok": True,
+                    "state": st["state"],
+                    "mode": "relay" if tr_kind == "relay_ws" else "direct",
+                    "path_type": ptype,
+                    "transport": tr_kind,
+                    "endpoint": ep,
+                    "relay_url": ep if tr_kind == "relay_ws" else None,
+                    "local_url": st["local_url"],
+                    "rtt_ms": st["rtt_ms"],
+                    "peer_node_id": exp_node_id,
+                    "agent": agent,
+                    "attempts": attempts,
+                    "reason": "ok",
+                    "alternatives": [],
+                }
+            reason = st.get("last_error") or "tunnel_connect_failed"
+            try:
+                _exec(agent.disconnect())
+            except Exception:
+                pass
+            attempts.append({"path_type": ptype, "transport": tr_kind, "endpoint": ep, "ok": False, "rtt_ms": None, "reason": reason})
+            continue
+        if tr_kind == "http":
+            res = probe_direct_http(ep, expected_node_id=exp_node_id, identity=identity, timeout=min(float(connect_timeout_s), float(ping_timeout_s)))
