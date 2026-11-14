@@ -3382,7 +3382,7 @@ async function trnRefresh(probeSoup) {
             return;
         }
         const ov = await res.json();
-        const soup = probeSoup ? await (await fetch('/api/training/soup')).json() : ov.soup;
+        const soup = probeSoup ? await (await fetch('/api/training/soup?check_remote=1', {headers: getAuthHeaders()})).json() : ov.soup;
         renderTrnOverview(ov, soup);
         renderTrnDatasets(ov.datasets || []);
         renderTrnJobs(ov.jobs || []);
