@@ -988,3 +988,85 @@ def sanitize_public_listing(raw: dict) -> dict:
             out[m_key] = model
     for ml_key in ("models", "supported_models"):
         if isinstance(raw.get(ml_key), list):
+            models = []
+            for m in raw[ml_key]:
+                cm = _sanitize_model_id(m)
+                if cm and cm not in models:
+                    models.append(cm)
+                if len(models) >= 16:
+                    break
+            if models:
+                out[ml_key] = models
+    if isinstance(raw.get("relays"), list):
+        relays = []
+        for r in raw["relays"]:
+            cr = _sanitize_relay_url(r)
+            if cr and cr not in relays:
+                relays.append(cr)
+            if len(relays) >= 8:
+                break
+        if relays:
+            out["relays"] = relays
+    for ep_key in ("endpoints", "direct_endpoints"):
+        if isinstance(raw.get(ep_key), list):
+            eps = []
+            for ep in raw[ep_key]:
+                cep = _sanitize_public_endpoint(ep)
+                if cep and cep not in eps:
+                    eps.append(cep)
+                if len(eps) >= 8:
+                    break
+            if eps:
+                out[ep_key] = eps
+    for ip_key in ("ip", "public_ip"):
+        pip = _is_public_ip_str(raw.get(ip_key))
+        if pip:
+            out[ip_key] = pip
+    if isinstance(raw.get("ips"), list):
+        pips = []
+        for item in raw["ips"]:
+            pip = _is_public_ip_str(item)
+            if pip and pip not in pips:
+                pips.append(pip)
+            if len(pips) >= 8:
+                break
+        if pips:
+            out["ips"] = pips
+    for port_key in ("port", "http_port"):
+        pv = raw.get(port_key)
+        if not isinstance(pv, bool) and isinstance(pv, int) and 1 <= pv <= 65535:
+            out[port_key] = pv
+    for num_key in ("max_ctx", "ctx", "ram_gb", "vram_gb", "capacity_mb", "pool_capacity_mb", "worker_count", "peers_count", "slots_available", "participant_count", "max_participants", "load"):
+        nv = raw.get(num_key)
+        if not isinstance(nv, bool) and isinstance(nv, (int, float)) and math.isfinite(float(nv)) and 0 <= float(nv) <= 10000000:
+            out[num_key] = nv
+    for list_key in ("capabilities", "tags"):
+        if isinstance(raw.get(list_key), list):
+            tags = []
+            for t in raw[list_key]:
+                if isinstance(t, str) and _SAFE_TAG_RE.match(t.strip()):
+                    tv = t.strip()
+                    if tv not in tags:
+                        tags.append(tv)
+                if len(tags) >= 16:
+                    break
+            if tags:
+                out[list_key] = tags
+    region = _clean_text(raw.get("region"), 32)
+    if region and _SAFE_TAG_RE.match(region):
+        out["region"] = region
+    for ver_key in ("version", "shard_version", "protocol"):
+        vv = raw.get(ver_key)
+        if isinstance(vv, str) and _SAFE_VER_RE.match(vv.strip()):
+            out[ver_key] = vv.strip()
+    for bool_key in ("open", "requires_invite"):
+        if isinstance(raw.get(bool_key), bool):
+            out[bool_key] = raw[bool_key]
+    vis = raw.get("visibility")
+    if isinstance(vis, str) and vis.strip().lower() == "public":
+        out["visibility"] = "public"
+    for ts_key in ("updated_at", "ts"):
+        tv = raw.get(ts_key)
+        if not isinstance(tv, bool) and isinstance(tv, (int, float)) and math.isfinite(float(tv)) and float(tv) >= 0:
+            out[ts_key] = float(tv)
+    return out
