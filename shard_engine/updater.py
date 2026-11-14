@@ -262,3 +262,27 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
     if not rate_limited:
         try:
             rt = _http_get(GITHUB_API_TAGS, timeout=timeout, headers=headers)
+            if rt.status_code == 200:
+                best_ver = None
+                best_tag = None
+                rt_list = rt.json()
+                for item in (rt_list if isinstance(rt_list, list) else []):
+                    if not isinstance(item, dict):
+                        continue
+                    t = str(item.get("name") or "").strip()
+                    v = t.lstrip("vV")
+                    if not is_valid_version_str(v):
+                        continue
+                    if not allow_prerelease and is_prerelease_version(v):
+                        continue
+                    if best_ver is None or parse_version_tuple(v) > parse_version_tuple(best_ver):
+                        best_ver = v
+                        best_tag = t
+                if best_ver:
+                    return {
+                        "ok": True,
+                        "source": "github_tags",
+                        "latest_version": best_ver,
+                        "tag_name": best_tag,
+                        "release_url": f"https://github.com/{GITHUB_REPO}/releases/tag/{best_tag}",
+                        "release_notes": "",
