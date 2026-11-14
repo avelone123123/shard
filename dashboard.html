@@ -3078,3 +3078,113 @@ async function sendChat() {
                                         const tp = document.getElementById('think-panel-' + msgId);
                                         if (tp) tp.style.display = 'none';
                                     }
+                                }
+                                contentBox.innerText += choice.delta.content;
+                                fullContent += choice.delta.content;
+                                tokensCount++;
+                                const curElapsed = (performance.now() - tStart) / 1000;
+                                const curSpeed = (tokensCount / Math.max(0.1, curElapsed)).toFixed(1);
+                                if (liveSpeed) liveSpeed.innerText = curSpeed + ' ток/сек';
+                            }
+                        }
+                        if (payload.telemetry) {
+                            thoughtSec = payload.telemetry.thinking_seconds;
+                            totalSec = payload.telemetry.total_seconds;
+                            speedVal = payload.telemetry.tokens_per_sec;
+                        }
+                        if (payload.usage) {
+                            usageData = payload.usage;
+                        }
+                    } catch(e) {}
+                }
+            }
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+        clearInterval(thinkTimer);
+        hasThoughtEnded = true;
+        thinkPulse.style.display = 'none';
+        const hasRealThought = (thinkBody.innerText.trim().length > 0);
+        if (!hasRealThought) {
+            document.getElementById('think-panel-' + msgId).style.display = 'none';
+        } else if (thoughtSec > 0) {
+            thinkLabel.innerText = 'Думал ' + formatDuration(thoughtSec);
+        }
+        if (!totalSec) {
+            totalSec = (performance.now() - tStart) / 1000;
+        }
+        if (!speedVal) {
+            speedVal = (tokensCount / Math.max(0.1, totalSec)).toFixed(1);
+        }
+        if (liveSpeed) liveSpeed.innerText = speedVal + ' ток/сек';
+        telemetryBox.style.display = 'flex';
+        const timeStr = (hasRealThought && thoughtSec > 0) ? formatDuration(totalSec) + ' (размышления: ' + formatDuration(thoughtSec) + ')' : formatDuration(totalSec);
+        telemetryBox.innerHTML = '<div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + speedVal + ' токенов/сек</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + usageData.total_tokens + ' токенов</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div>';
+        chatBody.scrollTop = chatBody.scrollHeight;
+        currentChat.messages.push({
+            role: 'assistant',
+            content: fullContent,
+            reasoning: fullReasoning,
+            thoughtSec: thoughtSec,
+            totalSec: totalSec,
+            speedVal: speedVal,
+            usage: usageData
+        });
+        saveChatSessions();
+        const fidx = currentChat.messages.length - 1;
+        const asstBox = asstWrap.querySelector('.msg-assistant');
+        if (asstBox) {
+            asstBox.insertAdjacentHTML('beforeend', buildFeedbackWidgetHtml('live-' + msgId, currentChat.messages, fidx));
+        }
+    } catch(err) {
+        clearInterval(thinkTimer);
+        contentBox.innerText = 'Ошибка соединения с локальным сервером Shard.';
+    } finally {
+        isChatStreaming = false;
+        document.getElementById('chatSendBtn').disabled = false;
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+}
+let feedbackPolicy = {allow_feedback: true, allow_remote_feedback: false, require_explicit_consent: true, is_owner: true, opted_out: false};
+async function loadFeedbackPolicy() {
+    try {
+        const res = await fetch('/api/feedback/policy', {headers: getAuthHeaders()});
+        if (res.ok) {
+            feedbackPolicy = await res.json();
+            const navBtn = document.getElementById('navTrainingBtn');
+            if (navBtn) navBtn.style.display = feedbackPolicy.is_owner ? 'flex' : 'none';
+            const badge = document.getElementById('chatFeedbackPolicyBadge');
+            if (badge) badge.innerText = feedbackPolicy.opted_out ? 'Участие отозвано' : 'Вклады и согласие';
+        }
+    } catch(e) {}
+}
+function findPromptForMsgIndex(messages, idx) {
+    for (let i = idx - 1; i >= 0; i--) {
+        if (messages[i] && messages[i].role === 'user') return messages[i].content || '';
+    }
+    return '';
+}
+function buildFeedbackWidgetHtml(uid, messages, idx) {
+    if (!feedbackPolicy.allow_feedback || feedbackPolicy.opted_out) return '';
+    if (!feedbackPolicy.is_owner && !feedbackPolicy.allow_remote_feedback) return '';
+    const promptTxt = findPromptForMsgIndex(messages, idx);
+    const respTxt = (messages[idx] && messages[idx].content) || '';
+    if (!promptTxt || !respTxt) return '';
+    const encPrompt = lanEsc(encodeURIComponent(promptTxt));
+    const encResp = lanEsc(encodeURIComponent(respTxt));
+    return '<div class="fb-bar" data-prompt="' + encPrompt + '" data-resp="' + encResp + '">' +
+        '<span style="color:#64748b;">Помочь улучшить модель:</span>' +
+        '<button class="fb-btn" onclick="openFbDrawer(\'' + uid + '\', \'up\')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg> Хорошо</button>' +
+        '<button class="fb-btn" onclick="openFbDrawer(\'' + uid + '\', \'down\')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg> Исправить</button>' +
+        '</div>' +
+        '<div id="fb-drawer-' + uid + '" class="fb-drawer">' +
+        '<input type="hidden" id="fb-rating-' + uid + '" value="up">' +
+        '<div style="font-size:11px;color:#94a3b8;">Необязательно: предложите лучший ответ (создаст пару для SFT/DPO обучения)</div>' +
+        '<textarea id="fb-better-' + uid + '" rows="2" class="trn-input" placeholder="Более точный или желаемый ответ..."></textarea>' +
+        '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#cbd5e1;cursor:pointer;">' +
+        '<input type="checkbox" id="fb-consent-' + uid + '"> Я даю явное согласие на добавление этого примера в обучающий датасет сервера (секреты и личные данные автоматически маскируются).' +
+        '</label>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+        '<button class="fb-btn" onclick="closeFbDrawer(\'' + uid + '\')">Отмена</button>' +
+        '<button class="fb-btn selected" onclick="submitChatFeedback(\'' + uid + '\')">Отправить вклад</button>' +
+        '</div></div>';
+}
