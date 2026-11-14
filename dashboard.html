@@ -2388,7 +2388,7 @@ function updateGuide() {
         if (activeApiKey) {
             keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--success-bg);border:1px solid var(--success-border);border-radius:var(--radius-sm);margin-bottom:14px;font-size:12px;color:var(--success);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Используется ваш API-ключ: <strong style="color:var(--text);font-family:var(--font-mono);background:var(--surface-elevated);border:1px solid var(--success-border);padding:2px 6px;border-radius:var(--radius-sm);">' + activeApiKey + '</strong></span></div>';
         } else {
-            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#fca5a5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>У вас пока нет активного ключа. <a href="javascript:void(0)" onclick="showTab(\'keys\', document.querySelectorAll(\'.nav-btn\')[3])" style="color:#38bdf8;text-decoration:underline;font-weight:600;">Создайте ключ</a> во вкладке «API Ключи», чтобы он автоматически подставился в команды.</span></div>';
+            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--danger-bg);border:1px solid var(--danger-border);border-radius:var(--radius-sm);margin-bottom:14px;font-size:12px;color:var(--danger);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>У вас пока нет активного ключа. <a href="javascript:void(0)" onclick="showTab(\'keys\', document.querySelectorAll(\'.nav-btn\')[3])" style="color:var(--accent-text);text-decoration:underline;font-weight:600;">Создайте ключ</a> во вкладке «API Ключи», чтобы он автоматически подставился в команды.</span></div>';
         }
     }
     document.getElementById('guideTitle').innerText = 'Инструкция: ' + (toolNames[currentTool] || currentTool) + ' + ' + (osNames[currentOS] || currentOS);
@@ -2413,11 +2413,11 @@ function updateGuide() {
     if (currentTool === 'claude' || currentTool === 'claude-desktop') {
         const filePath = (currentOS === 'windows') ? '%USERPROFILE%\\.claude\\settings.json' : '~/.claude/settings.json';
         manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">1. Путь к файлу конфигурации:</div>' +
             '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Создайте или замените settings.json блоком ниже:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">2. Создайте или замените settings.json блоком ниже:</div>' +
             '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeClaudeManual"></pre><button class="btn-copy" onclick="copyClaudeManual()">Скопировать</button></div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Перезапустите Claude CLI / Desktop:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:4px;">3. Перезапустите Claude CLI / Desktop:</div>' +
             '<div>Claude читает ANTHROPIC_BASE_URL и ANTHROPIC_AUTH_TOKEN из settings.json. Endpoint единый — отдаёт и Claude, и OpenAI совместимые модели через локальный C++20 / AVX2 пайплайн.</div>' +
         '</div>';
         const pre = document.getElementById('codeClaudeManual');
@@ -2435,11 +2435,11 @@ function updateGuide() {
         }
     } else if (currentTool === 'cursor') {
         manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Откройте настройки Cursor:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">1. Откройте настройки Cursor:</div>' +
             '<div>Нажмите <b>Ctrl + ,</b> -> выберите раздел <b>Models</b> -> включите <b>OpenAI API Key</b>.</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin:10px 0 6px;">2. Укажите локальный адрес и ключ Shard:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin:10px 0 6px;">2. Укажите локальный адрес и ключ Shard:</div>' +
             '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeCursorManual"></pre><button class="btn-copy" onclick="copyCursorManual()">Скопировать</button></div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Сохраните настройки:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:4px;">3. Сохраните настройки:</div>' +
             '<div>Cursor будет отправлять запросы напрямую на локальный сервер Shard без задержек сети.</div>' +
         '</div>';
         const pre = document.getElementById('codeCursorManual');
