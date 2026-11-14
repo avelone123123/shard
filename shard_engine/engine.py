@@ -988,3 +988,113 @@ class ShardEngine:
                 backend.start(sel_path, int(fit.get("ctx_tokens") or 4096), ngl, threads, model_id,
                               server_path=server_path, wait_timeout=wait_t, on_wait=_wait_beat,
                               **start_kw)
+            except RuntimeError as e:
+                if self._cancel_load or seq_id != self._load_seq:
+                    _stop_backend()
+                    return
+                params_b = fit.get("params_b") or 0
+                if params_b <= 1.2 and TORCH_AVAILABLE:
+                    self._run_loader(model_id, seq_id, prev_loaded_id=prev_loaded_id)
+                    return
+                _fail("Ошибка запуска GGUF", f"Движок llama.cpp не запустился: {str(e)[:140]}", err_state="LOAD_FAILED")
+                return
+            if self._cancel_load or seq_id != self._load_seq:
+                _stop_backend()
+                return
+            rec_row = None
+            for r in fit.get("quants", []):
+                if r.get("quant") == fit.get("recommended"):
+                    rec_row = r
+                    break
+            layers_total = int(fit.get("layers") or 0)
+            layers_vram_final = layers_total if ngl >= 999 else min(layers_total, max(0, ngl))
+            self.model = None
+            self.tokenizer = None
+            self.current_loaded_id = model_id
+            self.active_model_id = model_id
+            self.status = "ready"
+            self.detailed_state = "READY"
+            self.model_states[model_id] = "READY"
+            pres = self._verdict_presentation(fit.get("verdict"))
+            bench_us = self.native_core.benchmark_avx2(1000)
+            self.loaded_info = {
+                "model_id": model_id,
+                "status": "ready",
+                "lifecycle_state": "READY",
+                "tier": pres[0],
+                "tier_label": pres[1],
+                "color": pres[2],
+                "mode": f"GGUF (llama.cpp), {'полностью на GPU' if ngl >= 999 else ngl_desc}",
+                "speed_est": fit.get("tok_s_est") or 0,
+                "vram_alloc_mb": int(round((rec_row or {}).get("vram_gb", 0) * 1024)),
+                "ram_alloc_mb": int(round((rec_row or {}).get("ram_gb", 0) * 1024)),
+                "total_layers": layers_total,
+                "layers_vram": layers_vram_final,
+                "layers_ram": max(0, layers_total - layers_vram_final),
+                "layers_nvme": 0,
+                "native_avx2_us": bench_us,
+                "backend": "gguf",
+                "quant": sel["quant"],
+                "fit": {
+                    "params_b": fit.get("params_b"),
+                    "params_source": fit.get("params_source"),
+                    "verdict": fit.get("verdict"),
+                    "quant": fit.get("recommended"),
+                    "est_tok_s": fit.get("tok_s_est"),
+                    "backend": "gguf",
+                    "gguf_repo": repo_id
+                },
+                "loaded_at": time.time()
+            }
+            self.load_progress = {
+                "status": "ready",
+                "lifecycle_state": "READY",
+                "model_id": model_id,
+                "percent": 100,
+                "stage": "Готова к работе",
+                "curr_mb": total_mb,
+                "total_mb": total_mb,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Готово",
+                "message": f"Модель {model_id} активна и готова к работе (GGUF {sel['quant']})."
+            }
+            try:
+                _storage.atomic_write_json(
+                    self.active_model_file,
+                    {"model_id": model_id, "updated_at": time.time()},
+                    fsync=True,
+                    backup=True,
+                )
+            except Exception:
+                pass
+        except Exception as e:
+            if seq_id != self._load_seq:
+                return
+            _fail("Ошибка загрузки GGUF", f"Сбой загрузки: {str(e)[:140]}", err_state="LOAD_FAILED")
+    def load_model(self, model_id):
+        raw_mid = str(model_id or "").strip()
+        if not raw_mid or raw_mid.startswith("\\\\") or raw_mid.startswith("//"):
+            raise ValueError("Недопустимый идентификатор или UNC-путь модели")
+        def _norm_mid(x):
+            return re.sub(r"(?i)[-_]?(instruct)?[-_]?gguf$", "", str(x or "").split("/")[-1].lower())
+        m_norm = _norm_mid(model_id)
+        if self.status == "ready":
+            if self.model is not None and (_norm_mid(self.current_loaded_id) == m_norm or self.current_loaded_id == model_id):
+                return self.loaded_info
+            if self.gguf is not None and self.gguf.is_running() and (_norm_mid(self.gguf.model_id) == m_norm or _norm_mid(self.current_loaded_id) == m_norm or self.gguf.model_id == model_id):
+                return self.loaded_info
+        if self.status == "loading" and (_norm_mid(self.active_model_id) == m_norm or self.active_model_id == model_id):
+            return self.loaded_info
+        prev_loaded_id = self.current_loaded_id if self.is_loaded() else None
+        self.detailed_state = "COMPATIBILITY_CHECK"
+        self.model_states[model_id] = "COMPATIBILITY_CHECK"
+        hw = _hardware.get_hardware_profile()
+        is_local_gguf = os.path.isfile(str(model_id or "")) and str(model_id).lower().endswith(".gguf")
+        is_local_dir = os.path.isdir(str(model_id or ""))
+        loc_gguf = None
+        if is_local_gguf:
+            sz_gb = round(os.path.getsize(model_id) / (1024 ** 3), 2)
+            q_name = (gguf_mod.parse_quant_from_name(model_id) if gguf_mod else None) or "CUSTOM"
+            loc_gguf = {"path": model_id, "size_bytes": os.path.getsize(model_id), "quant": q_name}
+        elif gguf_mod is not None:
