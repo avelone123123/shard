@@ -3704,24 +3704,24 @@ let soupInstallPollTimer = null;
 function _renderSoupInstallerBox(inst) {
     const box = document.getElementById('trnSoupInstallBox');
     if (!box || !inst) return;
-    const stMeta = _SOUP_STATE_LABELS[inst.lifecycle_state] || [inst.lifecycle_state || inst.status || 'idle', '#38bdf8'];
+    const stMeta = _SOUP_STATE_LABELS[inst.lifecycle_state] || [inst.lifecycle_state || inst.status || 'idle', 'var(--accent)'];
     const pct = Number(inst.progress_pct || 0);
     const tail = (inst.logs || []).slice(-6).join('\n');
-    const barColor = inst.status === 'failed' ? '#ef4444' : (inst.status === 'completed' ? '#10b981' : '#38bdf8');
+    const barColor = inst.status === 'failed' ? 'var(--danger)' : (inst.status === 'completed' ? 'var(--success)' : 'var(--accent)');
     box.innerHTML =
-        '<div style="background:#080c16;border:1px solid #1e293b;border-radius:6px;padding:9px 11px;">' +
+        '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:9px 11px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:5px;">' +
         '<span><b style="color:' + stMeta[1] + ';">' + lanEsc(inst.lifecycle_state || inst.status) + '</b> — ' + lanEsc(inst.stage || stMeta[0]) + '</span>' +
-        '<span style="font-family:monospace;color:' + barColor + ';">' + pct + '%</span></div>' +
+        '<span style="font-family:var(--font-mono);color:' + barColor + ';">' + pct + '%</span></div>' +
         '<div class="glb-track" style="height:5px;margin-bottom:6px;"><div class="glb-fill" style="width:' + pct + '%;background:' + barColor + ';"></div></div>' +
-        (inst.error_explanation ? ('<div style="color:#f87171;font-size:11.5px;margin-bottom:4px;">' + lanEsc(inst.error_explanation) + '</div>') : '') +
+        (inst.error_explanation ? ('<div style="color:var(--danger);font-size:11.5px;margin-bottom:4px;">' + lanEsc(inst.error_explanation) + '</div>') : '') +
         (tail ? '<details class="tech-details"><summary>Лог установки SOUP</summary><pre style="margin-top:4px;white-space:pre-wrap;max-height:130px;overflow-y:auto;">' + lanEsc(tail) + '</pre></details>' : '') +
         '</div>';
 }
 async function trnInstallSoup(actionOrFlag, includeTrain) {
     const action = (actionOrFlag === true) ? 'repair' : (actionOrFlag === false ? 'install' : (actionOrFlag || 'install'));
     const box = document.getElementById('trnSoupInstallBox');
-    if (box) box.innerHTML = '<div style="font-size:12px;color:#38bdf8;">Запуск задачи ' + lanEsc(action) + ' в изолированной среде Python 3.11–3.13...</div>';
+    if (box) box.innerHTML = '<div style="font-size:12px;color:var(--accent-text);">Запуск задачи ' + lanEsc(action) + ' в изолированной среде Python 3.11–3.13...</div>';
     try {
         const res = await fetch('/api/training/soup/install', {
             method: 'POST',
@@ -3732,7 +3732,7 @@ async function trnInstallSoup(actionOrFlag, includeTrain) {
         const inst = d.installer || {};
         if (!res.ok) {
             showToast('Ошибка SOUP', d.message || 'Не удалось запустить установку');
-            if (box) box.innerHTML = '<div style="color:#f87171;font-size:12px;">' + lanEsc(d.message || 'Ошибка запуска') + '</div>';
+            if (box) box.innerHTML = '<div style="color:var(--danger);font-size:12px;">' + lanEsc(d.message || 'Ошибка запуска') + '</div>';
             return;
         }
         _renderSoupInstallerBox(inst);
@@ -3777,7 +3777,7 @@ async function trnLoadFeedback(statusFilter, btn) {
     const entries = data.entries || [];
     document.getElementById('trnFeedbackMeta').innerText = 'Показано: ' + entries.length;
     box.innerHTML = entries.map(e => {
-        const flags = (e.redactions && e.redactions.length) ? ' <span style="color:#f59e0b;">[маскировано: ' + lanEsc(e.redactions.join(',')) + ']</span>' : '';
+        const flags = (e.redactions && e.redactions.length) ? ' <span style="color:var(--warning);">[маскировано: ' + lanEsc(e.redactions.join(',')) + ']</span>' : '';
         return '<div class="trn-row">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;color:#8892a4;">' +
             '<span><b>' + lanEsc(e.id) + '</b> | рейтинг: ' + lanEsc(e.rating) + ' | источник: ' + lanEsc(e.source) + flags + '</span>' +
