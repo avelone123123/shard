@@ -4392,7 +4392,7 @@ function _renderUpdateModalBody(data) {
     if (chk.state === 'UPDATE_AVAILABLE') badge = '<span class="compat-pill compat-warn">ДОСТУПНО ОБНОВЛЕНИЕ -> v' + escHtml(chk.latest_version) + '</span>';
     if (chk.state === 'GITHUB_UNAVAILABLE' || chk.state === 'CHECK_FAILED') badge = '<span class="compat-pill compat-no">ПРОВЕРКА НЕДОСТУПНА</span>';
     const notes = chk.release_notes ? ('<details class="tech-details"><summary>Описание релиза GitHub</summary><pre style="margin-top:6px;white-space:pre-wrap;max-height:140px;overflow-y:auto;">' + escHtml(chk.release_notes) + '</pre></details>') : '';
-    const errLine = chk.error ? ('<div style="color:#f87171;margin-top:6px;">' + escHtml(chk.error) + '</div>') : '';
+    const errLine = chk.error ? ('<div style="color:var(--danger);margin-top:6px;">' + escHtml(chk.error) + '</div>') : '';
     box.innerHTML =
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
         '<div>Установленная версия: <b>v' + escHtml(chk.current_version || '-') + '</b> | Новая на GitHub: <b>v' + escHtml(chk.latest_version || '-') + '</b></div>' + badge + '</div>' +
