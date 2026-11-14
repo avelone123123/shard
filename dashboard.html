@@ -2091,45 +2091,45 @@ async function netLoadPeers() {
             html += '<div style="font-size:12px;font-weight:600;color:var(--warning);margin-bottom:6px;">Запросы на подключение (' + pend.length + '):</div>';
             html += pend.map(p => {
                 const pid = escHtml(p.node_id || p.peer_node_id || '');
-                return '<div style="background:#0d1117;border:1px solid #d29922;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">' +
-                    '<span style="font-size:11px;font-family:monospace;color:#fff;">' + pid + '</span>' +
+                return '<div style="background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span style="font-size:11px;font-family:var(--font-mono);color:var(--text);">' + pid + '</span>' +
                     '<div style="display:flex;gap:6px;">' +
                     '<button class="btn-action active" data-pid="' + pid + '" onclick="netApprovePeer(this.dataset.pid)">Одобрить</button>' +
-                    '<button class="btn-action" style="border-color:#f85149;color:#f85149;" data-pid="' + pid + '" onclick="netRejectPeer(this.dataset.pid)">Отклонить</button>' +
+                    '<button class="btn-action" style="border-color:var(--danger-border);color:var(--danger);background:var(--danger-bg);" data-pid="' + pid + '" onclick="netRejectPeer(this.dataset.pid)">Отклонить</button>' +
                     '</div></div>';
             }).join('');
         }
         if (conn.length > 0) {
-            html += '<div style="font-size:12px;font-weight:600;color:#238636;margin:10px 0 6px;">Активные пиры (' + conn.length + '):</div>';
+            html += '<div style="font-size:12px;font-weight:600;color:var(--success);margin:10px 0 6px;">Активные пиры (' + conn.length + '):</div>';
             html += conn.map(p => {
                 const pid = escHtml(p.node_id || p.peer_node_id || '');
                 const tkind = escHtml(p.transport_kind || p.mode || 'tunnel');
                 const rpm = p.rpm_limit ? ('RPM: ' + p.rpm_limit) : 'без лимита RPM';
-                return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
-                    '<div><div style="font-size:11px;font-family:monospace;color:#fff;">' + pid + '</div>' +
+                return '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+                    '<div><div style="font-size:11px;font-family:var(--font-mono);color:var(--text);">' + pid + '</div>' +
                     '<div style="font-size:10px;color:var(--text-muted);">' + tkind + ' &bull; ' + rpm + '</div></div>' +
                     '<div style="display:flex;gap:6px;">' +
                     '<button class="btn-action" data-pid="' + pid + '" onclick="netKickPeer(this.dataset.pid)">Кикнуть</button>' +
-                    '<button class="btn-action" style="border-color:#f85149;color:#f85149;" data-pid="' + pid + '" onclick="netBlockPeer(this.dataset.pid)">Забанить</button>' +
+                    '<button class="btn-action" style="border-color:var(--danger-border);color:var(--danger);background:var(--danger-bg);" data-pid="' + pid + '" onclick="netBlockPeer(this.dataset.pid)">Забанить</button>' +
                     '</div></div>';
             }).join('');
         }
         if (blk.length > 0) {
-            html += '<div style="font-size:12px;font-weight:600;color:#f85149;margin:10px 0 6px;">Заблокированные узлы (' + blk.length + '):</div>';
+            html += '<div style="font-size:12px;font-weight:600;color:var(--danger);margin:10px 0 6px;">Заблокированные узлы (' + blk.length + '):</div>';
             html += blk.map(b => {
                 const pid = escHtml(b.node_id || b.peer_node_id || b || '');
-                return '<div style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:6px 10px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">' +
-                    '<span style="font-size:11px;font-family:monospace;color:#8b949e;">' + pid + '</span>' +
+                return '<div style="background:var(--surface-sunken);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span style="font-size:11px;font-family:var(--font-mono);color:var(--text-muted);">' + pid + '</span>' +
                     '<button class="btn-action" data-pid="' + pid + '" onclick="netUnblockPeer(this.dataset.pid)">Разблокировать</button>' +
                     '</div>';
             }).join('');
         }
         if (!html) {
-            html = '<div style="padding:16px;color:var(--text-muted);font-size:12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;text-align:center;">Нет активных пиров и запросов.</div>';
+            html = '<div style="padding:16px;color:var(--text-muted);font-size:12px;background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-sm);text-align:center;">Нет активных пиров и запросов.</div>';
         }
         el.innerHTML = html;
     } catch(e) {
-        el.innerHTML = '<div style="color:#f85149;font-size:12px;">Ошибка загрузки списка пиров.</div>';
+        el.innerHTML = '<div style="color:var(--danger);font-size:12px;">Ошибка загрузки списка пиров.</div>';
     }
 }
 async function netApprovePeer(pid) {
