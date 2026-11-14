@@ -1978,3 +1978,113 @@ async function loadDownloadedModels() {
     } catch(e) {
         grid.innerHTML = '<div style="color:#ef4444;padding:24px;font-size:13px;grid-column:1/-1;">Не удалось загрузить список моделей на SSD.</div>';
     }
+}
+async function deleteDownloadedModel(id, name, sizeStr) {
+    if (!confirm('Удалить веса модели ' + name + ' (' + sizeStr + ') с SSD диска?')) {
+        return;
+    }
+    showToast('Удаление модели ' + name + ' с SSD...');
+    try {
+        const res = await fetch('/api/models/downloaded', {
+            method: 'DELETE',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({model_id: id})
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            showToast('Модель ' + name + ' удалена. Освобождено: ' + data.freed_str);
+            updateDownloadedBadge();
+            if (currentCategory === 'downloaded') {
+                loadDownloadedModels();
+            } else {
+                loadModels();
+            }
+        } else {
+            showToast('Ошибка: ' + (data.message || 'Сбой'));
+        }
+    } catch(e) {
+        showToast('Сбой удаления модели');
+    }
+}
+function setCategory(cat, btn) {
+    currentCategory = cat;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (cat === 'downloaded') {
+        loadDownloadedModels();
+    } else {
+        loadModels();
+    }
+}
+let searchDebounceTimer = null;
+function handleSearchDebounced() {
+    if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        loadModels();
+    }, 320);
+}
+function handleSearch(e) {
+    if (e.key === 'Enter') {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        loadModels();
+    }
+}
+function selectTool(tool, el) {
+    currentTool = tool;
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    updateGuide();
+}
+function selectOS(os, el) {
+    currentOS = os;
+    document.querySelectorAll('.os-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    if (os === 'manual') {
+        setGuideMode('manual');
+    } else {
+        updateGuide();
+    }
+}
+function setGuideMode(mode) {
+    currentGuideMode = mode;
+    document.getElementById('modeBtnScript').classList.toggle('active', mode === 'script');
+    document.getElementById('modeBtnManual').classList.toggle('active', mode === 'manual');
+    document.getElementById('guideScriptSection').style.display = (mode === 'script') ? 'block' : 'none';
+    document.getElementById('guideManualSection').style.display = (mode === 'manual') ? 'block' : 'none';
+    updateGuide();
+}
+function updateGuide() {
+    const toolNames = {
+        'claude': 'Claude CLI',
+        'claude-desktop': 'Claude Desktop',
+        'cursor': 'Cursor IDE',
+        'opencode': 'OpenCode',
+        'continue': 'Continue',
+        'aider': 'Aider CLI',
+        'zed': 'Zed Editor',
+        'jetbrains': 'JetBrains AI',
+        'sdk': 'API / SDK'
+    };
+    const osNames = {'windows': 'Windows', 'linux': 'Linux', 'macos': 'macOS', 'manual': 'Ручной config'};
+    const keyNoticeEl = document.getElementById('guideKeyNotice');
+    if (keyNoticeEl) {
+        if (activeApiKey) {
+            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#34d399;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Используется ваш API-ключ: <strong style="color:#fff;font-family:Consolas,monospace;background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">' + activeApiKey + '</strong></span></div>';
+        } else {
+            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#fca5a5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>У вас пока нет активного ключа. <a href="javascript:void(0)" onclick="switchTab(\'keys\', document.querySelectorAll(\'.nav-btn\')[3])" style="color:#38bdf8;text-decoration:underline;font-weight:600;">Создайте ключ</a> во вкладке «API Ключи», чтобы он автоматически подставился в команды.</span></div>';
+        }
+    }
+    document.getElementById('guideTitle').innerText = 'Инструкция: ' + (toolNames[currentTool] || currentTool) + ' + ' + (osNames[currentOS] || currentOS);
+    const scriptBox = document.getElementById('guideScriptCode');
+    const stepsList = document.getElementById('guideScriptSteps');
+    const keyParam = activeApiKey ? '&key=' + encodeURIComponent(activeApiKey) : '';
+    const keyFallback = activeApiKey || 'sk-shard-local';
+    if (currentOS === 'windows') {
+        scriptBox.innerText = 'powershell -ExecutionPolicy Bypass -Command "irm \'http://localhost:8000/i?os=windows&tool=' + currentTool + keyParam + '\' | iex"';
+        stepsList.innerHTML = '<li>Откройте Терминал: <b>Win + X</b> -> Терминал (или откройте <b>PowerShell / CMD</b>).</li>' +
+            '<li>Вставьте скопированную команду комбинацией <b>Ctrl + V</b> и нажмите <b>Enter</b>.</li>' +
+            '<li>Готово. Команда работает в PowerShell и CMD. Конфигурация инструмента обновится автоматически.</li>';
+    } else {
+        const toolArg = (currentTool === 'claude-desktop') ? 'claude' : currentTool;
+        const unixKeyArg = activeApiKey ? ' ' + activeApiKey : '';
+        scriptBox.innerText = 'bash <(curl -fsSL "http://localhost:8000/i?tool=' + toolArg + keyParam + '")' + unixKeyArg;
