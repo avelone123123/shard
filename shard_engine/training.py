@@ -587,6 +587,8 @@ def start_training_job(
             "started_at": time.time(),
             "finished_at": None,
             "status": "validating",
+            "lifecycle_state": "PREPARING",
+            "command": cmd_preview,
             "base_model": base,
             "dataset_snapshot_id": dataset_snapshot_id,
             "dataset_path": manifest["path"],
@@ -617,6 +619,7 @@ def start_training_job(
             for j in jobs:
                 if j["job_id"] == job_id:
                     j["status"] = "failed"
+                    j["lifecycle_state"] = "FAILED"
                     j["finished_at"] = time.time()
                     j["returncode"] = dry_res["returncode"]
                     j["error"] = (dry_res["stderr"] or dry_res["stdout"] or "soup train --dry-run failed")[:500]
@@ -629,6 +632,7 @@ def start_training_job(
             for j in jobs:
                 if j["job_id"] == job_id:
                     j["status"] = "completed"
+                    j["lifecycle_state"] = "COMPLETED"
                     j["finished_at"] = time.time()
                     j["returncode"] = 0
                     j["training_completed"] = False
@@ -651,6 +655,7 @@ def start_training_job(
         for j in jobs:
             if j["job_id"] == job_id:
                 j["status"] = "running"
+                j["lifecycle_state"] = "RUNNING"
                 j["pid"] = proc.pid
                 result_job = dict(j)
                 break
