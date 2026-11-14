@@ -2253,7 +2253,7 @@ async function loadDownloadedModels() {
         const countBadge = document.getElementById('downloadedBadgeCount');
         if (countBadge) countBadge.innerText = models.length;
         if (badgeEl) {
-            badgeEl.innerHTML = '<span style="color:#60a5fa;font-weight:600;">Локальное хранилище SSD:</span> занято ' + data.total_size_gb + ' ГБ &bull; свободно ' + data.disk_free_gb + ' ГБ &bull; сохранено моделей: ' + models.length;
+            badgeEl.innerHTML = '<span style="color:var(--info);font-weight:600;">Локальное хранилище SSD:</span> занято ' + data.total_size_gb + ' ГБ &bull; свободно ' + data.disk_free_gb + ' ГБ &bull; сохранено моделей: ' + models.length;
         }
         grid.innerHTML = '';
         if (models.length === 0) {
