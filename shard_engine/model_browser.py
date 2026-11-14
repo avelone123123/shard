@@ -526,3 +526,27 @@ def _breadcrumbs(path_obj):
     cur = path_obj
     chain = [cur]
     while cur.parent != cur:
+        cur = cur.parent
+        chain.append(cur)
+    for item in reversed(chain):
+        name = item.name or str(item)
+        crumbs.append({"name": name, "path": str(item)})
+    return crumbs
+def list_directory(raw_path=None, filter_mode="all", search=None, max_entries=500):
+    explicit = bool(raw_path is not None and str(raw_path).strip())
+    target = str(raw_path).strip() if explicit else settings.models_dir()
+    if not explicit and not os.path.exists(str(target)):
+        target = os.path.expanduser("~")
+    p = validate_browse_path(target)
+    if not p.exists():
+        raise FileNotFoundError(f"Directory does not exist: {target}")
+    if not p.is_dir():
+        p = p.parent
+        validate_browse_path(str(p))
+    current_info = classify_model_path(str(p), deep_size=False)
+    parent = str(p.parent) if p.parent != p else None
+    if parent:
+        try:
+            validate_browse_path(parent)
+        except PermissionError:
+            parent = None
