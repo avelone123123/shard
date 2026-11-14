@@ -598,3 +598,27 @@ def verify_installation(expected_version=None):
         "ok = p.package_resource_exists('dashboard.html') and p.package_resource_exists('engine_optimizations.json');"
         "print(json.dumps({'version': shard_engine.__version__, 'assets_ok': bool(ok)}))"
     )
+    res = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        creationflags=_WIN_NO_WINDOW,
+    )
+    if res.returncode != 0 or not res.stdout.strip():
+        raise RuntimeError(f"Post-update verification failed: {(res.stderr or res.stdout)[:300]}")
+    data = json.loads(res.stdout.strip().splitlines()[-1])
+    if not data.get("assets_ok"):
+        raise RuntimeError("Post-update verification failed: required dashboard/assets missing.")
+    new_ver = data.get("version")
+    if expected_version and is_valid_version_str(expected_version):
+        if str(new_ver).lstrip("vV") != str(expected_version).lstrip("vV"):
+            raise RuntimeError(f"Updated version mismatch: expected {expected_version}, got {new_ver}.")
+    return data
+def _download_file(url, dest_path, expected_size=None, progress_cb=None, timeout=60):
+    r = _http_get(url, timeout=timeout, stream=True)
+    if r.status_code in (403, 429):
+        raise RuntimeError(f"Download blocked by rate limit (HTTP {r.status_code}). Retry later.")
+    if r.status_code != 200:
+        raise RuntimeError(f"Download failed with HTTP {r.status_code}.")
+    hdr_len = r.headers.get("Content-Length")
