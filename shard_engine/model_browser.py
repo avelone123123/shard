@@ -142,3 +142,27 @@ def _bounded_dir_size(dir_path, max_files=250):
     return total, False
 def _read_json_small(path_obj):
     try:
+        if path_obj.is_file() and path_obj.stat().st_size <= 512 * 1024:
+            return json.loads(path_obj.read_text(encoding="utf-8", errors="replace"))
+    except Exception:
+        pass
+    return None
+def map_gguf_to_hf_base(path_or_name):
+    raw = str(path_or_name or "").strip()
+    if not raw:
+        return {"suggested_hf_base_repo": None, "hf_base_cached_locally": False, "local_hf_snapshot_path": None}
+    norm = raw.replace("\\", "/")
+    m_cache = re.search(r"models--([^/]+)--([^/]+)", norm)
+    cand_repo = None
+    if m_cache:
+        cand_repo = f"{m_cache.group(1)}/{m_cache.group(2)}"
+    base_name = os.path.basename(norm)
+    stem = re.sub(r"(?i)\.gguf$", "", base_name)
+    stem = re.sub(r"(?i)[-_.]?(?:i1-)?(?:IQ\d_[A-Z0-9_]+|Q\d+_K(?:_[A-Z]+)?|Q\d+_\d+|Q\d+|F16|F32|BF16)(?:-\d+-of-\d+)?$", "", stem)
+    stem = re.sub(r"(?i)[-_]?(?:imatrix|gguf)$", "", stem).strip("-_.")
+    stem_low = stem.lower()
+    suggested = None
+    for m in hf_hub.CURATED_MODELS:
+        mid = m["id"]
+        mtail = mid.split("/")[-1].lower()
+        if mtail == stem_low or stem_low in mtail or mtail in stem_low:
