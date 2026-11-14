@@ -328,3 +328,113 @@ def _watch_job(job_id, proc, log_fh, custom_cmd=None):
             target["training_completed"] = False
             tail = prog.get("lines", [])[-5:]
             target["error"] = f"Soup training exited with code {rc}: " + (" | ".join(tail)[:300] if tail else "check train.log")
+            _save_jobs(jobs)
+            feedback._append_audit("training_job_failed", {"job_id": job_id, "returncode": rc})
+def start_training_job(
+    base_model=None,
+    dataset_snapshot_id=None,
+    task="sft",
+    params=None,
+    dry_run=False,
+    unload_inference=True,
+    experiment_name=None,
+    soup_cmd=None,
+):
+    soup_info = soup_adapter.detect_soup(custom_cmd=soup_cmd, probe_deps=True)
+    if not soup_info.get("available"):
+        raise RuntimeError(
+            "SOUP CLI is not available. " + (" ".join(soup_info.get("warnings") or []))
+        )
+    if not soup_info.get("capabilities", {}).get("train"):
+        raise RuntimeError(
+            "SOUP training dependencies are missing: " + ", ".join(soup_info.get("missing_train_deps") or ["soup-cli[train]"])
+        )
+    if not dataset_snapshot_id:
+        raise ValueError("dataset_snapshot_id is required. Build an immutable dataset snapshot first.")
+    manifest = feedback.verify_dataset_integrity(dataset_snapshot_id)
+    base = str(base_model or manifest.get("base_model") or engine_instance.active_model_id or "").strip()
+    if not base:
+        raise ValueError("base_model must be specified or loaded in SHARD.")
+    if os.path.isfile(base) and base.lower().endswith(".gguf"):
+        raise ValueError("Training requires a Hugging Face model ID or HF directory as base_model, not a quantized .gguf file.")
+    task_norm = str(task or manifest.get("task") or "sft").strip().lower()
+    if task_norm == "dpo" and manifest.get("format") != "dpo":
+        raise ValueError("DPO training requires a 'dpo' preference dataset snapshot (prompt/chosen/rejected).")
+    eng_st = engine_instance.get_status()
+    if eng_st.get("status") == "generating":
+        raise RuntimeError("Inference engine is actively generating; wait or cancel generation before training.")
+    if eng_st.get("is_loaded") or eng_st.get("status") == "loading":
+        if unload_inference:
+            engine_instance.unload_model()
+        else:
+            raise RuntimeError("An inference model is loaded in memory. Unload it or enable unload_inference to prevent OOM.")
+    with _STATE_LOCK:
+        jobs = reconcile_jobs()
+        active = _active_job_unlocked(jobs)
+        if active is not None:
+            raise RuntimeError(f"Another training job '{active['job_id']}' is already active ({active['status']}).")
+        job_id = f"job-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6]}"
+        run_dir = _runs_dir() / job_id
+        output_dir = run_dir / "output"
+        config_path = run_dir / "soup.yaml"
+        log_path = run_dir / "train.log"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        merged_params = dict(params or {})
+        if not soup_info.get("cuda_available"):
+            if merged_params.get("quantization") in (None, "", "4bit", "8bit") and not merged_params.get("force_quantization"):
+                merged_params["quantization"] = "none"
+        merged_params.pop("force_quantization", None)
+        cfg_dict, errors = soup_adapter.build_soup_config(
+            base_model=base,
+            dataset_path=manifest["path"],
+            output_dir=str(output_dir),
+            task=task_norm,
+            fmt=manifest.get("format"),
+            experiment_name=experiment_name or job_id,
+            params=merged_params,
+        )
+        if errors:
+            raise ValueError("; ".join(errors))
+        soup_adapter.write_soup_config(cfg_dict, config_path)
+        data_root = paths.data_dir()
+        job = {
+            "job_id": job_id,
+            "host_pid": os.getpid(),
+            "created_at": time.time(),
+            "started_at": time.time(),
+            "finished_at": None,
+            "status": "validating",
+            "base_model": base,
+            "dataset_snapshot_id": dataset_snapshot_id,
+            "dataset_path": manifest["path"],
+            "dataset_rel_path": storage.normalize_rel_path(manifest["path"], data_root),
+            "task": task_norm,
+            "params": cfg_dict,
+            "dry_run": bool(dry_run),
+            "soup_config_path": str(config_path),
+            "soup_config_rel_path": storage.normalize_rel_path(config_path, data_root),
+            "output_dir": str(output_dir),
+            "output_rel_path": storage.normalize_rel_path(output_dir, data_root),
+            "log_path": str(log_path),
+            "log_rel_path": storage.normalize_rel_path(log_path, data_root),
+            "pid": None,
+            "returncode": None,
+            "error": None,
+            "training_completed": False,
+            "artifacts": {"checkpoints": [], "adapter_dir": None, "adapter_files": [], "merged_dir": None, "gguf_files": []},
+            "progress": {"last_loss": None, "last_epoch": None, "current_step": None, "total_steps": None},
+            "model_version_id": None,
+        }
+        jobs.insert(0, job)
+        _save_jobs(jobs)
+    dry_res = soup_adapter.dry_run_train(soup_info, config_path)
+    if not dry_res["ok"]:
+        with _STATE_LOCK:
+            jobs = _load_jobs()
+            for j in jobs:
+                if j["job_id"] == job_id:
+                    j["status"] = "failed"
+                    j["finished_at"] = time.time()
+                    j["returncode"] = dry_res["returncode"]
+                    j["error"] = (dry_res["stderr"] or dry_res["stdout"] or "soup train --dry-run failed")[:500]
