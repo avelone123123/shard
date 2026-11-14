@@ -1098,3 +1098,113 @@ class NetworkManager:
                 raise net_tunnel.TunnelAuthError(f"TOFU pubkey mismatch for {node_id}")
             entry = prev if isinstance(prev, dict) else {"node_id": node_id, "first_seen": now}
             if pubkey_b64:
+                entry["pubkey_b64"] = pubkey_b64
+            if name:
+                entry["name"] = str(name)[:64]
+            if mode:
+                entry["last_mode"] = str(mode)
+            if endpoint:
+                entry["last_endpoint"] = str(endpoint)[:256]
+            entry["last_seen"] = now
+            pins[node_id] = entry
+            self._save_peers()
+    def _append_history(self, record):
+        with self._lock:
+            hist = self._peers_state.setdefault("connection_history", [])
+            hist.append(record)
+            if len(hist) > 100:
+                self._peers_state["connection_history"] = hist[-100:]
+            self._save_peers()
+    def _authorize_peer(self, peer_node_id, peer_pubkey_b64, auth_proof):
+        if not isinstance(peer_node_id, str) or not net_identity.NODE_ID_RE.match(peer_node_id):
+            return False
+        now = time.time()
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+            revoked = self._peers_state.get("revoked_peers") or {}
+            if peer_node_id in revoked:
+                return False
+            auth_map = self._peers_state.setdefault("authorized_peers", {})
+            pend_map = self._peers_state.setdefault("pending_peers", {})
+            if self._host_agent is not None:
+                other_active = {
+                    ch.peer_node_id
+                    for ch in list(self._host_agent._active_channels)
+                    if ch.is_established and ch.peer_node_id and ch.peer_node_id != peer_node_id
+                }
+                if len(other_active) >= int(cfg.get("max_participants") or 16):
+                    return False
+            existing = auth_map.get(peer_node_id)
+            if isinstance(existing, dict):
+                if existing.get("pubkey_b64") and peer_pubkey_b64 and not hmac.compare_digest(existing["pubkey_b64"], peer_pubkey_b64):
+                    return False
+            acc = _normalize_access_mode(cfg.get("access_mode"))
+            if acc == "open":
+                if isinstance(existing, dict):
+                    existing["last_seen"] = now
+                    if not existing.get("pubkey_b64") and peer_pubkey_b64:
+                        existing["pubkey_b64"] = peer_pubkey_b64
+                else:
+                    auth_map[peer_node_id] = {
+                        "node_id": peer_node_id,
+                        "pubkey_b64": peer_pubkey_b64,
+                        "approved_at": now,
+                        "invite_id": None,
+                        "grant_mode": "open",
+                        "approved_manually": False,
+                        "label": "open",
+                        "last_seen": now,
+                        "requests": 0,
+                        "max_requests_per_min": None,
+                        "bandwidth_kbps": None,
+                    }
+                pend_map.pop(peer_node_id, None)
+                self._save_peers()
+                return True
+            if acc == "owner_confirm":
+                if isinstance(existing, dict) and existing.get("approved_manually") is True:
+                    existing["last_seen"] = now
+                    self._save_peers()
+                    return True
+                p_rec = pend_map.get(peer_node_id)
+                if isinstance(p_rec, dict):
+                    p_rec["last_attempt_at"] = now
+                    p_rec["attempts"] = int(p_rec.get("attempts") or 0) + 1
+                    p_rec["pubkey_b64"] = peer_pubkey_b64
+                    p_rec["auth_proof_present"] = bool(auth_proof)
+                else:
+                    pend_map[peer_node_id] = {
+                        "node_id": peer_node_id,
+                        "pubkey_b64": peer_pubkey_b64,
+                        "requested_at": now,
+                        "last_attempt_at": now,
+                        "attempts": 1,
+                        "auth_proof_present": bool(auth_proof),
+                    }
+                self._save_peers()
+                return False
+            ex_approved_manual = isinstance(existing, dict) and existing.get("approved_manually") is True
+            ex_invite_id = existing.get("invite_id") if isinstance(existing, dict) else None
+        proof_s = str(auth_proof or "")
+        if not proof_s:
+            if ex_approved_manual:
+                with self._lock:
+                    cur = self._peers_state.get("authorized_peers", {}).get(peer_node_id)
+                    if isinstance(cur, dict):
+                        cur["last_seen"] = now
+                        self._save_peers()
+                return True
+            if ex_invite_id:
+                for inv in self.invite_manager.list_invites(include_revoked=True):
+                    if inv.get("invite_id") == ex_invite_id and not inv.get("revoked") and not inv.get("expired"):
+                        with self._lock:
+                            cur = self._peers_state.get("authorized_peers", {}).get(peer_node_id)
+                            if isinstance(cur, dict):
+                                cur["last_seen"] = now
+                                self._save_peers()
+                        return True
+            return False
+        ok, reason, inv_rec = self.invite_manager.verify_and_consume(proof_s, peer_node_id=peer_node_id)
+        if not ok:
+            if reason == "invite_exhausted" and ex_invite_id:
+                m = _INVITE_ID_RE.match(proof_s.strip())
