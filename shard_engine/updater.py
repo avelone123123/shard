@@ -526,3 +526,27 @@ def create_update_backup(install_info=None):
             "method": info.get("method"),
             "package_dir": str(pkg_dir),
             "repo_root": info.get("repo_root"),
+            "git_commit": info.get("git_commit"),
+            "state_backup_path": state_res.get("backup_path"),
+            "file_count": len(manifest_files),
+            "files": manifest_files,
+        }
+        zf.writestr("update_pkg_manifest.json", json.dumps(meta, ensure_ascii=False, indent=2))
+    os.replace(str(tmp_zip), str(pkg_zip))
+    storage.restrict_file_permissions(pkg_zip)
+    ptr_path = Path(paths.data_dir()) / "last_update_backup.json"
+    ptr = {
+        "created_at": time.time(),
+        "version": __version__,
+        "pkg_backup_path": str(pkg_zip),
+        "state_backup_path": state_res.get("backup_path"),
+        "method": info.get("method"),
+        "package_dir": str(pkg_dir),
+        "repo_root": info.get("repo_root"),
+        "git_commit": info.get("git_commit"),
+    }
+    storage.atomic_write_json(ptr_path, ptr, fsync=True, backup=True)
+    return ptr
+def rollback_update(backup_info=None):
+    ptr = backup_info
+    if ptr is None:
