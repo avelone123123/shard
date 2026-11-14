@@ -2808,28 +2808,28 @@ function inlineMd(str) {
     let s = escHtml(str);
     s = s.replace(/!\[(.*?)\]\((.*?)\)/g, (_, alt, url) => {
         const u = safeHref(url);
-        return u === '#' ? alt : '<img src="' + u + '" alt="' + alt + '" style="max-width:100%;border-radius:6px;margin:10px 0;display:block;border:1px solid #1e2638;" onerror="this.style.display=\'none\'">';
+        return u === '#' ? alt : '<img src="' + u + '" alt="' + alt + '" style="max-width:100%;border-radius:6px;margin:10px 0;display:block;border:1px solid var(--border-strong);" onerror="this.style.display=\'none\'">';
     });
     s = s.replace(/\[(.*?)\]\((.*?)\)/g, (_, txt, url) => {
         const u = safeHref(url);
-        return '<a href="' + u + '" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;text-decoration:none;">' + txt + '</a>';
+        return '<a href="' + u + '" target="_blank" rel="noopener noreferrer" style="color:var(--accent-text);text-decoration:none;">' + txt + '</a>';
     });
-    s = s.replace(/\*\*(.*?)\*\*/g, '<b style="color:#fff;">$1</b>');
-    s = s.replace(/\*(.*?)\*/g, '<i style="color:#cbd5e1;">$1</i>');
-    s = s.replace(/`([^`]+)`/g, '<code style="background:#090a0f;padding:2px 5px;border-radius:4px;border:1px solid #1e2638;color:#38bdf8;font-size:11px;">$1</code>');
+    s = s.replace(/\*\*(.*?)\*\*/g, '<b style="color:var(--text);">$1</b>');
+    s = s.replace(/\*(.*?)\*/g, '<i style="color:var(--text-secondary);">$1</i>');
+    s = s.replace(/`([^`]+)`/g, '<code style="background:var(--surface-sunken);padding:2px 5px;border-radius:var(--radius-sm);border:1px solid var(--border);color:var(--accent-text);font-size:11px;">$1</code>');
     return s;
 }
 function renderTable(rows) {
     if (rows.length < 2) return '';
-    let out = '<table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;background:#090a0f;border:1px solid #1e2638;border-radius:6px;overflow:hidden;">';
+    let out = '<table style="width:100%;border-collapse:collapse;margin:14px 0;font-size:12px;background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:6px;overflow:hidden;">';
     const headerCols = rows[0].split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
-    out += '<thead><tr style="background:#131824;">';
-    headerCols.forEach(c => { out += '<th style="padding:8px 12px;text-align:left;border:1px solid #1e2638;color:#fff;">' + inlineMd(c) + '</th>'; });
+    out += '<thead><tr style="background:var(--surface-chrome);">';
+    headerCols.forEach(c => { out += '<th style="padding:8px 12px;text-align:left;border:1px solid var(--border-strong);color:var(--text);">' + inlineMd(c) + '</th>'; });
     out += '</tr></thead><tbody>';
     for (let r = 2; r < rows.length; r++) {
         const rowCols = rows[r].split('|').map(c => c.trim()).filter((c, idx, arr) => idx > 0 && idx < arr.length - 1);
-        out += '<tr style="border-bottom:1px solid #1a2233;">';
-        rowCols.forEach(c => { out += '<td style="padding:6px 12px;border:1px solid #1a2233;color:#cbd5e1;">' + inlineMd(c) + '</td>'; });
+        out += '<tr style="border-bottom:1px solid var(--border);">';
+        rowCols.forEach(c => { out += '<td style="padding:6px 12px;border:1px solid var(--border);color:var(--text-secondary);">' + inlineMd(c) + '</td>'; });
         out += '</tr>';
     }
     out += '</tbody></table>';
