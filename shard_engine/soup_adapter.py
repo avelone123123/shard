@@ -548,3 +548,113 @@ def build_soup_config(base_model, dataset_path, output_dir, task="sft", fmt=None
             errors.append("lr must be > 0 and <= 0.1.")
     except (TypeError, ValueError):
         lr = 2e-5
+        errors.append("lr must be a positive number.")
+    batch_size = params.get("batch_size", "auto")
+    if batch_size != "auto":
+        try:
+            batch_size = int(batch_size)
+            if batch_size < 1:
+                errors.append("batch_size must be 'auto' or >= 1.")
+        except (TypeError, ValueError):
+            errors.append("batch_size must be 'auto' or positive integer.")
+    try:
+        grad_accum = int(params.get("gradient_accumulation_steps", 4))
+        if grad_accum < 1:
+            errors.append("gradient_accumulation_steps must be >= 1.")
+    except (TypeError, ValueError):
+        grad_accum = 4
+        errors.append("gradient_accumulation_steps must be an integer.")
+    try:
+        max_length = int(params.get("max_length", 2048))
+        if max_length < 64 or max_length > 1048576:
+            errors.append("max_length must be between 64 and 1048576.")
+    except (TypeError, ValueError):
+        max_length = 2048
+        errors.append("max_length must be an integer.")
+    try:
+        val_split = float(params.get("val_split", 0.1))
+        if val_split < 0.0 or val_split > 0.5:
+            errors.append("val_split must be between 0.0 and 0.5.")
+    except (TypeError, ValueError):
+        val_split = 0.1
+        errors.append("val_split must be a float.")
+    try:
+        lora_r = int(params.get("lora_r", 16))
+        lora_alpha = int(params.get("lora_alpha", 32))
+        lora_dropout = float(params.get("lora_dropout", 0.05))
+        if lora_r < 0 or lora_alpha < 1 or lora_dropout < 0.0 or lora_dropout >= 1.0:
+            errors.append("Invalid LoRA parameters (r >= 0, alpha >= 1, 0 <= dropout < 1).")
+    except (TypeError, ValueError):
+        lora_r, lora_alpha, lora_dropout = 16, 32, 0.05
+        errors.append("LoRA parameters must be numeric.")
+    quant = str(params.get("quantization") or "4bit").strip().lower()
+    if quant not in SOUP_VALID_QUANTS:
+        errors.append(f"quantization must be one of {', '.join(SOUP_VALID_QUANTS)}.")
+    data_cfg = {
+        "train": train_path,
+        "format": fmt_norm,
+        "val_split": val_split,
+        "max_length": max_length,
+    }
+    if task_norm == "sft":
+        data_cfg["train_on_responses_only"] = bool(params.get("train_on_responses_only", True))
+    cfg = {
+        "base": base,
+        "task": task_norm,
+        "modality": "text",
+        "backend": backend,
+        "data": data_cfg,
+        "training": {
+            "epochs": epochs,
+            "lr": lr,
+            "batch_size": batch_size,
+            "gradient_accumulation_steps": grad_accum,
+            "quantization": quant,
+            "lora": {
+                "r": lora_r,
+                "alpha": lora_alpha,
+                "dropout": lora_dropout,
+            },
+        },
+        "output": out_dir,
+    }
+    exp = _sanitize_experiment_name(experiment_name)
+    if exp:
+        cfg["experiment_name"] = exp
+    return cfg, errors
+def write_soup_config(cfg_dict, config_path):
+    target = Path(config_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    yaml_text = dump_yaml(cfg_dict) + "\n"
+    storage.atomic_write_text(target, yaml_text, fsync=True, backup=False)
+    return str(target)
+def _run_soup_cmd(soup_info, args, timeout=120, env_extra=None):
+    cmd_base = list((soup_info or {}).get("command") or [])
+    if not cmd_base:
+        return {"ok": False, "returncode": -1, "stdout": "", "stderr": "soup-cli command not available"}
+    env = os.environ.copy()
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    if env_extra:
+        env.update({str(k): str(v) for k, v in env_extra.items()})
+    try:
+        res = subprocess.run(
+            cmd_base + list(args),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+            creationflags=_WIN_NO_WINDOW,
+        )
+        return {
+            "ok": res.returncode == 0,
+            "returncode": res.returncode,
+            "stdout": res.stdout or "",
+            "stderr": res.stderr or "",
+        }
+    except subprocess.TimeoutExpired as e:
+        return {
+            "ok": False,
+            "returncode": -2,
+            "stdout": (e.stdout or "") if isinstance(e.stdout, str) else "",
+            "stderr": f"Command timed out after {timeout}s",
+        }
