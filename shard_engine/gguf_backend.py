@@ -658,3 +658,112 @@ class LlamaBackend:
         if os.name == "nt":
             kw["creationflags"] = _CREATE_NO_WINDOW
         self.proc = subprocess.Popen(
+            cmd, stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            **kw)
+        self.started_at = time.time()
+        deadline = time.time() + wait_timeout
+        while time.time() < deadline:
+            if self.proc.poll() is not None:
+                tail = ""
+                try:
+                    tail = (self.proc.stderr.read() or b"").decode("utf-8", "ignore")[-400:]
+                except Exception:
+                    pass
+                code = self.proc.returncode
+                self.proc = None
+                raise RuntimeError(f"llama-server завершился (код {code}): {tail[:200]}")
+            if self._health_ok():
+                return True
+            if on_wait:
+                on_wait(time.time() - self.started_at, wait_timeout)
+            time.sleep(0.5)
+        self.stop()
+        raise RuntimeError("llama-server не ответил /health вовремя")
+    def _health_ok(self):
+        if self.port is None:
+            return False
+        try:
+            import requests
+            r = requests.get(f"http://127.0.0.1:{self.port}/health", timeout=2)
+            if r.status_code == 200:
+                return True
+        except Exception:
+            pass
+        return False
+    def stop(self):
+        if self.proc is not None:
+            try:
+                self.proc.terminate()
+            except Exception:
+                pass
+            try:
+                self.proc.wait(timeout=5)
+            except Exception:
+                try:
+                    self.proc.kill()
+                except Exception:
+                    pass
+            self.proc = None
+        self.port = None
+        self.gguf_path = None
+        self.model_id = None
+    def chat_stream(self, messages, max_tokens=512, temperature=0.7, cancel_check=None):
+        if not self.is_running():
+            raise RuntimeError("GGUF backend не запущен")
+        url = f"http://127.0.0.1:{self.port}/v1/chat/completions"
+        payload = {
+            "messages": messages,
+            "max_tokens": max(16, min(int(max_tokens), 4096)),
+            "temperature": max(0.0, min(1.5, float(temperature))),
+            "stop": list(CHAT_STOP_TOKENS),
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        import requests
+        usage = None
+        try:
+            with requests.post(url, json=payload, stream=True, timeout=(5, 600)) as r:
+                if r.status_code == 400 and "stream_options" in (r.text or "")[:400]:
+                    payload.pop("stream_options", None)
+                    r.close()
+                    r = requests.post(url, json=payload, stream=True, timeout=(5, 600))
+                r.raise_for_status()
+                r.encoding = "utf-8"
+                for raw_line in r.iter_lines(decode_unicode=False):
+                    if cancel_check and cancel_check():
+                        break
+                    if not raw_line:
+                        continue
+                    line = raw_line.decode("utf-8", errors="replace") if isinstance(raw_line, (bytes, bytearray)) else str(raw_line)
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        obj = json.loads(data)
+                    except ValueError:
+                        continue
+                    choices = obj.get("choices") or []
+                    if choices:
+                        delta = choices[0].get("delta") or {}
+                        tok = delta.get("content")
+                        if tok:
+                            yield ("delta", tok)
+                    if obj.get("usage"):
+                        usage = obj["usage"]
+        except requests.RequestException as e:
+            yield ("error", str(e))
+            return
+        yield ("usage", usage)
+    def info(self):
+        return {
+            "backend": "gguf",
+            "model_id": self.model_id,
+            "gguf_path": self.gguf_path,
+            "port": self.port,
+            "ngl": self.ngl,
+            "ctx_tokens": self.ctx_tokens,
+            "running": self.is_running(),
+        }
