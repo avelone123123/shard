@@ -99,3 +99,18 @@ Tested inside clean virtual environments outside the repository directory (`%TEM
 ---
 
 ## 4. Real Dataset & Real SOUP SFT Training E2E
+
+### 4.1 Real-World SOUP Defects Found & Fixed
+Testing against real `soup-cli v0.77.2` and `distilgpt2` exposed two runtime failures fixed in [soup_adapter.py](file:///c:/Users/avelo/Desktop/my%20projects/shard/shard_engine/soup_adapter.py):
+1. **Tokenizer `chat_template` fallback**: Non-Instruct local models (`distilgpt2`) failed SOUP training with `ValueError: Tokenizer has no chat_template`. Added `_local_model_has_chat_template(model_path)` and updated `build_soup_config()` to inject `data.chat_template = "chatml"` only when a local `chatml` model lacks a shipped template.
+2. **Artifact discovery path**: `soup-cli v0.77.2` writes `adapter_config.json`, `adapter_model.safetensors`, and `checkpoint-*` inside `<output>/<experiment_name>/`. Updated `scan_output_artifacts(output_dir)` to inspect immediate experiment subdirectories as well as the root output directory.
+
+### 4.2 Verified End-to-End Execution & Restart Persistence
+- **Dataset**: 23 approved feedback samples -> `sft/chatml` immutable snapshot (`SHA256: 6569c462bae0776a...`), validated (`20 train / 3 val` in Dry Run `job-20261114-203513-cb21fc`).
+- **Real SFT Training Run (triggered from Chromium UI)**:
+  - Job ID: `job-20261114-204704-8691c5` (`distilgpt2` LoRA CPU fallback `quantization="none"`)
+  - Outcome: `status="completed"`, `lifecycle_state="COMPLETED"`, `returncode=0`, `training_completed=true`
+  - Progress: `step 20/20`, `loss=3.952`
+  - Artifacts: `checkpoint-20` and `output/job-20261114-204704-8691c5` containing `adapter_config.json` and `adapter_model.safetensors`
+  - Model registry: registered `v2-3bd4b4 [pending] lora_adapter`
+- **Persistence across restart**: Killed and restarted the `127.0.0.1:18088` server -> reloaded UI and confirmed `4` datasets, `6` training jobs, full logs, and `v2-3bd4b4 [pending] lora_adapter` remained intact with `0` console/HTTP errors.
