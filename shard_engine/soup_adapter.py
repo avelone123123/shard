@@ -1063,7 +1063,8 @@ def scan_output_artifacts(output_dir):
         for d in search_dirs:
             if (d / "config.json").is_file() and any(d.glob("*.safetensors")):
                 merged_dir = str(d)
-    elif (out / "merged" / "config.json").is_file():
+                break
+    if not merged_dir and (out / "merged" / "config.json").is_file():
         merged_dir = str(out / "merged")
     for p in sorted(out.glob("**/*.gguf")):
         sp = str(p)
