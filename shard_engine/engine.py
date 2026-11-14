@@ -878,3 +878,113 @@ class ShardEngine:
                         is_verifying = cur_mb >= eff_tot_mb * 0.995
                         st_code = "VERIFYING" if is_verifying else "DOWNLOADING"
                         st_label = "Проверка целостности GGUF" if is_verifying else "Скачивание весов GGUF"
+                        self.detailed_state = st_code
+                        self.model_states[model_id] = st_code
+                        fn_label = cur_fn or os.path.basename(sel["path"])
+                        self.load_progress.update({
+                            "status": "loading",
+                            "lifecycle_state": st_code,
+                            "percent": cur_p,
+                            "curr_mb": cur_mb,
+                            "total_mb": eff_tot_mb,
+                            "speed_mb": spd_mb,
+                            "eta_seconds": rem_sec,
+                            "eta_text": eta_t,
+                            "current_file": fn_label,
+                            "stage": st_label,
+                            "message": f"{st_label} ({fn_label}): {cur_mb} из {eff_tot_mb} МБ ({cur_p}%) | {spd_mb} МБ/с | Осталось: {eta_t}"
+                        })
+                    try:
+                        sel_path = gguf_mod.download_gguf(
+                            repo_id,
+                            sel,
+                            progress_cb=_dl_progress,
+                            cancel_check=lambda: self._cancel_load or seq_id != self._load_seq,
+                        )
+                    except Exception as dl_err:
+                        if self._cancel_load or seq_id != self._load_seq:
+                            return
+                        _fail("Ошибка скачивания GGUF", f"Не удалось скачать GGUF: {str(dl_err)[:160]}", err_state="DOWNLOAD_FAILED")
+                        return
+                    if self._cancel_load or seq_id != self._load_seq:
+                        return
+            self.detailed_state = "VERIFYING"
+            self.model_states[model_id] = "VERIFYING"
+            val_res = gguf_mod.validate_gguf_file(sel_path) if gguf_mod else {"valid": True}
+            if not val_res.get("valid"):
+                _fail("Ошибка валидации GGUF", f"Файл GGUF поврежден или неполный ({val_res.get('reason')}).", err_state="VALIDATION_FAILED")
+                return
+            self.detailed_state = "DOWNLOADED"
+            self.model_states[model_id] = "DOWNLOADED"
+            def _runtime_progress(got, total, speed):
+                if not total:
+                    if self.load_progress.get("status") == "loading":
+                        self.load_progress.update({"stage": "Подготовка движка llama.cpp", "message": "Загружаю llama-server..."})
+                    return
+                mb_g = round(got / (1024 * 1024), 1)
+                mb_t = round(total / (1024 * 1024), 1)
+                spd = round(speed / (1024 * 1024), 1) if speed else 0
+                pct = min(94, 90 + int((got / total) * 4))
+                if self.load_progress.get("status") == "loading":
+                    self.load_progress.update({
+                        "percent": pct,
+                        "curr_mb": mb_g,
+                        "total_mb": mb_t,
+                        "speed_mb": spd,
+                        "stage": "Подготовка движка llama.cpp",
+                        "message": f"Движок llama.cpp: {mb_g} из {mb_t} МБ ({spd} МБ/с)..."
+                    })
+            self.detailed_state = "LOADING"
+            self.model_states[model_id] = "LOADING"
+            self.load_progress = {
+                "status": "loading",
+                "lifecycle_state": "LOADING",
+                "model_id": model_id,
+                "percent": 90 if self.load_progress.get("percent", 0) < 90 else self.load_progress.get("percent", 90),
+                "stage": "Подготовка движка llama.cpp",
+                "curr_mb": total_mb,
+                "total_mb": total_mb,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Запуск...",
+                "message": "Подготовка движка llama.cpp (~50 МБ, один раз)..."
+            }
+            server_path = gguf_mod.ensure_llama_server(progress_cb=_runtime_progress)
+            if self._cancel_load or seq_id != self._load_seq:
+                return
+            ngl = gguf_mod.compute_ngl(fit.get("verdict"), fit.get("ngl", 0))
+            if _lan_pooled():
+                ngl = 999
+            threads = gguf_mod.default_threads()
+            ngl_desc = "все слои на GPU" if ngl >= 999 else f"{ngl} слоёв на GPU"
+            def _wait_beat(elapsed, timeout):
+                if self.load_progress.get("status") != "loading":
+                    return
+                pct = min(99, 94 + int((elapsed / max(1.0, timeout)) * 5))
+                rem = max(1, int(timeout - elapsed))
+                eta_t = f"~{rem} сек"
+                self.load_progress.update({
+                    "lifecycle_state": "LOADING",
+                    "percent": pct,
+                    "eta_seconds": rem,
+                    "eta_text": eta_t,
+                    "stage": "Запуск инференс-процесса",
+                    "message": f"Загружаю GGUF в память ({'VRAM' if ngl > 0 else 'RAM'}, {ngl_desc})... Осталось: {eta_t}"
+                })
+            try:
+                backend = self._gguf()
+                if backend is None:
+                    raise RuntimeError("GGUF backend недоступен в этом окружении.")
+                start_kw = {}
+                try:
+                    if _lan_pooled():
+                        rpc = _lan_mod.LAN.rpc_targets()
+                        if rpc:
+                            start_kw["rpc_servers"] = rpc["servers"]
+                            start_kw["tensor_split"] = rpc["split"]
+                except Exception:
+                    start_kw = {}
+                wait_t = 360 if start_kw.get("rpc_servers") else 180
+                backend.start(sel_path, int(fit.get("ctx_tokens") or 4096), ngl, threads, model_id,
+                              server_path=server_path, wait_timeout=wait_t, on_wait=_wait_beat,
+                              **start_kw)
