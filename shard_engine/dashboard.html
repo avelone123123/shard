@@ -2638,3 +2638,113 @@ function openDirPicker() {
         listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
     });
 }
+function pickDrive(i) {
+    const dr = (_drivesCache || [])[i];
+    const inp = document.getElementById('dirPathInput');
+    if (!dr || !inp) return;
+    const sep = String.fromCharCode(92);
+    inp.value = (dr.path.endsWith('/') || dr.path.endsWith(sep)) ? dr.path + 'shard-models' : dr.path + '/shard-models';
+}
+function closeDirPicker() {
+    const backdrop = document.getElementById('dirModalBackdrop');
+    if (backdrop) backdrop.style.display = 'none';
+}
+async function saveModelsDir() {
+    const path = ((document.getElementById('dirPathInput') || {}).value || '').trim();
+    if (!path) { showToast('Путь не указан', 'Введите путь к папке для моделей'); return; }
+    try {
+        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ models_dir: path }) });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 200) {
+            showToast('Папка сохранена', data.models_dir + ' — применится после перезапуска');
+            closeDirPicker();
+            refreshDirLabel();
+        } else {
+            showToast('Ошибка', data.message || 'Папка недоступна для записи');
+        }
+    } catch (e) {
+        showToast('Ошибка', 'Сервер недоступен');
+    }
+}
+async function resetModelsDir() {
+    try {
+        const res = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: true }) });
+        if (res.status === 200) {
+            showToast('Папка сброшена', 'Вернётся стандартная папка после перезапуска');
+            document.getElementById('dirPathInput').value = '';
+            refreshDirLabel();
+        } else {
+            showToast('Ошибка', 'Сбой сброса');
+        }
+    } catch (e) {
+        showToast('Ошибка', 'Сервер недоступен');
+    }
+}
+function refreshDirLabel() {
+    fetch('/api/settings').then(r => r.json()).then(s => {
+        const el = document.getElementById('modelsDirLabel');
+        if (el && s.models_dir) {
+            el.textContent = s.models_dir.length > 24 ? '…' + s.models_dir.slice(-23) : s.models_dir;
+            el.parentElement.title = 'Загрузка моделей: ' + s.models_dir;
+        }
+    }).catch(() => {});
+}
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeDirPicker(); });
+async function cancelModelLoad() {
+    try {
+        await fetch('/api/models/cancel', {method: 'POST', headers: getAuthHeaders()});
+    } catch(e) {}
+    isModelLoading = false;
+    loadingModelId = '';
+    updateLoadingUI(false);
+    setPollRate(5000);
+    showToast('Загрузка отменена', 'Загрузка или инициализация модели остановлена');
+    loadModels();
+}
+async function loadModel(modelId) {
+    if (isModelLoading) {
+        showToast('Загрузка активна', 'Дождитесь окончания загрузки текущей модели');
+        return;
+    }
+    isModelLoading = true;
+    loadingModelId = modelId;
+    currentLoadingPercent = 6;
+    updateLoadingUI(true, {
+        model_id: modelId,
+        percent: 6,
+        stage: 'Проверка совместимости GGUF и кэша',
+        curr_mb: 0,
+        total_mb: 100,
+        speed_mb: 0,
+        eta_text: 'вычисление...',
+        message: 'Проверка локального кэша...'
+    });
+    setPollRate(500);
+    loadModels();
+    showToast('Загрузка модели', 'Начато развертывание ' + modelId.split('/').pop() + '...');
+    try {
+        const res = await fetch('/api/models/load', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({model_id: modelId})
+        });
+        const data = await res.json();
+        if (!res.ok || (data && data.status === 'error')) {
+            isModelLoading = false;
+            loadingModelId = '';
+            updateLoadingUI(false);
+            setPollRate(5000);
+            showToast('Ошибка модели', (data && data.message) || 'Модель несовместима или недоступна');
+            loadModels();
+            return;
+        }
+        if (data && data.already_loaded) {
+            isModelLoading = false;
+            isEngineLoaded = true;
+            activeModelId = modelId;
+            updateLoadingUI(false);
+            setPollRate(5000);
+            showToast('Модель активна', modelId.split('/').pop() + ' уже готова к работе');
+            loadModels();
+        }
+    } catch(e) {
