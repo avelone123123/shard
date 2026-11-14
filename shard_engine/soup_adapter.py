@@ -479,7 +479,12 @@ def _run_install_worker(action, custom_python=None, include_train=True):
     venv_dir = Path(paths.soup_venv_dir())
     sub = ("Scripts", "python.exe") if os.name == "nt" else ("bin", "python")
     venv_py = venv_dir.joinpath(*sub)
+    bak_dir = None
     try:
+        _set_install_state(lifecycle_state="CHECKING_ENVIRONMENT", stage="Проверка текущего окружения SOUP", pct=8, line=f"Checking environment in {venv_dir}...")
+        if action == "update" and venv_dir.is_dir():
+            _set_install_state(lifecycle_state="UPDATING", stage="Создание резервной копии SOUP venv", pct=12, line="Backing up existing soup-venv before update...")
+            bak_dir = _backup_venv_for_update(venv_dir)
         if action == "repair" and venv_dir.exists():
             _append_install_log(f"Removing existing venv at {venv_dir} for clean repair...", step="Очистка окружения", pct=10)
             shutil.rmtree(venv_dir, ignore_errors=True)
