@@ -78,3 +78,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
             zf.writestr("shard-main/shard_engine/marker.py", "VALUE = 'updated'\n")
         upd_sha = storage.sha256_file(upd_zip)
         remote_mock = {
+            "ok": True,
+            "latest_version": "9.9.9",
+            "tag_name": "v9.9.9",
+            "source": "github_release",
+            "release_notes": "Bug fixes",
+            "asset_url": "https://api.github.com/repos/avelone123123/shard/zipball/v9.9.9",
+            "asset_name": "shard-9.9.9.zip",
+            "asset_sha256": upd_sha,
+            "error": None,
+        }
+        def _fake_http_get(url, timeout=3.0, headers=None, stream=False):
+            class _FakeStream:
+                status_code = 200
+                def raise_for_status(self):
+                    return None
+                def iter_content(self, chunk_size=65536):
