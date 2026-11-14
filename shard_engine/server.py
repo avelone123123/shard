@@ -337,6 +337,7 @@ def api_client_bootstrap(req: Request):
         "active_model": engine_instance.active_model_id,
         "engine_status": engine_instance.status,
         "is_loaded": is_loaded,
+        "update": upd,
     }
 @app.get("/api/system/hardware")
 def api_hardware(req: Request):
