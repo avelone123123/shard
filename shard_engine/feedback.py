@@ -736,6 +736,34 @@ def _extract_structured_record(obj, expected_fmt, line_no, idx):
         inp = str(obj.get("input") or "")
         prompt_txt = f"{instr}\n{inp}".strip() if inp else instr
         chosen_txt = str(obj.get("output") or "")
+        if not prompt_txt.strip() or not chosen_txt.strip():
+            err = "Alpaca record requires instruction and output"
+    elif "prompt" in obj or "completion" in obj or "response" in obj or "text" in obj:
+        rec_type = "sft_text"
+        prompt_txt = str(obj.get("prompt") or "")
+        chosen_txt = str(obj.get("completion") or obj.get("response") or obj.get("text") or "")
+        if not chosen_txt.strip():
+            err = "Record has empty response/text"
+    else:
+        err = "Unrecognized dataset record schema"
+    if not err and fmt_l == "dpo" and rec_type != "dpo":
+        err = f"Dataset expects DPO format, found {rec_type}"
+    return {
+        "index": idx,
+        "line_number": line_no,
+        "prompt": prompt_txt,
+        "chosen": chosen_txt,
+        "rejected": rejected_txt,
+        "record_type": rec_type,
+        "validation_status": "invalid" if err else "valid",
+        "validation_error": err or "",
+        "raw": obj,
+    }
+def preview_dataset_paginated(snapshot_id, page=1, page_size=20):
+    m = get_dataset_manifest(snapshot_id)
+    p = Path(m["path"])
+    page_num = max(1, int(page or 1))
+    size_num = max(1, min(100, int(page_size or 20)))
 def compute_stats():
     with _LOCK:
         with storage.file_lock(_feedback_path()):
