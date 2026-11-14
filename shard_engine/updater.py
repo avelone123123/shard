@@ -334,3 +334,27 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                         "source": "github_main",
                         "latest_version": ver,
                         "tag_name": f"v{ver}",
+                        "release_url": f"https://github.com/{GITHUB_REPO}",
+                        "release_notes": "",
+                        "published_at": None,
+                        "asset_url": f"https://github.com/{GITHUB_REPO}/archive/refs/heads/main.zip",
+                        "asset_name": "shard-main.zip",
+                        "asset_size": None,
+                        "asset_sha256": None,
+                        "prerelease": False,
+                    }
+    except Exception as e:
+        last_err = last_err or str(e)
+    return {
+        "ok": False,
+        "rate_limited": rate_limited,
+        "error": last_err or "GitHub and PyPI are unreachable.",
+    }
+def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerelease=False, probe_git=False):
+    inst = detect_installation_method(probe_git=probe_git)
+    cur_ver = __version__
+    if not is_valid_version_str(cur_ver):
+        return {
+            "state": "VERSION_UNKNOWN",
+            "current_version": cur_ver,
+            "latest_version": None,
