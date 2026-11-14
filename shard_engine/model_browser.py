@@ -670,3 +670,18 @@ def resolve_and_validate_training_base(base_model):
             raise FileNotFoundError(f"Local model path not found: {raw}")
         info = classify_model_path(raw, deep_size=False)
         soup_comp = info.get("compatibility", {}).get("soup_training", {})
+        if not soup_comp.get("supported"):
+            sug = soup_comp.get("suggested_base_model")
+            extra = f" Try base model '{sug}' instead." if sug else ""
+            raise ValueError(f"{soup_comp.get('reason_ru', 'Unsupported local format for SOUP training.')}{extra}")
+        return soup_comp.get("resolved_base_model") or info.get("resolved_snapshot") or info.get("resolved_parent_dir") or info["path"]
+    if raw.lower().endswith("-gguf"):
+        hf_map = map_gguf_to_hf_base(raw)
+        sug = hf_map.get("suggested_hf_base_repo")
+        raise ValueError(
+            f"'{raw}' is a GGUF-only inference repository and cannot be trained with SOUP."
+            + (f" Select '{sug}' instead." if sug else "")
+        )
+    if "\\" in raw or not _SAFE_HF_ID_RE.match(raw):
+        raise ValueError("base_model must be a valid local Hugging Face directory or Hugging Face ID ('owner/model').")
+    return raw
