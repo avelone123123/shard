@@ -46,3 +46,27 @@ _UPDATE_JOB_STATE = {
     "backup_path": None,
     "error": None,
     "started_at": None,
+    "finished_at": None,
+}
+def is_valid_version_str(ver):
+    if not ver:
+        return False
+    s = str(ver).strip()
+    if s.startswith("v") or s.startswith("V"):
+        s = s[1:]
+    if not s or s == "0.0.0":
+        return False
+    return bool(re.match(r"^\d+(?:\.\d+)+(?:[-._a-zA-Z0-9]+)?$", s))
+def is_prerelease_version(ver):
+    s = str(ver or "").strip().lower().lstrip("v")
+    if not s:
+        return False
+    return bool(re.search(r"(?:^|[.-])(a|alpha|b|beta|rc|dev|pre)\d*(?:$|[.-])|\d+(?:a|b|rc|dev)\d+$", s))
+def parse_version_tuple(ver):
+    s = str(ver or "0").strip()
+    if s.startswith("v") or s.startswith("V"):
+        s = s[1:]
+    core = re.split(r"[-+]", s, maxsplit=1)[0]
+    nums = []
+    for tok in core.split("."):
+        m = re.match(r"^(\d+)", tok)
