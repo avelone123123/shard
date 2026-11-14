@@ -3612,10 +3612,13 @@ function renderTrnDatasets(datasets) {
         '</div></div>'
     ).join('') || 'Нет датасетов';
 }
-async function trnPreviewDataset(snapshotId) {
+async function trnValidateDataset(snapshotId) {
     try {
-        const res = await fetch('/api/training/datasets/' + encodeURIComponent(snapshotId));
-        if (!res.ok) return;
+        const res = await fetch('/api/training/datasets/' + encodeURIComponent(snapshotId) + '/validate', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({check_with_soup: false})
+        });
         const d = await res.json();
         const modal = document.getElementById('modelModalBackdrop');
         document.getElementById('modalModelTitle').innerText = 'Датасет: ' + snapshotId;
