@@ -718,3 +718,27 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                 raise RuntimeError(chk.get("error") or "GitHub update check failed.")
             desired_ver = target_version or chk.get("latest_version")
             if not force and desired_ver and compare_versions(__version__, desired_ver) <= 0:
+                _set_job_state(
+                    status="up_to_date",
+                    phase="done",
+                    progress_pct=100,
+                    message=f"SHARD {__version__} уже актуален.",
+                    new_version=__version__,
+                    finished_at=time.time(),
+                )
+                return {"status": "up_to_date", "old_version": __version__, "new_version": __version__, "install_method": inst["method"]}
+            if inst["method"] == "git_clone" and inst.get("git_dirty") and not force:
+                raise RuntimeError("Local git repository has uncommitted changes. Commit/stash changes or pass --force.")
+            _set_job_state(phase="backup", progress_pct=15, message="Создание резервной копии конфигурации, ключей и кода...", log="Creating pre-update backup...")
+            backup_ptr = create_update_backup(inst)
+            _set_job_state(backup_path=backup_ptr.get("pkg_backup_path"), log=f"Backup created: {backup_ptr.get('pkg_backup_path')}")
+            cache_base = Path(paths.cache_dir())
+            cache_base.mkdir(parents=True, exist_ok=True)
+            tmp_dir = Path(tempfile.mkdtemp(prefix="shard_upd_", dir=str(cache_base)))
+            asset_url = chk.get("asset_url")
+            if target_version and chk.get("source") != "pypi":
+                tag = f"v{desired_ver}"
+                asset_url = f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{tag}.zip"
+            if inst["method"] == "git_clone" and inst.get("git_available") and not (asset_url and str(asset_url).endswith(".whl")):
+                _set_job_state(phase="installing", progress_pct=45, message="Обновление через git fetch / pull...", log=f"Updating git repo in {inst['repo_root']}")
+                git_bin = shutil.which("git")
