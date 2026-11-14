@@ -325,7 +325,7 @@ def find_compatible_python(custom_python=None):
             w = shutil.which(bin_name)
             if w:
                 raw_cands.append(w)
-    uv_bin = shutil.which("uv")
+    uv_bin = _find_uv_binary()
     if uv_bin:
         try:
             r_uv = subprocess.run(
@@ -368,12 +368,13 @@ def find_compatible_python(custom_python=None):
         "python_executable": best["python_executable"] if best else None,
         "python_version": best["python_version"] if best else None,
         "uv_available": bool(uv_bin),
+        "uv_executable": uv_bin,
         "candidates": compatible,
     }
 def get_soup_install_status():
     with _INSTALL_LOCK:
         return json.loads(json.dumps(_INSTALL_STATE, ensure_ascii=False))
-def _append_install_log(line, step=None, pct=None):
+def _set_install_state(lifecycle_state=None, status=None, stage=None, line=None, pct=None, **extra):
     with _INSTALL_LOCK:
         if line:
             _INSTALL_STATE["logs"].append(str(line))
