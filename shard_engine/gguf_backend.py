@@ -438,3 +438,113 @@ def _runtime_dirs():
         if d and os.path.normcase(os.path.abspath(d)) not in [os.path.normcase(os.path.abspath(x)) for x in dirs]:
             dirs.append(d)
     return dirs
+def _server_bin_name():
+    return "llama-server.exe" if os.name == "nt" else "llama-server"
+def find_llama_server():
+    cand = os.environ.get("SHARD_LLAMA_SERVER")
+    if cand and os.path.isfile(cand):
+        return cand
+    exe_name = _server_bin_name()
+    here = os.path.dirname(os.path.abspath(__file__))
+    for base in (os.getcwd(), here, os.path.dirname(here)):
+        p = os.path.join(base, "native", exe_name)
+        if os.path.isfile(p):
+            return p
+    which = shutil.which("llama-server") or shutil.which(exe_name)
+    if which:
+        return which
+    for rt_dir in _runtime_dirs():
+        p = os.path.join(rt_dir, exe_name)
+        if os.path.isfile(p):
+            return p
+        hits = glob.glob(os.path.join(rt_dir, "**", exe_name), recursive=True)
+        if hits:
+            return hits[0]
+    return None
+def _nvidia_present():
+    try:
+        r = subprocess.run(["nvidia-smi"], capture_output=True, timeout=5,
+                           creationflags=_CREATE_NO_WINDOW if os.name == "nt" else 0)
+        return r.returncode == 0
+    except Exception:
+        return False
+def _download_file(url, dest, progress_cb=None, chunk=1024 * 512, cancel_check=None):
+    import requests
+    tmp = dest + ".part"
+    resume_bytes = 0
+    if os.path.isfile(tmp):
+        try:
+            resume_bytes = os.path.getsize(tmp)
+        except Exception:
+            resume_bytes = 0
+    headers = {}
+    hf_tok = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+    if hf_tok:
+        headers["Authorization"] = f"Bearer {hf_tok}"
+    if resume_bytes > 0:
+        headers["Range"] = f"bytes={resume_bytes}-"
+    r = requests.get(url, stream=True, timeout=(10, 60), headers=headers)
+    if r.status_code == 416:
+        r.close()
+        resume_bytes = 0
+        headers.pop("Range", None)
+        r = requests.get(url, stream=True, timeout=(10, 60), headers=headers)
+    r.raise_for_status()
+    is_partial = (r.status_code == 206 and resume_bytes > 0)
+    if not is_partial:
+        resume_bytes = 0
+    content_len = int(r.headers.get("content-length", 0) or 0)
+    total = (resume_bytes + content_len) if content_len > 0 else 0
+    got = resume_bytes
+    t0 = time.time()
+    last_cb_t = 0.0
+    window = [(t0, got)]
+    mode = "ab" if is_partial else "wb"
+    with open(tmp, mode) as f:
+        for blk in r.iter_content(chunk_size=chunk):
+            if cancel_check and cancel_check():
+                r.close()
+                raise RuntimeError("Загрузка отменена пользователем")
+            if not blk:
+                continue
+            f.write(blk)
+            got += len(blk)
+            now = time.time()
+            window.append((now, got))
+            while len(window) > 2 and (now - window[0][0]) > 2.0:
+                window.pop(0)
+            if progress_cb and (now - last_cb_t >= 0.12 or (total and got >= total)):
+                dt = max(0.15, now - window[0][0])
+                db = max(0, got - window[0][1])
+                speed = db / dt if len(window) > 1 else (got - resume_bytes) / max(0.25, now - t0)
+                progress_cb(got, total or got, speed)
+                last_cb_t = now
+    os.replace(tmp, dest)
+    return dest
+def _extract_archive(archive_path, target_dir):
+    base = Path(target_dir).resolve()
+    base.mkdir(parents=True, exist_ok=True)
+    if archive_path.endswith(".zip"):
+        with zipfile.ZipFile(archive_path) as z:
+            for info in z.infolist():
+                norm = info.filename.replace("\\", "/").lstrip("/")
+                if not norm or ".." in norm.split("/") or (":" in norm.split("/")[0]):
+                    raise ValueError(f"Unsafe zip entry: {info.filename}")
+                mode = (info.external_attr >> 16) & 0o170000
+                if mode == 0o120000:
+                    raise ValueError(f"Symlink entry disallowed in zip: {info.filename}")
+                dest = (base / norm).resolve()
+                if not dest.is_relative_to(base):
+                    raise ValueError(f"Path traversal in zip entry: {info.filename}")
+                if info.is_dir():
+                    dest.mkdir(parents=True, exist_ok=True)
+                else:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with z.open(info, "r") as src, open(dest, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+        return
+    if archive_path.endswith((".tar.gz", ".tgz")):
+        with tarfile.open(archive_path, "r:gz") as t:
+            for member in t.getmembers():
+                norm = member.name.replace("\\", "/").lstrip("/")
+                if not norm or ".." in norm.split("/") or (":" in norm.split("/")[0]):
