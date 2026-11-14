@@ -18,6 +18,23 @@ _STATE_LOCK = threading.RLock()
 _ACTIVE_PROCS = {}
 _LOG_HANDLES = {}
 _SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+_LIFECYCLE_MAP = {
+    "queued": "QUEUED",
+    "validating": "PREPARING",
+    "running": "RUNNING",
+    "completed": "COMPLETED",
+    "failed": "FAILED",
+    "cancelled": "CANCELLED",
+    "interrupted": "FAILED",
+}
+def _job_lifecycle_state(status):
+    return _LIFECYCLE_MAP.get(str(status or "").strip().lower(), "FAILED")
+def _enrich_job_fields(job):
+    if isinstance(job, dict):
+        job["lifecycle_state"] = _job_lifecycle_state(job.get("status"))
+        if "command" not in job:
+            job["command"] = []
+    return job
 def _validate_safe_id(val, label="id"):
     s = str(val or "").strip()
     if not s or "/" in s or "\\" in s or ".." in s or not _SAFE_ID_RE.match(s):
