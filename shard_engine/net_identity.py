@@ -438,3 +438,113 @@ class InviteManager:
             data["pepper_b64"] = b64u_encode(pepper)
             if create_if_missing or os.path.exists(self._path):
                 changed = True
+        if changed:
+            self._save_unlocked(data)
+        return data, pepper
+    def _save_unlocked(self, data):
+        storage.atomic_write_json(self._path, data, indent=2, fsync=True, backup=True, restrict=True)
+    def _hmac_token(self, pepper: bytes, invite_id: str, secret: str) -> str:
+        msg = f"{invite_id}:{secret}".encode("utf-8")
+        return hmac.new(pepper, msg, hashlib.sha256).hexdigest()
+    def _public_record(self, rec: dict, now: float | None = None) -> dict:
+        cur = time.time() if now is None else now
+        exp = float(rec.get("expires_at") or 0)
+        max_u = rec.get("max_uses")
+        uses = int(rec.get("uses_count") or 0)
+        rem = max(0, int(max_u) - uses) if max_u is not None else None
+        out = {
+            "invite_id": str(rec.get("invite_id") or ""),
+            "label": str(rec.get("label") or ""),
+            "network_id": rec.get("network_id"),
+            "created_at": float(rec.get("created_at") or 0),
+            "expires_at": exp,
+            "ttl_s": float(rec.get("ttl_s") or 0),
+            "max_uses": int(max_u) if max_u is not None else None,
+            "uses_count": uses,
+            "remaining_uses": rem,
+            "revoked": bool(rec.get("revoked")),
+            "revoked_at": rec.get("revoked_at"),
+            "expired": cur >= exp,
+            "consumed_by": copy.deepcopy(rec.get("consumed_by") or []),
+        }
+        if rec.get("raw_token"):
+            out["raw_token"] = str(rec.get("raw_token"))
+        return out
+    def create_invite(self, label: str = "", ttl_s: float = 86400, max_uses: int | None = 1, network_id: str | None = None) -> dict:
+        if isinstance(ttl_s, bool) or not isinstance(ttl_s, (int, float)) or not math.isfinite(float(ttl_s)) or float(ttl_s) <= 0:
+            raise ValueError("ttl_s must be positive")
+        ttl = float(ttl_s)
+        if max_uses is not None:
+            if isinstance(max_uses, bool) or not isinstance(max_uses, int) or max_uses < 1:
+                raise ValueError("max_uses must be >= 1 or None")
+        clean_label = "".join(ch for ch in str(label or "") if 32 <= ord(ch) < 127).strip()[:128]
+        clean_net = "".join(ch for ch in str(network_id) if 32 < ord(ch) < 127)[:64] if network_id else None
+        invite_id = "inv" + secrets.token_hex(6)
+        secret = secrets.token_hex(24)
+        raw_token = f"shinv1_{invite_id}_{secret}"
+        now = time.time()
+        with self._lock, storage.file_lock(self._path):
+            data, pepper = self._load_unlocked(create_if_missing=True)
+            rec = {
+                "invite_id": invite_id,
+                "token_hmac": self._hmac_token(pepper, invite_id, secret),
+                "raw_token": raw_token,
+                "label": clean_label,
+                "network_id": clean_net,
+                "created_at": now,
+                "expires_at": now + ttl,
+                "ttl_s": ttl,
+                "max_uses": max_uses,
+                "uses_count": 0,
+                "revoked": False,
+                "revoked_at": None,
+                "consumed_by": [],
+            }
+            data["invites"].append(rec)
+            self._save_unlocked(data)
+            out = self._public_record(rec, now=now)
+            out["raw_token"] = raw_token
+            return out
+    def list_invites(self, include_revoked: bool = False) -> list[dict]:
+        with self._lock, storage.file_lock(self._path):
+            if not os.path.isfile(self._path) and not os.path.isfile(self._path + ".bak"):
+                return []
+            data, _ = self._load_unlocked(create_if_missing=False)
+            now = time.time()
+            out = []
+            for rec in data.get("invites") or []:
+                if not isinstance(rec, dict):
+                    continue
+                if not include_revoked and rec.get("revoked"):
+                    continue
+                out.append(self._public_record(rec, now=now))
+            return out
+    def verify_and_consume(self, raw_token: str, peer_node_id: str | None = None) -> tuple[bool, str, dict | None]:
+        if not isinstance(raw_token, str) or len(raw_token) > 512:
+            return False, "invalid_token_format", None
+        tok = raw_token.strip()
+        if tok != raw_token:
+            return False, "invalid_token_format", None
+        m = _INVITE_TOKEN_RE.match(tok)
+        if not m:
+            return False, "invalid_token_format", None
+        invite_id, secret = m.group(1), m.group(2)
+        peer_clean = None
+        if peer_node_id is not None:
+            if not isinstance(peer_node_id, str):
+                return False, "invalid_peer_node_id", None
+            peer_clean = "".join(ch for ch in peer_node_id.strip() if 32 < ord(ch) < 127)[:64]
+        with self._lock, storage.file_lock(self._path):
+            if not os.path.isfile(self._path) and not os.path.isfile(self._path + ".bak"):
+                return False, "invite_not_found", None
+            data, pepper = self._load_unlocked(create_if_missing=False)
+            candidate_hmac = self._hmac_token(pepper, invite_id, secret)
+            target_rec = None
+            for rec in data.get("invites") or []:
+                if isinstance(rec, dict) and rec.get("invite_id") == invite_id:
+                    target_rec = rec
+                    break
+            if target_rec is None:
+                hmac.compare_digest(candidate_hmac, "0" * 64)
+                return False, "invite_not_found", None
+            stored_hmac = str(target_rec.get("token_hmac") or "")
