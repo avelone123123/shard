@@ -622,3 +622,27 @@ def _download_file(url, dest_path, expected_size=None, progress_cb=None, timeout
     if r.status_code != 200:
         raise RuntimeError(f"Download failed with HTTP {r.status_code}.")
     hdr_len = r.headers.get("Content-Length")
+    total_bytes = int(hdr_len) if hdr_len and str(hdr_len).isdigit() else (int(expected_size) if expected_size else 0)
+    downloaded = 0
+    with open(dest_path, "wb") as f:
+        for chunk in r.iter_content(chunk_size=65536):
+            if not chunk:
+                continue
+            f.write(chunk)
+            downloaded += len(chunk)
+            if progress_cb and total_bytes > 0:
+                pct = min(100, int(downloaded * 100 / total_bytes))
+                progress_cb(pct, downloaded, total_bytes)
+    if total_bytes > 0 and downloaded != total_bytes:
+        raise RuntimeError(f"Interrupted download: received {downloaded} bytes of expected {total_bytes} bytes.")
+    return downloaded
+def _sync_source_archive(zip_path, target_pkg_dir):
+    synced = 0
+    with zipfile.ZipFile(str(zip_path), "r") as zf:
+        pkg_members = []
+        for info in zf.infolist():
+            norm = info.filename.replace("\\", "/").strip("/")
+            parts = norm.split("/")
+            if "shard_engine" in parts:
+                idx = parts.index("shard_engine")
+                rel_parts = parts[idx + 1:]
