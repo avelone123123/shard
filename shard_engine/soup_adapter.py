@@ -165,6 +165,8 @@ def check_latest_soup_version(force=False, timeout=2.5, allow_network=True):
         "release_url": rel_url,
         "cached": bool(cached),
         "checked_at": cached.get("checked_at") if isinstance(cached, dict) else None,
+        "error": err or "Unable to reach upstream SOUP repository or PyPI.",
+    }
 def _probe_python_env(py_exe, check_deps=True, timeout=8):
     if not py_exe or not os.path.isfile(py_exe):
         return None
