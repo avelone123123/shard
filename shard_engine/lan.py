@@ -658,3 +658,113 @@ class LanManager:
             if t.is_alive():
                 t.join(timeout=1.5)
         if lt is not None and lt.is_alive():
+            lt.join(timeout=1.5)
+        self._save()
+    def mode(self):
+        with self._lock:
+            return self._state.get("mode")
+    def node_id(self):
+        with self._lock:
+            return self._state.get("node_id")
+    def is_server(self):
+        return self.mode() == "server"
+    def is_member(self):
+        return self.mode() in ("member", "worker")
+    def name(self):
+        with self._lock:
+            return self._state.get("name")
+    def tokens(self):
+        with self._lock:
+            return {m["token"] for m in self._state.get("members", []) if m.get("token")}
+    def pairing_code(self):
+        with self._lock:
+            return self._state.get("pairing_code")
+    def pool_active(self):
+        if not self.is_server():
+            return False
+        now = time.time()
+        with self._lock:
+            return any(m.get("role") == "worker" and m.get("rpc_port") and member_alive(m, now) for m in self._state.get("members", []))
+    def _record_hw_peak(self, key, vram_free_mb, ram_avail_mb):
+        try:
+            v = int(float(vram_free_mb or 0))
+            r = int(float(ram_avail_mb or 0))
+        except Exception:
+            return
+        with self._lock:
+            peak = self._hw_peak.setdefault(key, {"vram": 0, "ram": 0})
+            peak["vram"] = max(peak["vram"], max(0, v))
+            peak["ram"] = max(peak["ram"], max(0, r))
+    def _pool_snapshot(self):
+        now = time.time()
+        with self._lock:
+            workers = [dict(m) for m in self._state.get("members", []) if m.get("role") == "worker" and m.get("rpc_port") and member_alive(m, now)]
+        local = {}
+        try:
+            local = _hardware.get_hardware_profile()
+        except Exception:
+            local = {}
+        if workers:
+            self._record_hw_peak("master", local.get("vram_free_mb"), local.get("ram_avail_mb"))
+            with self._lock:
+                pk = dict(self._hw_peak.get("master") or {})
+            budgets = [device_budget(pk.get("vram"), pk.get("ram"))]
+        else:
+            budgets = [device_budget(local.get("vram_free_mb"), local.get("ram_avail_mb"))]
+        scores = [speed_score(local) if local else None]
+        for m in workers:
+            hw = m.get("hw") or {}
+            pk_key = m.get("client_id") or m["ip"]
+            self._record_hw_peak(pk_key, hw.get("vram_free_mb"), hw.get("ram_avail_mb"))
+            with self._lock:
+                pk = dict(self._hw_peak.get(pk_key) or {})
+            budgets.append(device_budget(pk.get("vram"), pk.get("ram")))
+            scores.append(speed_score(hw) if hw else None)
+        return workers, budgets, scores
+    def rpc_targets(self):
+        if not self.pool_active():
+            return None
+        workers, budgets, scores = self._pool_snapshot()
+        addrs = [f"{(m.get('rpc_host') or m['ip'])}:{int(m['rpc_port'])}" for m in workers]
+        return {"servers": format_rpc_arg(addrs), "split": format_ts_arg(split_weights_scored(budgets, scores))}
+    def network_summary(self):
+        mod = sys.modules.get("shard_engine.net_strategy")
+        if mod is None:
+            return None
+        mgr = getattr(mod, "_DEFAULT_MANAGER", None)
+        if mgr is None:
+            return None
+        try:
+            st = mgr.status()
+            host = st.get("host") or {}
+            return {
+                "node_id": st.get("node_id"),
+                "state": st.get("state"),
+                "mode": st.get("mode"),
+                "local_url": st.get("local_url"),
+                "hosting": bool(host.get("published") or host.get("running")),
+                "offline_only": bool(st.get("offline_only")),
+            }
+        except Exception:
+            return None
+    def pool_capacity_mb(self):
+        _, budgets, _ = self._pool_snapshot()
+        return sum(int(v) if int(v) > 0 else int(r) for v, r in budgets)
+    def status(self, include_secrets=True):
+        now = time.time()
+        with self._lock:
+            st = json.loads(json.dumps(self._state, ensure_ascii=False))
+            members_out = []
+            for m in st.get("members", []):
+                m["alive"] = member_alive(m, now)
+                m["token"] = None
+                members_out.append(m)
+            peers = []
+            for key, info in list(self._peers.items()):
+                if (now - info.get("_ts", 0)) > PEER_TTL_S:
+                    continue
+                peers.append({
+                    "ip": info.get("_ip") or key,
+                    "name": info.get("name"),
+                    "role": info.get("role"),
+                    "model": info.get("model"),
