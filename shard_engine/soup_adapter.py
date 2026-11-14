@@ -657,6 +657,23 @@ def detect_soup(custom_cmd=None, probe_deps=True, check_remote=False):
     missing_train = [k for k in train_req if not present.get(k)]
     hw = hardware.get_hardware_profile()
     hw_cuda = bool(hw.get("cuda_available")) or bool(probe.get("cuda"))
+    venv_dir = Path(paths.soup_venv_dir())
+    venv_present = venv_dir.is_dir() and ((venv_dir / "pyvenv.cfg").is_file() or (venv_dir / "Scripts" / "python.exe").is_file() or (venv_dir / "bin" / "python").is_file())
+    remote_info = check_latest_soup_version(force=bool(check_remote), allow_network=bool(check_remote))
+    latest_ver = remote_info.get("latest_version")
+    update_available = bool(soup_version and latest_ver and updater.is_valid_version_str(soup_version) and updater.compare_versions(soup_version, latest_ver) > 0)
+    shard_compatible = True
+    if soup_version and updater.is_valid_version_str(soup_version):
+        shard_compatible = updater.compare_versions(SOUP_MIN_SHARD_COMPAT, soup_version) >= 0
+    inst_state = get_soup_install_status()
+    if inst_state.get("status") == "running":
+        lifecycle = inst_state.get("lifecycle_state") or "INSTALLING"
+    elif cmd and cli_available:
+        lifecycle = "UPDATE_AVAILABLE" if update_available else "INSTALLED"
+    elif inst_state.get("lifecycle_state") == "FAILED" or inst_state.get("status") == "failed":
+        lifecycle = "FAILED"
+    else:
+        lifecycle = "NOT_INSTALLED"
     warnings = []
     if not cmd:
         if not py_ok:
