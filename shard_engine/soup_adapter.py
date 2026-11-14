@@ -885,6 +885,10 @@ def build_soup_config(base_model, dataset_path, output_dir, task="sft", fmt=None
     if task_norm == "sft":
         data_cfg["train_on_responses_only"] = bool(params.get("train_on_responses_only", True))
     explicit_ct = str(params.get("chat_template") or "").strip()
+    if explicit_ct:
+        data_cfg["chat_template"] = explicit_ct
+    elif fmt_norm == "chatml" and not _local_model_has_chat_template(base):
+        data_cfg["chat_template"] = "chatml"
     cfg = {
         "base": base,
         "task": task_norm,
