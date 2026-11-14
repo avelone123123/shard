@@ -172,6 +172,10 @@ SHARD пакетін тікелей ресми PyPI каталогынан ор�
 ```bash
 pip install shard-engine
 
+pip install "shard-engine[full]"
+```
+Соңғы әзірлеуші нұсқасын тікелей GitHub-тан орнату үшін:
+```bash
 pip install "git+https://github.com/avelone123123/shard.git"
 
 # Толық орнату: PyTorch/Transformers safetensors және Hugging Face модульдерін қосады
