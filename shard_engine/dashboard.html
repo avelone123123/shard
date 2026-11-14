@@ -3388,10 +3388,16 @@ async function trnRefresh(probeSoup) {
         renderTrnJobs(ov.jobs || []);
         renderTrnVersions(ov.registry || {});
         renderTrnPrivacy(ov.privacy || {});
-        if (!document.getElementById('trnJobBase').value && ov.engine && ov.engine.active_model) {
-            document.getElementById('trnJobBase').value = ov.engine.active_model;
+        const baseEl = document.getElementById('trnJobBase');
+        if (baseEl && !baseEl.value && ov.engine && ov.engine.active_model) {
+            baseEl.value = ov.engine.active_model;
         }
-        const auditRes = await fetch('/api/training/audit?limit=40');
+        if (typeof checkTrainingBaseHint === 'function') checkTrainingBaseHint();
+        if (soup && soup.installer && soup.installer.running && !soupInstallPollTimer) {
+            soupInstallPollTimer = setInterval(pollSoupInstallStatus, 1200);
+            pollSoupInstallStatus();
+        }
+        const auditRes = await fetch('/api/training/audit?limit=40', {headers: getAuthHeaders()});
         if (auditRes.ok) {
             const ad = await auditRes.json();
             document.getElementById('trnAuditList').innerText = (ad.events || []).map(ev => new Date(ev.ts * 1000).toLocaleTimeString() + '  ' + ev.event + '  ' + JSON.stringify(ev.details)).join('\n') || 'Нет событий';
