@@ -790,3 +790,27 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
             _write_cache({
                 "schema_version": 1,
                 "state": "UP_TO_DATE",
+                "current_version": new_ver,
+                "latest_version": new_ver,
+                "update_available": False,
+                "source": chk.get("source"),
+                "release_url": chk.get("release_url"),
+                "install_method": inst,
+                "error": None,
+                "checked_at": time.time(),
+            })
+            _set_job_state(
+                status="completed",
+                phase="done",
+                progress_pct=100,
+                message=f"SHARD успешно обновлён: {__version__} -> {new_ver}.",
+                new_version=new_ver,
+                restart_required=True,
+                finished_at=time.time(),
+                log=f"Update completed successfully: {__version__} -> {new_ver}",
+            )
+            return {
+                "status": "updated",
+                "old_version": __version__,
+                "new_version": new_ver,
+                "install_method": inst["method"],
