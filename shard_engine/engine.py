@@ -218,3 +218,113 @@ def _lan_pool_fit_ok(fit):
     if not need:
         return False
     cap = _lan_mod.LAN.pool_capacity_mb()
+    return cap / 1024.0 >= float(need)
+_airllm_env = os.environ.get("SHARD_AIRLLM_PATH", "").strip()
+if _airllm_env and os.path.exists(_airllm_env) and _airllm_env not in sys.path:
+    sys.path.append(_airllm_env)
+class _ShardCancelCriteria(StoppingCriteria):
+    def __init__(self, engine_ref):
+        self.engine_ref = engine_ref
+    def __call__(self, input_ids, scores, **kwargs):
+        return bool(self.engine_ref._cancel_gen)
+def _all_hub_roots():
+    dirs = []
+    candidates = [
+        os.environ.get("HF_HOME"),
+        _shard_settings.models_dir(),
+        _paths.default_models_dir(),
+        os.path.join(os.path.expanduser("~"), ".shard", "models"),
+        os.path.join(os.path.expanduser("~"), ".cache", "huggingface"),
+        str(_paths.data_dir() / "models"),
+    ]
+    for d in candidates:
+        if d:
+            h = os.path.join(d, "hub") if not str(d).endswith("hub") else d
+            norm = os.path.normcase(os.path.abspath(h))
+            if os.path.isdir(h) and norm not in [os.path.normcase(os.path.abspath(x)) for x in dirs]:
+                dirs.append(h)
+    return dirs
+def _hub_dir_complete(hub_dir):
+    if not hub_dir or not os.path.exists(hub_dir):
+        return False
+    blobs_dir = os.path.join(hub_dir, "blobs")
+    if os.path.exists(blobs_dir):
+        now_t = time.time()
+        for fn in os.listdir(blobs_dir):
+            if fn.endswith(".incomplete"):
+                fp = os.path.join(blobs_dir, fn)
+                try:
+                    if now_t - os.path.getmtime(fp) < 120:
+                        return False
+                except Exception:
+                    return False
+    snap_dir = os.path.join(hub_dir, "snapshots")
+    if os.path.isdir(snap_dir):
+        for r, _, files in os.walk(snap_dir):
+            for fn in files:
+                if fn.endswith(".part") or fn.endswith(".incomplete"):
+                    return False
+                if fn.endswith((".safetensors", ".bin", ".gguf")):
+                    fp = os.path.join(r, fn)
+                    try:
+                        if os.path.getsize(fp) > 0:
+                            return True
+                    except Exception:
+                        pass
+    return False
+def _is_model_cached_complete(model_id):
+    if not model_id:
+        return False
+    raw = str(model_id).strip()
+    if raw.startswith("\\\\") or raw.startswith("//"):
+        return False
+    if os.path.isfile(raw) and raw.lower().endswith(".gguf") and os.path.getsize(raw) > 0:
+        return True
+    if os.path.isdir(raw):
+        has_cfg = os.path.isfile(os.path.join(raw, "config.json")) or os.path.isfile(os.path.join(raw, "adapter_config.json"))
+        if has_cfg:
+            return True
+    if gguf_mod is not None:
+        try:
+            loc = gguf_mod.find_local_gguf(raw)
+            if loc and os.path.isfile(loc.get("path", "")):
+                return True
+        except Exception:
+            pass
+    repo = raw if "/" in raw else f"Qwen/{raw}"
+    tail = repo.split("/")[-1].lower()
+    tail_clean = tail[:-9] if tail.endswith("-instruct") else tail
+    tail_clean = tail_clean[:-5] if tail_clean.endswith("-gguf") else tail_clean
+    for hub_root in _all_hub_roots():
+        direct_dir = os.path.join(hub_root, f"models--{repo.replace('/', '--')}")
+        if _hub_dir_complete(direct_dir):
+            return True
+        if os.path.isdir(hub_root):
+            try:
+                for entry in os.listdir(hub_root):
+                    low = entry.lower()
+                    if not low.startswith("models--"):
+                        continue
+                    if tail in low or (tail_clean and tail_clean in low):
+                        if _hub_dir_complete(os.path.join(hub_root, entry)):
+                            return True
+            except Exception:
+                pass
+    return False
+class ShardEngine:
+    def __init__(self):
+        global _active_engine
+        _active_engine = self
+        self.active_model_file = _paths.active_model_file()
+        os.makedirs(os.path.dirname(self.active_model_file), exist_ok=True)
+        saved_model = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+        saved_obj = _storage.read_json_safe(
+            self.active_model_file,
+            default=None,
+            expected_type=dict,
+            quarantine=True,
+            use_backup=True,
+        )
+        if isinstance(saved_obj, dict) and saved_obj.get("model_id"):
+            saved_model = str(saved_obj.get("model_id")).strip() or saved_model
+        self.active_model_id = saved_model
