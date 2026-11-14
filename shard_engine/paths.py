@@ -155,6 +155,8 @@ def all_dirs():
         "run_dir": str(run_dir()),
         "runtime_dir": runtime_dir(),
         "models_default_dir": default_models_dir(),
+        "tools_dir": tools_dir(),
+        "soup_venv_dir": soup_venv_dir(),
     }
 def read_package_text(filename):
     try:
