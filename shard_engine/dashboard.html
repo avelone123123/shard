@@ -3620,6 +3620,21 @@ async function trnValidateDataset(snapshotId) {
             body: JSON.stringify({check_with_soup: false})
         });
         const d = await res.json();
+        const msg = d.ok ? ('OK: ' + d.valid_records + ' валидных записей') : ((d.errors || []).join('; ') || 'Ошибка валидации');
+        showToast(d.ok ? 'Датасет валиден' : 'Проблемы с датасетом', msg);
+    } catch(e) {}
+}
+async function trnPreviewDataset(snapshotId, page) {
+    const pNum = Math.max(1, Number(page || 1));
+    try {
+        const res = await fetch('/api/training/datasets/' + encodeURIComponent(snapshotId) + '/preview?page=' + pNum + '&page_size=20', {headers: getAuthHeaders()});
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            showToast('Ошибка просмотра', err.message || 'Не удалось открыть предпросмотр датасета');
+            return;
+        }
+        const d = await res.json();
+        const ds = d.dataset || {};
         const modal = document.getElementById('modelModalBackdrop');
         document.getElementById('modalModelTitle').innerText = 'Датасет: ' + snapshotId;
         document.getElementById('modalModelAuthor').innerText = 'Формат: ' + ((d.dataset && d.dataset.task) || 'sft') + ' | Записей: ' + ((d.dataset && d.dataset.record_count) || 0);
