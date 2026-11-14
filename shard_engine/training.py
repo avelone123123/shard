@@ -658,3 +658,113 @@ def evaluate_version(version_id, tasks_inline=None, min_accuracy=0.0, soup_cmd=N
     passed = (c_acc >= float(min_accuracy)) and (c_acc >= b_acc)
     with _STATE_LOCK:
         reg = _load_registry()
+        for item in reg["versions"]:
+            if item.get("version_id") == version_id:
+                item["eval_baseline"] = b_metrics
+                item["eval_candidate"] = c_metrics
+                item["comparison"] = {
+                    "task_count": task_count,
+                    "baseline_accuracy": b_acc,
+                    "candidate_accuracy": c_acc,
+                    "delta_accuracy": delta,
+                    "improved": c_acc > b_acc,
+                    "no_regression": c_acc >= b_acc,
+                    "evaluated_at": time.time(),
+                }
+                item["eval_status"] = "passed" if passed else "failed"
+                updated = dict(item)
+                break
+        _save_registry(reg)
+    feedback._append_audit("model_version_evaluated", {
+        "version_id": version_id,
+        "baseline_accuracy": b_acc,
+        "candidate_accuracy": c_acc,
+        "delta": delta,
+        "eval_status": updated["eval_status"],
+    })
+    return updated
+def prepare_version_artifact(version_id, target="merged", quant="q4_k_m", soup_cmd=None):
+    ver = get_model_version(version_id)
+    soup_info = soup_adapter.detect_soup(custom_cmd=soup_cmd, probe_deps=True)
+    if not soup_info.get("available"):
+        raise RuntimeError("SOUP CLI is not available.")
+    run_dir = _runs_dir() / ver["job_id"]
+    run_dir.mkdir(parents=True, exist_ok=True)
+    mode = str(target or "merged").strip().lower()
+    adapter_dir = ver.get("adapter_dir") or ver.get("artifact_path")
+    merged_dir = ver.get("merged_dir")
+    if mode in ("merged", "gguf") and not merged_dir:
+        if not adapter_dir or not os.path.exists(str(adapter_dir)):
+            raise FileNotFoundError("Trained adapter directory not found.")
+        dest_merged = str(run_dir / "merged")
+        m_res = soup_adapter.run_merge(
+            soup_info,
+            adapter_dir,
+            dest_merged,
+            base_model=ver.get("base_model"),
+        )
+        if not m_res["ok"] or not m_res.get("output_dir"):
+            raise RuntimeError(f"soup merge failed: {(m_res['stderr'] or m_res['stdout'])[:300]}")
+        merged_dir = m_res["output_dir"]
+    gguf_path = ver.get("gguf_path")
+    if mode == "gguf":
+        q = str(quant or "q4_k_m").strip().lower()
+        dest_gguf = str(run_dir / f"model-{version_id}-{q}.gguf")
+        src_for_export = merged_dir or adapter_dir
+        e_res = soup_adapter.run_export_gguf(
+            soup_info,
+            src_for_export,
+            dest_gguf,
+            quant=q,
+            base_model=ver.get("base_model"),
+        )
+        if not e_res["ok"] or not e_res.get("output_file"):
+            raise RuntimeError(f"soup export gguf failed: {(e_res['stderr'] or e_res['stdout'])[:300]}")
+        gguf_path = e_res["output_file"]
+    data_root = paths.data_dir()
+    with _STATE_LOCK:
+        reg = _load_registry()
+        updated = None
+        for item in reg["versions"]:
+            if item.get("version_id") == version_id:
+                if merged_dir:
+                    item["merged_dir"] = merged_dir
+                    item["merged_rel_dir"] = storage.normalize_rel_path(merged_dir, data_root)
+                if gguf_path:
+                    item["gguf_path"] = gguf_path
+                    item["gguf_rel_path"] = storage.normalize_rel_path(gguf_path, data_root)
+                    item["artifact_type"] = "gguf"
+                    item["artifact_path"] = gguf_path
+                    item["rel_path"] = storage.normalize_rel_path(gguf_path, data_root)
+                elif merged_dir:
+                    item["artifact_type"] = "merged_hf"
+                    item["artifact_path"] = merged_dir
+                    item["rel_path"] = storage.normalize_rel_path(merged_dir, data_root)
+                updated = dict(item)
+                break
+        _save_registry(reg)
+    feedback._append_audit("model_artifact_prepared", {"version_id": version_id, "mode": mode})
+    return updated
+def approve_version(version_id, approved=True, notes=None):
+    _validate_safe_id(version_id, "version_id")
+    with _STATE_LOCK:
+        reg = _load_registry()
+        target = None
+        for item in reg["versions"]:
+            if item.get("version_id") == version_id:
+                item["approval_status"] = "approved" if approved else "rejected"
+                if notes is not None:
+                    item["notes"] = str(notes)[:500]
+                target = dict(item)
+                break
+        if target is None:
+            raise KeyError(f"Model version '{version_id}' not found.")
+        _save_registry(reg)
+    feedback._append_audit("model_version_approval", {"version_id": version_id, "approved": bool(approved)})
+    return target
+def deploy_version(version_id, prefer="auto", load_into_engine=True, require_approval=True):
+    ver = get_model_version(version_id)
+    if require_approval and ver.get("approval_status") != "approved":
+        raise PermissionError(f"Model version '{version_id}' must be approved by the owner before deployment.")
+    pref = str(prefer or "auto").strip().lower()
+    target_path = None
