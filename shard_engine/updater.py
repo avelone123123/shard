@@ -70,3 +70,27 @@ def parse_version_tuple(ver):
     nums = []
     for tok in core.split("."):
         m = re.match(r"^(\d+)", tok)
+        nums.append(int(m.group(1)) if m else 0)
+    while len(nums) < 3:
+        nums.append(0)
+    pre_rank = 0 if is_prerelease_version(s) else 1
+    return tuple(nums[:4]) + (pre_rank,)
+def compare_versions(local_ver, remote_ver):
+    lv = parse_version_tuple(local_ver)
+    rv = parse_version_tuple(remote_ver)
+    if rv > lv:
+        return 1
+    if rv < lv:
+        return -1
+    return 0
+def validate_remote_url(url):
+    raw = str(url or "").strip()
+    if not raw or len(raw) > 2048:
+        raise ValueError("Invalid remote URL.")
+    parsed = urlparse(raw)
+    if parsed.scheme.lower() != "https":
+        raise ValueError(f"Only HTTPS URLs are permitted for updates (got {parsed.scheme!r}).")
+    host = (parsed.hostname or "").lower()
+    if host not in _ALLOWED_HTTPS_HOSTS:
+        raise ValueError(f"Untrusted update host: {host!r}.")
+    return raw
