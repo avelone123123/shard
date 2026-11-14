@@ -4136,7 +4136,7 @@ async function srvRefresh() {
         const roleBadge = document.getElementById('srvRoleBadge');
         if (roleBadge) {
             roleBadge.innerText = w.is_owner ? 'Роль: Владелец' : 'Роль: Участник';
-            roleBadge.style.color = w.is_owner ? '#10b981' : '#38bdf8';
+            roleBadge.style.color = w.is_owner ? 'var(--success)' : 'var(--accent)';
         }
         const warnEl = document.getElementById('srvDiscoveryWarn');
         const gHost = w.network_host || (w.global_host && w.global_host.host) || w.global_host || {};
