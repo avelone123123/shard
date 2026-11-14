@@ -432,13 +432,18 @@ def cmd_doctor():
     print(f"Doctor summary: {fails} error(s), {warns} warning(s).")
     if fails > 0:
         sys.exit(1)
-def _parse_ver_tuple(ver):
-    parts = []
-    for tok in str(ver or "0").split("."):
-        num = ""
-        for ch in tok:
-            if ch.isdigit():
-                num += ch
+def cmd_update(args):
+    as_json = bool(getattr(args, "json", False))
+    if not as_json:
+        print_banner()
+        print(f"Installed version: {__app_name__} {__version__}")
+    check_only = bool(getattr(args, "check", False))
+    inst = updater.detect_installation_method(probe_git=not check_only)
+    if getattr(args, "rollback", False):
+        try:
+            res = updater.rollback_update()
+            if as_json:
+                print(json.dumps(res, ensure_ascii=False, indent=2))
             else:
                 break
         parts.append(int(num) if num else 0)
