@@ -548,3 +548,113 @@ def list_training_jobs(limit=50):
     with _STATE_LOCK:
         jobs = reconcile_jobs()[:max(1, int(limit))]
         for j in jobs:
+            if j.get("status") == "running" and j["job_id"] not in _ACTIVE_PROCS:
+                art = soup_adapter.scan_output_artifacts(j.get("output_dir") or "")
+                j["artifacts"] = art
+            prog = soup_adapter.parse_train_progress(j.get("log_path"))
+            j["progress"] = {
+                "last_loss": prog.get("last_loss"),
+                "last_epoch": prog.get("last_epoch"),
+                "current_step": prog.get("current_step"),
+                "total_steps": prog.get("total_steps"),
+            }
+        return jobs
+def get_training_job(job_id):
+    _validate_safe_id(job_id, "job_id")
+    with _STATE_LOCK:
+        jobs = reconcile_jobs()
+        for j in jobs:
+            if j.get("job_id") == job_id:
+                prog = soup_adapter.parse_train_progress(j.get("log_path"))
+                out = dict(j)
+                out["log_tail"] = prog.get("lines", [])
+                out["progress"] = {
+                    "last_loss": prog.get("last_loss"),
+                    "last_epoch": prog.get("last_epoch"),
+                    "current_step": prog.get("current_step"),
+                    "total_steps": prog.get("total_steps"),
+                }
+                out["artifacts"] = soup_adapter.scan_output_artifacts(out.get("output_dir") or "")
+                return out
+    raise KeyError(f"Training job '{job_id}' not found.")
+def list_model_versions():
+    with _STATE_LOCK:
+        return _load_registry()
+def get_model_version(version_id):
+    _validate_safe_id(version_id, "version_id")
+    with _STATE_LOCK:
+        reg = _load_registry()
+        for v in reg["versions"]:
+            if v.get("version_id") == version_id:
+                return v
+    raise KeyError(f"Model version '{version_id}' not found.")
+def _build_eval_tasks_for_version(ver, tasks_inline=None):
+    run_dir = _runs_dir() / ver["job_id"]
+    run_dir.mkdir(parents=True, exist_ok=True)
+    eval_path = run_dir / f"eval-tasks-{ver['version_id']}.jsonl"
+    tasks = []
+    if tasks_inline and isinstance(tasks_inline, list):
+        for item in tasks_inline:
+            if isinstance(item, dict) and item.get("prompt"):
+                tasks.append({
+                    "prompt": str(item["prompt"]),
+                    "expected": str(item.get("expected") or ""),
+                    "category": str(item.get("category") or "custom"),
+                    "scoring": str(item.get("scoring") or "contains"),
+                })
+    else:
+        rows = feedback.preview_dataset_records(ver["dataset_snapshot_id"], limit=20)
+        for idx, r in enumerate(rows):
+            if "messages" in r and len(r["messages"]) >= 2:
+                prompt = r["messages"][0].get("content", "")
+                expected = r["messages"][-1].get("content", "")
+            elif "prompt" in r and "chosen" in r:
+                prompt = r.get("prompt", "")
+                expected = r.get("chosen", "")
+            else:
+                continue
+            if prompt and expected:
+                snippet = expected.strip().split("\n")[0][:160]
+                tasks.append({
+                    "prompt": prompt,
+                    "expected": snippet,
+                    "category": "dataset_regression",
+                    "scoring": "contains",
+                })
+    if not tasks:
+        raise ValueError("No evaluation tasks available. Supply tasks_inline or ensure dataset snapshot is non-empty.")
+    storage.atomic_write_text(
+        eval_path,
+        "".join(json.dumps(t, ensure_ascii=False) + "\n" for t in tasks),
+        fsync=True,
+        backup=False,
+    )
+    return str(eval_path), len(tasks)
+def evaluate_version(version_id, tasks_inline=None, min_accuracy=0.0, soup_cmd=None):
+    ver = get_model_version(version_id)
+    soup_info = soup_adapter.detect_soup(custom_cmd=soup_cmd, probe_deps=True)
+    if not soup_info.get("available"):
+        raise RuntimeError("SOUP CLI is not available to run evaluation.")
+    if not soup_info.get("capabilities", {}).get("eval"):
+        raise RuntimeError("SOUP eval dependencies are missing (install soup-cli[train]).")
+    tasks_jsonl, task_count = _build_eval_tasks_for_version(ver, tasks_inline=tasks_inline)
+    run_dir = _runs_dir() / ver["job_id"]
+    base_json = run_dir / f"eval-baseline-{version_id}.json"
+    cand_json = run_dir / f"eval-candidate-{version_id}.json"
+    cand_model_target = ver.get("merged_dir") or ver.get("artifact_path")
+    if not cand_model_target or not os.path.exists(str(cand_model_target)):
+        raise FileNotFoundError(f"Candidate artifact not found at '{cand_model_target}'.")
+    base_res = soup_adapter.run_custom_eval(soup_info, ver["base_model"], tasks_jsonl, str(base_json))
+    if not base_res["ok"] or not base_res.get("metrics"):
+        raise RuntimeError(f"Baseline eval failed: {(base_res['stderr'] or base_res['stdout'])[:300]}")
+    cand_res = soup_adapter.run_custom_eval(soup_info, cand_model_target, tasks_jsonl, str(cand_json))
+    if not cand_res["ok"] or not cand_res.get("metrics"):
+        raise RuntimeError(f"Candidate eval failed: {(cand_res['stderr'] or cand_res['stdout'])[:300]}")
+    b_metrics = base_res["metrics"]
+    c_metrics = cand_res["metrics"]
+    b_acc = float(b_metrics.get("accuracy") or 0.0)
+    c_acc = float(c_metrics.get("accuracy") or 0.0)
+    delta = round(c_acc - b_acc, 4)
+    passed = (c_acc >= float(min_accuracy)) and (c_acc >= b_acc)
+    with _STATE_LOCK:
+        reg = _load_registry()
