@@ -222,3 +222,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
         self.assertEqual(v_res.status_code, 200)
         self.assertFalse(v_res.json()["ok"])
     def test_08_training_preflight_blocks_gguf_and_runs_lifecycle(self):
+        feedback.update_privacy_config({"require_manual_review": False, "redact_secrets": False, "redact_pii": False})
+        fb = feedback.submit_feedback({"prompt": "Hello", "response": "Hi there!", "rating": "up", "consent_given": True}, source="local")
+        feedback.review_feedback(fb["id"], "approve")
+        snap = feedback.build_dataset_snapshot(task="sft", name="preflight-ds", validate_with_soup=False)
+        gguf_path = self._root / "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
+        gguf_path.write_bytes(b"GGUF" + b"\x00" * 16)
+        fake_soup = {
+            "available": True,
+            "command": ["fake-soup"],
+            "version": "0.77.2",
+            "soup_version": "0.77.2",
+            "python_version": "3.12.4",
+            "cuda_available": False,
+            "capabilities": {"cli": True, "train": True, "eval": True, "merge": True, "export_gguf": True},
+            "missing_train_deps": [],
+            "warnings": [],
