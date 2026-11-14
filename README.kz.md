@@ -167,10 +167,11 @@ SHARD жұмыс процесі төрт негізгі қадамнан тұр�
 
 ### Орнату
 
-#### 1-нұсқа: GitHub-тан pip арқылы орнату (ұсынылады)
-Репозиторийді қолмен клондамай-ақ кез келген бумадан SHARD-ты іске қосыңыз:
+#### 1-нұсқа: PyPI арқылы орнату (ұсынылады)
+SHARD пакетін тікелей ресми PyPI каталогынан орнатыңыз:
 ```bash
-# Негізгі орнату: CLI, FastAPI сервері, веб-тақта, GGUF (llama.cpp) және LAN-кластер
+pip install shard-engine
+
 pip install "git+https://github.com/avelone123123/shard.git"
 
 # Толық орнату: PyTorch/Transformers safetensors және Hugging Face модульдерін қосады
