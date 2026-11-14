@@ -1538,3 +1538,113 @@ class NetworkManager:
         if res:
             dropped = []
             with self._lock:
+                auth_map = self._peers_state.get("authorized_peers") or {}
+                for pid, rec in list(auth_map.items()):
+                    if isinstance(rec, dict) and rec.get("invite_id") == invite_id and not rec.get("approved_manually"):
+                        auth_map.pop(pid, None)
+                        dropped.append(pid)
+                if dropped:
+                    self._save_peers()
+            for pid in dropped:
+                self._close_peer_channels_sync(pid, reason="invite_revoked")
+        return res
+    def build_invite_uri(self, invite_token=None, name=None, relays=None, direct_endpoints=None, discovery_urls=None):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        eff_name = name if name is not None else (cfg.get("display_name") or lan.LAN.name() or "")
+        eff_relays = list(relays) if relays is not None else list(cfg.get("relay_urls") or [])
+        eff_direct = list(direct_endpoints) if direct_endpoints is not None else self._collect_direct_endpoints_for_host()
+        eff_disc = list(discovery_urls) if discovery_urls is not None else list(cfg.get("discovery_urls") or [])
+        return net_identity.pack_invite_uri(
+            self.identity.node_id,
+            invite_token=invite_token,
+            name=eff_name,
+            relays=eff_relays,
+            direct_endpoints=eff_direct,
+            discovery_urls=eff_disc,
+        )
+    def _stop_host_heartbeat(self):
+        self._host_hb_stop.set()
+        th = self._host_hb_thread
+        self._host_hb_thread = None
+        if th is not None and th.is_alive() and th is not threading.current_thread():
+            th.join(timeout=2.5)
+    def _start_host_heartbeat(self):
+        self._stop_host_heartbeat()
+        self._host_hb_stop.clear()
+        th = threading.Thread(target=self._host_hb_loop, daemon=True)
+        self._host_hb_thread = th
+        th.start()
+    def _host_hb_loop(self):
+        while not self._host_hb_stop.is_set():
+            with self._lock:
+                cfg = copy.deepcopy(self._config)
+            interval = max(5.0, float(cfg.get("heartbeat_interval_s") or 25.0))
+            if self._host_hb_stop.wait(interval):
+                break
+            with self._lock:
+                cfg = copy.deepcopy(self._config)
+            if not cfg.get("published") or cfg.get("offline_only") or cfg.get("visibility") == "local" or not cfg.get("discovery_urls"):
+                continue
+            try:
+                dc = self._make_discovery_client()
+                if cfg.get("visibility") == "public":
+                    ha = self._host_agent
+                    active_peers = ha.active_peer_count if ha is not None else 0
+                    max_p = int(cfg.get("max_participants") or 16)
+                    res = dc.heartbeat_server(
+                        self.identity,
+                        active_model=self._current_model_name(),
+                        status="online",
+                        slots_available=max(0, max_p - active_peers),
+                        participant_count=active_peers,
+                        max_participants=max_p,
+                        load=self._current_load_value(),
+                        ttl_s=int(cfg.get("listing_ttl_s") or 60),
+                    )
+                    if not res.get("ok") and any(r.get("status_code") == 404 for r in res.get("results") or []):
+                        res = dc.register_server(self.identity, self._build_public_listing(), ttl_s=int(cfg.get("listing_ttl_s") or 60))
+                    self._host_last_disc_res = res
+                elif cfg.get("visibility") == "private":
+                    self._host_last_disc_res = self._publish_private_commitments(dc)
+                self._host_last_hb_at = time.time()
+            except Exception:
+                pass
+    def publish_server(
+        self,
+        name=None,
+        visibility=None,
+        access_mode=None,
+        max_participants=None,
+        direct_p2p_port=None,
+        region=None,
+        model=None,
+        models=None,
+        relays=None,
+        discovery_urls=None,
+        bandwidth_kbps=None,
+        offline_only=None,
+        allow_insecure_local=None,
+        asgi_app=None,
+        local_http_url=None,
+        access_policy=None,
+        max_peers=None,
+        direct_port=None,
+        **kwargs,
+    ):
+        if kwargs:
+            raise TypeError(f"publish_server() got unexpected keyword argument(s): {', '.join(sorted(kwargs.keys()))}")
+        if access_mode is None and access_policy is not None:
+            access_mode = access_policy
+        if max_participants is None and max_peers is not None:
+            max_participants = max_peers
+        if direct_p2p_port is None and direct_port is not None:
+            direct_p2p_port = direct_port
+        patch = {}
+        if name is not None:
+            patch["display_name"] = name
+        if visibility is not None:
+            patch["visibility"] = visibility
+        if access_mode is not None:
+            patch["access_mode"] = access_mode
+        if max_participants is not None:
