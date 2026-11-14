@@ -114,3 +114,17 @@ def available_drives():
             out.append({"path": "/", "free_gb": info["free_gb"], "total_gb": info["total_gb"]})
     out.sort(key=lambda d: d["path"])
     return out
+def recent_model_paths():
+    raw = _load().get("recent_model_paths")
+    if not isinstance(raw, list):
+        return []
+    out = []
+    seen = set()
+    for p in raw:
+        s = str(p or "").strip()
+        if not s or "\x00" in s or s.startswith("\\\\") or s.startswith("//"):
+            continue
+        norm = os.path.normcase(s)
+        if norm not in seen:
+            seen.add(norm)
+            out.append(s)
