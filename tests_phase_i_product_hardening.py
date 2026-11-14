@@ -94,3 +94,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
                 def raise_for_status(self):
                     return None
                 def iter_content(self, chunk_size=65536):
+                    yield upd_zip.read_bytes()
+            return _FakeStream()
+        def failing_pip_runner(_ver):
+            (fake_pkg / "marker.py").write_text("VALUE = 'corrupted'\n", encoding="utf-8")
+            return 1, "simulated pip failure"
+        with patch.object(updater, "detect_installation_method", return_value=inst_fake):
+            with patch.object(updater, "fetch_latest_remote_info", return_value=remote_mock):
+                with patch.object(updater, "_http_get", side_effect=_fake_http_get):
+                    res = updater.apply_update(pip_runner=failing_pip_runner)
+        self.assertEqual(res["status"], "failed")
+        self.assertTrue(res["rolled_back"])
+        self.assertEqual((fake_pkg / "marker.py").read_text(encoding="utf-8"), "VALUE = 'original'\n")
+        self.assertEqual(json.loads(keys_file.read_text(encoding="utf-8")), ["sk-shard-keepme"])
+    def test_04_updater_api_endpoints_and_cli_dash_update_normalization(self):
+        with patch.object(updater, "fetch_latest_remote_info", return_value={"ok": True, "latest_version": __version__, "source": "github_release", "tag_name": f"v{__version__}", "release_notes": "", "error": None}):
+            r = self.client.get("/api/system/update?force=1", headers=self.owner_headers)
