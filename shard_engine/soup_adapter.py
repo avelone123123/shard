@@ -723,7 +723,7 @@ def detect_soup(custom_cmd=None, probe_deps=True, check_remote=False):
         "warnings": warnings,
         "install_hint": "python3.12 -m venv ~/.soup-venv && pip install \"soup-cli[train]\"",
         "compatible_python": find_compatible_python(),
-        "installer": get_soup_install_status(),
+        "installer": inst_state,
     }
 def _yaml_scalar(value):
     if value is None:
