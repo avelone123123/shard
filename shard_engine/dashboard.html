@@ -3490,7 +3490,14 @@ async function trnInstallSoup(actionOrFlag, includeTrain) {
             body: JSON.stringify({action: action, include_train: includeTrain !== false, background: true})
         });
         const d = await res.json();
-        showToast('Установка SOUP', d.stage || d.status || 'Запущена');
+        const inst = d.installer || {};
+        if (!res.ok) {
+            showToast('Ошибка SOUP', d.message || 'Не удалось запустить установку');
+            if (box) box.innerHTML = '<div style="color:#f87171;font-size:12px;">' + lanEsc(d.message || 'Ошибка запуска') + '</div>';
+            return;
+        }
+        _renderSoupInstallerBox(inst);
+        showToast('SOUP', inst.stage || inst.lifecycle_state || 'Запущено');
         if (soupInstallPollTimer) clearInterval(soupInstallPollTimer);
         soupInstallPollTimer = setInterval(pollSoupInstallStatus, 1500);
     } catch(e) {
