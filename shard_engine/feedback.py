@@ -580,6 +580,14 @@ def build_dataset_snapshot(task="sft", base_model=None, name=None, include_pendi
                 "min_record_chars": min(char_lengths) if char_lengths else 0,
                 "sha256": file_sha,
                 "soup_validation": soup_val,
+                "creation_summary": {
+                    "source_feedback": total_checked,
+                    "valid_records": len(rows),
+                    "rejected_records": rejected_cnt,
+                    "dedup_removed": dedup_removed,
+                    "skip_reasons": skip_reasons,
+                    "validation_status": val_status,
+                },
             }
             manifest_path = ds_dir / f"{snap_id}.manifest.json"
             try:
