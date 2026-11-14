@@ -120,6 +120,51 @@ def check_latest_soup_version(force=False, timeout=2.5, allow_network=True):
     try:
         r = requests.get(SOUP_UPSTREAM_PYPI_URL, timeout=timeout, verify=True, headers={"User-Agent": "SHARD-SOUP-Checker"})
         if r.status_code == 200:
+            info = (r.json() or {}).get("info") or {}
+            ver = str(info.get("version") or "").strip()
+            if updater.is_valid_version_str(ver) and not updater.is_prerelease_version(ver):
+                latest = ver
+                req_py = info.get("requires_python") or req_py
+                rel_url = f"https://pypi.org/project/soup-cli/{ver}/"
+                src = "pypi"
+    except Exception as e:
+        err = str(e)
+    if not latest:
+        try:
+            r2 = requests.get(SOUP_UPSTREAM_RELEASES_URL, timeout=timeout, verify=True, headers={"Accept": "application/vnd.github+json", "User-Agent": "SHARD-SOUP-Checker"})
+            if r2.status_code == 200:
+                d2 = r2.json() or {}
+                ver = str(d2.get("tag_name") or "").strip().lstrip("vV")
+                if updater.is_valid_version_str(ver) and not updater.is_prerelease_version(ver) and not d2.get("prerelease"):
+                    latest = ver
+                    rel_url = d2.get("html_url") or rel_url
+                    src = "github_release"
+                    err = None
+        except Exception as e:
+            err = err or str(e)
+    if latest:
+        payload = {
+            "latest_version": latest,
+            "requires_python": req_py,
+            "source": src,
+            "release_url": rel_url,
+            "checked_at": time.time(),
+            "error": None,
+        }
+        try:
+            cp.parent.mkdir(parents=True, exist_ok=True)
+            storage.atomic_write_json(cp, payload, fsync=True, backup=True)
+        except Exception:
+            pass
+        payload["cached"] = False
+        return payload
+    return {
+        "latest_version": cached.get("latest_version") if isinstance(cached, dict) else None,
+        "requires_python": req_py,
+        "source": cached.get("source") if isinstance(cached, dict) else None,
+        "release_url": rel_url,
+        "cached": bool(cached),
+        "checked_at": cached.get("checked_at") if isinstance(cached, dict) else None,
 def _probe_python_env(py_exe, check_deps=True, timeout=8):
     if not py_exe or not os.path.isfile(py_exe):
         return None
