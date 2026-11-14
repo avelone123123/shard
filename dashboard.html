@@ -4396,7 +4396,7 @@ function _renderUpdateModalBody(data) {
     box.innerHTML =
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
         '<div>Установленная версия: <b>v' + escHtml(chk.current_version || '-') + '</b> | Новая на GitHub: <b>v' + escHtml(chk.latest_version || '-') + '</b></div>' + badge + '</div>' +
-        '<div style="font-size:11.5px;color:#94a3b8;">Способ установки: <b>' + escHtml(inst.method || '-') + '</b> (' + escHtml(inst.package_dir || '-') + ') | Источник: ' + escHtml(chk.source || 'cache') + (chk.cached ? ' (кэш)' : '') + '</div>' +
+        '<div style="font-size:11.5px;color:var(--text-secondary);">Способ установки: <b>' + escHtml(inst.method || '-') + '</b> (' + escHtml(inst.package_dir || '-') + ') | Источник: ' + escHtml(chk.source || 'cache') + (chk.cached ? ' (кэш)' : '') + '</div>' +
         errLine + notes;
     if (applyBtn) {
         applyBtn.disabled = (inst.method === 'packaged');
@@ -4415,7 +4415,7 @@ function _renderShardUpdateProgress(job) {
     const fill = document.getElementById('updTrackFill');
     if (fill) {
         fill.style.width = (job.progress_pct || 0) + '%';
-        fill.style.background = job.status === 'failed' ? '#ef4444' : (job.status === 'updated' ? '#10b981' : '#38bdf8');
+        fill.style.background = job.status === 'failed' ? 'var(--danger)' : (job.status === 'updated' ? 'var(--success)' : 'var(--accent)');
     }
     const logsPre = document.getElementById('updLogsPre');
     if (logsPre) logsPre.innerText = (job.logs || []).join('\n') || (job.error || '');
