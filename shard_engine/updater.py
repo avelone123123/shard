@@ -118,3 +118,27 @@ def _write_cache(payload):
     for p in _cache_paths():
         try:
             p.parent.mkdir(parents=True, exist_ok=True)
+            storage.atomic_write_json(p, payload, fsync=True, backup=True)
+        except Exception:
+            pass
+def detect_installation_method(probe_git=True):
+    pkg_dir = Path(__file__).resolve().parent
+    parent_dir = pkg_dir.parent
+    method = "pypi"
+    direct_info = None
+    editable = False
+    if getattr(sys, "frozen", False) or hasattr(sys, "_MEIPASS"):
+        method = "packaged"
+    else:
+        try:
+            dist = importlib.metadata.distribution(__app_name__)
+            du_text = dist.read_text("direct_url.json")
+            if du_text:
+                direct_info = json.loads(du_text)
+                if (direct_info.get("dir_info") or {}).get("editable"):
+                    editable = True
+                    method = "git_clone" if (parent_dir / ".git").exists() else "editable_source"
+                elif "archive_info" in direct_info or "vcs_info" in direct_info:
+                    method = "wheel"
+        except Exception:
+            pass
