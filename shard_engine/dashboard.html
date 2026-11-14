@@ -3628,3 +3628,113 @@ async function srvRefresh() {
         }
         const warnEl = document.getElementById('srvDiscoveryWarn');
         const gHost = w.network_host || (w.global_host && w.global_host.host) || w.global_host || {};
+        if (warnEl) {
+            if (gHost.published && gHost.discovery_ok === false && gHost.discovery_warning) {
+                warnEl.style.display = 'block';
+                warnEl.innerText = gHost.discovery_warning;
+            } else {
+                warnEl.style.display = 'none';
+            }
+        }
+        const lan = w.lan || {};
+        const eng = w.engine || {};
+        const mems = lan.members || [];
+        const workers = mems.filter(m => m.role === 'worker' && m.alive);
+        const cards = document.getElementById('srvOverviewCards');
+        if (cards) {
+            cards.innerHTML =
+                '<div class="trn-stat"><div class="trn-stat-label">Сервер и Сеть</div><div class="trn-stat-val" style="font-size:15px;">' + escHtml(w.server_name || lan.name || gHost.display_name || 'SHARD Server') + '</div><div class="trn-stat-sub">LAN: ' + escHtml(lan.mode || 'off') + (lan.open ? ' (открыт)' : '') + ' | Global: ' + (gHost.published ? 'опубликован' : 'приватный') + '</div></div>' +
+                '<div class="trn-stat"><div class="trn-stat-label">Модель сервера</div><div class="trn-stat-val" style="font-size:15px;color:' + (eng.is_loaded ? '#10b981' : '#f59e0b') + ';">' + escHtml((eng.active_model || 'Не загружена').split('/').pop()) + '</div><div class="trn-stat-sub">Статус: ' + escHtml(eng.detailed_lifecycle_state || eng.lifecycle_state || eng.status || 'idle') + '</div></div>' +
+                '<div class="trn-stat"><div class="trn-stat-label">Участники и Пул</div><div class="trn-stat-val">' + mems.length + ' в LAN / ' + workers.length + ' RPC</div><div class="trn-stat-sub">' + (lan.rpc && lan.rpc.servers ? ('RPC: ' + escHtml(lan.rpc.servers)) : 'Локальный инференс хоста') + '</div></div>' +
+                '<div class="trn-stat"><div class="trn-stat-label">Код доступа и Пиры</div><div class="trn-stat-val" style="font-size:15px;cursor:pointer;" data-copy="' + escHtml(lan.pairing_code || '') + '" onclick="if(this.dataset.copy)copyValue(this.dataset.copy, \'Код подключения\')">' + escHtml(lan.pairing_code || (lan.open ? 'OPEN' : '—')) + '</div><div class="trn-stat-sub">Туннельных пиров: ' + (gHost.active_peers || 0) + '</div></div>';
+        }
+        const sharedBox = document.getElementById('srvSharedChatList');
+        if (sharedBox) {
+            const msgs = w.shared_chats || w.shared_chat || [];
+            sharedBox.innerHTML = msgs.map(m =>
+                '<div style="padding:8px;border-bottom:1px solid #161f30;">' +
+                '<div style="font-size:11px;color:#38bdf8;font-weight:600;margin-bottom:3px;">' + escHtml(m.author || 'Participant') + ' &bull; <span style="color:#64748b;">' + escHtml((m.model || '').split('/').pop()) + '</span></div>' +
+                '<div style="color:#e2e8f0;margin-bottom:4px;"><b>Q:</b> ' + escHtml(m.prompt) + '</div>' +
+                '<div style="color:#10b981;white-space:pre-wrap;"><b>A:</b> ' + escHtml(m.response) + '</div>' +
+                '</div>'
+            ).join('') || '<div style="color:#64748b;text-align:center;padding:20px;">Общий ИИ-чат пуст. Отправьте первый запрос модели сервера.</div>';
+        }
+        const memBox = document.getElementById('srvMembersBox');
+        if (memBox) {
+            const peersObj = w.peers || {};
+            const pConn = gHost.connected_peers || peersObj.connected || [];
+            let mHtml = '<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Участники LAN (' + mems.length + ') и P2P/Relay пиры (' + pConn.length + ')</div>';
+            if (mems.length > 0) {
+                mHtml += mems.map(m => {
+                    const btns = w.is_owner ? ('<div style="display:flex;gap:6px;"><button class="fb-btn" data-ip="' + escHtml(m.ip) + '" onclick="lanKickMember(this.dataset.ip, false)">Кик</button><button class="fb-btn" style="color:#f87171;" data-ip="' + escHtml(m.ip) + '" onclick="lanKickMember(this.dataset.ip, true)">Бан</button></div>') : '';
+                    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #161f30;font-size:12px;">' +
+                        '<div><b style="color:#fff;">' + escHtml(m.name) + '</b> <span style="color:#8892a4;">(' + escHtml(m.ip) + ')</span> <span style="color:#38bdf8;">[' + escHtml(m.role) + ']</span> <span style="color:' + (m.alive ? '#10b981' : '#ef4444') + ';">' + (m.alive ? 'online' : 'offline') + '</span></div>' +
+                        btns + '</div>';
+                }).join('');
+            } else {
+                mHtml += '<div style="color:#64748b;font-size:12px;margin-bottom:8px;">Нет подключённых участников LAN.</div>';
+            }
+            if (pConn.length > 0) {
+                mHtml += '<div style="font-size:12px;font-weight:600;color:#238636;margin:10px 0 6px;">Туннельные пиры:</div>' + pConn.map(p => {
+                    const pid = escHtml(p.node_id || p.peer_node_id || '');
+                    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px;"><span style="font-family:monospace;color:#e2e8f0;">' + pid + '</span>' + (w.is_owner ? ('<button class="fb-btn" data-pid="' + pid + '" onclick="netKickPeer(this.dataset.pid)">Кикнуть</button>') : '') + '</div>';
+                }).join('');
+            }
+            memBox.innerHTML = mHtml;
+        }
+        const commBox = document.getElementById('srvCommunityList');
+        if (commBox) {
+            const cMsgs = w.community_messages || [];
+            commBox.innerHTML = cMsgs.map(c =>
+                '<div style="padding:6px 0;border-bottom:1px solid #161f30;">' +
+                '<b style="color:#38bdf8;">' + escHtml(c.author) + ':</b> <span style="color:#e2e8f0;">' + escHtml(c.text) + '</span>' +
+                '</div>'
+            ).join('') || '<div style="color:#64748b;text-align:center;padding:20px;">Сообщений пока нет</div>';
+        }
+        const issBox = document.getElementById('srvIssuesList');
+        if (issBox) {
+            const issues = w.model_issues || w.issues || [];
+            issBox.innerHTML = issues.map(it =>
+                '<div class="trn-row">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">' +
+                '<div><b>' + escHtml(it.title) + '</b> <span style="color:' + (it.status === 'resolved' ? '#10b981' : '#fbbf24') + ';">[' + escHtml(it.status) + ']</span> <span style="font-size:11px;color:#64748b;">от ' + escHtml(it.author) + '</span></div>' +
+                (w.is_owner && it.status !== 'resolved' ? ('<div style="display:flex;gap:6px;"><button class="fb-btn" data-id="' + escHtml(it.id) + '" onclick="srvResolveIssue(this.dataset.id, \'converted_to_feedback\')">В датасет SOUP</button><button class="fb-btn selected" data-id="' + escHtml(it.id) + '" onclick="srvResolveIssue(this.dataset.id, \'resolved\')">Решено</button></div>') : '') +
+                '</div>' +
+                (it.prompt ? ('<div style="font-size:11px;color:#94a3b8;"><b>Prompt:</b> ' + escHtml(it.prompt) + '</div>') : '') +
+                ((it.expected || it.expected_output) ? ('<div style="font-size:11px;color:#10b981;"><b>Ожидалось:</b> ' + escHtml(it.expected || it.expected_output) + '</div>') : '') +
+                '</div>'
+            ).join('') || '<div class="trn-row" style="color:#64748b;">Проблем пока не зарегистрировано</div>';
+        }
+    } catch(e) {}
+}
+async function srvCreateUnified() {
+    const name = ((document.getElementById('srvCreateName') || {}).value || '').trim();
+    const mode = ((document.getElementById('srvCreateMode') || {}).value || 'lan_and_global');
+    const vis = ((document.getElementById('srvCreateVisibility') || {}).value || 'private');
+    const reg = ((document.getElementById('srvCreateRegion') || {}).value || '').trim();
+    const open = Boolean((document.getElementById('srvCreateOpen') || {}).checked);
+    try {
+        const res = await fetch('/api/server/create', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({name: name || 'SHARD-Server', mode: mode, visibility: vis, region: reg, open: open, create_invite: true})
+        });
+        const d = await res.json();
+        if (res.ok && d.status === 'ok') {
+            if (d.invite && d.invite.uri) copyValue(d.invite.uri, 'URI инвайта сервера');
+            else showToast('Сервер запущен', 'Режим: ' + mode);
+            srvRefresh();
+            lanRefresh();
+            netRefresh(true);
+        } else {
+            showToast('Ошибка', d.message || 'Не удалось создать сервер');
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function srvSendSharedChat() {
+    const inp = document.getElementById('srvSharedChatInput');
+    const auth = document.getElementById('srvSharedChatAuthor');
+    const btn = document.getElementById('srvSharedChatBtn');
+    const text = (inp && inp.value || '').trim();
