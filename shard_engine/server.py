@@ -1098,3 +1098,113 @@ async def api_lan_heartbeat(req: Request):
         data.get("token") or "",
         hw=data.get("hw"),
         rpc_port=data.get("rpc_port"),
+        client_id=data.get("client_id"),
+    )
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "mode": LAN.mode(), "message": "Участник не найден или токен отклонён"})
+    return {"status": "ok", "mode": LAN.mode()}
+@app.post("/api/lan/leave")
+async def api_lan_leave(req: Request):
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    tok = str(data.get("token") or "").strip()
+    if not tok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется токен участника"})
+    ip = req.client.host if req.client else ""
+    dropped = LAN.handle_leave(ip, tok, client_id=data.get("client_id"))
+    if not dropped:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Недействительный токен участника"})
+    return {"status": "ok", "dropped": True}
+@app.post("/api/lan/off")
+def api_lan_off(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return LAN.off()
+@app.get("/api/lan/status")
+def api_lan_status(req: Request):
+    if _is_owner_request(req):
+        return LAN.status(include_secrets=True)
+    tok = _extract_bearer(req)
+    if LAN.is_server() and _token_in_pool(tok, LAN.tokens()):
+        return LAN.status(include_secrets=False)
+    return JSONResponse(status_code=403, content={"status": "error", "message": "Owner authorization or LAN token required"})
+@app.get("/api/lan/invite")
+def api_lan_invite(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return LAN.build_invite()
+@app.get("/api/lan/diagnose")
+def api_lan_diagnose(req: Request, public: bool = False):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    from . import lan as _lan_mod
+    return _lan_mod.connectivity_report(probe_public=bool(public))
+@app.get("/api/lan/preview")
+def api_lan_preview():
+    return LAN.preview_info()
+@app.post("/api/lan/members/kick")
+async def api_lan_member_kick(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    target = str(data.get("target") or data.get("client_id") or data.get("ip") or "").strip()
+    if not target:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "target required"})
+    return LAN.kick_member(target, block=bool(data.get("block", False)))
+@app.post("/api/lan/members/unblock")
+async def api_lan_member_unblock(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    target = str(data.get("target") or "").strip()
+    if not target:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "target required"})
+    return LAN.unblock_member(target)
+def _extract_bearer(req):
+    auth = req.headers.get("authorization") or ""
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return auth.strip()
+def _is_owner_request(req):
+    if getattr(req, "scope", {}).get("shard_tunnel"):
+        return False
+    if "x-shard-tunnel-peer" in req.headers or "x-shard-bridge-token" in req.headers:
+        return False
+    owner_hdr = (req.headers.get("x-shard-owner-token") or "").strip()
+    client_ip = req.client.host if req.client else ""
+    if owner_hdr:
+        allowed, _ = _OWNER_FAIL_LIMITER.check(client_ip, record=False)
+        if not allowed:
+            return False
+        if training.verify_owner_token(owner_hdr):
+            return True
+        _OWNER_FAIL_LIMITER.record(client_ip)
+        return False
+    if _has_proxy_headers(req):
+        return False
+    return is_loopback(client_ip)
+def _deny_non_owner(req):
+    if _is_owner_request(req):
+        return None
+    return JSONResponse(status_code=403, content={"status": "error", "message": "Owner authorization required"})
+def _contributor_identity(req, payload=None):
+    is_owner = _is_owner_request(req)
+    if is_owner and isinstance(payload, dict) and payload.get("contributor_id"):
+        return str(payload.get("contributor_id"))
+    tpeer = net_tunnel.tunnel_peer_id(req)
+    if tpeer:
+        return f"peer:{tpeer}"
+    tok = _extract_bearer(req)
