@@ -173,6 +173,10 @@ SHARD объединяет свободные ресурсы GPU и RAM неск
 ```bash
 pip install shard-engine
 
+pip install "shard-engine[full]"
+```
+Для установки последней dev-версии напрямую из GitHub:
+```bash
 pip install "git+https://github.com/avelone123123/shard.git"
 
 # Полная установка: добавляет PyTorch/Transformers safetensors и модули Hugging Face
