@@ -622,3 +622,27 @@ def inspect_model_target(path_or_id, remember=False):
     if not raw or "\x00" in raw:
         raise ValueError("Model path or Hugging Face ID is required.")
     if raw.startswith("\\\\") or raw.startswith("//"):
+        raise PermissionError("Network UNC paths are not permitted.")
+    if os.path.exists(os.path.expanduser(raw)):
+        info = classify_model_path(raw, deep_size=True)
+        if remember:
+            settings.add_recent_model_path(info["path"])
+        return info
+    if not _SAFE_HF_ID_RE.match(raw):
+        raise ValueError("Invalid local path or Hugging Face repo ID (expected 'owner/model').")
+    is_gguf_repo = raw.lower().endswith("-gguf")
+    hf_map = map_gguf_to_hf_base(raw) if is_gguf_repo else {"suggested_hf_base_repo": raw, "hf_base_cached_locally": False, "local_hf_snapshot_path": None}
+    sug = hf_map.get("local_hf_snapshot_path") or hf_map.get("suggested_hf_base_repo")
+    compat = _compat_block(
+        True,
+        "Будет загружен GGUF-вариант из Hugging Face.",
+        not is_gguf_repo,
+        "Репозиторий Hugging Face (PyTorch)." if not is_gguf_repo else "Этот репозиторий содержит только GGUF-файлы.",
+        not is_gguf_repo,
+        "Поддерживается как удалённый базовый репозиторий Hugging Face для SOUP обучения." if not is_gguf_repo else "Репозиторий с суффиксом -GGUF содержит только квантованные файлы для инференса и не может быть базой для SOUP обучения.",
+        suggested_base=sug if is_gguf_repo else None,
+        resolved_base=raw if not is_gguf_repo else None,
+    )
+    if remember:
+        settings.add_recent_model_path(raw)
+    return {
