@@ -270,3 +270,14 @@ class TestPhaseIProductHardening(unittest.TestCase):
     def test_09_dashboard_regression_bugs_fixed(self):
         root_html = Path("dashboard.html").read_bytes()
         pkg_html = Path("shard_engine/dashboard.html").read_bytes()
+        self.assertEqual(root_html, pkg_html)
+        txt = pkg_html.decode("utf-8")
+        self.assertNotIn("modalModelBody", txt)
+        self.assertNotIn("d.sample_records", txt)
+        self.assertIn("id=\"modelModalBody\"", txt)
+        self.assertIn("/api/training/datasets/' + encodeURIComponent(snapshotId) + '/preview", txt)
+        self.assertIn("const inst = data.installer || {}", txt)
+        self.assertIn("/api/system/update", txt)
+        self.assertIn("/api/models/browser/roots", txt)
+if __name__ == "__main__":
+    unittest.main()
