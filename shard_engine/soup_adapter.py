@@ -785,6 +785,7 @@ def _sanitize_experiment_name(name):
         return None
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", str(name).strip()).strip("-")
     return cleaned[:64] or None
+def _local_model_has_chat_template(model_path):
 def build_soup_config(base_model, dataset_path, output_dir, task="sft", fmt=None, experiment_name=None, params=None):
     errors = []
     params = dict(params or {})
