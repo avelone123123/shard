@@ -56,3 +56,17 @@ Tested inside clean virtual environments outside the repository directory (`%TEM
   - `Page errors: 0 []`
   - `Unexpected failed requests: 0 []`
   - Post-restart `HTTP >=400: []`
+
+### 2.1 UI Workflows Verified
+- **SHARD Updater UI**: Version pill (`v1.8.0`), update modal (`АКТУАЛЬНО`), check/apply action (`SHARD 1.8.0 уже актуален. | 100%`), rollback control rendered.
+- **SOUP Status & Installation UI**:
+  - Clicked `Установить SOUP (Python 3.12 venv)` in Chromium -> bootstrapped `uv-0.13.8`, provisioned `Python 3.12.16` + `soup-venv`, installed `soup-cli-0.77.2[train]` (`Verification passed! SOUP v0.77.2 is READY.`).
+  - Clicked `"Проверить статус и версию"` -> confirmed `INSTALLED`, `0.77.2`, technical details expanded (`Venv`, `Runtime Python`, `Host Python: 3.12.16`, `Train deps OK: YES`).
+  - `"Починить окружение"` button verified present in DOM (destructive repair click intentionally skipped to preserve `soup-venv` for E2E training); conditional SOUP update CTA accurately absent while `0.77.2 == 0.77.2`.
+- **Model Browser UI**:
+  - Listed drives `C:\` and `D:\ (Ventoy)` and navigated `D:\shard-models`.
+  - With `#mbFilterMode=all`, `.gguf` files displayed `НЕ ДЛЯ SOUP` badge, disabled button `"Недоступно для обучения SOUP"`, and suggested HF model `Qwen/Qwen2.5-Coder-1.5B-Instruct`.
+  - Selected real local HuggingFace SafeTensors model directory `C:\Users\avelo\.cache\huggingface\hub\models--distilgpt2\snapshots\2290a62682d06624634c1f46a6ad5be0f47f38aa` (`339.2 МБ`, `SOUP OK`).
+  - Attempted browse to `C:\Windows\System32` -> blocked by backend (`HTTP 403`: `Access to system or sensitive credential directory is blocked.`).
+- **Dataset & Training UI**:
+  - Created datasets from 23 approved feedback entries -> opened Preview modal -> paginated Page `1` (`20` rows) to Page `2` (`3` rows) via `Вперёд` and back via `Назад` -> clicked Validate (`Датасет валиден | OK: 23 валидных записей`) -> selected dataset in `#trnJobDataset`.
