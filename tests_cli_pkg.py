@@ -99,7 +99,7 @@ class TestCliCommandsAndFallback(unittest.TestCase):
             def json(self):
                 return self._data
         for resp, expected in (
-            (_Resp(404), "not published on PyPI yet"),
+            (_Resp(404), "GITHUB_UNAVAILABLE"),
             (_Resp(200, {"info": {"version": shard_engine.__version__}}), "up to date"),
             (_Resp(200, {"info": {"version": "9.9.9"}}), "Update available"),
         ):
@@ -252,4 +252,3 @@ class TestBuiltDistribution(unittest.TestCase):
                 self.assertFalse(any(forbidden in n for n in names), f"Forbidden file in wheel: {forbidden}")
 if __name__ == "__main__":
     unittest.main()
-
