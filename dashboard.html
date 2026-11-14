@@ -942,7 +942,7 @@ macOS
 <button id="netSubBtn-lan" class="trn-subbtn" onclick="netSubTab('lan', this)">Локальный кластер (LAN)</button>
 <button id="netSubBtn-settings" class="trn-subbtn" onclick="netSubTab('settings', this)">Свои серверы и Диагностика</button>
 </div>
-<div id="netActiveConnBanner" style="display:none;background:#0d1117;border:1px solid #238636;border-radius:8px;padding:12px;margin-bottom:16px;"></div>
+<div id="netActiveConnBanner" class="v-alert-ok" style="display:none;margin-bottom:16px;"></div>
 <div id="net-panel-browser" class="trn-panel active">
 <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
 <input id="netSearchQ" placeholder="Поиск по модели или имени..." class="trn-input" style="flex:2;min-width:180px;" onkeydown="if(event.key==='Enter')netLoadServers()">
@@ -958,9 +958,9 @@ macOS
 <div id="netServersGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:12px;">Загрузка серверов...</div>
 </div>
 <div id="net-panel-invites" class="trn-panel">
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
-<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
-<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Подключиться по инвайту или адресу</div>
+<div class="v-grid-2" style="margin-bottom:16px;">
+<div class="v-subcard">
+<div class="v-section-title">Подключиться по инвайту или адресу</div>
 <input id="netConnectTarget" placeholder="shard://... или shn_... или IP:порт" class="trn-input" style="margin-bottom:8px;">
 <div style="display:flex;gap:8px;align-items:center;">
 <select id="netConnectMode" class="trn-input" style="width:140px;">
@@ -971,8 +971,8 @@ macOS
 <button class="btn-action active" onclick="netConnectDirect()">Подключиться</button>
 </div>
 </div>
-<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
-<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Создать криптографический инвайт</div>
+<div class="v-subcard">
+<div class="v-section-title">Создать криптографический инвайт</div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
 <select id="netInviteTtl" class="trn-input">
 <option value="3600">1 час</option>
@@ -986,14 +986,14 @@ macOS
 <button class="btn-action" onclick="netCreateInvite()">Сгенерировать инвайт</button>
 </div>
 </div>
-<div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:8px;">Активные приглашения</div>
+<div class="v-section-title">Активные приглашения</div>
 <div id="netInvitesList">Загрузка инвайтов...</div>
 </div>
 <div id="net-panel-host" class="trn-panel">
-<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:14px;margin-bottom:16px;">
+<div class="v-subcard" style="margin-bottom:16px;">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
 <div>
-<div style="font-size:13px;font-weight:600;color:#fff;">Публикация своего сервера в сети</div>
+<div class="v-section-title" style="margin-bottom:2px;">Публикация своего сервера в сети</div>
 <div style="font-size:12px;color:var(--text-muted);">Разрешить удалённым пользователям подключаться к локально загруженной модели через сквозной туннель.</div>
 </div>
 <div style="display:flex;gap:8px;">
@@ -1018,7 +1018,7 @@ macOS
 </div>
 <button class="btn-action" onclick="netSaveHostConfig()">Сохранить настройки хоста</button>
 </div>
-<div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:8px;">Подключённые и ожидающие пиры</div>
+<div class="v-section-title">Подключённые и ожидающие пиры</div>
 <div id="netPeersList">Загрузка списка пиров...</div>
 </div>
 <div id="net-panel-lan" class="trn-panel">
