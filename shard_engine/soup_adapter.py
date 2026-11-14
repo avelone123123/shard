@@ -794,6 +794,11 @@ def _local_model_has_chat_template(model_path):
     tok_cfg = p / "tokenizer_config.json"
     if not tok_cfg.is_file():
         return False
+    try:
+        data = json.loads(tok_cfg.read_text(encoding="utf-8", errors="replace"))
+        return bool(data.get("chat_template"))
+    except Exception:
+        return False
 def build_soup_config(base_model, dataset_path, output_dir, task="sft", fmt=None, experiment_name=None, params=None):
     errors = []
     params = dict(params or {})
