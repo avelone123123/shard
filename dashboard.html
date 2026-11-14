@@ -4257,6 +4257,81 @@ function openModelBrowser(mode) {
     mbLoadRoots();
 }
 function closeModelBrowser() {
+    const bd = document.getElementById('browserModalBackdrop');
+    if (bd) bd.style.display = 'none';
+}
+async function mbLoadRoots() {
+    const bar = document.getElementById('mbRootsBar');
+    if (bar) bar.innerHTML = '<span style="font-size:11px;color:#8892a4;">Поиск дисков и папок моделей...</span>';
+    try {
+        const res = await fetch('/api/models/browser/roots', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const d = await res.json();
+        const items = [].concat(d.drives || [], d.shortcuts || []);
+        if (bar) {
+            bar.innerHTML = items.map(r => {
+                const sub = r.free_gb != null ? (r.free_gb + ' GB своб.') : (r.path || '');
+                return '<button class="mb-root" data-path="' + escHtml(r.path) + '" onclick="mbNavigate(this.dataset.path)"><b>' + escHtml(r.label) + '</b><span style="font-size:10px;color:#64748b;">' + escHtml(sub) + '</span></button>';
+            }).join('');
+        }
+        const firstPath = mbCurrentPath || ((d.shortcuts && d.shortcuts[0] && d.shortcuts[0].path) || (d.drives && d.drives[0] && d.drives[0].path) || '');
+        if (firstPath) mbNavigate(firstPath);
+    } catch(e) {}
+}
+async function mbNavigate(pathStr) {
+    const target = String(pathStr || '').trim();
+    if (!target) return;
+    const listEl = document.getElementById('mbEntryList');
+    const filterEl = document.getElementById('mbFilterMode');
+    const mode = filterEl ? filterEl.value : 'all';
+    if (listEl) listEl.innerHTML = '<div style="padding:14px;color:#38bdf8;font-size:12px;">Сканирование папки...</div>';
+    try {
+        const url = '/api/models/browser/list?path=' + encodeURIComponent(target) + '&filter_mode=' + encodeURIComponent(mode);
+        const res = await fetch(url, {headers: getAuthHeaders()});
+        const d = await res.json();
+        if (!res.ok) {
+            if (listEl) listEl.innerHTML = '<div style="padding:14px;color:#f87171;font-size:12px;">' + escHtml(d.message || 'Доступ запрещен или папка не найдена') + '</div>';
+            return;
+        }
+        mbCurrentPath = d.current_path || target;
+        mbCurrentData = d;
+        const inp = document.getElementById('mbPathInput');
+        if (inp) inp.value = mbCurrentPath;
+        const bcEl = document.getElementById('mbBreadcrumbs');
+        if (bcEl) {
+            const crumbs = (d.breadcrumbs || []).map(c => '<button class="fb-btn" data-p="' + escHtml(c.path) + '" onclick="mbNavigate(this.dataset.p)">' + escHtml(c.name || c.path) + '</button>');
+            bcEl.innerHTML = (d.parent_path ? '<button class="fb-btn" data-p="' + escHtml(d.parent_path) + '" onclick="mbNavigate(this.dataset.p)">Вверх</button>' : '') + crumbs.join('<span>/</span>');
+        }
+        if (d.current_dir && (d.current_dir.valid || (d.current_dir.format && d.current_dir.format !== 'directory'))) {
+            _mbRenderInspector(d.current_dir);
+        }
+        mbRenderEntries();
+    } catch(e) {
+        if (listEl) listEl.innerHTML = '<div style="padding:14px;color:#f87171;font-size:12px;">Ошибка: ' + escHtml(e.message) + '</div>';
+    }
+}
+function mbRenderEntries() {
+    const listEl = document.getElementById('mbEntryList');
+    if (!listEl || !mbCurrentData) return;
+    const q = (((document.getElementById('mbSearchInput') || {}).value) || '').trim().toLowerCase();
+    const rows = (mbCurrentData.entries || []).filter(e => !q || String(e.name || '').toLowerCase().includes(q));
+    listEl.innerHTML = rows.map(e => {
+        const isDir = !!e.is_dir;
+        const comp = e.compatibility || {};
+        const infOk = comp.gguf_inference && comp.gguf_inference.supported;
+        const trnOk = comp.soup_training && comp.soup_training.supported;
+        let pill = '';
+        if (e.format && e.format !== 'directory') {
+            if (mbMode === 'training') {
+                pill = trnOk
+                    ? '<span class="compat-pill compat-ok">SOUP OK</span>'
+                    : '<span class="compat-pill compat-no">НЕ ДЛЯ SOUP</span>';
+            } else {
+                pill = infOk
+                    ? '<span class="compat-pill compat-ok">' + escHtml(e.format_label || 'MODEL') + '</span>'
+                    : '<span class="compat-pill compat-warn">' + escHtml(e.format_label || 'CHECK') + '</span>';
+            }
+        }
 window.onload = function() {
     initChatSessions();
     loadFeedbackPolicy();
