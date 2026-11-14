@@ -600,12 +600,12 @@ def install_or_repair_soup(action="install", custom_python=None, background=True
             "finished_at": None,
         })
     if background:
-        t = threading.Thread(target=_run_install_worker, args=(act, custom_python), daemon=True)
+        t = threading.Thread(target=_run_install_worker, args=(act, validated_py, include_train), daemon=True)
         t.start()
         return get_soup_install_status()
-    _run_install_worker(act, custom_python)
+    _run_install_worker(act, validated_py, include_train)
     return get_soup_install_status()
-def detect_soup(custom_cmd=None, probe_deps=True):
+def detect_soup(custom_cmd=None, probe_deps=True, check_remote=False):
     cmd = []
     source = None
     py_exe = None
@@ -634,7 +634,8 @@ def detect_soup(custom_cmd=None, probe_deps=True):
             cmd = [soup_bin]
             source = "path_bin"
     soup_version = probe.get("soup_version") if probe else None
-    if cmd and not soup_version:
+    cli_available = False
+    if cmd:
         try:
             ver_res = subprocess.run(
                 cmd + ["--version"],
