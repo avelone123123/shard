@@ -513,13 +513,13 @@ def _run_install_worker(action, custom_python=None, include_train=True):
                     raise RuntimeError("Compatible Python (>=3.11,<3.14) not found and automatic uv provisioning unavailable. Install Python 3.12 (e.g. 'winget install Python.Python.3.12') and retry.")
                 _set_install_state(line=f"Provisioning isolated Python 3.12 soup-venv using uv ({uv_bin})...")
                 venv_dir.parent.mkdir(parents=True, exist_ok=True)
-                r_uv = subprocess.run(
-                    [uv_bin, "venv", "--python", "3.12", str(venv_dir)],
-                    capture_output=True,
-                    text=True,
-                    timeout=300,
-                    creationflags=_WIN_NO_WINDOW,
-                )
+                uv_cmd = [uv_bin, "venv", "--python", "3.12", "--seed", str(venv_dir)]
+                if os.path.isdir(uv_bin):
+                    uv_cmd = [sys.executable, "-c", f"import sys; sys.path.insert(0, {uv_bin!r}); from uv.__main__ import main; main()", "venv", "--python", "3.12", "--seed", str(venv_dir)]
+                r_uv = subprocess.run(uv_cmd, capture_output=True, text=True, timeout=600, creationflags=_WIN_NO_WINDOW)
+                for ln in (r_uv.stdout or "").splitlines() + (r_uv.stderr or "").splitlines():
+                    if ln.strip():
+                        _set_install_state(line=ln.strip())
                 if r_uv.returncode != 0 or not venv_py.is_file():
                     raise RuntimeError(f"uv venv failed: {(r_uv.stderr or r_uv.stdout)[:300]}")
             else:
