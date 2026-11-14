@@ -2707,7 +2707,7 @@ async function fetchHardware() {
                 activeModelId = eng.active_model;
                 const shortName = eng.active_model.split('/').pop();
                 document.getElementById('hwModel').innerText = shortName;
-                document.getElementById('hwModel').style.color = '#10b981';
+                document.getElementById('hwModel').style.color = 'var(--success)';
                 const chatModelEl = document.getElementById('chatActiveModel');
                 if (chatModelEl) chatModelEl.innerText = shortName;
             } else {
