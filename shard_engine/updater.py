@@ -670,3 +670,27 @@ def _set_job_state(**kwargs):
             else:
                 _UPDATE_JOB_STATE[k] = v
 def get_update_status():
+    with _UPDATE_JOB_LOCK:
+        return json.loads(json.dumps(_UPDATE_JOB_STATE, ensure_ascii=False))
+def apply_update(target_version=None, force=False, allow_prerelease=False, pip_runner=None):
+    lock_path = Path(paths.run_dir()) / "update.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    inst = detect_installation_method()
+    _set_job_state(
+        status="running",
+        phase="checking",
+        progress_pct=5,
+        message="Проверка способа установки и доступного обновления...",
+        logs=[f"Install method: {inst['method']}, current version: {__version__}"],
+        old_version=__version__,
+        new_version=None,
+        rolled_back=False,
+        restart_required=False,
+        backup_path=None,
+        error=None,
+        started_at=time.time(),
+        finished_at=None,
+    )
+    backup_ptr = None
+    tmp_dir = None
+    try:
