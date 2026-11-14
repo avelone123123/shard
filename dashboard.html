@@ -1701,51 +1701,51 @@ async function lanShowInvite() {
     const box = document.getElementById('lanDiagBox');
     if (!box) return;
     box.style.display = 'block';
-    box.innerHTML = '<div style="font-size:12px;color:#8b949e;">Загрузка параметров приглашения...</div>';
+    box.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Загрузка параметров приглашения...</div>';
     try {
         const res = await fetch('/api/lan/invite');
         const d = await res.json();
         if (!res.ok || d.status !== 'ok') {
-            box.innerHTML = '<div style="font-size:12px;color:#f85149;">' + escHtml(d.message || 'Сначала создайте сеть на этом ПК.') + '</div>';
+            box.innerHTML = '<div style="font-size:12px;color:var(--danger);">' + escHtml(d.message || 'Сначала создайте сеть на этом ПК.') + '</div>';
             return;
         }
         const targets = (d.targets || []).map(t =>
-            '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #21262d;flex-wrap:wrap;">' +
-            '<div style="font-size:12px;"><span style="color:#38bdf8;font-weight:600;">[' + escHtml(t.provider || t.kind) + ']</span> <b style="color:#e6edf3;">' + escHtml(t.url) + '</b> <span style="color:#8b949e;">(' + escHtml(t.interface || '') + ')</span></div>' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">' +
+            '<div style="font-size:12px;"><span style="color:var(--accent-text);font-weight:600;">[' + escHtml(t.provider || t.kind) + ']</span> <b style="color:var(--text);">' + escHtml(t.url) + '</b> <span style="color:var(--text-muted);">(' + escHtml(t.interface || '') + ')</span></div>' +
             '<button class="btn-action" style="padding:2px 8px;font-size:11px;" data-copy="' + escHtml(t.cli_command || t.url) + '" onclick="copyValue(this.dataset.copy, \'Команда подключения\')">Копировать CLI</button>' +
             '</div>'
-        ).join('') || '<div style="font-size:12px;color:#8b949e;">Подходящие интерфейсы не найдены.</div>';
-        box.innerHTML = '<div style="background:#0d1117;border:1px solid #1e3a8a;border-radius:8px;padding:12px;">' +
-            '<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px;">Приглашение в сеть: ' + escHtml(d.name || '') + ' (' + (d.open ? 'открытая' : ('код: ' + escHtml(d.pairing_code || ''))) + ')</div>' +
+        ).join('') || '<div style="font-size:12px;color:var(--text-muted);">Подходящие интерфейсы не найдены.</div>';
+        box.innerHTML = '<div style="background:var(--surface-sunken);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:12px;">' +
+            '<div class="v-section-title" style="margin-bottom:6px;">Приглашение в сеть: ' + escHtml(d.name || '') + ' (' + (d.open ? 'открытая' : ('код: ' + escHtml(d.pairing_code || ''))) + ')</div>' +
             targets + '</div>';
     } catch(e) {
-        box.innerHTML = '<div style="font-size:12px;color:#f85149;">Не удалось получить приглашение.</div>';
+        box.innerHTML = '<div style="font-size:12px;color:var(--danger);">Не удалось получить приглашение.</div>';
     }
 }
 async function lanRunDiagnose(probePublic) {
     const box = document.getElementById('lanDiagBox');
     if (!box) return;
     box.style.display = 'block';
-    box.innerHTML = '<div style="font-size:12px;color:#8b949e;">Диагностика сетевых интерфейсов' + (probePublic ? ' и внешнего доступа (STUN/UPnP)...' : '...') + '</div>';
+    box.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Диагностика сетевых интерфейсов' + (probePublic ? ' и внешнего доступа (STUN/UPnP)...' : '...') + '</div>';
     try {
         const res = await fetch('/api/lan/diagnose?public=' + (probePublic ? '1' : '0'));
         const d = await res.json();
-        const lanHtml = (d.lan_interfaces || []).map(i => '<span style="color:#38bdf8;margin-right:8px;">[LAN ' + escHtml(i.interface) + '] ' + escHtml(i.ip) + '</span>').join('') || '<span style="color:#64748b;">нет</span>';
-        const vpnHtml = (d.vpn_interfaces || []).map(i => '<span style="color:#bc8cff;margin-right:8px;">[' + escHtml(i.provider) + '] ' + escHtml(i.ip) + '</span>').join('') || '<span style="color:#64748b;">не обнаружен</span>';
+        const lanHtml = (d.lan_interfaces || []).map(i => '<span style="color:var(--accent-text);margin-right:8px;">[LAN ' + escHtml(i.interface) + '] ' + escHtml(i.ip) + '</span>').join('') || '<span style="color:var(--text-muted);">нет</span>';
+        const vpnHtml = (d.vpn_interfaces || []).map(i => '<span style="color:var(--info);margin-right:8px;">[' + escHtml(i.provider) + '] ' + escHtml(i.ip) + '</span>').join('') || '<span style="color:var(--text-muted);">не обнаружен</span>';
         const stunInfo = d.stun ? ('<div><b>STUN:</b> ' + (d.stun.ok ? (escHtml(d.stun.public_ip) + ':' + escHtml(d.stun.public_port) + (d.behind_nat ? ' (за NAT)' : ' (прямой IP)')) : 'недоступен') + '</div>') : '';
         const upnpInfo = d.upnp_igd ? ('<div><b>UPnP IGD:</b> ' + (d.upnp_igd.found ? ('шлюз ' + escHtml(d.upnp_igd.gateway_ip || 'найден')) : 'шлюз не обнаружен') + '</div>') : '';
-        box.innerHTML = '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;font-size:12px;line-height:1.6;">' +
+        box.innerHTML = '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:12px;font-size:12px;line-height:1.6;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px;flex-wrap:wrap;">' +
-            '<b style="color:#fff;">Диагностика сети (HTTP :' + escHtml(d.port) + ' / UDP :' + escHtml(d.beacon_port) + ')</b>' +
+            '<b style="color:var(--text);">Диагностика сети (HTTP :' + escHtml(d.port) + ' / UDP :' + escHtml(d.beacon_port) + ')</b>' +
             '<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="lanRunDiagnose(true)">Проверить UPnP / STUN</button>' +
             '</div>' +
-            '<div><b>Рекомендуемый IP:</b> <span style="color:#10b981;">' + escHtml(d.recommended_join_ip || '127.0.0.1') + '</span></div>' +
+            '<div><b>Рекомендуемый IP:</b> <span style="color:var(--success);">' + escHtml(d.recommended_join_ip || '127.0.0.1') + '</span></div>' +
             '<div><b>LAN адаптеры:</b> ' + lanHtml + '</div>' +
             '<div><b>VPN (Radmin/Tailscale/ZeroTier/WG):</b> ' + vpnHtml + '</div>' +
             (d.tailscale && d.tailscale.installed ? ('<div><b>Tailscale CLI:</b> ' + ((d.tailscale.running || d.tailscale.online) ? ('online (' + escHtml(d.tailscale.ip || (d.tailscale.ips || []).join(', ') || 'active') + (d.tailscale.online_peers !== undefined ? (', пиры: ' + escHtml(d.tailscale.online_peers)) : '') + ')') : 'offline') + '</div>') : '') +
             stunInfo + upnpInfo + '</div>';
     } catch(e) {
-        box.innerHTML = '<div style="font-size:12px;color:#f85149;">Ошибка диагностики сети.</div>';
+        box.innerHTML = '<div style="font-size:12px;color:var(--danger);">Ошибка диагностики сети.</div>';
     }
 }
 async function lanCreate() {
