@@ -1036,15 +1036,15 @@ macOS
 </div>
 <div id="lanStatusBox" style="margin-bottom:16px;">Загрузка...</div>
 <div id="lanDiagBox" style="margin-bottom:16px;display:none;"></div>
-<div id="lanClientCard" style="display:none;background:#0d1117;border:1px solid #1e3a8a;border-radius:8px;padding:12px;margin-bottom:12px;">
-<div style="font-size:13px;color:#e6edf3;font-weight:600;margin-bottom:6px;">Клиентская сессия подключения и онбординг участника</div>
-<div id="lanPreJoinPreview" style="font-size:12px;color:#cbd5e1;background:#090d16;border:1px solid #1e293b;border-radius:6px;padding:10px;margin-bottom:10px;">Загрузка паспорта сервера...</div>
-<div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Введите имя и код подключения (если сервер закрытый), выберите роль и подключитесь к серверу. Скачивание модели вручную не требуется.</div>
+<div id="lanClientCard" class="v-alert-info" style="display:none;margin-bottom:12px;">
+<div class="v-section-title" style="margin-bottom:6px;">Клиентская сессия подключения и онбординг участника</div>
+<div id="lanPreJoinPreview" class="v-card-elevated" style="font-size:12px;margin-bottom:10px;">Загрузка паспорта сервера...</div>
+<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">Введите имя и код подключения (если сервер закрытый), выберите роль и подключитесь к серверу. Скачивание модели вручную не требуется.</div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-<input id="lanClientName" placeholder="Ваше имя (необязательно)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;">
-<input id="lanClientCode" placeholder="Код подключения ABCD-EFGH" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;">
+<input id="lanClientName" placeholder="Ваше имя (необязательно)" class="trn-input">
+<input id="lanClientCode" placeholder="Код подключения ABCD-EFGH" class="trn-input">
 </div>
-<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;margin-bottom:10px;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:10px;cursor:pointer;">
 <input type="checkbox" id="lanClientShare"> Вычислительный узел (Share Compute / ggml-rpc-server — разделить тензоры без ручного скачивания модели)
 </label>
 <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1053,53 +1053,53 @@ macOS
 <button class="btn-action" onclick="clientLeaveHost()">Выйти из сессии</button>
 </div>
 </div>
-<div id="lanOwnerGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-<div id="lanCreateCard" style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
-<div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Создать сеть на этом ПК (мастер)</div>
-<input id="lanName" placeholder="Имя сети (необязательно)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
-<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;margin-bottom:8px;cursor:pointer;">
+<div id="lanOwnerGrid" class="v-grid-2">
+<div id="lanCreateCard" class="v-subcard">
+<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;">Создать сеть на этом ПК (мастер)</div>
+<input id="lanName" placeholder="Имя сети (необязательно)" class="trn-input" style="margin-bottom:8px;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="lanOpen"> Открытая сеть — вход по кнопке, без кода
 </label>
 <button class="btn-action" onclick="lanCreate()">Создать сеть</button>
 </div>
-<div id="lanJoinCard" style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
-<div style="font-size:12px;color:#8b949e;margin-bottom:8px;">Подключиться к сети мастера</div>
+<div id="lanJoinCard" class="v-subcard">
+<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;">Подключиться к сети мастера</div>
 <div style="display:flex;gap:8px;margin-bottom:8px;">
-<input id="lanJoinIp" placeholder="IP мастера (из shard lan create)" style="flex:1;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;">
-<input id="lanJoinPort" type="number" min="1" max="65535" value="8000" placeholder="Порт" style="width:92px;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;">
+<input id="lanJoinIp" placeholder="IP мастера (из shard lan create)" class="trn-input" style="flex:1;">
+<input id="lanJoinPort" type="number" min="1" max="65535" value="8000" placeholder="Порт" class="trn-input" style="width:92px;">
 </div>
-<input id="lanJoinCode" placeholder="Код вида ABCD-EFGH (для открытой сети не нужен)" style="width:100%;box-sizing:border-box;background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:6px;padding:7px 9px;font-size:13px;margin-bottom:8px;">
-<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;margin-bottom:8px;cursor:pointer;">
+<input id="lanJoinCode" placeholder="Код вида ABCD-EFGH (для открытой сети не нужен)" class="trn-input" style="margin-bottom:8px;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="lanShare"> Стать вычислительным узлом (отдать VRAM/RAM)
 </label>
 <button class="btn-action" onclick="lanJoin()">Подключиться</button>
 </div>
 </div>
 <div id="lanOffWrap" style="margin-top:10px;text-align:right;">
-<button class="btn-action" onclick="lanOff()" style="border-color:#f85149;color:#f85149;">Отключить сеть</button>
+<button class="v-btn-danger" onclick="lanOff()">Отключить сеть</button>
 </div>
 </div>
 </div>
 <div id="net-panel-settings" class="trn-panel">
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
-<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
-<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px;">Свои серверы Discovery</div>
+<div class="v-grid-2" style="margin-bottom:16px;">
+<div class="v-subcard">
+<div class="v-section-title" style="margin-bottom:6px;">Свои серверы Discovery</div>
 <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Адреса Discovery-серверов (по одному на строку). Пусто = сервер по умолчанию.</div>
 <textarea id="netCfgDiscoveryUrls" class="trn-input" rows="3" style="resize:vertical;margin-bottom:8px;"></textarea>
-<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px;">Свои слепые Relay-серверы</div>
+<div class="v-section-title" style="margin-bottom:6px;">Свои слепые Relay-серверы</div>
 <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Адреса WebSocket Relay-серверов (по одному на строку).</div>
 <textarea id="netCfgRelayUrls" class="trn-input" rows="3" style="resize:vertical;margin-bottom:8px;"></textarea>
-<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#cbd5e1;margin-bottom:8px;cursor:pointer;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="netCfgOfflineOnly"> Автономный режим (offline_only) — запрет внешних сетевых запросов
 </label>
 <button class="btn-action" onclick="netSaveServersConfig()">Сохранить настройки серверов</button>
 </div>
-<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div class="v-subcard">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-<div style="font-size:13px;font-weight:600;color:#fff;">Сетевая диагностика и WireGuard</div>
+<div class="v-section-title" style="margin-bottom:2px;">Сетевая диагностика и WireGuard</div>
 <button class="btn-action" onclick="netRunDiag()">Запустить аудит</button>
 </div>
-<div id="netDiagOutput" style="font-size:12px;color:var(--text-muted);font-family:monospace;white-space:pre-wrap;background:#080a0f;padding:10px;border-radius:6px;border:1px solid #21262d;max-height:260px;overflow-y:auto;">Нажмите «Запустить аудит» для проверки платформы, брандмауэра и STUN NAT.</div>
+<div id="netDiagOutput" class="trn-log" style="max-height:260px;">Нажмите «Запустить аудит» для проверки платформы, брандмауэра и STUN NAT.</div>
 </div>
 </div>
 </div>
@@ -1113,7 +1113,7 @@ macOS
 <p style="margin:0;">Сбор отзывов по явному согласию, очистка данных, дообучение через SOUP, оценка качества, деплой и безопасный откат.</p>
 </div>
 <div style="display:flex;gap:8px;align-items:center;">
-<button class="btn-action" onclick="trnRollback()" style="border-color:#d97706;color:#fbbf24;">
+<button class="v-btn-warn" onclick="trnRollback()">
 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
 Откатить версию
 </button>
