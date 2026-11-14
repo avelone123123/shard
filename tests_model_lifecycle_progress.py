@@ -218,3 +218,4 @@ class TestModelLifecycleAndProgress(unittest.TestCase):
         self.assertEqual(st_res.status_code, 200)
         self.assertIn("status", st_res.json())
 if __name__ == "__main__":
+    unittest.main()
