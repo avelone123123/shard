@@ -214,3 +214,27 @@ def map_gguf_to_hf_base(path_or_name):
                         cached_locally = True
                         break
             if cached_locally:
+                break
+    return {
+        "suggested_hf_base_repo": suggested,
+        "hf_base_cached_locally": cached_locally,
+        "local_hf_snapshot_path": local_hf,
+    }
+def _compat_block(gguf_ok, gguf_reason, pt_ok, pt_reason, soup_ok, soup_reason, suggested_base=None, resolved_base=None):
+    return {
+        "gguf_inference": {"supported": bool(gguf_ok), "reason_ru": gguf_reason},
+        "pytorch_inference": {"supported": bool(pt_ok), "reason_ru": pt_reason},
+        "soup_training": {
+            "supported": bool(soup_ok),
+            "can_resolve_base": bool(suggested_base),
+            "suggested_base_model": suggested_base,
+            "resolved_base_model": resolved_base,
+            "reason_ru": soup_reason,
+        },
+    }
+def classify_model_path(target_path, deep_size=False):
+    p = validate_browse_path(target_path)
+    if p.is_file():
+        sz = p.stat().st_size
+        ext = p.suffix.lower()
+        if ext == ".gguf":
