@@ -238,3 +238,27 @@ def classify_model_path(target_path, deep_size=False):
         sz = p.stat().st_size
         ext = p.suffix.lower()
         if ext == ".gguf":
+            val = gguf_backend.validate_gguf_file(str(p))
+            quant = gguf_backend.parse_quant_from_name(p.name)
+            hf_map = map_gguf_to_hf_base(str(p))
+            sug = hf_map["local_hf_snapshot_path"] or hf_map["suggested_hf_base_repo"]
+            if not val.get("valid"):
+                compat = _compat_block(
+                    False,
+                    f"Некорректный или повреждённый GGUF-файл: {val.get('reason')}",
+                    False,
+                    "Формат GGUF не поддерживается PyTorch.",
+                    False,
+                    "Повреждённый GGUF-файл нельзя использовать ни для запуска, ни для обучения.",
+                    suggested_base=sug,
+                )
+            else:
+                reason = "Квантованные файлы .gguf подходят только для инференса SHARD, но не могут обучаться напрямую в PyTorch/SOUP. Выберите папку с SafeTensors (config.json + *.safetensors) или HF ID."
+                compat = _compat_block(
+                    True,
+                    f"Готов к запуску в SHARD ({quant or 'GGUF'}, {_fmt_size(sz)}).",
+                    False,
+                    "Для PyTorch требуется папка Hugging Face с SafeTensors.",
+                    False,
+                    reason,
+                    suggested_base=sug,
