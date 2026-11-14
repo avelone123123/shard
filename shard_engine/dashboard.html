@@ -964,7 +964,11 @@ macOS
 <label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Датасет</label>
 <select id="trnJobDataset" class="trn-input" style="margin-bottom:8px;"></select>
 <label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Базовая модель (HF ID или локальная папка)</label>
-<input id="trnJobBase" class="trn-input" placeholder="Qwen/Qwen2.5-Coder-1.5B-Instruct" style="margin-bottom:8px;">
+<input id="trnJobBase" class="trn-input" placeholder="Qwen/Qwen2.5-Coder-1.5B-Instruct (HF ID или локальная HF-папка)" oninput="checkTrainingBaseHint()" style="margin-bottom:6px;">
+<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+<button class="btn-action" type="button" onclick="openModelBrowser('training')" style="padding:4px 10px;font-size:11px;">Выбрать модель на ПК</button>
+<span id="trnBaseCompatHint" style="font-size:11px;color:#8892a4;">Для SOUP нужна HF-модель (config.json + safetensors), не .gguf</span>
+</div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
 <div>
 <label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Метод</label>
