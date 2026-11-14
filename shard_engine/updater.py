@@ -166,3 +166,27 @@ def detect_installation_method(probe_git=True):
                 git_commit = cm.stdout.strip()
         except Exception:
             pass
+    writable = os.access(str(pkg_dir), os.W_OK)
+    return {
+        "method": method,
+        "editable": editable,
+        "package_dir": str(pkg_dir),
+        "repo_root": repo_root,
+        "python_executable": sys.executable,
+        "in_virtualenv": sys.prefix != getattr(sys, "base_prefix", sys.prefix),
+        "writable": writable,
+        "git_available": bool(git_bin),
+        "git_dirty": git_dirty,
+        "git_branch": git_branch,
+        "git_commit": git_commit,
+        "direct_url_info": direct_info,
+    }
+def _http_get(url, timeout=3.0, headers=None, stream=False):
+    import requests
+    validate_remote_url(url)
+    hdrs = {"User-Agent": f"SHARD-Updater/{__version__}"}
+    if headers:
+        hdrs.update(headers)
+    resp = requests.get(url, headers=hdrs, timeout=timeout, verify=True, allow_redirects=True, stream=stream)
+    final_url = getattr(resp, "url", None)
+    if isinstance(final_url, str) and final_url:
