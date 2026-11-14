@@ -3583,7 +3583,16 @@ async function trnBuildDataset() {
         showToast('Ошибка датасета', data.message || 'Не удалось собрать снимок');
         return;
     }
-    showToast('Датасет собран', data.dataset.snapshot_id + ' (' + data.dataset.record_count + ' записей)');
+    const ds = data.dataset || {};
+    if (sumBox) {
+        const skippedTxt = JSON.stringify(ds.skip_reasons || {});
+        sumBox.innerHTML = '<div class="trn-row" style="border-color:rgba(16,185,129,0.4);background:rgba(16,185,129,0.06);font-size:12px;">' +
+            '<div style="color:#10b981;font-weight:700;margin-bottom:4px;">Снимок собран: ' + lanEsc(ds.snapshot_id) + ' (' + lanEsc(ds.validation_status || 'valid') + ')</div>' +
+            '<div>Проверено отзывов: <b>' + (ds.source_feedback_count || ds.total_approved_checked || 0) + '</b> | Валидных записей: <b>' + (ds.valid_records || ds.record_count || 0) + '</b> | Отклонено: <b>' + (ds.rejected_records || 0) + '</b> | Дублей удалено: <b>' + (ds.dedup_removed || 0) + '</b></div>' +
+            '<div style="font-size:11px;color:#94a3b8;margin-top:3px;">Причины пропуска: ' + lanEsc(skippedTxt) + ' | SHA256: ' + lanEsc(String(ds.sha256 || '').slice(0, 16)) + '...</div>' +
+            '</div>';
+    }
+    showToast('Датасет собран', ds.snapshot_id + ' (' + ds.record_count + ' записей)');
     trnRefresh(false);
 }
 function renderTrnDatasets(datasets) {
