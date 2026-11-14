@@ -414,6 +414,38 @@ def preflight_training_check(base_model=None, dataset_snapshot_id=None, task="sf
     if not raw_base:
         msg = "Не указана базовая модель (Hugging Face ID или локальная HF-папка)."
         checks.append({"name": "base_model", "label": "Базовая модель", "status": "fail", "message": msg, "detail": ""})
+        errors.append(msg)
+    else:
+        try:
+            insp = model_browser.inspect_model_target(raw_base, remember=False)
+            soup_comp = (insp.get("compatibility") or {}).get("soup_training") or {}
+            if soup_comp.get("suggested_base_model"):
+                suggested_hf.append(soup_comp["suggested_base_model"])
+            resolved_base_str = model_browser.resolve_and_validate_training_base(raw_base)
+            checks.append({
+                "name": "base_model",
+                "label": "Базовая модель",
+                "status": "pass",
+                "message": f"Совместимая базовая модель ({insp.get('format') or 'hf'}): {resolved_base_str}",
+                "detail": "",
+            })
+        except Exception as e:
+            msg = str(e)
+            checks.append({
+                "name": "base_model",
+                "label": "Базовая модель",
+                "status": "fail",
+                "message": msg,
+                "detail": ", ".join(suggested_hf),
+            })
+            errors.append(msg)
+    try:
+        du = shutil.disk_usage(str(_runs_dir()))
+        free_gb = round(du.free / (1024 ** 3), 2)
+        if du.free < 2 * 1024 ** 3:
+            msg = f"Критически мало свободного места на диске: {free_gb} ГБ (нужно минимум 2 ГБ)."
+            checks.append({"name": "disk", "label": "Диск", "status": "fail", "message": msg, "detail": str(_runs_dir())})
+            errors.append(msg)
 def start_training_job(
     base_model=None,
     dataset_snapshot_id=None,
