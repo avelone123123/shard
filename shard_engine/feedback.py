@@ -680,6 +680,34 @@ def preview_dataset_records(snapshot_id, limit=10):
             if len(rows) >= max(1, int(limit)):
                 break
     return rows
+def _extract_structured_record(obj, expected_fmt, line_no, idx):
+    if not isinstance(obj, dict):
+        return {
+            "index": idx,
+            "line_number": line_no,
+            "prompt": "",
+            "chosen": "",
+            "rejected": "",
+            "record_type": "invalid",
+            "validation_status": "invalid",
+            "validation_error": "Record is not a JSON object",
+            "raw": obj,
+        }
+    fmt_l = str(expected_fmt or "").strip().lower()
+    prompt_txt = ""
+    chosen_txt = ""
+    rejected_txt = ""
+    rec_type = fmt_l or "unknown"
+    err = None
+    if "chosen" in obj or "rejected" in obj:
+        rec_type = "dpo"
+        prompt_txt = str(obj.get("prompt") or "")
+        chosen_txt = str(obj.get("chosen") or "")
+        rejected_txt = str(obj.get("rejected") or "")
+        if not prompt_txt.strip() or not chosen_txt.strip() or not rejected_txt.strip():
+            err = "DPO record requires non-empty prompt, chosen, and rejected"
+        elif chosen_txt.strip() == rejected_txt.strip():
+            err = "DPO chosen and rejected responses are identical"
 def compute_stats():
     with _LOCK:
         with storage.file_lock(_feedback_path()):
