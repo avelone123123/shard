@@ -218,3 +218,113 @@ class NodeIdentity:
             if isinstance(data, dict):
                 try:
                     cur = max(cur, int(data.get("disc_seq") or 0))
+                except Exception:
+                    pass
+                if data.get("created_at"):
+                    try:
+                        self._created_at = float(data["created_at"])
+                    except Exception:
+                        pass
+            nxt = cur + 1
+            self.disc_seq = nxt
+            self._persist_unlocked(created_at=self._created_at or None)
+            return nxt
+    def sign_envelope(self, action: str, body_dict: dict) -> dict:
+        if isinstance(action, (bytes, bytearray)):
+            action = _DOMAIN_TO_ACTION.get(bytes(action), "")
+        if not isinstance(action, str) or action not in _ACTION_DOMAINS:
+            raise ValueError("Unsupported envelope action")
+        if body_dict is None:
+            body = {}
+        elif isinstance(body_dict, dict):
+            body = copy.deepcopy(body_dict)
+        else:
+            raise TypeError("body_dict must be a dict")
+        canonical_json(body)
+        env = {
+            "protocol": PROTOCOL_DISC_V1,
+            "action": action,
+            "node_id": self.node_id,
+            "pubkey": self.pubkey_b64,
+            "ts": round(time.time(), 3),
+            "seq": self.next_seq(),
+            "body": body,
+        }
+        payload = canonical_json(env)
+        env["sig"] = self.sign_bytes(_ACTION_DOMAINS[action], payload)
+        return env
+def verify_sig(pubkey_b64: str, expected_node_id: str, domain_prefix: bytes, data_bytes: bytes, sig_b64: str) -> bool:
+    if not isinstance(pubkey_b64, str) or not isinstance(sig_b64, str):
+        return False
+    if not isinstance(domain_prefix, (bytes, bytearray)) or not isinstance(data_bytes, (bytes, bytearray)):
+        return False
+    try:
+        pk_raw = b64u_decode(pubkey_b64)
+        if len(pk_raw) != 32:
+            return False
+        derived = derive_node_id(pk_raw)
+        if expected_node_id is not None:
+            if not isinstance(expected_node_id, str) or not NODE_ID_RE.match(expected_node_id):
+                return False
+            if not hmac.compare_digest(derived, expected_node_id):
+                return False
+        sig_raw = b64u_decode(sig_b64)
+        if len(sig_raw) != 64:
+            return False
+        pk = Ed25519PublicKey.from_public_bytes(pk_raw)
+        pk.verify(sig_raw, bytes(domain_prefix) + bytes(data_bytes))
+        return True
+    except (InvalidSignature, ValueError, TypeError):
+        return False
+    except Exception:
+        return False
+def verify_envelope(envelope: dict, expected_action: str | None = None, max_skew_s: float = MAX_CLOCK_SKEW_S) -> tuple[bool, str]:
+    if not isinstance(envelope, dict):
+        return False, "invalid_envelope"
+    if envelope.get("protocol") != PROTOCOL_DISC_V1:
+        return False, "invalid_protocol"
+    act = envelope.get("action")
+    if isinstance(act, (bytes, bytearray)):
+        act = _DOMAIN_TO_ACTION.get(bytes(act), "")
+    if not isinstance(act, str) or act not in _ACTION_DOMAINS:
+        return False, "invalid_action"
+    if expected_action is not None:
+        if isinstance(expected_action, (bytes, bytearray)):
+            if _ACTION_DOMAINS[act] != bytes(expected_action):
+                return False, "action_mismatch"
+        elif act != expected_action:
+            return False, "action_mismatch"
+    node_id = envelope.get("node_id")
+    if not isinstance(node_id, str) or not NODE_ID_RE.match(node_id):
+        return False, "invalid_node_id"
+    pubkey_b64 = envelope.get("pubkey") if envelope.get("pubkey") is not None else envelope.get("pubkey_b64")
+    if not isinstance(pubkey_b64, str) or not pubkey_b64:
+        return False, "missing_pubkey"
+    try:
+        pk_raw = b64u_decode(pubkey_b64)
+        if len(pk_raw) != 32:
+            return False, "invalid_pubkey"
+        derived_nid = derive_node_id(pk_raw)
+    except Exception:
+        return False, "invalid_pubkey"
+    if not hmac.compare_digest(derived_nid, node_id):
+        return False, "node_id_mismatch"
+    ts = envelope.get("ts")
+    if isinstance(ts, bool) or not isinstance(ts, (int, float)) or not math.isfinite(float(ts)):
+        return False, "invalid_timestamp"
+    try:
+        skew_limit = float(max_skew_s)
+    except Exception:
+        return False, "invalid_max_skew"
+    if not math.isfinite(skew_limit) or skew_limit < 0:
+        return False, "invalid_max_skew"
+    if abs(time.time() - float(ts)) > skew_limit:
+        return False, "timestamp_skew"
+    seq = envelope.get("seq")
+    if isinstance(seq, bool) or not isinstance(seq, int) or seq < 0:
+        return False, "invalid_seq"
+    if "body" in envelope:
+        body = envelope.get("body")
+    elif "payload" in envelope:
+        body = envelope.get("payload")
+    else:
