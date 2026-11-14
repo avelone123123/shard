@@ -316,6 +316,10 @@ def find_compatible_python(custom_python=None):
                 raw_cands.append(os.path.join(local_app, "Python", f"pythoncore-{ver_tag[:1]}.{ver_tag[1:]}-64", "python.exe"))
             raw_cands.append(os.path.join(f"C:\\Python{ver_tag}", "python.exe"))
             raw_cands.append(os.path.join(prog_files, f"Python{ver_tag}", "python.exe"))
+        uv_py_root = Path(os.environ.get("APPDATA", "")) / "uv" / "python"
+        if uv_py_root.is_dir():
+            for p_exe in sorted(uv_py_root.glob("cpython-3.1[123]*/*/python.exe")):
+                raw_cands.append(str(p_exe))
     else:
         for bin_name in ("python3.12", "python3.13", "python3.11", "python3"):
             w = shutil.which(bin_name)
