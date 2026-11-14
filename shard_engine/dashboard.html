@@ -988,3 +988,113 @@ macOS
 <option value="global">Только Global Network</option>
 </select>
 <select id="srvCreateVisibility" class="trn-input">
+<option value="private">Приватный (по коду / инвайту)</option>
+<option value="public">Публичный (в каталоге Discovery)</option>
+<option value="local">Локальный</option>
+</select>
+<input id="srvCreateRegion" class="trn-input" placeholder="Регион (kz, ru, eu, us)">
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#cbd5e1;cursor:pointer;">
+<input type="checkbox" id="srvCreateOpen"> Открытый вход в LAN без ввода кода (open mode)
+</label>
+<button class="btn-action active" onclick="srvCreateUnified()">Запустить / Обновить сервер</button>
+</div>
+</div>
+</div>
+<div id="srv-panel-shared-chat" class="trn-panel">
+<div class="trn-row" style="margin-bottom:12px;">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px;">Общий диалог участников с серверной моделью</div>
+<div id="srvSharedChatList" style="max-height:340px;overflow-y:auto;background:#080a0f;border:1px solid #1e2638;border-radius:6px;padding:10px;margin-bottom:10px;font-size:12px;">Загрузка общего чата...</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<input id="srvSharedChatAuthor" class="trn-input" placeholder="Ваше имя" style="width:160px;">
+<input id="srvSharedChatInput" class="trn-input" placeholder="Задайте вопрос общей модели сервера..." style="flex:1;" onkeydown="if(event.key==='Enter')srvSendSharedChat()">
+<button id="srvSharedChatBtn" class="btn-action active" onclick="srvSendSharedChat()">Отправить ИИ</button>
+</div>
+</div>
+</div>
+<div id="srv-panel-members" class="trn-panel">
+<div id="srvMembersBox" class="trn-row">Загрузка участников и узлов...</div>
+</div>
+<div id="srv-panel-community" class="trn-panel">
+<div class="trn-row">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px;">Чат сообщества сервера</div>
+<div id="srvCommunityList" style="max-height:320px;overflow-y:auto;background:#080a0f;border:1px solid #1e2638;border-radius:6px;padding:10px;margin-bottom:10px;font-size:12px;">Сообщений пока нет</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<input id="srvCommunityAuthor" class="trn-input" placeholder="Ваше имя" style="width:160px;">
+<input id="srvCommunityInput" class="trn-input" placeholder="Сообщение для участников и владельца..." style="flex:1;" onkeydown="if(event.key==='Enter')srvSendCommunityMsg()">
+<button class="btn-action active" onclick="srvSendCommunityMsg()">Написать</button>
+</div>
+</div>
+</div>
+<div id="srv-panel-issues" class="trn-panel">
+<div style="display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start;">
+<div class="trn-row">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Сообщить о проблеме / галлюцинации</div>
+<input id="srvIssueTitle" class="trn-input" placeholder="Краткий заголовок проблемы" style="margin-bottom:8px;">
+<textarea id="srvIssuePrompt" class="trn-input" rows="2" placeholder="Запрос (prompt), вызвавший ошибку" style="margin-bottom:8px;"></textarea>
+<textarea id="srvIssueExpected" class="trn-input" rows="2" placeholder="Ожидаемый правильный ответ (для SOUP обучения)" style="margin-bottom:8px;"></textarea>
+<button class="btn-action active" style="width:100%;justify-content:center;" onclick="srvCreateIssue()">Отправить репорт</button>
+</div>
+<div>
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:8px;">Зарегистрированные проблемы модели</div>
+<div id="srvIssuesList">Нет открытых проблем</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+let currentCategory = 'all';
+let activeModelId = 'Qwen/Qwen2.5-Coder-7B-Instruct';
+let currentTool = 'claude';
+let currentOS = 'windows';
+let currentGuideMode = 'script';
+let toastTimeout = null;
+let isChatStreaming = false;
+let chatSessions = [];
+let activeChatId = null;
+let activeApiKey = '';
+let shardBoot = {client_mode: false, is_owner: true};
+try {
+    const bootEl = document.getElementById('shard-boot');
+    if (bootEl && bootEl.textContent) shardBoot = JSON.parse(bootEl.textContent);
+} catch(e) {}
+let clientLanSession = null;
+try {
+    const rawSess = sessionStorage.getItem('shard_client_lan_session');
+    if (rawSess) clientLanSession = JSON.parse(rawSess);
+} catch(e) {}
+function escHtml(v) {
+    return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+function safeHref(u) {
+    const s = String(u || '').trim();
+    if (!s) return '#';
+    if (s.startsWith('/') || s.startsWith('#') || /^https?:\/\//i.test(s)) return s;
+    return '#';
+}
+function getClientSessionId() {
+    if (clientLanSession && clientLanSession.client_id) return clientLanSession.client_id;
+    let cid = '';
+    try { cid = sessionStorage.getItem('shard_client_id') || ''; } catch(e) {}
+    if (!cid) {
+        cid = 'web-' + Math.random().toString(36).slice(2, 10) + '-' + Date.now().toString(36);
+        try { sessionStorage.setItem('shard_client_id', cid); } catch(e) {}
+    }
+    return cid;
+}
+function getAuthHeaders(extra) {
+    const h = Object.assign({}, extra || {});
+    const tok = (clientLanSession && clientLanSession.token) || activeApiKey || '';
+    if (tok) h['Authorization'] = 'Bearer ' + tok;
+    return h;
+}
+function showToast(title, sub) {
+    const el = document.getElementById('toast');
