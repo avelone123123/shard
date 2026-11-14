@@ -238,3 +238,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
             "capabilities": {"cli": True, "train": True, "eval": True, "merge": True, "export_gguf": True},
             "missing_train_deps": [],
             "warnings": [],
+        }
+        with patch.object(soup_adapter, "detect_soup", return_value=fake_soup):
+            pf_bad = self.client.post("/api/training/preflight", json={
+                "base_model": str(gguf_path),
+                "dataset_snapshot_id": snap["snapshot_id"],
+                "task": "sft",
+            }, headers=self.owner_headers)
+            self.assertEqual(pf_bad.status_code, 200)
+            self.assertFalse(pf_bad.json()["ready"])
+            self.assertTrue(len(pf_bad.json()["suggested_hf_models"]) > 0)
+            pf_good = self.client.post("/api/training/preflight", json={
+                "base_model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+                "dataset_snapshot_id": snap["snapshot_id"],
+                "task": "sft",
+                "params": {"batch_size": 2, "gradient_accumulation_steps": 4, "max_length": 1024},
+            }, headers=self.owner_headers)
