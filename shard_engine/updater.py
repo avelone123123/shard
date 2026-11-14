@@ -550,3 +550,27 @@ def create_update_backup(install_info=None):
 def rollback_update(backup_info=None):
     ptr = backup_info
     if ptr is None:
+        ptr_path = Path(paths.data_dir()) / "last_update_backup.json"
+        ptr = storage.read_json_safe(ptr_path, default=None, expected_type=dict, quarantine=False, use_backup=True)
+    if not isinstance(ptr, dict) or not ptr.get("pkg_backup_path"):
+        raise FileNotFoundError("No pre-update backup found to roll back to.")
+    pkg_zip = Path(ptr["pkg_backup_path"])
+    if not pkg_zip.is_file():
+        raise FileNotFoundError(f"Package backup archive missing: {pkg_zip}")
+    pkg_dir = Path(ptr.get("package_dir") or Path(__file__).resolve().parent).resolve()
+    restored = 0
+    with zipfile.ZipFile(str(pkg_zip), "r") as zf:
+        if zf.testzip() is not None:
+            raise ValueError("Package backup archive is corrupted.")
+        meta = json.loads(zf.read("update_pkg_manifest.json").decode("utf-8"))
+        files_meta = meta.get("files") or {}
+        for rel, expected_sha in files_meta.items():
+            arc = f"shard_engine/{rel}"
+            raw = zf.read(arc)
+            if hashlib.sha256(raw).hexdigest() != expected_sha:
+                raise ValueError(f"Backup checksum mismatch for {rel}")
+            target = (pkg_dir / rel).resolve()
+            if not target.is_relative_to(pkg_dir):
+                raise ValueError(f"Unsafe target in backup: {rel}")
+            storage.atomic_write_bytes(target, raw, fsync=True, backup=False)
+            restored += 1
