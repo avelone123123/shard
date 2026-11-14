@@ -3645,8 +3645,28 @@ async function trnPreviewDataset(snapshotId, page) {
         document.getElementById('modalLaunchBtn').style.display = 'none';
         const hfLink = document.getElementById('modalHfLink');
         if (hfLink) hfLink.style.display = 'none';
-        const recs = (d.sample_records || []).map(r => '<pre style="background:#080a0f;border:1px solid #1e2638;padding:8px;border-radius:5px;font-size:11px;color:#cbd5e1;white-space:pre-wrap;margin-bottom:6px;">' + escHtml(JSON.stringify(r, null, 2)) + '</pre>').join('') || '<div style="color:#64748b;">Нет записей</div>';
-        document.getElementById('modalModelBody').innerHTML = recs;
+        const rowsHtml = (d.records || []).map(r => {
+            const stCls = r.validation_status === 'valid' ? 'compat-ok' : 'compat-no';
+            const rejTxt = r.rejected ? escHtml(r.rejected) : (r.validation_error ? ('<span style="color:#f87171;">' + escHtml(r.validation_error) + '</span>') : '-');
+            return '<tr>' +
+                '<td style="width:45px;font-family:monospace;">#' + (Number(r.index || 0) + 1) + '</td>' +
+                '<td style="width:95px;"><div>' + escHtml(r.record_type || '') + '</div><span class="compat-pill ' + stCls + '">' + escHtml(r.validation_status || '') + '</span></td>' +
+                '<td><div class="ds-cell-pre">' + escHtml(r.prompt || '-') + '</div></td>' +
+                '<td><div class="ds-cell-pre">' + escHtml(r.chosen || '-') + '</div></td>' +
+                '<td><div class="ds-cell-pre">' + rejTxt + '</div><details style="margin-top:4px;"><summary style="font-size:10px;color:#64748b;cursor:pointer;">JSON</summary><pre style="font-size:10px;white-space:pre-wrap;color:#94a3b8;">' + escHtml(JSON.stringify(r.raw, null, 2)) + '</pre></details></td>' +
+                '</tr>';
+        }).join('');
+        const sidAttr = escHtml(snapshotId);
+        const pagerHtml = '<div class="ds-pager">' +
+            '<div>Страница ' + d.page + ' из ' + d.total_pages + ' (показано ' + (d.records || []).length + ' из ' + d.total_records + ')</div>' +
+            '<div style="display:flex;gap:8px;">' +
+            '<button class="btn-action" ' + (d.page <= 1 ? 'disabled' : '') + ' data-sid="' + sidAttr + '" onclick="trnPreviewDataset(this.dataset.sid, ' + (d.page - 1) + ')">Назад</button>' +
+            '<button class="btn-action" ' + (d.page >= d.total_pages ? 'disabled' : '') + ' data-sid="' + sidAttr + '" onclick="trnPreviewDataset(this.dataset.sid, ' + (d.page + 1) + ')">Вперёд</button>' +
+            '</div></div>';
+        const bodyEl = document.getElementById('modelModalBody');
+        bodyEl.innerHTML = (d.records && d.records.length)
+            ? (pagerHtml + '<table class="ds-table"><thead><tr><th>#</th><th>Тип</th><th>Prompt / Контекст</th><th>Chosen / Ответ</th><th>Rejected / Статус</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' + pagerHtml)
+            : '<div style="color:#64748b;padding:24px;text-align:center;">В датасете нет записей</div>';
         modal.style.display = 'flex';
     } catch(e) {}
 }
