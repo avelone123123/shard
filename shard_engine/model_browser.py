@@ -118,3 +118,27 @@ def validate_browse_path(raw_path):
 def _fmt_size(size_bytes):
     if size_bytes is None or size_bytes < 0:
         return "0 МБ"
+    mb = size_bytes / (1024 * 1024)
+    if mb >= 1024:
+        return f"{round(mb / 1024, 2)} ГБ"
+    return f"{round(mb, 1)} МБ"
+def _bounded_dir_size(dir_path, max_files=250):
+    total = 0
+    count = 0
+    try:
+        for root, dirs, files in os.walk(str(dir_path)):
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d != "__pycache__"]
+            for fn in files:
+                fp = os.path.join(root, fn)
+                try:
+                    total += os.path.getsize(fp)
+                except Exception:
+                    pass
+                count += 1
+                if count >= max_files:
+                    return total, True
+    except Exception:
+        pass
+    return total, False
+def _read_json_small(path_obj):
+    try:
