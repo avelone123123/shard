@@ -505,9 +505,13 @@ def _run_install_worker(action, custom_python=None, include_train=True):
                     creationflags=_WIN_NO_WINDOW,
                 )
                 if r_venv.returncode != 0 or not venv_py.is_file():
-                    raise RuntimeError(f"Failed to create venv: {(r_venv.stderr or r_venv.stdout)[:300]}")
-            elif uv_bin:
-                _append_install_log("Using uv to provision Python 3.12 venv...", step="Создание Python 3.12 venv (uv)", pct=25)
+                    raise RuntimeError(f"Failed to create soup-venv: {(r_venv.stderr or r_venv.stdout)[:300]}")
+            else:
+                if not uv_bin:
+                    uv_bin = _bootstrap_uv(lambda m: _set_install_state(line=m))
+                if not uv_bin:
+                    raise RuntimeError("Compatible Python (>=3.11,<3.14) not found and automatic uv provisioning unavailable. Install Python 3.12 (e.g. 'winget install Python.Python.3.12') and retry.")
+                _set_install_state(line=f"Provisioning isolated Python 3.12 soup-venv using uv ({uv_bin})...")
                 venv_dir.parent.mkdir(parents=True, exist_ok=True)
                 r_uv = subprocess.run(
                     [uv_bin, "venv", "--python", "3.12", str(venv_dir)],
