@@ -62,3 +62,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
             updater.verify_archive_artifact(bad_zip)
     def test_03_updater_check_states_and_rollback_preserves_user_data(self):
         cfg_file = Path(paths.config_dir()) / "settings.json"
+        keys_file = Path(paths.keys_file())
+        storage.atomic_write_json(cfg_file, {"models_dir": str(self._root / "models")})
+        storage.atomic_write_json(keys_file, ["sk-shard-keepme"])
+        fake_pkg = self._root / "fake_site" / "shard_engine"
+        fake_pkg.mkdir(parents=True, exist_ok=True)
+        (fake_pkg / "__init__.py").write_text('__app_name__ = "shard-engine"\n__version__ = "1.8.0"\n', encoding="utf-8")
+        (fake_pkg / "marker.py").write_text("VALUE = 'original'\n", encoding="utf-8")
+        inst_fake = {"method": "pip", "package_dir": str(fake_pkg), "writable": True, "git_root": None, "git_dirty": False}
+        with patch.object(updater, "fetch_latest_remote_info", side_effect=ConnectionError("offline")):
+            offline_chk = updater.check_for_updates(force=True, allow_network=True)
+        self.assertEqual(offline_chk["state"], "GITHUB_UNAVAILABLE")
+        upd_zip = self._root / "upd.zip"
+        with zipfile.ZipFile(upd_zip, "w") as zf:
+            zf.writestr("shard-main/shard_engine/marker.py", "VALUE = 'updated'\n")
+        upd_sha = storage.sha256_file(upd_zip)
+        remote_mock = {
