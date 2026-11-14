@@ -328,3 +328,113 @@ def list_feedback(status=None, limit=200, include_deleted=False):
             st = e.get("status")
             if st == "deleted" and not include_deleted:
                 continue
+            if status == "included_in_dataset":
+                if not e.get("included_in_datasets"):
+                    continue
+            elif status and st != status:
+                continue
+            out.append(e)
+            if len(out) >= max(1, int(limit)):
+                break
+        return out
+def list_contributor_submissions(contributor_id, limit=50):
+    cid = pseudonymize_contributor(contributor_id)
+    with _LOCK:
+        with storage.file_lock(_feedback_path()):
+            entries = _load_entries_unlocked()
+        out = []
+        for e in reversed(entries):
+            if e.get("contributor_id") != cid:
+                continue
+            out.append({
+                "id": e.get("id"),
+                "created_at": e.get("created_at"),
+                "rating": e.get("rating"),
+                "status": e.get("status"),
+                "model_id": e.get("model_id"),
+                "redacted": bool(e.get("redactions")),
+            })
+            if len(out) >= max(1, int(limit)):
+                break
+        return {
+            "contributor_id": cid,
+            "opted_out": is_contributor_opted_out(cid),
+            "submissions": out,
+        }
+def review_feedback(entry_id, action, edited_fields=None):
+    act = str(action or "").strip().lower()
+    if act not in ("approve", "reject", "delete", "edit", "pending"):
+        raise ValueError(f"Unsupported review action '{act}'.")
+    with _LOCK:
+        with storage.file_lock(_feedback_path()):
+            cfg = get_privacy_config()
+            entries = _load_entries_unlocked()
+            target = None
+            for e in entries:
+                if e.get("id") == entry_id:
+                    target = e
+                    break
+            if target is None:
+                raise KeyError(f"Feedback entry '{entry_id}' not found.")
+            if target.get("status") == "deleted" and act != "delete":
+                raise ValueError("Deleted feedback entries cannot be restored.")
+            if edited_fields and isinstance(edited_fields, dict):
+                for fld in ("prompt", "response", "better_response", "chosen", "rejected"):
+                    if fld in edited_fields:
+                        val, r_hits, _ = sanitize_and_screen(
+                            edited_fields[fld], cfg, allow_empty=(fld != "prompt")
+                        )
+                        target[fld] = val
+                        if r_hits:
+                            target["redactions"] = sorted(set((target.get("redactions") or []) + r_hits))
+                target["content_hash"] = _compute_content_hash(
+                    target.get("prompt"),
+                    target.get("response"),
+                    target.get("better_response"),
+                    target.get("chosen"),
+                    target.get("rejected"),
+                )
+            if act == "approve":
+                target["status"] = "approved"
+            elif act == "reject":
+                target["status"] = "rejected"
+            elif act == "pending":
+                target["status"] = "pending"
+            elif act == "delete":
+                target["status"] = "deleted"
+                target["prompt"] = ""
+                target["response"] = ""
+                target["better_response"] = ""
+                target["chosen"] = ""
+                target["rejected"] = ""
+                target["content_hash"] = None
+            target["updated_at"] = time.time()
+            _save_entries_unlocked(entries)
+            _append_audit("feedback_reviewed", {"id": entry_id, "action": act, "status": target["status"]})
+            return target
+def revoke_contributor(contributor_id, delete_existing=True):
+    cid = pseudonymize_contributor(contributor_id)
+    with _LOCK:
+        with storage.file_lock(_optouts_path()), storage.file_lock(_feedback_path()):
+            opts = _load_optouts()
+            opts[cid] = {"revoked_at": time.time()}
+            _save_optouts(opts)
+            deleted_count = 0
+            if delete_existing:
+                entries = _load_entries_unlocked()
+                changed = False
+                for e in entries:
+                    if e.get("contributor_id") == cid and e.get("status") != "deleted":
+                        e["status"] = "deleted"
+                        e["prompt"] = ""
+                        e["response"] = ""
+                        e["better_response"] = ""
+                        e["chosen"] = ""
+                        e["rejected"] = ""
+                        e["content_hash"] = None
+                        e["updated_at"] = time.time()
+                        deleted_count += 1
+                        changed = True
+                if changed:
+                    _save_entries_unlocked(entries)
+            _append_audit("contributor_revoked", {"contributor_id": cid, "deleted_count": deleted_count})
