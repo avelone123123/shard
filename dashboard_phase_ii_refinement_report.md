@@ -49,3 +49,11 @@ Per explicit user instruction (**Option B — Modern Slate**), all visual refine
 | Byte Parity & Formatting | Verified | `shard_engine/dashboard.html == dashboard.html` (`327,895` bytes, `4,729` lines, `0` blanks, `0` CRLF, `0` HTML comments, `0` emojis) |
 | JavaScript Syntax | Verified | `node --check` exited `0` on extracted `<script>` blocks after final edit |
 | Backend & Regression Suite | Verified (1 skipped) | `python -m unittest discover -s . -p "tests_*.py" -v` -> Ran `171` tests in `38.346s`, `OK (skipped=1)` (`test_wheel_contents_when_built` skipped because `dist/` wheel was not built); includes `test_09_dashboard_regression_bugs_fixed` |
+| Playwright Multi-Viewport Audit | Browser Verified | Tested against isolated server `http://127.0.0.1:18090` (`SHARD_DATA_DIR=%TEMP%\shard_accept_env\data`): `0` console errors, `0` page errors, `0` HTTP `>=400` errors |
+| Responsive Overflow (`1440`, `1280`, `1024`, `768`, `375`) | Browser Verified | `scrollWidth <= innerWidth` (`overflowX: false`) on all `35` viewport x tab checks |
+| Contrast Ratios (Computed Styles) | Browser Measured | `body` text vs `#16181D`: `15.0:1`; card description vs `#1D2129`: `7.81:1`; solid teal launch CTA: `5.47:1`; tinted download+launch CTA: `9.20:1` |
+| Interactive Flows | Browser Verified | Market filter (`Скачанные на SSD`: `83`), live search (`Qwen2.5-Coder-1.5B`: `80`), Model Card modal open + `Escape`, Ping (`/v1/ping` `12.7 ms`), Chat empty state & `renderChatContent()` code/inline renderer, Dataset Preview table wrapper & page 2 pagination (`Страница 2 из 2`), Update modal (`Escape`), Model Browser roots (`7` roots) + `Escape`, Keyboard `Tab` focus (`BUTTON`), `prefers-reduced-motion: reduce` (`1e-06s`) |
+| Training Preflight Async UI | Partial / Timed Out in Test Window | Clicking Preflight triggered request (`Выполнение preflight-проверки...`), `.pf-item` checks did not finish rendering within the `2000ms` screenshot wait |
+| Live Streaming LLM Reply / Live Training Run | Not Verified / Blocked by Environment | No GGUF model loaded in VRAM and no CUDA GPU present; live token streaming bubble rendering and live GPU fine-tuning runs were not executed during this visual pass |
+
+## 4. Before / After Responsive Comparison
