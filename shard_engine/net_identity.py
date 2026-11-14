@@ -878,3 +878,113 @@ def _sanitize_relay_url(val) -> str | None:
     try:
         port = parsed.port
     except ValueError:
+        return None
+    if port is not None and not (1 <= port <= 65535):
+        return None
+    try:
+        host = (parsed.hostname or "").strip().lower().rstrip(".").encode("idna").decode("ascii").lower().rstrip(".")
+    except UnicodeError:
+        return None
+    if not host or "%" in host:
+        return None
+    if host in _BLOCKED_HOST_EXACT or host.startswith("metadata.") or any(host.endswith(suf) for suf in _BLOCKED_HOST_SUFFIXES):
+        return None
+    try:
+        ip_obj = ipaddress.ip_address(host)
+        if _classify_ip_block(ip_obj, allow_loopback=False) is not None:
+            return None
+    except ValueError:
+        if _NONCANONICAL_IP_RE.match(host):
+            return None
+    return s
+def _sanitize_public_endpoint(val) -> str | None:
+    if not isinstance(val, str):
+        return None
+    s = val.strip()
+    if not s or len(s) > 256 or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in s):
+        return None
+    if any(tok in s.lower() for tok in _SECRET_SUBSTRINGS) or "@" in s or "\\" in s or "\x23" in s or "?" in s:
+        return None
+    if s.lower().startswith(("https://", "wss://")):
+        try:
+            parsed = urlsplit(s)
+            port = parsed.port
+            if port is not None and not (1 <= port <= 65535):
+                return None
+            if ".." in (parsed.path or ""):
+                return None
+            host = (parsed.hostname or "").strip().lower().rstrip(".")
+        except Exception:
+            return None
+    else:
+        host = s
+        if s.startswith("[") and "]:" in s:
+            host, port_s = s[1:].split("]:", 1)
+            if not port_s.isdigit() or not (1 <= int(port_s) <= 65535):
+                return None
+        elif s.startswith("[") and s.endswith("]"):
+            host = s[1:-1]
+        elif ":" in s and s.count(":") == 1:
+            host, port_s = s.rsplit(":", 1)
+            if not port_s.isdigit() or not (1 <= int(port_s) <= 65535):
+                return None
+        host = host.strip().lower().rstrip(".")
+    if not host or "%" in host:
+        return None
+    try:
+        host = host.encode("idna").decode("ascii").lower().rstrip(".")
+    except UnicodeError:
+        return None
+    if host in _BLOCKED_HOST_EXACT or host.startswith("metadata.") or any(host.endswith(suf) for suf in _BLOCKED_HOST_SUFFIXES):
+        return None
+    try:
+        ip_obj = ipaddress.ip_address(host)
+        if _classify_ip_block(ip_obj, allow_loopback=False) is not None:
+            return None
+    except ValueError:
+        if _NONCANONICAL_IP_RE.match(host):
+            return None
+        if "/" in host or not re.match(r"^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$", host):
+            return None
+    return s
+def sanitize_public_listing(raw: dict) -> dict:
+    if not isinstance(raw, dict):
+        return {}
+    out = {}
+    nid = raw.get("node_id")
+    if isinstance(nid, str) and NODE_ID_RE.match(nid.strip()):
+        out["node_id"] = nid.strip()
+    for pk_key in ("pubkey", "pubkey_b64"):
+        pk_val = raw.get(pk_key)
+        if isinstance(pk_val, str) and pk_val.strip():
+            try:
+                if len(b64u_decode(pk_val.strip())) == 32:
+                    out[pk_key] = pk_val.strip()
+            except Exception:
+                pass
+    name = _clean_text(raw.get("name"), 64)
+    if name:
+        out["name"] = name
+    for txt_key in ("network_name", "host_name"):
+        tv = _clean_text(raw.get(txt_key), 64)
+        if tv:
+            out[txt_key] = tv
+    desc = _clean_text(raw.get("description"), 256)
+    if desc:
+        out["description"] = desc
+    role = raw.get("role")
+    if isinstance(role, str) and role.strip().lower() in _PUBLIC_LISTING_ROLES:
+        out["role"] = role.strip().lower()
+    st_val = raw.get("status")
+    if isinstance(st_val, str) and st_val.strip().lower() in ("online", "offline", "busy", "idle"):
+        out["status"] = st_val.strip().lower()
+    for acc_key in ("access_mode", "access"):
+        av = raw.get(acc_key)
+        if isinstance(av, str) and av.strip().lower() in ("open", "invite", "invite_only", "invite-only"):
+            out[acc_key] = av.strip().lower()
+    for m_key in ("model", "active_model"):
+        model = _sanitize_model_id(raw.get(m_key))
+        if model:
+            out[m_key] = model
+    for ml_key in ("models", "supported_models"):
+        if isinstance(raw.get(ml_key), list):
