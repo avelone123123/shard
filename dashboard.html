@@ -4512,7 +4512,8 @@ async function mbLoadRoots() {
         if (bar) {
             bar.innerHTML = items.map(r => {
                 const sub = r.free_gb != null ? (r.free_gb + ' GB своб.') : (r.path || '');
-                return '<button class="mb-root" data-path="' + escHtml(r.path) + '" onclick="mbNavigate(this.dataset.path)"><b>' + escHtml(r.label) + '</b><span style="font-size:10px;color:#64748b;">' + escHtml(sub) + '</span></button>';
+                const lbl = (r.path && r.label && /^[A-Za-z]:\\?$/.test(r.path) && !r.label.includes(r.path[0] + ':')) ? (r.path + ' (' + r.label + ')') : r.label;
+                return '<button class="mb-root" data-path="' + escHtml(r.path) + '" onclick="mbNavigate(this.dataset.path)"><b>' + escHtml(lbl) + '</b><span style="font-size:10px;color:var(--text-muted);">' + escHtml(sub) + '</span></button>';
             }).join('');
         }
         const firstPath = mbCurrentPath || ((d.shortcuts && d.shortcuts[0] && d.shortcuts[0].path) || (d.drives && d.drives[0] && d.drives[0].path) || '');
@@ -4525,13 +4526,13 @@ async function mbNavigate(pathStr) {
     const listEl = document.getElementById('mbEntryList');
     const filterEl = document.getElementById('mbFilterMode');
     const mode = filterEl ? filterEl.value : 'all';
-    if (listEl) listEl.innerHTML = '<div style="padding:14px;color:#38bdf8;font-size:12px;">Сканирование папки...</div>';
+    if (listEl) listEl.innerHTML = '<div style="padding:14px;color:var(--accent-text);font-size:12px;">Сканирование папки...</div>';
     try {
         const url = '/api/models/browser/list?path=' + encodeURIComponent(target) + '&filter_mode=' + encodeURIComponent(mode);
         const res = await fetch(url, {headers: getAuthHeaders()});
         const d = await res.json();
         if (!res.ok) {
-            if (listEl) listEl.innerHTML = '<div style="padding:14px;color:#f87171;font-size:12px;">' + escHtml(d.message || 'Доступ запрещен или папка не найдена') + '</div>';
+            if (listEl) listEl.innerHTML = '<div style="padding:14px;color:var(--danger);font-size:12px;">' + escHtml(d.message || 'Доступ запрещен или папка не найдена') + '</div>';
             return;
         }
         mbCurrentPath = d.current_path || target;
@@ -4548,7 +4549,7 @@ async function mbNavigate(pathStr) {
         }
         mbRenderEntries();
     } catch(e) {
-        if (listEl) listEl.innerHTML = '<div style="padding:14px;color:#f87171;font-size:12px;">Ошибка: ' + escHtml(e.message) + '</div>';
+        if (listEl) listEl.innerHTML = '<div style="padding:14px;color:var(--danger);font-size:12px;">Ошибка: ' + escHtml(e.message) + '</div>';
     }
 }
 function mbRenderEntries() {
@@ -4573,7 +4574,7 @@ function mbRenderEntries() {
                     : '<span class="compat-pill compat-warn">' + escHtml(e.format_label || 'CHECK') + '</span>';
             }
         }
-        const tag = isDir ? '<span style="color:#60a5fa;font-family:monospace;">[DIR]</span>' : '<span style="color:#94a3b8;font-family:monospace;">[FILE]</span>';
+        const tag = isDir ? '<span style="color:var(--info);font-family:var(--font-mono);">[DIR]</span>' : '<span style="color:var(--text-secondary);font-family:var(--font-mono);">[FILE]</span>';
         return '<div class="mb-item" data-p="' + escHtml(e.path) + '" onclick="mbInspect(this.dataset.p)" ondblclick="if(' + (isDir ? 'true' : 'false') + ')mbNavigate(this.dataset.p)">' +
             '<div style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + tag + ' <b>' + escHtml(e.name) + '</b></div>' +
             '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' + pill + '<span style="font-size:11px;color:#64748b;font-family:monospace;">' + escHtml(e.size_str || '-') + '</span></div>' +
