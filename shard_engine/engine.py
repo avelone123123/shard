@@ -658,3 +658,113 @@ class ShardEngine:
             self.model_states[model_id] = "READY"
             self.load_progress = {
                 "status": "ready",
+                "lifecycle_state": "READY",
+                "model_id": model_id,
+                "percent": 100,
+                "stage": "Готова к работе",
+                "curr_mb": est_mb,
+                "total_mb": est_mb,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Готово",
+                "message": f"Модель {model_id} активна и готова к работе."
+            }
+            try:
+                _storage.atomic_write_json(
+                    self.active_model_file,
+                    {"model_id": model_id, "updated_at": time.time()},
+                    fsync=True,
+                    backup=True,
+                )
+            except Exception:
+                pass
+        except Exception as e:
+            stop_ticker = True
+            if seq_id != self._load_seq:
+                return
+            self.status = "error"
+            self.detailed_state = "LOAD_FAILED"
+            self.model_states[model_id] = "LOAD_FAILED"
+            self.current_loaded_id = prev_loaded_id if self.is_loaded() else None
+            self.active_model_id = self.current_loaded_id
+            self.loaded_info = {"model_id": model_id, "status": "error", "stage": "Ошибка загрузки", "message": f"Сбой загрузки: {str(e)[:140]}"}
+            self.load_progress = {
+                "status": "error",
+                "lifecycle_state": "LOAD_FAILED",
+                "model_id": model_id,
+                "percent": 0,
+                "stage": "Ошибка загрузки",
+                "curr_mb": 0,
+                "total_mb": est_mb,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Ошибка",
+                "message": f"Сбой загрузки: {str(e)[:140]}"
+            }
+    def _run_loader_gguf(self, model_id, seq_id, fit, prev_loaded_id=None):
+        if prev_loaded_id is None and self.current_loaded_id and self.current_loaded_id != model_id:
+            prev_loaded_id = self.current_loaded_id
+        self.status = "loading"
+        self._cancel_load = False
+        def _fail(stage, message, err_state="LOAD_FAILED"):
+            if seq_id != self._load_seq:
+                return
+            self.status = "error"
+            self.detailed_state = err_state
+            self.model_states[model_id] = err_state
+            self.current_loaded_id = prev_loaded_id
+            self.active_model_id = prev_loaded_id
+            self.loaded_info = {
+                "model_id": model_id,
+                "status": "error",
+                "lifecycle_state": err_state,
+                "stage": stage,
+                "message": message,
+            }
+            self.load_progress = {
+                "status": "error",
+                "lifecycle_state": err_state,
+                "model_id": model_id,
+                "percent": 0,
+                "stage": stage,
+                "curr_mb": 0,
+                "total_mb": 0,
+                "speed_mb": 0,
+                "eta_seconds": 0,
+                "eta_text": "Ошибка",
+                "message": message
+            }
+        def _stop_backend():
+            if self.gguf is not None:
+                try:
+                    self.gguf.stop()
+                except Exception:
+                    pass
+        pooled_ok = _lan_pool_fit_ok(fit)
+        if fit is None or (fit.get("verdict") not in ("GPU", "HYBRID")
+                           and not pooled_ok):
+            msg = (fit or {}).get("message_ru") or "Модель не подходит под ваше железо."
+            mmap_note = (fit or {}).get("mmap_note") or ""
+            note = f"{msg} {mmap_note}".strip()
+            if _lan_pooled():
+                note += " Модель не влезает даже в объединённую память shard-сети."
+            _fail("Модель не подходит", note, err_state="VALIDATION_FAILED")
+            return
+        try:
+            self.detailed_state = "COMPATIBILITY_CHECK"
+            self.model_states[model_id] = "COMPATIBILITY_CHECK"
+            loc = gguf_mod.find_local_gguf(model_id, fit.get("recommended")) if gguf_mod else None
+            is_local_gguf = os.path.isfile(str(model_id or "")) and str(model_id).lower().endswith(".gguf")
+            if loc and os.path.isfile(loc.get("path", "")) and loc.get("size_bytes", 0) > 0:
+                sel_path = loc["path"]
+                repo_id = loc.get("repo_id") or model_id
+                f_sz = loc["size_bytes"]
+                total_mb = round(f_sz / (1024 * 1024), 1)
+                sel = {
+                    "path": os.path.basename(sel_path),
+                    "size_bytes": f_sz,
+                    "quant": loc.get("quant") or fit.get("recommended") or "CUSTOM",
+                    "multipart": False,
+                    "parts": [sel_path],
+                }
+                self.detailed_state = "DOWNLOADED"
