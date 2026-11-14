@@ -438,3 +438,113 @@ def stun_probe(timeout=2.0):
                     ip_raw = struct.unpack("!I", val[4:8])[0]
                     return {"ok": True, "public_ip": str(ipaddress.IPv4Address(ip_raw)), "public_port": p, "server": host}
         except Exception:
+            continue
+        finally:
+            try:
+                sock.close()
+            except Exception:
+                pass
+    return {"ok": False, "public_ip": None, "public_port": None, "server": None}
+def upnp_igd_probe(timeout=1.2):
+    msg = (
+        "M-SEARCH * HTTP/1.1\r\n"
+        "HOST: 239.255.255.250:1900\r\n"
+        "MAN: \"ssdp:discover\"\r\n"
+        "MX: 1\r\n"
+        "ST: urn:schemas-upnp-org:device:InternetGatewayDevice:1\r\n\r\n"
+    ).encode("ascii")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
+    try:
+        sock.sendto(msg, ("239.255.255.250", 1900))
+        data, addr = sock.recvfrom(2048)
+        text = data.decode("utf-8", "ignore")
+        if "HTTP/1.1 200" in text or "InternetGatewayDevice" in text:
+            return {"found": True, "gateway_ip": addr[0]}
+    except Exception:
+        pass
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
+    return {"found": False, "gateway_ip": None}
+def connectivity_report(probe_public=False):
+    ifaces = local_interfaces()
+    lan_list = [x for x in ifaces if x["kind"] == "lan"]
+    vpn_list = [x for x in ifaces if x["kind"] == "vpn"]
+    virt_list = [x for x in ifaces if x["kind"] == "virtual"]
+    ts = detect_tailscale()
+    port = active_http_port()
+    report = {
+        "port": port,
+        "beacon_port": BEACON_PORT,
+        "lan_interfaces": lan_list,
+        "vpn_interfaces": vpn_list,
+        "virtual_excluded": virt_list,
+        "tailscale": ts,
+        "recommended_join_ip": (vpn_list[0]["ip"] if vpn_list else (lan_list[0]["ip"] if lan_list else local_ip())),
+        "internet_modes": [
+            {
+                "mode": "mesh_vpn",
+                "ready": bool(vpn_list or ts.get("running")),
+                "providers": sorted(set([x["provider"] for x in vpn_list] + (["tailscale"] if ts.get("running") else []))),
+                "note": "Cross-country / behind-CGNAT connectivity works directly via Radmin VPN, Tailscale, or ZeroTier mesh IP without router port forwarding.",
+            },
+            {
+                "mode": "direct_port_forward",
+                "ready": False,
+                "note": f"Requires router port forwarding of TCP {port} (or public VPS/domain) plus firewall rule allowing TCP {port}.",
+            },
+            {
+                "mode": "nat_traversal_built_in",
+                "ready": True,
+                "note": "Built-in SHARD Network encrypted tunnel (Ed25519 + X25519 + ChaCha20-Poly1305) supports direct P2P and relay transport plus optional WireGuard mesh.",
+            },
+        ],
+    }
+    if probe_public:
+        stun = stun_probe()
+        upnp = upnp_igd_probe()
+        local_ip_set = {x["ip"] for x in ifaces}
+        behind_nat = bool(stun.get("ok") and stun.get("public_ip") and stun["public_ip"] not in local_ip_set)
+        report["stun"] = stun
+        report["upnp_igd"] = upnp
+        report["behind_nat"] = behind_nat
+    return report
+def validate_master_host(host):
+    raw = str(host or "").strip()
+    if not raw:
+        return None, "Нужен IP мастера (или выберите сервер из списка)"
+    if raw.startswith(("http://", "https://")):
+        raw = raw.split("://", 1)[1]
+    raw = raw.split("/", 1)[0].strip()
+    if raw.startswith("[") and "]" in raw:
+        raw = raw[1:raw.index("]")]
+    elif ":" in raw and raw.count(":") == 1:
+        raw = raw.split(":", 1)[0].strip()
+    if not raw:
+        return None, "Укажите корректный IP или hostname мастера"
+    try:
+        ip_obj = ipaddress.ip_address(raw)
+        if ip_obj.is_unspecified or ip_obj.is_multicast or ip_obj.is_link_local:
+            return None, f"Некорректный адрес мастера: {raw}"
+        return str(ip_obj), None
+    except ValueError:
+        pass
+    if all(ch.isdigit() or ch == "." for ch in raw):
+        return None, f"Некорректный IPv4-адрес мастера: {raw}"
+    if _HOST_RE.match(raw):
+        return raw, None
+    return None, f"Некорректный адрес мастера: {raw}"
+def find_rpc_server():
+    env_rpc = os.environ.get("SHARD_RPC_SERVER")
+    if env_rpc and os.path.isfile(env_rpc):
+        return env_rpc
+    names = ["ggml-rpc-server.exe"] if os.name == "nt" else ["ggml-rpc-server", "llama-rpc-server"]
+    here = os.path.dirname(os.path.abspath(__file__))
+    search_dirs = [
+        _paths.runtime_dir(),
+        os.path.join(os.path.expanduser("~"), ".shard", "runtime"),
+        os.path.join(here, "native"),
+        os.path.join(os.path.dirname(here), "native"),
