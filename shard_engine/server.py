@@ -2365,6 +2365,7 @@ def _render_dashboard_html(client_mode):
     boot = {
         "client_mode": bool(client_mode),
         "is_owner": not bool(client_mode),
+        "version": __version__,
         "lan_mode": st.get("mode"),
         "lan_open": bool(st.get("open")),
         "server_name": st.get("name"),
