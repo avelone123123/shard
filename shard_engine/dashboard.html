@@ -384,15 +384,34 @@ main{padding:14px !important;}
 .chat-container{grid-template-columns:1fr !important;height:calc(100vh - 280px) !important;min-height:350px !important;}
 .chat-empty-panel{padding:14px 12px !important;}
 .chat-sidebar{max-height:none !important;border-right:none !important;border-bottom:1px solid var(--border);padding:8px 10px !important;}
-.mb-item.selected{background:#162238;border-left:2px solid #38bdf8;}
-.pf-item{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:6px 9px;border-radius:5px;border:1px solid #1e2638;background:#090d16;margin-bottom:5px;font-size:11.5px;}
-details.tech-details{margin-top:6px;background:#07090e;border:1px solid #1e2638;border-radius:6px;padding:6px 10px;font-size:11px;color:#94a3b8;}
-details.tech-details summary{cursor:pointer;color:#cbd5e1;font-weight:600;}
+.chat-sidebar-top{margin-bottom:6px !important;}
+.chat-sessions-list{display:flex !important;flex-direction:row !important;gap:6px !important;overflow-x:auto;padding-bottom:2px;}
+.chat-session-item{flex-shrink:0;white-space:nowrap;padding:6px 10px !important;margin-bottom:0 !important;}
+.chat-header{flex-direction:column;align-items:flex-start !important;gap:6px !important;padding:9px 12px !important;}
+.chat-header-live{flex-wrap:wrap;gap:8px !important;}
+.chat-footer{padding:8px 10px !important;gap:6px !important;}
+.chat-input{min-width:0;}
+.info-card{padding:14px !important;}
+#tab-keys .info-card > div:first-child{flex-wrap:wrap;gap:10px;}
+#keysList > div{flex-wrap:wrap;gap:8px;}
+.modal-backdrop{padding:10px !important;}
+.modal-card{width:100% !important;max-height:92vh !important;}
+#browserModalBackdrop .modal-card{height:90vh !important;}
+.modal-header{padding:12px 14px !important;}
+.modal-body{padding:12px 14px !important;}
+.trn-input{max-width:100%;min-width:0;}
+}
+@media (max-width:480px){
+.tools-grid,.os-grid{grid-template-columns:1fr !important;}
+}
+@media (prefers-reduced-motion: reduce){
+*,*::before,*::after{animation-duration:0.001ms !important;animation-iteration-count:1 !important;transition-duration:0.001ms !important;scroll-behavior:auto !important;}
+}
 </style>
 </head>
 <body>
 <div id="toast" class="toast"></div>
-<div id="modelModalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeModelCard()">
+<div id="modelModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" onclick="if(event.target===this)closeModelCard()">
 <div class="modal-card">
 <div class="modal-header">
 <div>
@@ -419,7 +438,7 @@ details.tech-details summary{cursor:pointer;color:#cbd5e1;font-weight:600;}
 <div id="modelModalBody" class="modal-body"></div>
 </div>
 </div>
-<div id="dirModalBackdrop" class="modal-backdrop" onclick="if(event.target===this)closeDirPicker()">
+<div id="dirModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" onclick="if(event.target===this)closeDirPicker()">
 <div class="modal-card" style="max-width:520px;">
 <div class="modal-header">
 <div>
