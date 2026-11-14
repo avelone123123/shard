@@ -168,10 +168,11 @@ SHARD объединяет свободные ресурсы GPU и RAM неск
 
 ### Установка
 
-#### Вариант 1: Установка через pip из GitHub (рекомендуется)
-Запускайте SHARD из любой директории без ручного клонирования репозитория:
+#### Вариант 1: Установка из PyPI (рекомендуется)
+Установите SHARD напрямую из официального каталога PyPI:
 ```bash
-# Базовая установка: CLI, FastAPI-сервер, веб-панель, GGUF (llama.cpp) и LAN-кластер
+pip install shard-engine
+
 pip install "git+https://github.com/avelone123123/shard.git"
 
 # Полная установка: добавляет PyTorch/Transformers safetensors и модули Hugging Face
