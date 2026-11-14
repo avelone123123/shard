@@ -1318,3 +1318,113 @@ class ShardEngine:
                 pass
         parts = []
         for m in messages:
+            role = m.get("role", "user")
+            c = m.get("content", "")
+            parts.append(f"<|im_start|>{role}\n{c}<|im_end|>")
+        parts.append("<|im_start|>assistant\n")
+        return "\n".join(parts)
+    def generate_stream(self, messages, max_tokens=512, temperature=0.7):
+        t0 = time.time()
+        self._cancel_gen = False
+        gguf_ready = self.gguf is not None and self.gguf.is_running()
+        if self.model is None and not gguf_ready and self.status == "idle" and self.active_model_id and _is_model_cached_complete(self.active_model_id):
+            self.load_model(self.active_model_id)
+            wait_start = time.time()
+            while self.status == "loading" and (time.time() - wait_start) < 25.0:
+                time.sleep(0.15)
+        if self.status == "loading" or self.load_progress.get("status") == "loading":
+            pct = self.load_progress.get("percent", 0)
+            eta = self.load_progress.get("eta_text", "~15 сек")
+            short_id = (self.active_model_id or "модель").split("/")[-1]
+            cur_mb = self.load_progress.get("curr_mb", 0)
+            tot_mb = self.load_progress.get("total_mb", 0)
+            spd_mb = self.load_progress.get("speed_mb", 0)
+            ans = f"Модель {short_id} сейчас загружается ({pct}%). Осталось: {eta} ({cur_mb} / {tot_mb} МБ, {spd_mb} МБ/с). Дождитесь завершения индикатора сверху."
+            yield {"type": "content", "token": ans, "done": False}
+            yield {"type": "done", "token": "", "done": True, "telemetry": {"thinking_seconds": 0.0, "total_seconds": 0.05, "tokens_per_sec": 0.0}, "usage": {"prompt_tokens": 1, "completion_tokens": len(ans.split()), "total_tokens": len(ans.split()) + 1}}
+            return
+        if self.gguf is not None and self.gguf.is_running():
+            yield from self._generate_gguf(messages, max_tokens, temperature)
+            return
+        if not (self.gguf is not None and self.gguf.is_running()) and (self.model is None or self.tokenizer is None):
+            ans = "Модель еще не запущена в память. Откройте вкладку «Каталог Hugging Face» или «Подбор под Железо» и нажмите кнопку «Запустить» на выбранной модели."
+            yield {"type": "content", "token": ans, "done": False}
+            yield {"type": "done", "token": "", "done": True, "telemetry": {"thinking_seconds": 0.0, "total_seconds": 0.02, "tokens_per_sec": 0.0}, "usage": {"prompt_tokens": 1, "completion_tokens": len(ans.split()), "total_tokens": len(ans.split()) + 1}}
+            return
+        self.status = "generating"
+        prompt = self._build_prompt(messages)
+        sanitizer = _StreamSanitizer()
+        token_count = 0
+        prompt_tokens = 1
+        try:
+            inputs = self.tokenizer(prompt, return_tensors="pt")
+            prompt_tokens = int(inputs["input_ids"].shape[-1])
+            try:
+                dev = next(self.model.parameters()).device
+                inputs = {k: v.to(dev) for k, v in inputs.items()}
+            except Exception:
+                pass
+            streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True, timeout=15.0)
+            pad_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.eos_token_id
+            gen_kwargs = {
+                "input_ids": inputs["input_ids"],
+                "streamer": streamer,
+                "max_new_tokens": max(16, min(int(max_tokens), 2048)),
+                "pad_token_id": pad_id,
+                "eos_token_id": self.tokenizer.eos_token_id,
+                "use_cache": True,
+                "do_sample": True if temperature > 0.05 else False,
+                "repetition_penalty": 1.1,
+                "stopping_criteria": StoppingCriteriaList([_ShardCancelCriteria(self)])
+            }
+            if "attention_mask" in inputs:
+                gen_kwargs["attention_mask"] = inputs["attention_mask"]
+            if temperature > 0.05:
+                gen_kwargs["temperature"] = max(0.1, min(1.5, float(temperature)))
+            def _runner():
+                try:
+                    with torch.inference_mode():
+                        self.model.generate(**gen_kwargs)
+                except Exception:
+                    pass
+                finally:
+                    try:
+                        streamer.end()
+                    except Exception:
+                        pass
+            gen_thread = threading.Thread(target=_runner, daemon=True)
+            gen_thread.start()
+            for chunk in streamer:
+                if self._cancel_gen:
+                    break
+                if not chunk:
+                    continue
+                for ev_type, ev_tok in sanitizer.feed(chunk):
+                    if ev_tok:
+                        token_count += 1
+                        self.total_tokens_generated += 1
+                        yield {"type": ev_type, "token": ev_tok, "done": False}
+                if sanitizer.stopped:
+                    self._cancel_gen = True
+                    break
+            for ev_type, ev_tok in sanitizer.flush():
+                if ev_tok:
+                    token_count += 1
+                    self.total_tokens_generated += 1
+                    yield {"type": ev_type, "token": ev_tok, "done": False}
+            gen_thread.join(timeout=1.0)
+        except Exception as e:
+            yield {"type": "content", "token": f"\n[Ошибка инференса: {str(e)}]", "done": False}
+            token_count = max(1, token_count)
+        total_duration = round(time.time() - t0, 2)
+        tokens_per_sec = round(token_count / max(0.05, total_duration), 1)
+        self.last_latency_ms = int(total_duration * 1000)
+        self.status = "ready" if self.model is not None else "idle"
+        yield {
+            "type": "done",
+            "token": "",
+            "done": True,
+            "telemetry": {
+                "thinking_seconds": sanitizer.think_duration,
+                "total_seconds": total_duration,
+                "tokens_per_sec": tokens_per_sec
