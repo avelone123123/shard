@@ -20,3 +20,10 @@ Per explicit user instruction (**Option B — Modern Slate**), all visual refine
 - **Accessibility & interactive motion states**: added crisp `:focus-visible` `2px` teal focus outlines across buttons, inputs, tabs, and modal controls; tactile active press states (`translateY(1px)`); disabled states (`opacity: 0.52`); and `@media (prefers-reduced-motion: reduce)`.
 
 ### Model Catalog
+- **Prevented orphaned external-link icons** on long titles by binding the trailing word segment and external-link SVG inside `.title-ext-wrap` (`white-space: nowrap`).
+- **Distinct CTA hierarchy**: separated secondary `Обзор` outline button from downloaded ready CTA `.btn-launch-ready` (solid `#0F766E` with white label) and remote `.btn-launch-dl` (tinted `#183233` with `#5EEAD4` text and `#246A63` border).
+- **Uniform card rhythm**: 2-line `.card-desc` clamping (`min-height: 36px`) and subtle hover border/surface contrast shift.
+
+### Connect & API Workspace
+- **Eliminated mid-token URL wrapping** in the right endpoint sidebar by widening `.connect-container` desktop sidebar column to `416px` and refining `.ep-val` (`11px`, word-boundary wrapping): `http://localhost:8000/v1/messages/count_tokens` now renders on a single line (`lines: 1`, `height: 15px`) instead of breaking into `count_t` + `okens`.
+- **Technical script blocks**: added crisp `#39B8A8` left accent rule on `.script-box` and bounded container horizontal overflow on mobile.
