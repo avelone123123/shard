@@ -878,3 +878,113 @@ class LanManager:
             if not model_id:
                 return {"status": "error", "message": "Пустое имя модели"}
             self._state["target_model"] = model_id
+            self._rebal_note = None
+            self._rebal_err_ticks = 0
+            self._save()
+            loaded = self._loaded_model_name()
+        if loaded == model_id:
+            msg = f"Модель сети: {model_id} (уже загружена)"
+        else:
+            msg = f"Модель сети: {model_id} — загрузится автоматически, как только подключится вычислительный участник (--share)"
+        return {"status": "ok", "target_model": model_id, "message": msg}
+    def set_open(self, open_net):
+        with self._lock:
+            if self._state.get("mode") != "server":
+                return {"status": "error", "message": "Сеть не создана — открыть можно только свою сеть"}
+            self._state["open"] = bool(open_net)
+            self._save()
+        if open_net:
+            return {"status": "ok", "open": True, "message": "Сеть открыта: подключение без кода"}
+        return {"status": "ok", "open": False, "message": "Сеть закрыта: нужен код подключения"}
+    def handle_pair(self, code, ip, name=None, share=False, client_id=None, transport=None, rpc_host=None, tunnel_peer=None):
+        code = normalize_code(code)
+        tpeer = str(tunnel_peer or "").strip()[:80] or None
+        if tpeer and not _SAFE_NODE_RE.match(tpeer):
+            tpeer = None
+        cid = str(client_id or "").strip()[:64] or None
+        if cid and not _SAFE_NODE_RE.match(cid):
+            cid = None
+        if not cid and tpeer:
+            cid = tpeer[:64]
+        clean_rpc_host = None
+        if rpc_host:
+            cand_host, cand_err = validate_master_host(rpc_host)
+            if not cand_err and cand_host:
+                clean_rpc_host = cand_host
+        clean_transport = str(transport or ("tunnel" if tpeer else "lan")).strip().lower()[:24] or "lan"
+        clean_name = (str(name or "участник").strip() or "участник")[:64]
+        with self._lock:
+            if self._state.get("mode") != "server":
+                return None, "Эта машина не является сервером shard-сети"
+            blocked = set(self._state.get("blocked") or [])
+            if ip in blocked or (cid and cid in blocked) or (tpeer and tpeer in blocked):
+                return None, "Доступ к этому серверу заблокирован администратором"
+            expected = self._state.get("pairing_code") or ""
+            if not self._state.get("open"):
+                if not code or not expected or not secrets.compare_digest(code, expected):
+                    return None, "Неверный код подключения"
+            for m in self._state.get("members", []):
+                same_member = (tpeer and m.get("tunnel_peer") == tpeer) or (cid and m.get("client_id") == cid) or ((not cid) and (not tpeer) and (not m.get("client_id")) and m.get("ip") == ip)
+                if same_member:
+                    m["ip"] = ip
+                    m["name"] = clean_name or m.get("name") or "участник"
+                    m["role"] = "worker" if share else m.get("role", "member")
+                    m["last_seen"] = time.time()
+                    m["transport"] = clean_transport
+                    if clean_rpc_host:
+                        m["rpc_host"] = clean_rpc_host
+                    if tpeer:
+                        m["tunnel_peer"] = tpeer
+                    self._save()
+                    return {"token": m["token"], "master": self._state.get("name"), "client_id": m.get("client_id")}, None
+            token = new_member_token()
+            member = {
+                "ip": ip,
+                "client_id": cid,
+                "name": clean_name,
+                "token": token,
+                "role": "worker" if share else "member",
+                "joined_at": time.time(),
+                "last_seen": time.time(),
+                "hw": None,
+                "rpc_port": None,
+                "transport": clean_transport,
+            }
+            if clean_rpc_host:
+                member["rpc_host"] = clean_rpc_host
+            if tpeer:
+                member["tunnel_peer"] = tpeer
+            self._state["members"].append(member)
+            self._save()
+            return {"token": token, "master": self._state.get("name"), "client_id": cid}, None
+    def handle_heartbeat(self, ip, token, hw=None, rpc_port=None, client_id=None, transport=None, rpc_host=None, tunnel_peer=None):
+        tok = str(token or "")
+        if not tok:
+            return False
+        tpeer = str(tunnel_peer or "").strip()[:80] or None
+        if tpeer and not _SAFE_NODE_RE.match(tpeer):
+            tpeer = None
+        cid = str(client_id or "").strip()[:64] or None
+        clean_rpc_host = None
+        if rpc_host:
+            cand_host, cand_err = validate_master_host(rpc_host)
+            if not cand_err and cand_host:
+                clean_rpc_host = cand_host
+        now = time.time()
+        need_save = False
+        with self._lock:
+            if self._state.get("mode") != "server":
+                return False
+            blocked = set(self._state.get("blocked") or [])
+            if ip in blocked or (cid and cid in blocked) or (tpeer and tpeer in blocked):
+                return False
+            for m in self._state.get("members", []):
+                mtok = str(m.get("token") or "")
+                if not mtok or not secrets.compare_digest(mtok, tok):
+                    continue
+                if m.get("tunnel_peer"):
+                    if tpeer and m.get("tunnel_peer") != tpeer:
+                        continue
+                    if not tpeer and not (cid and m.get("client_id") == cid) and m.get("ip") != ip:
+                        continue
+                elif m.get("client_id"):
