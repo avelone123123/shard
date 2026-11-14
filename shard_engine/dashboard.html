@@ -1816,9 +1816,9 @@ function renderNetStatus(st) {
             const rttText = cli.rtt_ms ? (' &bull; ' + cli.rtt_ms + ' ms') : '';
             const txrx = (cli.bytes_tx || cli.bytes_rx) ? (' &bull; TX: ' + formatBytes(cli.bytes_tx || 0) + ' / RX: ' + formatBytes(cli.bytes_rx || 0)) : '';
             banner.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
-                '<div><div style="font-size:13px;font-weight:600;color:#fff;">Подключено к удалённому узлу ' + modeBadge + '</div>' +
-                '<div style="font-size:12px;color:var(--text-muted);font-family:monospace;margin-top:2px;">Цель: ' + escHtml(cli.target || '') + rttText + txrx + '</div></div>' +
-                '<button class="btn-action" style="border-color:#f85149;color:#f85149;" onclick="netDisconnect()">Отключиться</button>' +
+                '<div><div class="v-section-title" style="margin-bottom:2px;">Подключено к удалённому узлу ' + modeBadge + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px;">Цель: ' + escHtml(cli.target || '') + rttText + txrx + '</div></div>' +
+                '<button class="btn-action" style="border-color:var(--danger-border);color:var(--danger);background:var(--danger-bg);" onclick="netDisconnect()">Отключиться</button>' +
                 '</div>';
         }
     } else {
@@ -1829,12 +1829,12 @@ function renderNetStatus(st) {
     if (pubBtn) {
         if (host.published) {
             pubBtn.innerText = 'Снять с публикации';
-            pubBtn.style.borderColor = '#f85149';
-            pubBtn.style.color = '#f85149';
+            pubBtn.className = 'v-btn-danger';
+            pubBtn.removeAttribute('style');
         } else {
             pubBtn.innerText = 'Опубликовать';
-            pubBtn.style.borderColor = '#238636';
-            pubBtn.style.color = '#fff';
+            pubBtn.className = 'btn-action active';
+            pubBtn.removeAttribute('style');
         }
     }
 }
@@ -1860,7 +1860,7 @@ async function netLoadServers() {
         const data = await res.json();
         const srvs = data.servers || [];
         if (srvs.length === 0) {
-            grid.innerHTML = '<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;background:#0d1117;border:1px solid #21262d;border-radius:8px;">Серверы не найдены. Опубликуйте свой сервер или подключитесь по инвайту.</div>';
+            grid.innerHTML = '<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);">Серверы не найдены. Опубликуйте свой сервер или подключитесь по инвайту.</div>';
             return;
         }
         grid.innerHTML = srvs.map(s => {
@@ -1870,17 +1870,17 @@ async function netLoadServers() {
             const nid = escHtml(s.node_id || m.node_id || '');
             const region = escHtml(m.region || 'global');
             const access = escHtml(m.access_policy || m.access_mode || 'open');
-            const direct = (m.direct_endpoints && m.direct_endpoints.length) ? '<span style="color:#238636;">Direct P2P</span>' : '<span style="color:#d29922;">Relay</span>';
+            const direct = (m.direct_endpoints && m.direct_endpoints.length) ? '<span style="color:var(--success);">Direct P2P</span>' : '<span style="color:var(--warning);">Relay</span>';
             const loadVal = Math.round((m.load || 0) * 100);
-            return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;">' +
+            return '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:12px;display:flex;flex-direction:column;justify-content:space-between;">' +
                 '<div>' +
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">' +
-                '<div style="font-size:13px;font-weight:600;color:#fff;">' + name + '</div>' +
-                '<span style="font-size:10px;padding:2px 6px;background:#161b22;border:1px solid #30363d;border-radius:4px;color:#8b949e;">' + region + '</span>' +
+                '<div class="v-section-title" style="margin-bottom:2px;">' + name + '</div>' +
+                '<span style="font-size:10px;padding:2px 6px;background:var(--surface-sunken);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);">' + region + '</span>' +
                 '</div>' +
-                '<div style="font-size:12px;color:#58a6ff;font-weight:500;margin-bottom:6px;">' + model + '</div>' +
-                '<div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;">' + nid + '</div>' +
-                '<div style="font-size:11px;color:#8b949e;display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
+                '<div style="font-size:12px;color:var(--accent-text);font-weight:500;margin-bottom:6px;">' + model + '</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;">' + nid + '</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
                 '<span>Маршрут: ' + direct + '</span>' +
                 '<span>Доступ: ' + access + '</span>' +
                 '<span>Нагрузка: ' + loadVal + '%</span>' +
@@ -1890,7 +1890,7 @@ async function netLoadServers() {
                 '</div>';
         }).join('');
     } catch(e) {
-        grid.innerHTML = '<div style="grid-column:1/-1;padding:16px;color:#f85149;font-size:13px;">Ошибка связи с Discovery-сервером.</div>';
+        grid.innerHTML = '<div style="grid-column:1/-1;padding:16px;color:var(--danger);font-size:13px;">Ошибка связи с Discovery-сервером.</div>';
     }
 }
 async function netConnectTargetServer(nodeId) {
