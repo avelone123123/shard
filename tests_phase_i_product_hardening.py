@@ -174,3 +174,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
         r_ssh = self.client.get(f"/api/models/browser/list?path={ssh_dir}", headers=self.owner_headers)
         self.assertEqual(r_ssh.status_code, 403)
         r_unc = self.client.post("/api/models/browser/inspect", json={"path": "\\\\127.0.0.1\\c$\\Windows\\System32"}, headers=self.owner_headers)
+        self.assertEqual(r_unc.status_code, 403)
+    def test_07_dataset_creation_metrics_pagination_and_validation(self):
+        feedback.update_privacy_config({"require_manual_review": False, "redact_secrets": False, "redact_pii": False})
+        for i in range(25):
+            r = feedback.submit_feedback({
+                "prompt": f"Explain Rust ownership #{i}",
+                "response": f"Ownership ensures memory safety example #{i}.",
+                "rating": "up",
+                "consent_given": True,
+            }, source="local")
+            feedback.review_feedback(r["id"], "approve")
+        dup = feedback.submit_feedback({
+            "prompt": "Explain Rust ownership #0",
+            "response": "Ownership ensures memory safety example #0.",
+            "rating": "up",
+            "consent_given": True,
