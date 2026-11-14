@@ -838,3 +838,24 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
             rolled_back=rolled,
             error=str(exc) + (f" | Rollback error: {rb_err}" if rb_err else ""),
             finished_at=time.time(),
+        )
+        return {
+            "status": "failed",
+            "old_version": __version__,
+            "new_version": None,
+            "rolled_back": rolled,
+            "rollback_error": rb_err,
+            "error": str(exc),
+            "backup_path": backup_ptr.get("pkg_backup_path") if backup_ptr else None,
+        }
+    finally:
+        if tmp_dir and tmp_dir.exists():
+            shutil.rmtree(str(tmp_dir), ignore_errors=True)
+def start_update_async(target_version=None, force=False, allow_prerelease=False):
+    with _UPDATE_JOB_LOCK:
+        if _UPDATE_JOB_STATE.get("status") == "running":
+            return get_update_status()
+        _UPDATE_JOB_STATE["status"] = "running"
+    t = threading.Thread(target=apply_update, kwargs={"target_version": target_version, "force": force, "allow_prerelease": allow_prerelease}, daemon=True)
+    t.start()
+    return get_update_status()
