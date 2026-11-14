@@ -41,12 +41,16 @@ _WIN_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 _INSTALL_LOCK = threading.RLock()
 _INSTALL_STATE = {
     "status": "idle",
+    "lifecycle_state": "NOT_INSTALLED",
+    "stage": "Не запущено",
     "action": None,
     "progress_pct": 0,
     "step": "",
     "logs": [],
     "venv_dir": None,
     "python_executable": None,
+    "installed_version": None,
+    "verification": None,
     "error": None,
     "started_at": None,
     "finished_at": None,
