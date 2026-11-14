@@ -1536,6 +1536,21 @@ async def api_training_dataset_validate(snapshot_id: str, req: Request):
         return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
     except FileNotFoundError as e:
         return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+@app.post("/api/training/preflight")
+async def api_training_preflight(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    return training.preflight_training_check(
+        base_model=data.get("base_model"),
+        dataset_snapshot_id=data.get("dataset_snapshot_id"),
+        task=data.get("task", "sft"),
+        params=data.get("params"),
+    )
 @app.get("/api/training/jobs")
 def api_training_jobs_list(req: Request, limit: int = 50):
     denied = _deny_non_owner(req)
