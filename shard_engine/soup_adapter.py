@@ -593,6 +593,8 @@ def install_or_repair_soup(action="install", custom_python=None, background=True
             "logs": [f"Starting SOUP {act}..."],
             "venv_dir": paths.soup_venv_dir(),
             "python_executable": None,
+            "installed_version": None,
+            "verification": None,
             "error": None,
             "started_at": time.time(),
             "finished_at": None,
