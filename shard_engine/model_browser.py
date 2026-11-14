@@ -454,3 +454,27 @@ def classify_model_path(target_path, deep_size=False):
                 "path": str(p),
                 "name": p.name,
                 "is_dir": True,
+                "format": "gguf_inference",
+                "format_label": f"Папка GGUF ({len(gguf_files)})",
+                "valid": bool(valid_gguf),
+                "size_bytes": sz,
+                "size_str": _fmt_size(sz),
+                "compatibility": compat,
+            }
+        return {
+            "path": str(p),
+            "name": p.name,
+            "is_dir": True,
+            "format": "directory",
+            "format_label": "Папка",
+            "valid": False,
+            "size_bytes": None,
+            "size_str": "",
+            "compatibility": _compat_block(False, "Откройте папку чтобы найти файлы моделей.", False, "Откройте папку чтобы найти файлы моделей.", False, "Обычная папка — перейдите внутрь для поиска модели."),
+        }
+    raise FileNotFoundError(f"Path not found: {target_path}")
+def list_roots():
+    drives = []
+    for d in settings.available_drives():
+        lbl = _volume_label(d["path"])
+        drives.append({
