@@ -988,3 +988,113 @@ class NetworkManager:
             out["relay_auth_token"] = ""
         return out
     def set_discovery_urls(self, urls, auth_tokens=None):
+        with self._lock:
+            allow_local = bool(self._config.get("allow_insecure_local"))
+        valid, rejected = self._validate_service_urls(urls, "discovery", allow_local)
+        with self._lock:
+            self._config["discovery_urls"] = valid
+            if isinstance(auth_tokens, dict):
+                self._config["discovery_auth_tokens"] = {str(k).strip().rstrip("/"): str(v).strip() for k, v in auth_tokens.items() if str(v or "").strip()}
+            self._save_config()
+            cfg = copy.deepcopy(self._config)
+        return {"status": "ok", "discovery_urls": valid, "rejected_urls": rejected, "config": cfg}
+    def set_relay_urls(self, urls, auth_token=None):
+        with self._lock:
+            allow_local = bool(self._config.get("allow_insecure_local"))
+        valid, rejected = self._validate_service_urls(urls, "relay", allow_local)
+        with self._lock:
+            self._config["relay_urls"] = valid
+            if auth_token is not None:
+                self._config["relay_auth_token"] = str(auth_token or "").strip()
+            self._save_config()
+            cfg = copy.deepcopy(self._config)
+        return {"status": "ok", "relay_urls": valid, "rejected_urls": rejected, "config": cfg}
+    def configure(self, patch=None, **kwargs):
+        updates = {}
+        if isinstance(patch, dict):
+            updates.update(patch)
+        updates.update(kwargs)
+        rejected = []
+        with self._lock:
+            cand = copy.deepcopy(self._config)
+            if "allow_insecure_local" in updates and updates["allow_insecure_local"] is not None:
+                cand["allow_insecure_local"] = bool(updates["allow_insecure_local"])
+            allow_local = bool(cand.get("allow_insecure_local"))
+            if "discovery_urls" in updates and updates["discovery_urls"] is not None:
+                valid_d, rej_d = self._validate_service_urls(updates["discovery_urls"], "discovery", allow_local)
+                cand["discovery_urls"] = valid_d
+                rejected.extend(rej_d)
+            if "relay_urls" in updates and updates["relay_urls"] is not None:
+                valid_r, rej_r = self._validate_service_urls(updates["relay_urls"], "relay", allow_local)
+                cand["relay_urls"] = valid_r
+                rejected.extend(rej_r)
+            if "discovery_auth_tokens" in updates and isinstance(updates["discovery_auth_tokens"], dict):
+                cand["discovery_auth_tokens"] = {str(k).strip().rstrip("/"): str(v).strip() for k, v in updates["discovery_auth_tokens"].items() if str(v or "").strip()}
+            if "relay_auth_token" in updates and updates["relay_auth_token"] is not None:
+                cand["relay_auth_token"] = str(updates["relay_auth_token"] or "").strip()
+            if "stun_servers" in updates and updates["stun_servers"] is not None:
+                parsed_stun = _parse_stun_servers(updates["stun_servers"])
+                cand["stun_servers"] = [f"{h}:{p}" for h, p in parsed_stun]
+            for bkey in ("offline_only", "allow_relay_fallback", "allow_p2p_direct", "wg_enabled"):
+                if bkey in updates and updates[bkey] is not None:
+                    cand[bkey] = bool(updates[bkey])
+            if "direct_p2p_port" in updates and updates["direct_p2p_port"] is not None:
+                p = int(updates["direct_p2p_port"])
+                if not (0 <= p <= 65535):
+                    raise ValueError("direct_p2p_port must be 0..65535")
+                cand["direct_p2p_port"] = p
+            if "local_http_url" in updates and updates["local_http_url"] is not None:
+                cand["local_http_url"] = str(updates["local_http_url"] or "").strip()
+            if "region_hint" in updates and updates["region_hint"] is not None:
+                cand["region_hint"] = str(updates["region_hint"] or "").strip()[:32]
+            if "display_name" in updates and updates["display_name"] is not None:
+                cand["display_name"] = str(updates["display_name"] or "").strip()[:64]
+            if "visibility" in updates and updates["visibility"] is not None:
+                cand["visibility"] = _normalize_visibility(updates["visibility"])
+            if "access_mode" in updates and updates["access_mode"] is not None:
+                acc = _normalize_access_mode(updates["access_mode"])
+                cand["access_mode"] = acc
+                cand["access_policy"] = acc
+            elif "access_policy" in updates and updates["access_policy"] is not None:
+                acc = _normalize_access_mode(updates["access_policy"])
+                cand["access_mode"] = acc
+                cand["access_policy"] = acc
+            if "max_participants" in updates and updates["max_participants"] is not None:
+                mp = int(updates["max_participants"])
+                if not (1 <= mp <= 128):
+                    raise ValueError("max_participants must be 1..128")
+                cand["max_participants"] = mp
+                cand["max_peers"] = mp
+            elif "max_peers" in updates and updates["max_peers"] is not None:
+                mp = int(updates["max_peers"])
+                if not (1 <= mp <= 128):
+                    raise ValueError("max_peers must be 1..128")
+                cand["max_participants"] = mp
+                cand["max_peers"] = mp
+            if "bandwidth_kbps" in updates and updates["bandwidth_kbps"] is not None:
+                cand["bandwidth_kbps"] = max(0, int(updates["bandwidth_kbps"]))
+            if "per_peer_rpm" in updates and updates["per_peer_rpm"] is not None:
+                cand["per_peer_rpm"] = max(0, int(updates["per_peer_rpm"]))
+            if "wg_interface" in updates and updates["wg_interface"] is not None:
+                cand["wg_interface"] = net_wireguard.validate_profile_name(str(updates["wg_interface"]).strip())
+            if "heartbeat_interval_s" in updates and updates["heartbeat_interval_s"] is not None:
+                cand["heartbeat_interval_s"] = max(5.0, min(120.0, float(updates["heartbeat_interval_s"])))
+            if "listing_ttl_s" in updates and updates["listing_ttl_s"] is not None:
+                cand["listing_ttl_s"] = max(15, min(120, int(updates["listing_ttl_s"])))
+            if "rpc_allowed_ports" in updates and updates["rpc_allowed_ports"] is not None:
+                cand["rpc_allowed_ports"] = [int(p) for p in updates["rpc_allowed_ports"] if 1 <= int(p) <= 65535]
+            self._config = cand
+            self._save_config()
+            out_cfg = copy.deepcopy(self._config)
+        return {"status": "ok", "config": out_cfg, "rejected_urls": rejected}
+    def _record_tofu_pin(self, node_id, pubkey_b64=None, name=None, mode=None, endpoint=None):
+        if not node_id or not net_identity.NODE_ID_RE.match(str(node_id)):
+            return
+        now = time.time()
+        with self._lock:
+            pins = self._peers_state.setdefault("tofu_pins", {})
+            prev = pins.get(node_id)
+            if isinstance(prev, dict) and prev.get("pubkey_b64") and pubkey_b64 and not hmac.compare_digest(prev["pubkey_b64"], pubkey_b64):
+                raise net_tunnel.TunnelAuthError(f"TOFU pubkey mismatch for {node_id}")
+            entry = prev if isinstance(prev, dict) else {"node_id": node_id, "first_seen": now}
+            if pubkey_b64:
