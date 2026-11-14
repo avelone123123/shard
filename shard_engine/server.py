@@ -1397,11 +1397,11 @@ def api_training_overview(req: Request, check_remote: bool = False):
         return denied
     return training.training_overview(check_remote=bool(check_remote))
 @app.get("/api/training/soup")
-def api_training_soup(req: Request):
+def api_training_soup(req: Request, check_remote: bool = False):
     denied = _deny_non_owner(req)
     if denied:
         return denied
-    return soup_adapter.detect_soup(probe_deps=True)
+    return soup_adapter.detect_soup(probe_deps=True, check_remote=bool(check_remote))
 @app.post("/api/training/soup/install")
 async def api_training_soup_install(req: Request):
     denied = _deny_non_owner(req)
