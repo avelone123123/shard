@@ -1510,12 +1510,12 @@ async function loadLanPreview() {
         const modeTxt = p.access_mode === 'open' ? '<span style="color:var(--success);font-weight:600;">Открытый вход (без кода)</span>' : '<span style="color:var(--warning);font-weight:600;">По коду подключения (ABCD-EFGH)</span>';
         const fbTxt = p.allow_remote_feedback ? 'Отправка отзывов для обучения включена (по явному согласию)' : 'Отзывы от удалённых участников отключены';
         box.innerHTML = '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">' +
-            '<div><b>Сервер:</b> <span style="color:#fff;">' + escHtml(p.server_name || 'SHARD Host') + '</span></div>' +
-            '<div><b>Модель:</b> <span style="color:#38bdf8;">' + escHtml(p.active_model || 'Не загружена') + '</span></div>' +
+            '<div><b>Сервер:</b> <span style="color:var(--text);">' + escHtml(p.server_name || 'SHARD Host') + '</span></div>' +
+            '<div><b>Модель:</b> <span style="color:var(--accent-text);">' + escHtml(p.active_model || 'Не загружена') + '</span></div>' +
             '<div><b>Доступ:</b> ' + modeTxt + '</div>' +
             '<div><b>Участников:</b> ' + (p.member_count || 0) + ' (воркеров: ' + (p.worker_count || 0) + ')</div>' +
             '</div>' +
-            '<div style="color:#94a3b8;font-size:11px;">' + escHtml(p.privacy_notice || p.privacy_note || '') + ' &bull; ' + fbTxt + '</div>';
+            '<div style="color:var(--text-secondary);font-size:11px;">' + escHtml(p.privacy_notice || p.privacy_note || '') + ' &bull; ' + fbTxt + '</div>';
     } catch(e) {}
 }
 async function lanKickMember(ip, block) {
@@ -1548,13 +1548,13 @@ async function lanRefresh() {
     try {
         const res = await fetch('/api/lan/status', {headers: getAuthHeaders()});
         if (res.status === 401 || res.status === 403) {
-            box.innerHTML = '<div style="background:#0d1117;border:1px solid #1e3a8a;border-radius:8px;padding:12px;font-size:13px;color:#cbd5e1;">Подключитесь ниже как клиент (введите код доступа или нажмите кнопку для открытого сервера), чтобы получить токен участника.</div>';
+            box.innerHTML = '<div style="background:var(--surface-sunken);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:12px;font-size:13px;color:var(--text-secondary);">Подключитесь ниже как клиент (введите код доступа или нажмите кнопку для открытого сервера), чтобы получить токен участника.</div>';
             return;
         }
         const st = await res.json();
         renderLanStatus(st);
     } catch(e) {
-        box.innerHTML = '<div style="color:#f85149;font-size:13px;">Shard Server недоступен.</div>';
+        box.innerHTML = '<div style="color:var(--danger);font-size:13px;">Shard Server недоступен.</div>';
     }
 }
 let lastLanStatus = null;
@@ -1563,30 +1563,29 @@ function renderLanStatus(st) {
     if (!st) { box.innerHTML = ''; return; }
     lastLanStatus = st;
     const labels = {off:'выключена', server:'мастер', worker:'вычислительный узел', member:'участник (клиент)'};
-    const colors = {off:'#8b949e', server:'#3fb950', worker:'#58a6ff', member:'#bc8cff'};
+    const modeCls = {off:'compat-neutral', server:'compat-ok', worker:'compat-info', member:'compat-warn'};
     const mode = st.mode || 'off';
-    const modeColor = colors[mode] || '#8b949e';
+    const modePillCls = modeCls[mode] || 'compat-neutral';
     let html = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">' +
-        '<span style="background:#0d1117;border:1px solid ' + modeColor + '44;color:' + modeColor +
-        ';border-radius:20px;padding:2px 10px;font-size:12px;">' + lanEsc(labels[mode] || mode) + '</span>' +
-        '<span style="font-size:13px;color:#e6edf3;">Сеть: ' + lanEsc(st.name || '') + '</span>';
+        '<span class="compat-pill ' + modePillCls + '">' + lanEsc(labels[mode] || mode) + '</span>' +
+        '<span style="font-size:13px;color:var(--text);">Сеть: ' + lanEsc(st.name || '') + '</span>';
     if (mode === 'server' && !shardBoot.client_mode) {
         if (st.open) {
-            html += ' <span style="background:#0d1117;border:1px solid #10b98144;color:#10b981;border-radius:20px;padding:2px 10px;font-size:12px;">открытая</span>' +
+            html += ' <span class="compat-pill compat-ok">открытая</span>' +
                 '<button class="btn-action" style="font-size:11px;padding:2px 10px;" onclick="lanToggleOpen(false)">Закрыть сеть</button>';
         } else {
-            html += ' <span style="background:#0d1117;border:1px solid #8b949e44;color:#8b949e;border-radius:20px;padding:2px 10px;font-size:12px;">закрытая (код)</span>' +
+            html += ' <span class="compat-pill compat-neutral">закрытая (код)</span>' +
                 '<button class="btn-action" style="font-size:11px;padding:2px 10px;" onclick="lanToggleOpen(true)">Открыть сеть</button>';
         }
     }
     if (shardBoot.client_mode && clientLanSession && clientLanSession.token) {
-        html += ' <span style="background:#0d1117;border:1px solid #10b98144;color:#10b981;border-radius:20px;padding:2px 10px;font-size:12px;">клиент авторизован</span>';
+        html += ' <span class="compat-pill compat-ok">клиент авторизован</span>';
     }
     html += '</div>';
     if (st.ip) {
-        html += '<div style="font-size:12px;color:#8b949e;">IP этой машины: <b style="color:#e6edf3;">' + lanEsc(st.ip) + '</b>';
+        html += '<div style="font-size:12px;color:var(--text-muted);">IP этой машины: <b style="color:var(--text);">' + lanEsc(st.ip) + '</b>';
         if (st.pairing_code) {
-            html += ' &middot; Код подключения: <b style="color:#e6edf3;cursor:pointer;" title="Скопировать" data-copy="' + lanEsc(st.pairing_code) + '" onclick="copyValue(this.dataset.copy, \'Код подключения\')">' + lanEsc(st.pairing_code) + '</b>';
+            html += ' &middot; Код подключения: <b style="color:var(--text);cursor:pointer;" title="Скопировать" data-copy="' + lanEsc(st.pairing_code) + '" onclick="copyValue(this.dataset.copy, \'Код подключения\')">' + lanEsc(st.pairing_code) + '</b>';
         }
         html += '</div>';
     }
