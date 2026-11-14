@@ -792,6 +792,34 @@ def preview_dataset_paginated(snapshot_id, page=1, page_size=20):
             item = None
             try:
                 parsed = json.loads(stripped)
+                item = _extract_structured_record(parsed, fmt_hint, line_no, idx)
+            except Exception as e:
+                item = {
+                    "index": idx,
+                    "line_number": line_no,
+                    "prompt": stripped[:200],
+                    "chosen": "",
+                    "rejected": "",
+                    "record_type": "corrupted",
+                    "validation_status": "invalid",
+                    "validation_error": f"Malformed JSON: {e}",
+                    "raw": {"raw_line": stripped[:500]},
+                }
+            if item["validation_status"] == "valid":
+                valid_count += 1
+            else:
+                invalid_count += 1
+            if start_idx <= idx < end_idx:
+                records.append(item)
+            idx += 1
+    total_records = idx
+    total_pages = max(1, (total_records + size_num - 1) // size_num)
+    return {
+        "snapshot_id": snapshot_id,
+        "dataset": m,
+        "page": page_num,
+        "page_size": size_num,
+        "total_records": total_records,
 def compute_stats():
     with _LOCK:
         with storage.file_lock(_feedback_path()):
