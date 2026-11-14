@@ -578,16 +578,20 @@ def install_or_repair_soup(action="install", custom_python=None, background=True
     act = str(action or "install").strip().lower()
     if act not in ("install", "update", "repair"):
         raise ValueError("action must be install, update, or repair")
+    validated_py = _validate_custom_python(custom_python) if custom_python else None
     with _INSTALL_LOCK:
         if _INSTALL_STATE.get("status") == "running":
             return get_soup_install_status()
+        init_lc = "UPDATING" if act == "update" else "CHECKING_ENVIRONMENT"
         _INSTALL_STATE.update({
             "status": "running",
+            "lifecycle_state": init_lc,
+            "stage": "Инициализация установщика SOUP",
             "action": act,
             "progress_pct": 5,
             "step": "Инициализация установщика SOUP",
             "logs": [f"Starting SOUP {act}..."],
-            "venv_dir": str(Path(paths.data_dir()) / "soup-venv"),
+            "venv_dir": paths.soup_venv_dir(),
             "python_executable": None,
             "error": None,
             "started_at": time.time(),
