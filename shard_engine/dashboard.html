@@ -3408,3 +3408,113 @@ async function trnBuildDataset() {
     showToast('Датасет собран', data.dataset.snapshot_id + ' (' + data.dataset.record_count + ' записей)');
     trnRefresh(false);
 }
+function renderTrnDatasets(datasets) {
+    const sel = document.getElementById('trnJobDataset');
+    const prevVal = sel ? sel.value : '';
+    if (sel) {
+        sel.innerHTML = datasets.map(d => '<option value="' + lanEsc(d.snapshot_id) + '">' + lanEsc(d.snapshot_id) + ' (' + lanEsc(d.task) + ', ' + d.record_count + ')</option>').join('') || '<option value="">Сначала соберите датасет</option>';
+        if (prevVal) sel.value = prevVal;
+    }
+    document.getElementById('trnDatasetsList').innerHTML = datasets.map(d =>
+        '<div style="padding:7px;border:1px solid #1e2638;border-radius:5px;margin-bottom:6px;background:#0a0d14;display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+        '<div><div style="color:#e2e8f0;font-weight:600;">' + lanEsc(d.snapshot_id) + '</div>' +
+        '<div style="font-size:11px;color:#8892a4;">' + lanEsc(d.task) + '/' + lanEsc(d.format) + ' | записей: ' + d.record_count + ' | dedup: ' + (d.dedup_removed || 0) + '</div></div>' +
+        '<button class="fb-btn" data-id="' + escHtml(d.snapshot_id) + '" onclick="trnPreviewDataset(this.dataset.id)">Просмотр</button>' +
+        '</div>'
+    ).join('') || 'Нет датасетов';
+}
+async function trnPreviewDataset(snapshotId) {
+    try {
+        const res = await fetch('/api/training/datasets/' + encodeURIComponent(snapshotId));
+        if (!res.ok) return;
+        const d = await res.json();
+        const modal = document.getElementById('modelModalBackdrop');
+        document.getElementById('modalModelTitle').innerText = 'Датасет: ' + snapshotId;
+        document.getElementById('modalModelAuthor').innerText = 'Формат: ' + ((d.dataset && d.dataset.task) || 'sft') + ' | Записей: ' + ((d.dataset && d.dataset.record_count) || 0);
+        document.getElementById('modalStats').innerHTML = '<span style="color:#38bdf8;">SHA256: ' + escHtml((d.dataset && d.dataset.sha256) || '').slice(0, 16) + '...</span>';
+        document.getElementById('modalLaunchBtn').style.display = 'none';
+        const hfLink = document.getElementById('modalHfLink');
+        if (hfLink) hfLink.style.display = 'none';
+        const recs = (d.sample_records || []).map(r => '<pre style="background:#080a0f;border:1px solid #1e2638;padding:8px;border-radius:5px;font-size:11px;color:#cbd5e1;white-space:pre-wrap;margin-bottom:6px;">' + escHtml(JSON.stringify(r, null, 2)) + '</pre>').join('') || '<div style="color:#64748b;">Нет записей</div>';
+        document.getElementById('modalModelBody').innerHTML = recs;
+        modal.style.display = 'flex';
+    } catch(e) {}
+}
+async function trnStartJob() {
+    const payload = {
+        dataset_snapshot_id: document.getElementById('trnJobDataset').value,
+        base_model: document.getElementById('trnJobBase').value.trim() || null,
+        task: document.getElementById('trnJobTask').value,
+        unload_inference: !!document.getElementById('trnJobUnload').checked,
+        dry_run: !!document.getElementById('trnJobDryRun').checked,
+        params: {
+            quantization: document.getElementById('trnJobQuant').value,
+            epochs: parseInt(document.getElementById('trnJobEpochs').value || '3', 10),
+            lr: parseFloat(document.getElementById('trnJobLr').value || '0.00002')
+        }
+    };
+    const res = await fetch('/api/training/jobs/start', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        showToast('Ошибка запуска', data.message || 'Не удалось запустить обучение');
+        return;
+    }
+    showToast('Обучение', data.job.job_id + ' (' + data.job.status + ')');
+    trnRefresh(false);
+    trnInspectJob(data.job.job_id);
+}
+function renderTrnJobs(jobs) {
+    document.getElementById('trnJobsList').innerHTML = jobs.map(j => {
+        const p = j.progress || {};
+        const ptxt = (p.current_step != null ? ('step ' + p.current_step + '/' + (p.total_steps || '?') + ' ') : '') + (p.last_loss != null ? ('loss=' + p.last_loss) : '');
+        return '<div class="trn-row">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<div><b>' + lanEsc(j.job_id) + '</b> <span style="color:#38bdf8;">[' + lanEsc(j.status) + ']</span> <span style="color:#8892a4;font-size:11px;">' + lanEsc(j.task) + ' | ' + lanEsc(j.base_model) + '</span></div>' +
+            '<div style="display:flex;gap:6px;">' +
+            '<button class="fb-btn" data-id="' + escHtml(j.job_id) + '" onclick="trnInspectJob(this.dataset.id)">Логи</button>' +
+            (j.status === 'running' ? '<button class="fb-btn" style="color:#f87171;" data-id="' + escHtml(j.job_id) + '" onclick="trnCancelJob(this.dataset.id)">Отменить</button>' : '') +
+            ((j.status === 'failed' || j.status === 'cancelled' || j.status === 'interrupted') ? '<button class="fb-btn" data-id="' + escHtml(j.job_id) + '" onclick="trnResumeJob(this.dataset.id)">Продолжить</button>' : '') +
+            '</div></div>' +
+            (ptxt ? '<div style="font-size:11px;color:#10b981;margin-top:4px;">' + lanEsc(ptxt) + '</div>' : '') +
+            (j.error ? '<div style="font-size:11px;color:#f87171;margin-top:4px;">' + lanEsc(j.error) + '</div>' : '') +
+            '</div>';
+    }).join('') || '<div class="trn-row" style="color:#64748b;">Заданий пока нет.</div>';
+}
+async function trnInspectJob(jobId) {
+    const res = await fetch('/api/training/jobs/' + encodeURIComponent(jobId));
+    if (!res.ok) return;
+    const d = await res.json();
+    const box = document.getElementById('trnJobLogBox');
+    box.style.display = 'block';
+    document.getElementById('trnJobLogTitle').innerText = 'Лог ' + jobId + ' (' + d.job.status + ')';
+    document.getElementById('trnJobLogPre').innerText = (d.job.log_tail || []).join('\n') || d.job.dry_run_output || 'Лог пуст';
+}
+async function trnCancelJob(jobId) {
+    const res = await fetch('/api/training/jobs/' + encodeURIComponent(jobId) + '/cancel', {method: 'POST'});
+    if (res.ok) { showToast('Остановлено', jobId); trnRefresh(false); }
+}
+async function trnResumeJob(jobId) {
+    const res = await fetch('/api/training/jobs/' + encodeURIComponent(jobId) + '/resume', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({checkpoint: 'auto'})
+    });
+    const d = await res.json();
+    showToast(res.ok ? 'Возобновлено' : 'Ошибка', res.ok ? jobId : d.message);
+    trnRefresh(false);
+}
+function renderTrnVersions(reg) {
+    const list = reg.versions || [];
+    document.getElementById('trnVersionsList').innerHTML = list.map(v => {
+        const cmp = v.comparison;
+        const evalTxt = cmp ? ('Baseline: ' + (cmp.baseline_accuracy * 100).toFixed(1) + '% -> Candidate: ' + (cmp.candidate_accuracy * 100).toFixed(1) + '% (' + (cmp.delta_accuracy >= 0 ? '+' : '') + (cmp.delta_accuracy * 100).toFixed(1) + '%)') : ('Eval: ' + (v.eval_status || 'not_run'));
+        return '<div class="trn-row">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">' +
+            '<div><b>' + lanEsc(v.version_id) + '</b> ' + (v.deployed ? '<span style="color:#10b981;font-weight:700;">[АКТИВНА В SHARD]</span>' : '<span style="color:#94a3b8;">[' + lanEsc(v.approval_status) + ']</span>') + ' <span style="font-size:11px;color:#64748b;">' + lanEsc(v.artifact_type) + ' | от ' + lanEsc(v.parent_version) + '</span></div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+            '<button class="fb-btn" data-id="' + escHtml(v.version_id) + '" onclick="trnEvalVersion(this.dataset.id)">Оценить (Eval)</button>' +
+            '<button class="fb-btn" data-id="' + escHtml(v.version_id) + '" onclick="trnPrepareVersion(this.dataset.id, \'merged\')">Merge HF</button>' +
+            '<button class="fb-btn" data-id="' + escHtml(v.version_id) + '" onclick="trnPrepareVersion(this.dataset.id, \'gguf\')">Export GGUF</button>' +
+            '<button class="fb-btn selected" data-id="' + escHtml(v.version_id) + '" onclick="trnApproveVersion(this.dataset.id, true)">Одобрить</button>' +
