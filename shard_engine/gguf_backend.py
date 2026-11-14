@@ -218,3 +218,113 @@ def find_gguf_repo(model_id, timeout=4.0):
     author = model_id.split("/")[0] if "/" in model_id else ""
     name = model_id.split("/")[-1]
     name_clean = re.sub(r"(?i)[-_]?instruct$", "", name)
+    name_no_gguf = re.sub(r"(?i)[-_]?gguf$", "", name)
+    candidates = [
+        f"{author}/{name_no_gguf}-GGUF" if author else None,
+        f"Qwen/{name_no_gguf}-GGUF" if "qwen" in name.lower() else None,
+        f"bartowski/{name_no_gguf}-GGUF",
+        f"unsloth/{name_no_gguf}-GGUF",
+        f"MaziyarPanahi/{name_no_gguf}-GGUF",
+        f"TheBloke/{name_no_gguf}-GGUF",
+        f"gg-hf-g/{name_no_gguf}-GGUF",
+        f"bartowski/{name_clean}-GGUF" if name_clean != name_no_gguf else None,
+        f"unsloth/{name_clean}-GGUF" if name_clean != name_no_gguf else None,
+        f"MaziyarPanahi/{name_clean}-GGUF" if name_clean != name_no_gguf else None,
+        f"gg-hf-g/{name_clean}-GGUF" if name_clean != name_no_gguf else None,
+        f"{author}/{name}" if author and author != name else None,
+    ]
+    seen = set()
+    found = None
+    for cand in candidates:
+        if not cand or cand.lower() in seen:
+            continue
+        seen.add(cand.lower())
+        if cand.lower().endswith("-gguf"):
+            if _repo_exists(cand, timeout):
+                found = cand
+                break
+        else:
+            if _repo_has_gguf(cand, timeout):
+                found = cand
+                break
+    if not found:
+        found = _search_gguf_repo(name_no_gguf, timeout) or _search_gguf_repo(name_clean, timeout)
+    if found:
+        _repo_cache[model_id] = found
+    return found
+def _search_gguf_repo(name_clean, timeout=5.0):
+    try:
+        import requests
+        r = requests.get(
+            "https://huggingface.co/api/models",
+            params={"search": f"{name_clean} gguf", "sort": "downloads",
+                    "direction": -1, "limit": 20},
+            timeout=timeout)
+        if r.status_code != 200:
+            return None
+        low = name_clean.lower()
+        for item in r.json():
+            rid = item.get("id", "")
+            if not rid.lower().endswith("-gguf"):
+                continue
+            if low in rid.lower() or low.replace("-", "") in rid.lower().replace("-", ""):
+                return rid
+        return None
+    except Exception:
+        return None
+def list_gguf_files(repo_id, timeout=8.0):
+    try:
+        import requests
+        r = requests.get(
+            f"https://huggingface.co/api/models/{repo_id}/tree/main",
+            params={"recursive": "true"}, timeout=timeout)
+        if r.status_code != 200:
+            return []
+        out = []
+        for e in r.json():
+            p = e.get("path", "")
+            if p.lower().endswith(".gguf") and not p.endswith("/"):
+                out.append((p, int(e.get("size", 0) or 0)))
+        return out
+    except Exception:
+        return []
+def list_available_quants(repo_id, timeout=8.0):
+    gguf_repo = find_gguf_repo(repo_id, timeout=timeout) or repo_id
+    files = list_gguf_files(gguf_repo, timeout=timeout)
+    if not files:
+        return {"repo_id": gguf_repo, "quants": []}
+    groups = {}
+    for path, size in files:
+        m = _PART_RE.match(os.path.basename(path))
+        if m:
+            key = f"{os.path.dirname(path)}/{m.group(1)}".lstrip("/")
+            g = groups.setdefault(key, {"parts": [], "total": 0})
+            g["parts"].append(path)
+            g["total"] += size
+        elif _MULTIPART_RE.search(os.path.basename(path)):
+            pm = re.match(r"(?i)(.*)-\d{5}-of-\d{3,}\.gguf$", os.path.basename(path))
+            if pm:
+                key = f"{os.path.dirname(path)}/{pm.group(1)}".lstrip("/")
+                g = groups.get(key)
+                if g is not None:
+                    g["parts"].append(path)
+                    g["total"] += size
+        else:
+            groups[path] = {"parts": [path], "total": size}
+    quants = []
+    for _, g in groups.items():
+        if not g["parts"]:
+            continue
+        rep = g["parts"][0]
+        q = parse_quant_from_name(rep)
+        if not q:
+            continue
+        quants.append({
+            "quant": q,
+            "bpw": QUANT_BPW.get(q, 0.0),
+            "size_bytes": g["total"],
+            "size_gb": round(g["total"] / (1024 ** 3), 2),
+            "path": rep,
+            "multipart": len(g["parts"]) > 1,
+            "parts": g["parts"],
+        })
