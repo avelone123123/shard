@@ -768,3 +768,50 @@ def scan_output_artifacts(output_dir):
         merged_dir = str(out)
     elif (out / "merged" / "config.json").is_file():
         merged_dir = str(out / "merged")
+    for p in sorted(out.glob("**/*.gguf")):
+        sp = str(p)
+        if sp not in gguf_files:
+            gguf_files.append(sp)
+    return {
+        "checkpoints": checkpoints,
+        "adapter_dir": adapter_dir,
+        "adapter_files": adapter_files,
+        "merged_dir": merged_dir,
+        "gguf_files": gguf_files,
+    }
+def run_custom_eval(soup_info, model_path, tasks_jsonl, output_json_path, timeout=600):
+    Path(output_json_path).parent.mkdir(parents=True, exist_ok=True)
+    res = _run_soup_cmd(
+        soup_info,
+        ["eval", "custom", "--tasks", str(tasks_jsonl), "--model", str(model_path), "--output", str(output_json_path)],
+        timeout=timeout,
+    )
+    metrics = None
+    if os.path.isfile(output_json_path):
+        try:
+            with open(output_json_path, "r", encoding="utf-8") as f:
+                metrics = json.load(f)
+        except Exception:
+            metrics = None
+    res["metrics"] = metrics
+    return res
+def run_merge(soup_info, adapter_path, output_dir, base_model=None, dtype="float16", low_memory=True, timeout=600):
+    args = ["merge", "--adapter", str(adapter_path), "--output", str(output_dir), "--dtype", str(dtype)]
+    if base_model:
+        args.extend(["--base", str(base_model)])
+    if low_memory:
+        args.append("--low-memory")
+    res = _run_soup_cmd(soup_info, args, timeout=timeout)
+    res["output_dir"] = str(output_dir) if os.path.isdir(output_dir) else None
+    return res
+def run_export_gguf(soup_info, model_path, output_file, quant="q4_k_m", base_model=None, timeout=900):
+    q = str(quant or "q4_k_m").strip().lower()
+    if q not in SOUP_VALID_GGUF_QUANTS:
+        return {"ok": False, "returncode": -1, "stdout": "", "stderr": f"Unsupported GGUF quant '{q}'", "output_file": None}
+    Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+    args = ["export", "--model", str(model_path), "--format", "gguf", "--quant", q, "-o", str(output_file)]
+    if base_model:
+        args.extend(["--base", str(base_model)])
+    res = _run_soup_cmd(soup_info, args, timeout=timeout)
+    res["output_file"] = str(output_file) if os.path.isfile(output_file) else None
+    return res
