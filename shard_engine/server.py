@@ -149,6 +149,17 @@ async def lifespan(_app):
     except Exception:
         pass
     try:
+        updater.check_for_updates_async(force=False, timeout=2.0)
+    except Exception:
+        pass
+    try:
+        threading.Thread(
+            target=lambda: soup_adapter.check_latest_soup_version(force=False, timeout=2.5, allow_network=True),
+            daemon=True,
+        ).start()
+    except Exception:
+        pass
+    try:
         yield
     finally:
         try:
