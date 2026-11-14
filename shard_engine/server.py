@@ -620,6 +620,36 @@ def api_drives(req: Request):
         "current": settings.models_dir(),
         "disk": settings.disk_info()
     }
+@app.get("/api/system/update")
+def api_system_update_check(req: Request, force: bool = False, prerelease: bool = False):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {
+        "status": "ok",
+        "install": updater.detect_installation_method(),
+        "check": updater.check_for_updates(force=bool(force), timeout=3.5, allow_network=True, allow_prerelease=bool(prerelease)),
+        "job": updater.get_update_status(),
+    }
+@app.post("/api/system/update/apply")
+async def api_system_update_apply(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        st = updater.start_update_async(
+            target_version=data.get("target_version"),
+            force=bool(data.get("force", False)),
+            allow_prerelease=bool(data.get("allow_prerelease", False)),
+        )
+        return {"status": "ok", "job": st}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/system/update/status")
 @app.get("/api/fit/{model_id:path}")
 def api_fit(model_id: str, req: Request):
     denied = _deny_non_owner(req)
