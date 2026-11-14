@@ -178,11 +178,8 @@ pip install "shard-engine[full]"
 To install the latest development snapshot directly from GitHub:
 ```bash
 pip install "git+https://github.com/avelone123123/shard.git"
-
-# Full install: adds PyTorch/Transformers safetensors & Hugging Face extras
 pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
-*Note on PyPI:* The `shard-engine` package is pending initial index release on PyPI. Once published, `pip install shard-engine` and `pip install "shard-engine[full]"` will install directly from PyPI.
 
 Verify your environment right after installation:
 ```bash
