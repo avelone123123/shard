@@ -9,7 +9,7 @@ import socket
 import subprocess
 import sys
 import time
-from . import __app_name__, __version__, paths, process, storage
+from . import __app_name__, __version__, paths, process, storage, updater
 if hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -169,6 +169,9 @@ def cmd_start(args):
     daemon = bool(getattr(args, "daemon", False))
     no_browser = bool(getattr(args, "no_browser", False))
     print_banner()
+    upd_line = updater.startup_check_banner()
+    if upd_line:
+        print(upd_line)
     if daemon:
         ok, res = process.start_background(host=host, port=port, no_browser=True)
         if not ok:
