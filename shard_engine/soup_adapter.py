@@ -290,7 +290,7 @@ def _find_uv_binary():
 def find_compatible_python(custom_python=None):
     raw_cands = []
     if custom_python:
-        raw_cands.append(str(custom_python).strip())
+        raw_cands.append(_validate_custom_python(custom_python))
     raw_cands.extend(_candidate_python_paths())
     if os.name == "nt":
         py_launcher = shutil.which("py")
@@ -313,6 +313,7 @@ def find_compatible_python(custom_python=None):
         for ver_tag in ("312", "313", "311"):
             if local_app:
                 raw_cands.append(os.path.join(local_app, "Programs", "Python", f"Python{ver_tag}", "python.exe"))
+                raw_cands.append(os.path.join(local_app, "Python", f"pythoncore-{ver_tag[:1]}.{ver_tag[1:]}-64", "python.exe"))
             raw_cands.append(os.path.join(f"C:\\Python{ver_tag}", "python.exe"))
             raw_cands.append(os.path.join(prog_files, f"Python{ver_tag}", "python.exe"))
     else:
