@@ -27,3 +27,11 @@ Per explicit user instruction (**Option B — Modern Slate**), all visual refine
 ### Connect & API Workspace
 - **Eliminated mid-token URL wrapping** in the right endpoint sidebar by widening `.connect-container` desktop sidebar column to `416px` and refining `.ep-val` (`11px`, word-boundary wrapping): `http://localhost:8000/v1/messages/count_tokens` now renders on a single line (`lines: 1`, `height: 15px`) instead of breaking into `count_t` + `okens`.
 - **Technical script blocks**: added crisp `#39B8A8` left accent rule on `.script-box` and bounded container horizontal overflow on mobile.
+
+### Chat Workspace
+- **XSS-safe formatted response rendering** (`renderChatContent` & `copyChatCodeBlock`): escapes HTML first via `escapeHtml()`, renders fenced code blocks (```` ```lang ... ``` ````) with language header and interactive `Копировать` button, formats inline code spans and bold markers cleanly. Applied both to loaded history (`renderActiveChatMessages`) and live stream completion (`sendChat`).
+- **Workstation empty state** (`#chatEmptyState`): displays grounded runtime readiness badges (`Ожидает запуска модели` / `Модель активна`, `Enter — отправить`, `Zero-Copy Streaming`) without fake messages or fabricated metrics.
+- **Feedback policy pill**: styled `#chatFeedbackPolicyBadge` as a bordered technical pill button instead of a raw browser underline link.
+- **Mobile usability (`375x812` & `768x1024`)**: collapsed `.chat-sidebar` into a compact top strip and tuned mobile `.chat-container` height (`calc(100vh - 280px)`) so both `#chatEmptyState` and the `#chatInput` / `Отправить` composer bar fit cleanly above the fold on `375x812`.
+
+### Server Hub, Network / LAN & Training / SOUP
