@@ -1976,7 +1976,7 @@ async function netLoadInvites() {
         const data = await res.json();
         const invs = data.invites || [];
         if (invs.length === 0) {
-            el.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;text-align:center;">Нет активных инвайтов. Сгенерируйте инвайт выше.</div>';
+            el.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px;background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-sm);text-align:center;">Нет активных инвайтов. Сгенерируйте инвайт выше.</div>';
             return;
         }
         el.innerHTML = invs.map(inv => {
