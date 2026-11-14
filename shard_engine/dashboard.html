@@ -4682,7 +4682,7 @@ function checkTrainingBaseHint() {
     if (!inp || !hint) return;
     const v = inp.value.trim();
     if (!v) {
-        hint.style.color = '#8892a4';
+        hint.style.color = 'var(--text-muted)';
         hint.innerText = 'Для SOUP нужна HF-модель (config.json + safetensors), не .gguf';
         return;
     }
