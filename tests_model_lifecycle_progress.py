@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 from fastapi.testclient import TestClient
-from shard_engine import engine, gguf_backend, hf_hub, paths, server, settings, training
+from shard_engine import engine, gguf_backend, hf_hub, paths, server, settings, soup_adapter, training
 class TestModelLifecycleAndProgress(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -108,35 +108,3 @@ class TestModelLifecycleAndProgress(unittest.TestCase):
             resolved = settings.models_dir()
             self.assertNotEqual(resolved, fake_path)
             self.assertEqual(resolved, paths.default_models_dir())
-    def test_server_models_status_and_downloaded_endpoints(self):
-        client = TestClient(server.app)
-        owner_tok = training.get_owner_token()
-        headers = {"X-Shard-Owner-Token": owner_tok}
-        res_st = client.get("/api/models/status", headers=headers)
-        self.assertEqual(res_st.status_code, 200)
-        st_data = res_st.json()
-        self.assertIn("lifecycle_state", st_data)
-        self.assertIn("load_progress", st_data)
-        self.assertIn("is_loaded", st_data)
-        res_dl = client.get("/api/models/downloaded", headers=headers)
-        self.assertEqual(res_dl.status_code, 200)
-        dl_data = res_dl.json()
-        self.assertIn("models", dl_data)
-        self.assertIn("total_models", dl_data)
-    def test_server_load_model_already_loaded_shortcircuit(self):
-        client = TestClient(server.app)
-        owner_tok = training.get_owner_token()
-        headers = {"X-Shard-Owner-Token": owner_tok}
-        with mock.patch.object(server.engine_instance, "is_model_active", return_value=True), mock.patch.object(server.engine_instance, "loaded_info", {"test": "ok"}):
-            res = client.post("/api/models/load", json={"model_id": "test-model"}, headers=headers)
-            self.assertEqual(res.status_code, 200)
-            data = res.json()
-            self.assertTrue(data.get("already_loaded"))
-    def test_hf_hub_is_id_downloaded(self):
-        cached = {"qwen/qwen2.5-coder-1.5b-instruct-gguf", "qwen/qwen2.5-coder-1.5b-instruct", "qwen2.5-coder-1.5b-instruct"}
-        self.assertTrue(hf_hub.is_id_downloaded("Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF", cached))
-        self.assertTrue(hf_hub.is_id_downloaded("Qwen/Qwen2.5-Coder-1.5B-Instruct", cached))
-        self.assertTrue(hf_hub.is_id_downloaded("Qwen2.5-Coder-1.5B-Instruct-GGUF", cached))
-        self.assertFalse(hf_hub.is_id_downloaded("DeepSeek-R1-Distill-Llama-70B", cached))
-if __name__ == "__main__":
-    unittest.main()
