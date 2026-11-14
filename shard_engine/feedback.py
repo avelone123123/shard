@@ -820,6 +820,34 @@ def preview_dataset_paginated(snapshot_id, page=1, page_size=20):
         "page": page_num,
         "page_size": size_num,
         "total_records": total_records,
+        "valid_count": valid_count,
+        "invalid_count": invalid_count,
+        "total_pages": total_pages,
+        "records": records,
+    }
+def validate_dataset_snapshot(snapshot_id, task=None, check_with_soup=False):
+    errors = []
+    warnings = []
+    try:
+        m = verify_dataset_integrity(snapshot_id)
+    except Exception as e:
+        return {
+            "ok": False,
+            "snapshot_id": snapshot_id,
+            "format": None,
+            "task": task,
+            "total_lines": 0,
+            "valid_records": 0,
+            "invalid_records": 0,
+            "errors": [str(e)],
+            "warnings": [],
+            "soup_validation": None,
+        }
+    p = Path(m["path"])
+    fmt_hint = m.get("format") or m.get("task") or "chatml"
+    task_norm = str(task or m.get("task") or "sft").strip().lower()
+    if task_norm == "dpo" and str(m.get("format") or "").lower() != "dpo":
+        errors.append("Задача DPO требует датасет в формате dpo (prompt/chosen/rejected).")
 def compute_stats():
     with _LOCK:
         with storage.file_lock(_feedback_path()):
