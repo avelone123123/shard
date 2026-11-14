@@ -46,3 +46,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
             updater.validate_git_ref("v1.8.0; rm -rf /")
         self.assertEqual(updater.validate_git_ref("v1.8.0"), "v1.8.0")
     def test_02_updater_zip_slip_and_sha256_verification(self):
+        good_zip = self._root / "good.zip"
+        with zipfile.ZipFile(good_zip, "w") as zf:
+            zf.writestr("shard-v1.8.1/shard_engine/__init__.py", '__version__ = "1.8.1"\n')
+        good_sha = storage.sha256_file(good_zip)
+        v_good = updater.verify_archive_artifact(good_zip, expected_sha256=good_sha)
+        self.assertTrue(v_good["valid"])
+        self.assertEqual(v_good["sha256"], good_sha.lower())
+        with self.assertRaises(ValueError):
+            updater.verify_archive_artifact(good_zip, expected_sha256="0" * 64)
+        bad_zip = self._root / "zipslip.zip"
+        with zipfile.ZipFile(bad_zip, "w") as zf:
+            zf.writestr("../../evil.txt", "pwn")
+        with self.assertRaises(ValueError):
+            updater.verify_archive_artifact(bad_zip)
+    def test_03_updater_check_states_and_rollback_preserves_user_data(self):
+        cfg_file = Path(paths.config_dir()) / "settings.json"
