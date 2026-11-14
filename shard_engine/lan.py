@@ -1538,3 +1538,5 @@ def _free_port():
     s.bind(("127.0.0.1", 0))
     port = s.getsockname()[1]
     s.close()
+    return port
+LAN = LanManager(start_background=False)
