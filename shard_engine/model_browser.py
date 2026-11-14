@@ -502,3 +502,27 @@ def list_roots():
         if os.path.exists(rp):
             try:
                 recent.append(classify_model_path(rp, deep_size=False))
+            except Exception:
+                pass
+        elif _SAFE_HF_ID_RE.match(rp):
+            recent.append({
+                "path": rp,
+                "name": rp,
+                "is_dir": False,
+                "format": "hf_repo_id",
+                "format_label": "Hugging Face Repo ID",
+                "valid": True,
+                "size_str": "Remote HF",
+                "compatibility": _compat_block(True, "Будет найден GGUF-вариант или загружен с HF.", True, "HF модель.", True, "Официальный ID модели Hugging Face для SOUP обучения.", resolved_base=rp),
+            })
+    return {
+        "drives": drives,
+        "shortcuts": shortcuts,
+        "recent": recent,
+        "models_dir": settings.models_dir(),
+    }
+def _breadcrumbs(path_obj):
+    crumbs = []
+    cur = path_obj
+    chain = [cur]
+    while cur.parent != cur:
