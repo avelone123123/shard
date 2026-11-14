@@ -1057,8 +1057,9 @@ def scan_output_artifacts(output_dir):
     for d in search_dirs:
         if (d / "adapter_config.json").is_file():
             adapter_dir = str(d)
-        adapter_dir = str(out)
-        adapter_files = sorted(str(p) for p in out.iterdir() if p.is_file())
+            adapter_files = sorted(str(p) for p in d.iterdir() if p.is_file())
+            break
+    if not adapter_dir:
     if (out / "config.json").is_file() and any(out.glob("*.safetensors")) and not adapter_dir:
         merged_dir = str(out)
     elif (out / "merged" / "config.json").is_file():
