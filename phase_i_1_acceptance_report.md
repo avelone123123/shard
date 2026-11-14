@@ -41,3 +41,18 @@ Tested inside clean virtual environments outside the repository directory (`%TEM
   - `[full]` ML dependencies verified in `venv_wheel`: `torch 2.15.0`, `transformers 5.23.0`, `accelerate 1.15.0`, `safetensors 0.8.0`, `huggingface_hub 2.4.0`.
   - Packaged dashboard asset inside site-packages: `dashboard.html` (`300591` bytes).
   - CLI checks run outside repository (`%TEMP%\shard_pypi_accept`) with isolated `SHARD_*_DIR`:
+    - `shard.exe --version` -> `shard-engine 1.8.0` (`Python 3.14.4`)
+    - `shard.exe help` -> exit `0`, full CLI command help printed cleanly
+    - `shard.exe doctor` -> `Doctor summary: 0 error(s), 2 warning(s)` (`dashboard.html` & `engine_optimizations.json` packaged/readable, `llama-server.exe`, `ggml-rpc-server.exe`, `NVIDIA GeForce RTX 2050`; warnings: optional `Native SIMD Core` fallback and `Port 8000` already in use by pre-existing process)
+    - `shard.exe start --daemon --host 127.0.0.1 --port 18089 --no-browser` -> started `PID 24084`; `GET /v1/ping` returned `{"status":"ok","version":"1.8.0","engine":"shard-local-engine",...}`; `GET /` returned `HTTP 200` (`300823` bytes); `shard.exe status` reported `ONLINE`; `shard.exe stop` stopped `PID 24084`.
+  - **Observed CLI quirk**: Running foreground `shard start --port 18089` without an isolated `SHARD_DATA_DIR` while another SHARD daemon owns port `8000` exits with `[ERROR] SHARD is already running (PID 15520, port 8000)`.
+
+---
+
+## 2. Real Dashboard Browser Verification
+
+- **Tooling constraint**: Chrome DevTools MCP (`browser` subagent) was `BLOCKED` by `ENOENT: ...\DevToolsActivePort`. All browser checks were executed against a real Chromium instance via Playwright on `http://127.0.0.1:18088` backed by an isolated `SHARD_DATA_DIR`.
+- **Console & network telemetry**:
+  - `Page errors: 0 []`
+  - `Unexpected failed requests: 0 []`
+  - Post-restart `HTTP >=400: []`
