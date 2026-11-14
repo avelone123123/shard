@@ -658,3 +658,113 @@ def parse_invite_uri(uri: str) -> dict:
         invite_token = t
     name_vals = qs.get("name") or []
     clean_name = "".join(ch for ch in str(name_vals[0]) if ord(ch) >= 32 and ord(ch) != 127).strip()[:64] if name_vals else ""
+    return {
+        "node_id": nid_vals[0],
+        "invite_token": invite_token,
+        "name": clean_name,
+        "relays": _clean_uri_items(qs.get("relay") or [], max_items=8, max_len=512),
+        "direct_endpoints": _clean_uri_items(qs.get("direct") or [], max_items=8, max_len=256),
+        "discovery_urls": _clean_uri_items(qs.get("discovery") or [], max_items=8, max_len=512),
+    }
+def _classify_ip_block(ip_obj, allow_loopback: bool) -> str | None:
+    if isinstance(ip_obj, ipaddress.IPv6Address):
+        if ip_obj.teredo is not None:
+            return "teredo_blocked"
+        if ip_obj.sixtofour is not None:
+            sub = _classify_ip_block(ip_obj.sixtofour, allow_loopback)
+            if sub:
+                return f"sixtofour_{sub}"
+        if ip_obj.ipv4_mapped is not None:
+            sub = _classify_ip_block(ip_obj.ipv4_mapped, allow_loopback)
+            if sub:
+                return f"ipv4_mapped_{sub}"
+            return None
+        if ip_obj.is_loopback:
+            return None if allow_loopback else "loopback_blocked"
+        if ip_obj.is_unspecified:
+            return "unspecified_blocked"
+        if ip_obj.is_multicast:
+            return "multicast_blocked"
+        if ip_obj.is_link_local:
+            return "link_local_blocked"
+        if ip_obj.is_private or ip_obj.is_reserved:
+            return "private_or_reserved_blocked"
+        for net in _BLOCKED_V6_NETS:
+            if ip_obj in net:
+                return "blocked_ipv6_range"
+        if not ip_obj.is_global:
+            return "non_global_ip_blocked"
+        return None
+    if ip_obj.is_loopback:
+        return None if allow_loopback else "loopback_blocked"
+    if ip_obj.is_unspecified:
+        return "unspecified_blocked"
+    if ip_obj.is_multicast:
+        return "multicast_blocked"
+    if ip_obj.is_link_local:
+        return "link_local_blocked"
+    if ip_obj.is_private or ip_obj.is_reserved:
+        return "private_or_reserved_blocked"
+    for net in _BLOCKED_V4_NETS:
+        if ip_obj in net:
+            return "blocked_ipv4_range"
+    if not ip_obj.is_global:
+        return "non_global_ip_blocked"
+    return None
+def _is_loopback_ip(ip_obj) -> bool:
+    if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped is not None:
+        return ip_obj.ipv4_mapped.is_loopback
+    return ip_obj.is_loopback
+def validate_external_service_url(url: str, kind: str = "discovery", allow_insecure_local: bool | None = None) -> tuple[bool, str, dict]:
+    if allow_insecure_local is None:
+        allow_local = os.environ.get("SHARD_ALLOW_INSECURE_LOCAL") == "1"
+    else:
+        allow_local = bool(allow_insecure_local)
+    if kind not in ("discovery", "relay"):
+        return False, "invalid_kind", {}
+    if not isinstance(url, str) or not url or len(url) > 512:
+        return False, "invalid_length", {}
+    if url != url.strip() or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in url):
+        return False, "whitespace_or_control_chars", {}
+    if "\\" in url or "\x23" in url:
+        return False, "forbidden_url_characters", {}
+    try:
+        parsed = urlsplit(url)
+    except Exception:
+        return False, "invalid_url", {}
+    scheme = (parsed.scheme or "").lower()
+    secure_schemes = ("https",) if kind == "discovery" else ("wss",)
+    local_schemes = ("http",) if kind == "discovery" else ("ws",)
+    if scheme in secure_schemes:
+        is_insecure_scheme = False
+    elif scheme in local_schemes:
+        if not allow_local:
+            return False, "insecure_scheme_blocked", {}
+        is_insecure_scheme = True
+    else:
+        return False, "unsupported_scheme", {}
+    if parsed.fragment:
+        return False, "fragment_not_allowed", {}
+    if parsed.username is not None or parsed.password is not None or "@" in parsed.netloc:
+        return False, "credentials_not_allowed", {}
+    try:
+        port_val = parsed.port
+    except ValueError:
+        return False, "invalid_port", {}
+    if port_val is not None and not (1 <= port_val <= 65535):
+        return False, "invalid_port", {}
+    port = port_val if port_val is not None else (443 if scheme in ("https", "wss") else 80)
+    raw_host = parsed.hostname or ""
+    if "%" in raw_host or "%" in parsed.netloc:
+        return False, "zone_id_or_encoding_not_allowed", {}
+    try:
+        host = raw_host.strip().lower().rstrip(".").encode("idna").decode("ascii").lower().rstrip(".")
+    except UnicodeError:
+        return False, "invalid_host", {}
+    if not host or len(host) > 253:
+        return False, "invalid_host", {}
+    is_localhost_name = host == "localhost" or host.endswith(".localhost")
+    if is_localhost_name and not allow_local:
+        return False, "blocked_hostname", {}
+    if host in ("metadata", "instance-data") or host.startswith("metadata.") or any(host.endswith(suf) for suf in (".local", ".internal", ".arpa")):
+        return False, "blocked_hostname", {}
