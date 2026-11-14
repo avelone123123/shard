@@ -328,3 +328,113 @@ def udp_punch_exchange(bind_port, peer_host, peer_port, nonce_token, timeout_s=1
                     "local_port": local_port,
                     "remote": f"{addr[0]}:{addr[1]}",
                     "mode": "ack",
+                }
+            if len(data) == len(punch_pkt) and hmac.compare_digest(data, punch_pkt):
+                try:
+                    sock.sendto(ack_pkt, addr)
+                    sock.sendto(ack_pkt, addr)
+                except OSError:
+                    pass
+                return {
+                    "ok": True,
+                    "rtt_ms": round((time.perf_counter() - t_first) * 1000.0, 3),
+                    "local_port": local_port,
+                    "remote": f"{addr[0]}:{addr[1]}",
+                    "mode": "echo",
+                }
+    except Exception as exc:
+        return {"ok": False, "rtt_ms": None, "local_port": local_port, "remote": None, "error": f"{type(exc).__name__}:{exc}"}
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
+def _normalize_http_base(url):
+    raw = str(url or "").strip()
+    if not raw:
+        return None
+    if not raw.lower().startswith(("http://", "https://")):
+        raw = "http://" + raw
+    parsed = urlsplit(raw)
+    if parsed.scheme.lower() not in ("http", "https") or not parsed.netloc:
+        return None
+    return f"{parsed.scheme.lower()}://{parsed.netloc}".rstrip("/")
+def probe_direct_http(url, expected_node_id=None, identity=None, timeout=2.0, session=None):
+    base = _normalize_http_base(url)
+    if not base:
+        return {"ok": False, "url": str(url or ""), "rtt_ms": None, "ping": None, "bootstrap": None, "node_id": None, "reason": "invalid_url"}
+    to_s = max(0.2, float(timeout))
+    own_sess = session is None
+    sess = session
+    if own_sess:
+        sess = requests.Session()
+        sess.trust_env = False
+    try:
+        headers = {"Accept": "application/json"}
+        if identity is not None and getattr(identity, "node_id", None):
+            headers["X-Shard-Peer-Node"] = str(identity.node_id)
+        t0 = time.perf_counter()
+        resp = sess.get(f"{base}/v1/ping", headers=headers, timeout=to_s, allow_redirects=False)
+        rtt_ms = round((time.perf_counter() - t0) * 1000.0, 3)
+        if int(resp.status_code) != 200:
+            return {"ok": False, "url": base, "rtt_ms": rtt_ms, "ping": None, "bootstrap": None, "node_id": None, "reason": f"http_{resp.status_code}"}
+        try:
+            ping_data = resp.json()
+        except Exception:
+            return {"ok": False, "url": base, "rtt_ms": rtt_ms, "ping": None, "bootstrap": None, "node_id": None, "reason": "invalid_ping_json"}
+        if not isinstance(ping_data, dict) or (ping_data.get("status") != "ok" and "version" not in ping_data):
+            return {"ok": False, "url": base, "rtt_ms": rtt_ms, "ping": ping_data if isinstance(ping_data, dict) else None, "bootstrap": None, "node_id": None, "reason": "invalid_ping_payload"}
+        boot_data = None
+        try:
+            b_resp = sess.get(f"{base}/api/client/bootstrap", headers=headers, timeout=to_s, allow_redirects=False)
+            if int(b_resp.status_code) == 200:
+                cand = b_resp.json()
+                if isinstance(cand, dict):
+                    boot_data = cand
+        except Exception:
+            boot_data = None
+        found_nid = ping_data.get("node_id") or (boot_data.get("node_id") if isinstance(boot_data, dict) else None)
+        found_nid = str(found_nid).strip() if found_nid else None
+        if expected_node_id:
+            exp = str(expected_node_id).strip()
+            if not found_nid:
+                return {"ok": False, "url": base, "rtt_ms": rtt_ms, "ping": ping_data, "bootstrap": boot_data, "node_id": None, "reason": "node_id_unverified"}
+            if not hmac.compare_digest(found_nid, exp):
+                return {"ok": False, "url": base, "rtt_ms": rtt_ms, "ping": ping_data, "bootstrap": boot_data, "node_id": found_nid, "reason": "node_id_mismatch"}
+        return {"ok": True, "url": base, "rtt_ms": rtt_ms, "ping": ping_data, "bootstrap": boot_data, "node_id": found_nid, "reason": "ok"}
+    except Exception as exc:
+        return {"ok": False, "url": base, "rtt_ms": None, "ping": None, "bootstrap": None, "node_id": None, "reason": f"{type(exc).__name__}:{exc}"}
+    finally:
+        if own_sess:
+            try:
+                sess.close()
+            except Exception:
+                pass
+def _run_coro_sync(coro, timeout=None):
+    try:
+        asyncio.get_running_loop()
+        in_loop = True
+    except RuntimeError:
+        in_loop = False
+    if not in_loop:
+        return asyncio.run(coro)
+    box = {}
+    err = {}
+    def _worker():
+        try:
+            box["val"] = asyncio.run(coro)
+        except BaseException as exc:
+            err["exc"] = exc
+    th = threading.Thread(target=_worker, daemon=True)
+    th.start()
+    th.join(timeout=timeout)
+    if th.is_alive():
+        raise TimeoutError("Async operation timed out")
+    if "exc" in err:
+        raise err["exc"]
+    return box.get("val")
+def probe_direct_e2e_tcp(host, port, expected_host_id, identity, auth_proof=None, timeout=3.0):
+    host_s = str(host or "").strip().strip("[]")
+    if not host_s:
+        return {"ok": False, "endpoint": "", "rtt_ms": None, "node_id": None, "reason": "invalid_host"}
+    try:
