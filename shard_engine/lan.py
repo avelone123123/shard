@@ -548,3 +548,113 @@ def find_rpc_server():
         os.path.join(os.path.expanduser("~"), ".shard", "runtime"),
         os.path.join(here, "native"),
         os.path.join(os.path.dirname(here), "native"),
+        os.path.join(os.getcwd(), "native"),
+    ]
+    for d in search_dirs:
+        if not os.path.isdir(d):
+            continue
+        for exe_name in names:
+            p = os.path.join(d, exe_name)
+            if os.path.isfile(p):
+                return p
+            hits = glob.glob(os.path.join(d, "**", exe_name), recursive=True)
+            if hits:
+                return hits[0]
+    for exe_name in names:
+        which = shutil.which(exe_name)
+        if which:
+            return which
+    return None
+def worker_cmd(port, exe=None, host="0.0.0.0"):
+    exe = exe or find_rpc_server()
+    if not exe:
+        raise RuntimeError(
+            f"{RPC_EXE} не найден в {_paths.runtime_dir()} — "
+            "установите llama.cpp runtime (или запустите модель с GGUF) "
+            "либо подключитесь как обычный участник без --share")
+    bind_host = str(host or "0.0.0.0").strip() or "0.0.0.0"
+    return [exe, "--host", bind_host, "--port", str(int(port))]
+class LanManager:
+    def __init__(self, state_path=None, start_background=False):
+        self._state_path = state_path
+        self._lock = threading.RLock()
+        self._stop = threading.Event()
+        self._runtime_stop = threading.Event()
+        self._threads = {}
+        self._listen_thread = None
+        self._runtime_started = False
+        self._peers = {}
+        self._rpc_proc = None
+        self._hb_failures = 0
+        self._hb_state = "idle"
+        self._last_hb_save = 0.0
+        self._hw_peak = {}
+        self._rebal_note = None
+        self._rebal_err_ticks = 0
+        self._rpc_applied = None
+        self._state = self._load()
+        if start_background:
+            self.start_runtime()
+    def _default_state(self):
+        return {
+            "mode": "off",
+            "name": socket.gethostname() or "shard",
+            "node_id": secrets.token_hex(8),
+            "pairing_code": None,
+            "master": None,
+            "members": [],
+            "blocked": [],
+            "open": False,
+            "created_at": None,
+            "target_model": None,
+            "rpc_port": None,
+        }
+    def _load(self):
+        p = self._state_path or lan_file()
+        default = self._default_state()
+        with _storage.file_lock(p):
+            d = _storage.read_json_safe(p, default=default, expected_type=dict, quarantine=True, use_backup=True)
+            if not isinstance(d, dict):
+                return default
+            for k, v in default.items():
+                d.setdefault(k, v)
+            if not isinstance(d.get("members"), list):
+                d["members"] = []
+            if not isinstance(d.get("blocked"), list):
+                d["blocked"] = []
+            if not d.get("node_id"):
+                d["node_id"] = secrets.token_hex(8)
+            return d
+    def _save(self):
+        with self._lock:
+            snap = json.loads(json.dumps(self._state, ensure_ascii=False))
+        p = self._state_path or lan_file()
+        try:
+            _storage.atomic_write_json(p, snap, indent=2, fsync=True, backup=True, restrict=True)
+        except Exception:
+            pass
+    def start_runtime(self):
+        with self._lock:
+            if self._runtime_started:
+                return
+            self._runtime_started = True
+            self._runtime_stop.clear()
+            if self._listen_thread is None or not self._listen_thread.is_alive():
+                self._listen_thread = threading.Thread(target=self._listen_loop, daemon=True)
+                self._listen_thread.start()
+            mode = self._state.get("mode")
+        if mode in ("server", "worker", "member"):
+            threading.Thread(target=self._resume, daemon=True).start()
+    def stop_runtime(self):
+        with self._lock:
+            self._runtime_started = False
+            self._stop.set()
+            self._runtime_stop.set()
+            threads = list(self._threads.values())
+            lt = self._listen_thread
+        if self._rpc_proc is not None:
+            self._stop_worker()
+        for t in threads:
+            if t.is_alive():
+                t.join(timeout=1.5)
+        if lt is not None and lt.is_alive():
