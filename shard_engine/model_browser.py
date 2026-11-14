@@ -94,3 +94,27 @@ def is_sensitive_path(path_obj):
             if _has_subpath_seq(parts_lower, seq):
                 return True
         norm_posix = cand.replace("\\", "/").lower()
+        for pref in _POSIX_BLOCKED_PREFIXES:
+            if norm_posix == pref or norm_posix.startswith(pref + "/"):
+                return True
+    return False
+def validate_browse_path(raw_path):
+    raw = str(raw_path or "").strip()
+    if not raw or "\x00" in raw or any(ord(c) < 32 for c in raw):
+        raise ValueError("Invalid path.")
+    if raw.startswith("\\\\") or raw.startswith("//"):
+        raise PermissionError("Network UNC paths are not permitted.")
+    expanded = os.path.expanduser(raw)
+    resolved = os.path.realpath(os.path.abspath(expanded))
+    if resolved.startswith("\\\\") or resolved.startswith("//"):
+        raise PermissionError("Network UNC paths are not permitted.")
+    if os.name == "nt":
+        drv, _ = os.path.splitdrive(resolved)
+        if not drv or not re.match(r"^[A-Za-z]:$", drv):
+            raise ValueError("Path must be anchored to a valid local drive.")
+    if is_sensitive_path(expanded) or is_sensitive_path(resolved):
+        raise PermissionError("Access to system or sensitive credential directory is blocked.")
+    return Path(resolved)
+def _fmt_size(size_bytes):
+    if size_bytes is None or size_bytes < 0:
+        return "0 МБ"
