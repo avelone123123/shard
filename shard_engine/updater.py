@@ -502,3 +502,27 @@ def create_update_backup(install_info=None):
         paths.data_dir(),
         paths.config_dir(),
         output_path=bdir / f"pre-update-state-{ts}.zip",
+        include_runs=False,
+        include_datasets=False,
+    )
+    pkg_dir = Path(info["package_dir"]).resolve()
+    pkg_zip = bdir / f"pre-update-pkg-{__version__}-{ts}.zip"
+    tmp_zip = pkg_zip.with_name(f".{pkg_zip.name}.{os.getpid()}.tmp")
+    manifest_files = {}
+    with zipfile.ZipFile(str(tmp_zip), "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for root, dirs, files in os.walk(str(pkg_dir)):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            for fn in files:
+                if fn.endswith((".pyc", ".pyo")):
+                    continue
+                fp = Path(root) / fn
+                rel = fp.relative_to(pkg_dir).as_posix()
+                raw = fp.read_bytes()
+                manifest_files[rel] = hashlib.sha256(raw).hexdigest()
+                zf.writestr(f"shard_engine/{rel}", raw)
+        meta = {
+            "version": __version__,
+            "created_at": time.time(),
+            "method": info.get("method"),
+            "package_dir": str(pkg_dir),
+            "repo_root": info.get("repo_root"),
