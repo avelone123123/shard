@@ -3508,13 +3508,12 @@ async function pollSoupInstallStatus() {
     try {
         const res = await fetch('/api/training/soup/install/status', {headers: getAuthHeaders()});
         if (!res.ok) return;
-        const st = await res.json();
-        const box = document.getElementById('trnSoupInstallBox');
-        if (box) {
-            const logs = (st.logs || []).slice(-4).join(' | ');
-            box.innerText = '[' + (st.status || 'idle') + '] ' + (st.stage || '') + (st.error ? (' — ' + st.error) : '') + (logs ? (' // ' + logs) : '');
-        }
-        if (!st.running) {
+        const data = await res.json();
+        const inst = data.installer || {};
+        _renderSoupInstallerBox(inst);
+        const activeStates = ['CHECKING_ENVIRONMENT', 'FINDING_PYTHON', 'CREATING_VENV', 'INSTALLING', 'VERIFYING', 'UPDATING'];
+        const stillRunning = !!inst.running || activeStates.includes(inst.lifecycle_state);
+        if (!stillRunning) {
             if (soupInstallPollTimer) { clearInterval(soupInstallPollTimer); soupInstallPollTimer = null; }
             if (st.status === 'completed') {
                 showToast('SOUP установлен', 'Окружение SOUP готово к обучению');
