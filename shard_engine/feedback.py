@@ -554,6 +554,8 @@ def build_dataset_snapshot(task="sft", base_model=None, name=None, include_pendi
                             f"SOUP dataset validation failed: {(soup_val.get('stderr') or soup_val.get('stdout') or 'invalid schema')[:240]}"
                         )
             rel_path = storage.normalize_rel_path(str(jsonl_path), paths.data_dir())
+            rejected_cnt = sum(int(v) for v in (skip_reasons or {}).values()) if isinstance(skip_reasons, dict) else 0
+            val_status = "soup_verified" if (soup_val and soup_val.get("ok")) else "schema_valid"
             manifest = {
                 "snapshot_id": snap_id,
                 "name": name or snap_id,
