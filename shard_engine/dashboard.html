@@ -4407,6 +4407,51 @@ async function mbConfirmSelect(targetMode) {
         const val = trn.resolved_base_model || mbSelectedItem.path;
         const inp = document.getElementById('trnJobBase');
         if (inp) inp.value = val;
+        checkTrainingBaseHint();
+        closeModelBrowser();
+        showToast('Базовая модель выбрана', val);
+        return;
+    }
+    if (targetMode === 'models_dir') {
+        const dirInp = document.getElementById('dirPathInput');
+        if (dirInp) dirInp.value = mbSelectedItem.path;
+        closeModelBrowser();
+        openDirPicker();
+        return;
+    }
+    if (targetMode === 'inference') {
+        const res = await fetch('/api/models/load', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({model_id: mbSelectedItem.path})
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showToast('Ошибка загрузки', d.message || 'Не удалось загрузить локальную модель');
+            return;
+        }
+        closeModelBrowser();
+        showToast('Загрузка модели', mbSelectedItem.name || mbSelectedItem.path);
+    }
+}
+function checkTrainingBaseHint() {
+    const inp = document.getElementById('trnJobBase');
+    const hint = document.getElementById('trnBaseCompatHint');
+    if (!inp || !hint) return;
+    const v = inp.value.trim();
+    if (!v) {
+        hint.style.color = '#8892a4';
+        hint.innerText = 'Для SOUP нужна HF-модель (config.json + safetensors), не .gguf';
+        return;
+    }
+    if (v.toLowerCase().includes('.gguf') || v.toLowerCase().endsWith('-gguf')) {
+        hint.style.color = '#f87171';
+        hint.innerText = 'Внимание: файлы/репо .gguf подходят только для инференса и заблокированы для обучения SOUP. Нажмите «Выбрать модель на ПК» или укажите базовый HF ID (например Qwen/Qwen2.5-Coder-1.5B-Instruct).';
+        return;
+    }
+    hint.style.color = '#10b981';
+    hint.innerText = 'Формат допустим для SOUP (выполните Preflight перед запуском).';
+}
 window.onload = function() {
     initChatSessions();
     loadFeedbackPolicy();
