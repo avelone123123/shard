@@ -2177,7 +2177,7 @@ function updateGuide() {
         if (activeApiKey) {
             keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#34d399;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg><span>Используется ваш API-ключ: <strong style="color:#fff;font-family:Consolas,monospace;background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">' + activeApiKey + '</strong></span></div>';
         } else {
-            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#fca5a5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>У вас пока нет активного ключа. <a href="javascript:void(0)" onclick="switchTab(\'keys\', document.querySelectorAll(\'.nav-btn\')[3])" style="color:#38bdf8;text-decoration:underline;font-weight:600;">Создайте ключ</a> во вкладке «API Ключи», чтобы он автоматически подставился в команды.</span></div>';
+            keyNoticeEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:6px;margin-bottom:14px;font-size:12px;color:#fca5a5;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>У вас пока нет активного ключа. <a href="javascript:void(0)" onclick="showTab(\'keys\', document.querySelectorAll(\'.nav-btn\')[3])" style="color:#38bdf8;text-decoration:underline;font-weight:600;">Создайте ключ</a> во вкладке «API Ключи», чтобы он автоматически подставился в команды.</span></div>';
         }
     }
     document.getElementById('guideTitle').innerText = 'Инструкция: ' + (toolNames[currentTool] || currentTool) + ' + ' + (osNames[currentOS] || currentOS);
@@ -2458,8 +2458,9 @@ async function fetchHardware() {
             return;
         }
         const data = await res.json();
-        const hw = data.hardware || {};
-        const eng = data.engine || {};
+    const hw = data.hardware || {};
+    const eng = data.engine || {};
+    if (data.version) syncHeaderUpdateState(data.version, null);
         const gpuEl = document.getElementById('hwGpu');
         if (gpuEl) gpuEl.innerText = (hw.gpu_name || 'CPU Only').replace(' Laptop GPU', '').replace('NVIDIA GeForce ', '');
         const vramEl = document.getElementById('hwVram');
@@ -3354,7 +3355,7 @@ async function openMyContributions() {
     const hfLink = document.getElementById('modalHfLink');
     if (hfLink) hfLink.style.display = 'none';
     const rowsHtml = (data.submissions || []).map(s => '<div class="trn-row"><b>' + escHtml(s.id) + '</b> [' + escHtml(s.status) + '] rating=' + escHtml(s.rating) + '</div>').join('') || '<div style="color:#64748b;">Вы ещё не отправляли вкладов.</div>';
-    document.getElementById('modalModelBody').innerHTML = '<div style="margin-bottom:12px;"><button class="btn-delete" onclick="revokeMyParticipation()">Отозвать согласие и удалить неопубликованные вклады</button></div>' + rowsHtml;
+    document.getElementById('modelModalBody').innerHTML = '<div style="margin-bottom:12px;"><button class="btn-delete" onclick="revokeMyParticipation()">Отозвать согласие и удалить неопубликованные вклады</button></div>' + rowsHtml;
     modal.style.display = 'flex';
 }
 async function revokeMyParticipation() {
@@ -3374,7 +3375,8 @@ function trnSubTab(name, btn) {
 }
 async function trnRefresh(probeSoup) {
     try {
-        const res = await fetch('/api/training/overview');
+        const url = '/api/training/overview' + (probeSoup ? '?check_remote=1' : '');
+        const res = await fetch(url, {headers: getAuthHeaders()});
         if (!res.ok) {
             if (res.status === 403) document.getElementById('trnSoupBanner').innerText = 'Управление обучением доступно только владельцу сервера (localhost или X-Shard-Owner-Token).';
             return;
