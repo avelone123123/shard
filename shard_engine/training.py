@@ -522,7 +522,7 @@ def start_training_job(
     soup_info = soup_adapter.detect_soup(custom_cmd=soup_cmd, probe_deps=True)
     if not soup_info.get("available"):
         raise RuntimeError(
-            "SOUP CLI is not available. " + (" ".join(soup_info.get("warnings") or []))
+            (soup_info.get("error_explanation") or "SOUP CLI is not available.") + " " + (" ".join(soup_info.get("warnings") or []))
         )
     if not soup_info.get("capabilities", {}).get("train"):
         raise RuntimeError(
@@ -531,14 +531,14 @@ def start_training_job(
     if not dataset_snapshot_id:
         raise ValueError("dataset_snapshot_id is required. Build an immutable dataset snapshot first.")
     manifest = feedback.verify_dataset_integrity(dataset_snapshot_id)
-    base = str(base_model or manifest.get("base_model") or engine_instance.active_model_id or "").strip()
-    if not base:
+    raw_base = str(base_model or manifest.get("base_model") or engine_instance.active_model_id or "").strip()
+    if not raw_base:
         raise ValueError("base_model must be specified or loaded in SHARD.")
-    if os.path.isfile(base) and base.lower().endswith(".gguf"):
-        raise ValueError("Training requires a Hugging Face model ID or HF directory as base_model, not a quantized .gguf file.")
+    base = model_browser.resolve_and_validate_training_base(raw_base)
     task_norm = str(task or manifest.get("task") or "sft").strip().lower()
-    if task_norm == "dpo" and manifest.get("format") != "dpo":
-        raise ValueError("DPO training requires a 'dpo' preference dataset snapshot (prompt/chosen/rejected).")
+    ds_val = feedback.validate_dataset_snapshot(dataset_snapshot_id, task=task_norm, check_with_soup=False)
+    if not ds_val.get("ok"):
+        raise ValueError("; ".join(ds_val.get("errors") or ["Dataset validation failed."]))
     eng_st = engine_instance.get_status()
     if eng_st.get("status") == "generating":
         raise RuntimeError("Inference engine is actively generating; wait or cancel generation before training.")
