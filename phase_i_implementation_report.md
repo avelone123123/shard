@@ -46,3 +46,19 @@ Phase I hardened SHARD's user-facing reliability across README installation inst
   - Fixed `modelModalBody`, `<span id="modalHfLink">`, paginated `/api/training/datasets/{id}/preview?page=...` rendering with `valid`/`invalid` badges, and `trnDsBuildSummary` stats box.
 
 ### 2.6 Dashboard Synchronization & JS Syntax Corruption Fixed (`shard_engine/dashboard.html`, `dashboard.html`)
+- **Critical Bug Caught During Final Audit:**
+  - `shard_engine/dashboard.html` (which `server.py` serves at `GET /` and packages into wheels) had drifted out of sync from root `dashboard.html`, contained 3 blank lines, duplicated blocks of `lanRefresh`, `renderTrnDatasets`, and `trnBackupState`, lost 87 top-level function definitions (`75` vs `162` top-level defs), had 8 broken `onclick` handlers (`lanJoin`, `lanJoinQuick`, `lanOff`, `netRunDiag`, `netSaveServersConfig`, `srvCreateIssue`, `srvSendCommunityMsg`, `srvSendSharedChat`), and failed `node --check` (`SyntaxError: Unexpected token 'catch'` at `<script>` line 1033).
+  - Root `dashboard.html` also had a legacy `onclick="switchTab('keys', ...)"` bug on line 2180 instead of `showTab('keys', ...)`.
+- **Fix:**
+  - Fixed `switchTab` -> `showTab` in `dashboard.html`, synced root `dashboard.html` cleanly to `shard_engine/dashboard.html` (300,374 bytes, byte-for-byte identical), and verified `node --check` exits `0`, zero blank lines, zero comments, zero emojis, and `missing_onclick=[]` in both files.
+
+---
+
+## 3. Files Modified & Created
+
+### Modified Files (13)
+1. `README.md` — PyPI install commands (`pip install shard-engine`, `pip install "shard-engine[full]"`).
+2. `README.ru.md` — Russian PyPI install commands.
+3. `README.kz.md` — Kazakh PyPI install commands.
+4. `shard_engine/paths.py` — Added `tools_dir`, `soup_venv_dir`, `update_cache_file`, `legacy_update_cache_file` (173 lines, 0 blanks, 0 comments).
+5. `shard_engine/settings.py` — Added `recent_model_paths` and `add_recent_model_path` (142 lines, 0 blanks, 0 comments).
