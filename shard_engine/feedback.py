@@ -438,3 +438,113 @@ def revoke_contributor(contributor_id, delete_existing=True):
                 if changed:
                     _save_entries_unlocked(entries)
             _append_audit("contributor_revoked", {"contributor_id": cid, "deleted_count": deleted_count})
+            return {"contributor_id": cid, "opted_out": True, "deleted_count": deleted_count}
+def _entry_to_sft_record(entry):
+    prompt = (entry.get("prompt") or "").strip()
+    better = (entry.get("better_response") or "").strip()
+    chosen = (entry.get("chosen") or "").strip()
+    resp = (entry.get("response") or "").strip()
+    rating = entry.get("rating")
+    assistant_text = ""
+    if better:
+        assistant_text = better
+    elif chosen:
+        assistant_text = chosen
+    elif rating == "up" and resp:
+        assistant_text = resp
+    if not prompt or not assistant_text:
+        reason = "downvote_without_correction" if rating == "down" else "missing_prompt_or_target"
+        return None, reason
+    return {
+        "messages": [
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": assistant_text},
+        ]
+    }, None
+def _entry_to_dpo_record(entry):
+    prompt = (entry.get("prompt") or "").strip()
+    chosen = (entry.get("chosen") or "").strip()
+    rejected = (entry.get("rejected") or "").strip()
+    if not chosen and entry.get("better_response"):
+        chosen = entry["better_response"].strip()
+    if not rejected and entry.get("rating") in ("down", "correction") and entry.get("response") and chosen:
+        rejected = entry["response"].strip()
+    if not prompt or not chosen or not rejected or chosen == rejected:
+        return None, "missing_distinct_chosen_rejected_pair"
+    return {
+        "prompt": prompt,
+        "chosen": chosen,
+        "rejected": rejected,
+    }, None
+def build_dataset_snapshot(task="sft", base_model=None, name=None, include_pending=False, validate_with_soup=True):
+    task_norm = str(task or "sft").strip().lower()
+    if task_norm not in ("sft", "dpo"):
+        raise ValueError("Dataset snapshot builder supports 'sft' (chatml) or 'dpo' preference pairs.")
+    fmt = "chatml" if task_norm == "sft" else "dpo"
+    with _LOCK:
+        with storage.file_lock(_feedback_path()), storage.file_lock(_optouts_path()):
+            entries = _load_entries_unlocked()
+            opts = _load_optouts()
+            allowed_statuses = {"approved", "pending"} if include_pending else {"approved"}
+            seen_hashes = set()
+            rows = []
+            skip_reasons = {}
+            dedup_removed = 0
+            redacted_entries = 0
+            total_checked = 0
+            local_count = 0
+            remote_count = 0
+            char_lengths = []
+            contrib_ids = set()
+            included_entries = []
+            for e in entries:
+                if e.get("status") not in allowed_statuses:
+                    continue
+                if e.get("contributor_id") in opts:
+                    skip_reasons["revoked_contributor"] = skip_reasons.get("revoked_contributor", 0) + 1
+                    continue
+                if not e.get("consent_given", False):
+                    skip_reasons["missing_consent"] = skip_reasons.get("missing_consent", 0) + 1
+                    continue
+                total_checked += 1
+                rec, reason = _entry_to_sft_record(e) if task_norm == "sft" else _entry_to_dpo_record(e)
+                if rec is None:
+                    skip_reasons[reason] = skip_reasons.get(reason, 0) + 1
+                    continue
+                canon = json.dumps(rec, sort_keys=True, ensure_ascii=False)
+                h = hashlib.sha256(canon.encode("utf-8")).hexdigest()
+                if h in seen_hashes:
+                    dedup_removed += 1
+                    continue
+                seen_hashes.add(h)
+                rows.append(rec)
+                included_entries.append(e)
+                if e.get("contributor_id"):
+                    contrib_ids.add(e["contributor_id"])
+                if e.get("redactions"):
+                    redacted_entries += 1
+                if e.get("source") == "remote":
+                    remote_count += 1
+                else:
+                    local_count += 1
+                char_lengths.append(len(canon))
+            if not rows:
+                raise ValueError(
+                    f"No eligible records to build {task_norm.upper()} dataset (checked={total_checked}, skips={skip_reasons})."
+                )
+            ds_dir = _datasets_dir()
+            ts_tag = time.strftime("%Y%m%d-%H%M%S")
+            slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", (name or f"{task_norm}-{ts_tag}")).strip("-") or f"{task_norm}-{ts_tag}"
+            snap_id = f"ds-{slug}-{uuid.uuid4().hex[:6]}"
+            jsonl_path = ds_dir / f"{snap_id}.jsonl"
+            payload_text = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows)
+            storage.atomic_write_text(jsonl_path, payload_text, fsync=True, backup=False)
+            file_sha = storage.sha256_file(jsonl_path)
+            soup_val = None
+            if validate_with_soup:
+                soup_info = soup_adapter.detect_soup(probe_deps=False)
+                if soup_info.get("available"):
+                    soup_val = soup_adapter.validate_dataset(soup_info, str(jsonl_path), fmt=fmt)
+                    if soup_val and not soup_val.get("ok"):
+                        try:
+                            jsonl_path.unlink()
