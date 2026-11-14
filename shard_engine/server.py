@@ -18,6 +18,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Str
 from . import __version__
 from . import feedback
 from . import gguf_backend
+from . import model_browser
 from . import net_identity
 from . import net_strategy
 from . import net_tunnel
@@ -27,6 +28,7 @@ from . import settings
 from . import soup_adapter
 from . import storage
 from . import training
+from . import updater
 from .engine import engine_instance
 from .fit import fit_report
 from .hardware import evaluate_compatibility, get_hardware_profile
