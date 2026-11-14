@@ -382,3 +382,27 @@ def classify_model_path(target_path, deep_size=False):
                 "base_model_name_or_path": base_ref,
                 "size_bytes": sz,
                 "size_str": _fmt_size(sz),
+                "compatibility": compat,
+            }
+        if p.name.startswith("models--") or (p / "snapshots").is_dir():
+            snap_root = p / "snapshots"
+            best_snap = None
+            has_hf_snap = False
+            has_gguf_snap = False
+            if snap_root.is_dir():
+                for ch in sorted(snap_root.iterdir()):
+                    if not ch.is_dir():
+                        continue
+                    if (ch / "config.json").is_file() and (any(ch.glob("*.safetensors")) or any(ch.glob("pytorch_model*.bin"))):
+                        best_snap = ch
+                        has_hf_snap = True
+                        break
+                    if any(ch.glob("*.gguf")):
+                        best_snap = best_snap or ch
+                        has_gguf_snap = True
+            hf_map = map_gguf_to_hf_base(str(p))
+            sz, partial = _bounded_dir_size(p, max_files=120) if deep_size else (0, False)
+            if has_hf_snap and best_snap:
+                compat = _compat_block(
+                    has_gguf_snap,
+                    "В снимке есть GGUF." if has_gguf_snap else "Кэш содержит веса Hugging Face SafeTensors.",
