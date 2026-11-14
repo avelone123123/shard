@@ -134,6 +134,12 @@ def training_salt_file():
     return str(data_dir() / "training" / ".privacy_salt")
 def backups_dir():
     return str(data_dir() / "backups")
+def tools_dir():
+    return str(data_dir() / "tools")
+def soup_venv_dir():
+    return str(data_dir() / "soup-venv")
+def update_cache_file():
+    return str(cache_dir() / "update_cache.json")
 def pid_file():
     return str(run_dir() / "shard.pid.json")
 def log_file():
