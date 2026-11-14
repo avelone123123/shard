@@ -2533,16 +2533,16 @@ function updateGuide() {
             }
         };
         manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к настройкам Zed:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">1. Путь к настройкам Zed:</div>' +
             '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте провайдер OpenAI с локальным URL в settings.json:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">2. Добавьте провайдер OpenAI с локальным URL в settings.json:</div>' +
             '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeZedManual"></pre><button class="btn-copy" onclick="copyText(\'codeZedManual\', \'Конфиг Zed скопирован\')">Скопировать</button></div>' +
         '</div>';
         const pre = document.getElementById('codeZedManual');
         if (pre) pre.innerText = JSON.stringify(zedCfg, null, 2);
     } else {
         manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Переменные окружения (Environment Variables):</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Переменные окружения (Environment Variables):</div>' +
             '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeEnvManual"></pre><button class="btn-copy" onclick="copyEnvManual()">Скопировать</button></div>' +
             '<div>Любой совместимый инструмент подтянет локальный сервер автоматически.</div>' +
         '</div>';
@@ -2567,16 +2567,16 @@ function copyText(id, toastMsg) {
 }
 async function runPingTest() {
     const el = document.getElementById('pingStatusText');
-    el.innerHTML = '<span style="color:#38bdf8;">Выполняется проверка соединения...</span>';
+    el.innerHTML = '<span style="color:var(--accent-text);">Выполняется проверка соединения...</span>';
     try {
         const t0 = performance.now();
         const res = await fetch('/v1/ping');
         const dt = (performance.now() - t0).toFixed(1);
         const data = await res.json();
-        el.innerHTML = '<span style="color:#10b981;font-weight:600;">200 OK — Эндпоинт активен!</span> Задержка: <b>' + dt + ' мс</b> | Ядро: <b>' + data.engine + '</b>';
+        el.innerHTML = '<span style="color:var(--success);font-weight:600;">200 OK — Эндпоинт активен!</span> Задержка: <b>' + dt + ' мс</b> | Ядро: <b>' + data.engine + '</b>';
         showToast('Эндпоинт доступен', 'Отклик: ' + dt + ' мс');
     } catch(e) {
-        el.innerHTML = '<span style="color:#ef4444;font-weight:600;">Ошибка соединения</span> Проверьте запущен ли локальный сервер Shard';
+        el.innerHTML = '<span style="color:var(--danger);font-weight:600;">Ошибка соединения</span> Проверьте запущен ли локальный сервер Shard';
     }
 }
 let isModelLoading = false;
@@ -2601,7 +2601,7 @@ async function fetchClientBootstrap() {
             const hwModelEl = document.getElementById('hwModel');
             if (hwModelEl) {
                 hwModelEl.innerText = shortName;
-                hwModelEl.style.color = '#10b981';
+                hwModelEl.style.color = 'var(--success)';
             }
             const chatModelEl = document.getElementById('chatActiveModel');
             if (chatModelEl) chatModelEl.innerText = shortName;
