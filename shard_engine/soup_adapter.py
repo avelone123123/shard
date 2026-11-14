@@ -637,13 +637,7 @@ def detect_soup(custom_cmd=None, probe_deps=True, check_remote=False):
     cli_available = False
     if cmd:
         try:
-            ver_res = subprocess.run(
-                cmd + ["--version"],
-                capture_output=True,
-                text=True,
-                timeout=8,
-                creationflags=_WIN_NO_WINDOW,
-            )
+            ver_res = subprocess.run(cmd + ["--version"], capture_output=True, text=True, timeout=8, creationflags=_WIN_NO_WINDOW)
             txt = (ver_res.stdout or ver_res.stderr or "").strip()
             m = re.search(r"(\d+\.\d+\.\d+(?:[a-zA-Z0-9._-]*)?)", txt)
             soup_version = m.group(1) if m else (txt[:48] if ver_res.returncode == 0 else None)
