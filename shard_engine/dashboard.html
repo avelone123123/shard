@@ -3721,22 +3721,26 @@ async function trnStartJob() {
     const payload = _collectTrainingPayload();
     const res = await fetch('/api/training/jobs/start', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: getAuthHeaders({'Content-Type': 'application/json'}),
         body: JSON.stringify(payload)
     });
     const data = await res.json();
     if (!res.ok) {
         showToast('Ошибка запуска', data.message || 'Не удалось запустить обучение');
+        const box = document.getElementById('trnPreflightBox');
+        if (box) box.innerHTML = '<div class="trn-row" style="color:#f87171;">' + lanEsc(data.message || 'Ошибка запуска') + '</div>';
         return;
     }
-    showToast('Обучение', data.job.job_id + ' (' + data.job.status + ')');
+    showToast('Обучение', data.job.job_id + ' (' + (data.job.lifecycle_state || data.job.status) + ')');
     trnRefresh(false);
     trnInspectJob(data.job.job_id);
 }
 function renderTrnJobs(jobs) {
     document.getElementById('trnJobsList').innerHTML = jobs.map(j => {
         const p = j.progress || {};
-        const ptxt = (p.current_step != null ? ('step ' + p.current_step + '/' + (p.total_steps || '?') + ' ') : '') + (p.last_loss != null ? ('loss=' + p.last_loss) : '');
+        const lstate = j.lifecycle_state || j.status;
+        const ptxt = (p.last_epoch != null ? ('epoch ' + p.last_epoch + ' ') : '') + (p.current_step != null ? ('step ' + p.current_step + '/' + (p.total_steps || '?') + ' ') : '') + (p.last_loss != null ? ('loss=' + p.last_loss) : '');
+        const cmdTxt = Array.isArray(j.command) && j.command.length ? j.command.join(' ') : '';
         return '<div class="trn-row">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
             '<div><b>' + lanEsc(j.job_id) + '</b> <span style="color:#38bdf8;">[' + lanEsc(j.status) + ']</span> <span style="color:#8892a4;font-size:11px;">' + lanEsc(j.task) + ' | ' + lanEsc(j.base_model) + '</span></div>' +
