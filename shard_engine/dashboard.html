@@ -1133,11 +1133,11 @@ macOS
 <div id="trn-panel-overview" class="trn-panel active">
 <div class="trn-grid" id="trnOverviewCards"></div>
 <div id="trnSoupBanner" class="trn-row" style="font-size:12px;">Проверка окружения SOUP...</div>
-<div style="font-size:12px;color:#94a3b8;margin:12px 0 6px;font-weight:600;">Журнал событий (Audit Log)</div>
+<div class="v-section-title" style="margin:12px 0 6px;">Журнал событий (Audit Log)</div>
 <div id="trnAuditList" class="trn-log" style="max-height:170px;">Нет событий</div>
 </div>
 <div id="trn-panel-feedback" class="trn-panel">
-<div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;">
+<div class="v-split-right">
 <div>
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
 <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -1146,18 +1146,18 @@ macOS
 <button class="filter-btn" onclick="trnLoadFeedback('included_in_dataset', this)">В датасете</button>
 <button class="filter-btn" onclick="trnLoadFeedback('rejected', this)">Отклонённые</button>
 </div>
-<span id="trnFeedbackMeta" style="font-size:11px;color:#8892a4;"></span>
+<span id="trnFeedbackMeta" style="font-size:12px;color:var(--text-muted);"></span>
 </div>
 <div id="trnFeedbackQueue">Загрузка отзывов...</div>
 </div>
 <div class="trn-row">
-<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">Собрать неизменяемый датасет</div>
-<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Формат / задача SOUP</label>
+<div class="v-section-title" style="margin-bottom:10px;">Собрать неизменяемый датасет</div>
+<label class="v-field-label">Формат / задача SOUP</label>
 <select id="trnDsTask" class="trn-input" style="margin-bottom:8px;">
 <option value="sft">SFT (chatml — ответы и исправления)</option>
 <option value="dpo">DPO (пары prompt / chosen / rejected)</option>
 </select>
-<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Имя снимка (опционально)</label>
+<label class="v-field-label">Имя снимка (опционально)</label>
 <input id="trnDsName" class="trn-input" placeholder="e.g. coding-v1" style="margin-bottom:8px;">
 <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-bottom:10px;cursor:pointer;">
 <input type="checkbox" id="trnDsIncludePending"> Включить непроверенные (pending)
