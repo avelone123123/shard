@@ -3298,3 +3298,113 @@ function renderTrnOverview(ov, soup) {
     document.getElementById('trnOverviewCards').innerHTML =
         '<div class="trn-stat"><div class="trn-stat-label">SOUP Движок</div><div class="trn-stat-val" style="color:' + (soup.available ? '#10b981' : '#f59e0b') + ';">' + (soup.available ? ('v' + lanEsc(soup.soup_version || 'ok')) : 'Не установлен') + '</div><div class="trn-stat-sub">Python ' + lanEsc(soup.python_version) + ' | CUDA: ' + (soup.cuda_available ? 'да' : 'нет') + '</div></div>' +
         '<div class="trn-stat"><div class="trn-stat-label">Очередь отзывов</div><div class="trn-stat-val">' + (c.approved || 0) + ' одобр. / ' + (c.pending || 0) + ' ожид.</div><div class="trn-stat-sub">Готово для SFT: ' + (elg.sft || 0) + ' | DPO: ' + (elg.dpo || 0) + '</div></div>' +
+        '<div class="trn-stat"><div class="trn-stat-label">Датасеты и Задания</div><div class="trn-stat-val">' + ((ov.datasets || []).length) + ' снимков / ' + ((ov.jobs || []).length) + ' запусков</div><div class="trn-stat-sub">Одиночный узел SOUP на хосте</div></div>' +
+        '<div class="trn-stat"><div class="trn-stat-label">Активная версия</div><div class="trn-stat-val" style="font-size:15px;">' + lanEsc(reg.active_version_id || 'Базовая модель') + '</div><div class="trn-stat-sub">Откат на: ' + lanEsc(reg.previous_version_id || reg.previous_engine_model_id || 'нет') + '</div></div>';
+    const warns = (soup.warnings || []).map(w => '<div style="color:#fbbf24;margin-top:4px;">' + lanEsc(w) + '</div>').join('');
+    const actionBtns = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">' +
+        '<button class="btn-action active" style="padding:3px 10px;font-size:11px;" onclick="trnInstallSoup(false)">Установить SOUP (Python 3.12 venv)</button>' +
+        '<button class="btn-action" style="padding:3px 10px;font-size:11px;" onclick="trnInstallSoup(true)">Починить окружение</button>' +
+        '<button class="btn-action" style="padding:3px 10px;font-size:11px;" onclick="trnRefresh(true)">Проверить SOUP</button>' +
+        '</div><div id="trnSoupInstallBox" style="margin-top:6px;font-family:monospace;font-size:11px;color:#38bdf8;"></div>';
+    document.getElementById('trnSoupBanner').innerHTML =
+        '<div><b>Цикл:</b> CREATE -> SHARE -> CONNECT -> USE -> FEEDBACK -> TRAIN -> IMPROVE -> DEPLOY</div>' +
+        '<div style="color:#94a3b8;margin-top:4px;"><b>Архитектура:</b> ' + lanEsc((ov.architecture_notes && ov.architecture_notes.distributed_training) || '') + '</div>' +
+        (soup.available ? '' : '<div style="color:#38bdf8;margin-top:4px;">Установка: <code>' + lanEsc(soup.install_hint || '') + '</code></div>') + warns + actionBtns;
+}
+let soupInstallPollTimer = null;
+async function trnInstallSoup(forceRepair) {
+    const box = document.getElementById('trnSoupInstallBox');
+    if (box) box.innerText = 'Запуск установщика SOUP в изолированном Python 3.11-3.13 venv...';
+    try {
+        const res = await fetch('/api/training/soup/install', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({force_recreate: !!forceRepair})
+        });
+        const d = await res.json();
+        showToast('Установка SOUP', d.stage || d.status || 'Запущена');
+        if (soupInstallPollTimer) clearInterval(soupInstallPollTimer);
+        soupInstallPollTimer = setInterval(pollSoupInstallStatus, 1500);
+    } catch(e) {
+        if (box) box.innerText = 'Ошибка запуска установки SOUP: ' + e.message;
+    }
+}
+async function pollSoupInstallStatus() {
+    try {
+        const res = await fetch('/api/training/soup/install/status');
+        if (!res.ok) return;
+        const st = await res.json();
+        const box = document.getElementById('trnSoupInstallBox');
+        if (box) {
+            const logs = (st.logs || []).slice(-4).join(' | ');
+            box.innerText = '[' + (st.status || 'idle') + '] ' + (st.stage || '') + (st.error ? (' — ' + st.error) : '') + (logs ? (' // ' + logs) : '');
+        }
+        if (!st.running) {
+            if (soupInstallPollTimer) { clearInterval(soupInstallPollTimer); soupInstallPollTimer = null; }
+            if (st.status === 'completed') {
+                showToast('SOUP установлен', 'Окружение SOUP готово к обучению');
+                trnRefresh(true);
+            } else if (st.status === 'failed') {
+                showToast('Ошибка установки SOUP', st.error || 'Проверьте наличие Python 3.11-3.13');
+            }
+        }
+    } catch(e) {}
+}
+async function trnLoadFeedback(statusFilter, btn) {
+    if (statusFilter) trnCurrentFilter = statusFilter;
+    if (btn) {
+        btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    const res = await fetch('/api/training/feedback?status=' + encodeURIComponent(trnCurrentFilter));
+    if (!res.ok) return;
+    const data = await res.json();
+    const box = document.getElementById('trnFeedbackQueue');
+    const entries = data.entries || [];
+    document.getElementById('trnFeedbackMeta').innerText = 'Показано: ' + entries.length;
+    box.innerHTML = entries.map(e => {
+        const flags = (e.redactions && e.redactions.length) ? ' <span style="color:#f59e0b;">[маскировано: ' + lanEsc(e.redactions.join(',')) + ']</span>' : '';
+        return '<div class="trn-row">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:11px;color:#8892a4;">' +
+            '<span><b>' + lanEsc(e.id) + '</b> | рейтинг: ' + lanEsc(e.rating) + ' | источник: ' + lanEsc(e.source) + flags + '</span>' +
+            '<div style="display:flex;gap:6px;">' +
+            (e.status !== 'approved' ? '<button class="fb-btn selected" data-id="' + escHtml(e.id) + '" onclick="trnReviewFb(this.dataset.id, \'approve\')">Одобрить</button>' : '') +
+            (e.status !== 'rejected' ? '<button class="fb-btn" data-id="' + escHtml(e.id) + '" onclick="trnReviewFb(this.dataset.id, \'reject\')">Отклонить</button>' : '') +
+            '<button class="fb-btn" style="color:#f87171;" data-id="' + escHtml(e.id) + '" onclick="trnReviewFb(this.dataset.id, \'delete\')">Удалить</button>' +
+            '</div></div>' +
+            '<div style="font-size:12px;color:#e2e8f0;margin-bottom:4px;"><b>Prompt:</b> ' + lanEsc(e.prompt) + '</div>' +
+            (e.response ? '<div style="font-size:12px;color:#94a3b8;margin-bottom:4px;"><b>Response:</b> ' + lanEsc(e.response) + '</div>' : '') +
+            (e.better_response ? '<div style="font-size:12px;color:#10b981;"><b>Correction:</b> ' + lanEsc(e.better_response) + '</div>' : '') +
+            '</div>';
+    }).join('') || '<div class="trn-row" style="color:#64748b;">Нет записей со статусом "' + lanEsc(trnCurrentFilter) + '".</div>';
+}
+async function trnReviewFb(id, action) {
+    const res = await fetch('/api/training/feedback/' + encodeURIComponent(id) + '/review', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action})
+    });
+    if (res.ok) {
+        showToast('Модерация', id + ' -> ' + action);
+        trnRefresh(false);
+    }
+}
+async function trnBuildDataset() {
+    const payload = {
+        task: document.getElementById('trnDsTask').value,
+        name: document.getElementById('trnDsName').value.trim() || null,
+        include_pending: !!document.getElementById('trnDsIncludePending').checked
+    };
+    const res = await fetch('/api/training/datasets/build', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        showToast('Ошибка датасета', data.message || 'Не удалось собрать снимок');
+        return;
+    }
+    showToast('Датасет собран', data.dataset.snapshot_id + ' (' + data.dataset.record_count + ' записей)');
+    trnRefresh(false);
+}
