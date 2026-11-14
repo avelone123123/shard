@@ -94,3 +94,19 @@ Result:
 - **`Ran 171 tests in 39.616s` -> `OK`** (0 failures, 0 errors, 0 skipped), including all 9 tests in `tests_phase_i_product_hardening.py`:
   - `test_01_updater_version_comparison_and_security`
   - `test_02_updater_zip_slip_and_sha256_verification`
+  - `test_03_updater_check_states_and_rollback_preserves_user_data`
+  - `test_04_updater_api_endpoints_and_cli_dash_update_normalization`
+  - `test_05_soup_lifecycle_and_python_compat`
+  - `test_06_model_browser_formats_suggestions_and_security`
+  - `test_07_dataset_creation_metrics_pagination_and_validation`
+  - `test_08_training_preflight_blocks_gguf_and_runs_lifecycle`
+  - `test_09_dashboard_regression_bugs_fixed`
+
+### 4.3 Non-Mocked Live Windows Verification (Observed Directly)
+- **CLI Commands:**
+  - `python -m shard_engine.cli --version` -> `shard-engine 1.8.0` (Python `3.14.4`, Windows 11 AMD64).
+  - `python -m shard_engine.cli -update --check --json` -> exit `0`, live GitHub check returned `"state": "UP_TO_DATE"`, `"current_version": "1.8.0"`, `"latest_version": "1.8.0"`, `"tag_name": "v1.8.0"`, `"source": "github_release"`, `"install.method": "git_clone"`.
+  - `python -m shard_engine.cli doctor` -> `Doctor summary: 0 error(s), 0 warning(s).` (`tools_dir`, `soup_venv_dir`, `llama-server.exe`, `ggml-rpc-server.exe`, `RTX 2050 4096 MB`, SIMD native core all `[PASS]`).
+  - `python -m shard_engine.cli training soup` -> cleanly reported `Available: NO`, `Python Runtime: 3.14.4 (SOUP compatible <3.14: NO)`, `SOUP Engine` incompatible warning + install hint.
+- **Host Python / SOUP Environment Discovery:**
+  - `py -0p` / `soup_adapter.find_compatible_python()`: only `Python 3.14.4` installed on host (`found: False`, `uv_available: False`).
