@@ -3095,12 +3095,12 @@ async function loadKeys() {
                 sidebarKeyEl.style.color = 'var(--success)';
             } else {
                 sidebarKeyEl.innerText = 'Не создан';
-                sidebarKeyEl.style.color = '#ef4444';
+                sidebarKeyEl.style.color = 'var(--danger)';
             }
         }
         updateGuide();
         if (keys.length === 0) {
-            list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);background:#090a0f;border:1px dashed var(--border);border-radius:6px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" style="margin-bottom:8px;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg><div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:4px;">Ключи API еще не созданы</div><div style="font-size:12px;">Нажмите кнопку выше для генерации вашего уникального локального ключа</div></div>';
+            list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);background:var(--surface-sunken);border:1px dashed var(--border-strong);border-radius:var(--radius-md);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="margin-bottom:8px;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg><div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Ключи API еще не созданы</div><div style="font-size:12px;">Нажмите кнопку выше для генерации вашего уникального локального ключа</div></div>';
             return;
         }
         keys.forEach(k => {
@@ -3109,13 +3109,13 @@ async function loadKeys() {
             item.style.justifyContent = 'space-between';
             item.style.alignItems = 'center';
             item.style.padding = '8px 12px';
-            item.style.background = '#090a0f';
-            item.style.border = (k === activeApiKey) ? '1px solid #10b981' : '1px solid var(--border)';
+            item.style.background = 'var(--surface-sunken)';
+            item.style.border = (k === activeApiKey) ? '1px solid var(--success-border)' : '1px solid var(--border-strong)';
             item.style.borderRadius = '5px';
-            item.style.fontFamily = 'Consolas, monospace';
+            item.style.fontFamily = 'var(--font-mono)';
             item.style.fontSize = '12px';
             const kEsc = escHtml(k);
-            item.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#f1f5f9;">' + kEsc + '</span>' + (k === activeApiKey ? '<span style="font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(16,185,129,0.15);color:#10b981;font-weight:600;">АКТИВЕН</span>' : '') + '</div><div style="display:flex;gap:6px;"><button class="btn-action" style="padding:4px 10px;font-size:11px;" data-key="' + kEsc + '" onclick="copyValue(this.dataset.key, \'Ключ API\')">Скопировать</button><button class="btn-action" style="padding:4px 10px;font-size:11px;border-color:#7f1d1d;color:#fca5a5;" data-key="' + kEsc + '" onclick="deleteKey(this.dataset.key)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить</button></div>';
+            item.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--text);">' + kEsc + '</span>' + (k === activeApiKey ? '<span style="font-size:10px;padding:2px 6px;border-radius:3px;background:var(--success-bg);color:var(--success);border:1px solid var(--success-border);font-weight:700;">АКТИВЕН</span>' : '') + '</div><div style="display:flex;gap:6px;"><button class="btn-action" style="padding:4px 10px;font-size:11px;" data-key="' + kEsc + '" onclick="copyValue(this.dataset.key, \'Ключ API\')">Скопировать</button><button class="btn-action" style="padding:4px 10px;font-size:11px;border-color:var(--danger-border);color:var(--danger);background:var(--danger-bg);" data-key="' + kEsc + '" onclick="deleteKey(this.dataset.key)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить</button></div>';
             list.appendChild(item);
         });
     } catch(e) {}
