@@ -1054,8 +1054,9 @@ def scan_output_artifacts(output_dir):
                 checkpoints.append(str(child))
             elif child.is_file() and child.suffix.lower() == ".gguf" and str(child) not in gguf_files:
                 gguf_files.append(str(child))
-            gguf_files.append(str(child))
-    if (out / "adapter_config.json").is_file():
+    for d in search_dirs:
+        if (d / "adapter_config.json").is_file():
+            adapter_dir = str(d)
         adapter_dir = str(out)
         adapter_files = sorted(str(p) for p in out.iterdir() if p.is_file())
     if (out / "config.json").is_file() and any(out.glob("*.safetensors")) and not adapter_dir:
