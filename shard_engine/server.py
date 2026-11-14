@@ -1648,3 +1648,113 @@ async def api_net_config_post(req: Request):
         res = _net_mgr().configure(data)
         cfg = res.get("config") if isinstance(res, dict) and "config" in res else res
         return {"status": "ok", "config": cfg}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/net/servers")
+def api_net_servers(req: Request, q: str = "", model: str = "", region: str = "", access: str = "", online_only: bool = True, sort: str = "activity", limit: int = 100):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return _net_mgr().discover_servers(q=q, model=model, region=region, access=access, online_only=online_only, sort=sort, limit=limit)
+@app.get("/api/net/lookup/{node_id}")
+def api_net_lookup(req: Request, node_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    res = _net_mgr().lookup_server(node_id)
+    if not res:
+        return JSONResponse(status_code=404, content={"status": "error", "message": "Node not found or offline"})
+    return res
+@app.post("/api/net/publish")
+async def api_net_publish(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        res = _net_mgr().publish_server(
+            name=data.get("name"),
+            visibility=data.get("visibility"),
+            access_mode=data.get("access_mode") or data.get("access_policy"),
+            region=data.get("region"),
+            direct_p2p_port=data.get("direct_p2p_port") or data.get("direct_port"),
+            models=data.get("models"),
+            max_participants=data.get("max_participants") or data.get("max_peers"),
+            bandwidth_kbps=data.get("bandwidth_kbps"),
+            asgi_app=app,
+        )
+        return {"status": "ok", "host": res, "discovery_ok": res.get("discovery_ok", True), "warning": res.get("discovery_warning")}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/net/unpublish")
+def api_net_unpublish(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    res = _net_mgr().unpublish_server()
+    return {"status": "ok", "host": res}
+@app.get("/api/net/invites")
+def api_net_invites_get(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    mgr = _net_mgr()
+    invites = mgr.list_invites()
+    out = []
+    for inv in invites:
+        item = dict(inv)
+        iid = item.get("invite_id") or item.get("id")
+        item["id"] = iid
+        if "uri" not in item and "raw_token" in item:
+            item["uri"] = mgr.build_invite_uri(invite_token=item["raw_token"])
+        out.append(item)
+    return {"status": "ok", "invites": out}
+@app.post("/api/net/invites")
+async def api_net_invites_post(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        mgr = _net_mgr()
+        inv = mgr.create_invite(
+            ttl_s=int(data.get("ttl_s", 86400)),
+            max_uses=int(data.get("max_uses", 1)),
+            label=str(data.get("label", "")),
+        )
+        inv_out = dict(inv)
+        inv_out["id"] = inv_out.get("invite_id") or inv_out.get("id")
+        return {"status": "ok", "invite": inv_out, "uri": inv_out.get("uri")}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/net/invites/revoke")
+async def api_net_invites_revoke(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    iid = str(data.get("invite_id") or "").strip()
+    if not iid:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "invite_id required"})
+    ok = _net_mgr().revoke_invite(iid)
+    return {"status": "ok", "revoked": bool(ok)}
+@app.delete("/api/net/invites/{invite_id}")
+def api_net_invite_delete(req: Request, invite_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    ok = _net_mgr().revoke_invite(invite_id)
+    return {"status": "ok", "revoked": bool(ok)}
+@app.post("/api/net/connect")
+async def api_net_connect(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
