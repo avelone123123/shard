@@ -62,3 +62,19 @@ Phase I hardened SHARD's user-facing reliability across README installation inst
 3. `README.kz.md` — Kazakh PyPI install commands.
 4. `shard_engine/paths.py` — Added `tools_dir`, `soup_venv_dir`, `update_cache_file`, `legacy_update_cache_file` (173 lines, 0 blanks, 0 comments).
 5. `shard_engine/settings.py` — Added `recent_model_paths` and `add_recent_model_path` (142 lines, 0 blanks, 0 comments).
+6. `shard_engine/soup_adapter.py` — 10-state SOUP lifecycle, Python `>=3.11,<3.14` discovery, isolated venv management, upstream version probe (`0.77.2`) (1089 lines, 0 blanks, 0 comments).
+7. `shard_engine/feedback.py` — Dataset creation stats, paginated structured preview, schema validation (942 lines, 0 blanks, 0 comments).
+8. `shard_engine/training.py` — `preflight_training_check`, `_LIFECYCLE_MAP`, uppercase `lifecycle_state`, GGUF base rejection + HF suggestion, training hyperparameters (`batch_size`, `gradient_accumulation_steps`, `max_length`) (1137 lines, 0 blanks, 0 comments).
+9. `shard_engine/cli.py` — `-update`/`--update` normalization, `cmd_update`, startup update check banner in `cmd_start` (1994 lines, 0 blanks, 0 comments).
+10. `shard_engine/server.py` — Owner-only `/api/system/update*`, `/api/models/browser/*`, `/api/training/datasets/{id}/preview`, `/api/training/datasets/{id}/validate`, `/api/training/preflight`, SOUP installer status & background checks (2385 lines, 0 blanks, 0 comments).
+11. `dashboard.html` — Header `#shardVersionPill`, Update Center modal, Model File Browser modal, dataset summary + paginated preview, preflight/hyperparameters, bugfixes (`modelModalBody`, `modalHfLink`, `data.installer`, `showTab`) (4474 lines, 0 blanks, 0 comments, 0 emojis, `node --check` ok).
+12. `shard_engine/dashboard.html` — Restored valid JS syntax and synced byte-for-byte with `dashboard.html` (300,374 bytes).
+13. `tests_cli_pkg.py` — Updated `test_update_check_variants` error expectation (`GITHUB_UNAVAILABLE`) and removed trailing blank line (254 lines, 0 blanks, 0 comments).
+
+### New Files (3 Code/Test Modules + This Report)
+1. `shard_engine/updater.py` — GitHub release/tag checker, SHA-256 + Zip Slip verification, backup & rollback preserving user data (861 lines, 0 blanks, 0 comments).
+2. `shard_engine/model_browser.py` — Cross-platform drive/shortcut listing, model format/compatibility classifier, security path guard (687 lines, 0 blanks, 0 comments).
+3. `tests_phase_i_product_hardening.py` — 9 dedicated Phase I integration & security tests (283 lines, 0 blanks, 0 comments).
+
+---
+
