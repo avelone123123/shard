@@ -4577,13 +4577,13 @@ function mbRenderEntries() {
         const tag = isDir ? '<span style="color:var(--info);font-family:var(--font-mono);">[DIR]</span>' : '<span style="color:var(--text-secondary);font-family:var(--font-mono);">[FILE]</span>';
         return '<div class="mb-item" data-p="' + escHtml(e.path) + '" onclick="mbInspect(this.dataset.p)" ondblclick="if(' + (isDir ? 'true' : 'false') + ')mbNavigate(this.dataset.p)">' +
             '<div style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + tag + ' <b>' + escHtml(e.name) + '</b></div>' +
-            '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' + pill + '<span style="font-size:11px;color:#64748b;font-family:monospace;">' + escHtml(e.size_str || '-') + '</span></div>' +
+            '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">' + pill + '<span style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">' + escHtml(e.size_str || '-') + '</span></div>' +
             '</div>';
-    }).join('') || '<div style="padding:18px;color:#64748b;font-size:12px;">В этой папке нет подходящих элементов</div>';
+    }).join('') || '<div style="padding:18px;color:var(--text-muted);font-size:12px;">В этой папке нет подходящих элементов</div>';
 }
 async function mbInspect(pathStr) {
     const panel = document.getElementById('mbInspector');
-    if (panel) panel.innerHTML = '<div style="color:#38bdf8;">Анализ формата модели...</div>';
+    if (panel) panel.innerHTML = '<div style="color:var(--accent-text);">Анализ формата модели...</div>';
     try {
         const res = await fetch('/api/models/browser/inspect', {
             method: 'POST',
@@ -4592,7 +4592,7 @@ async function mbInspect(pathStr) {
         });
         const d = await res.json();
         if (!res.ok) {
-            if (panel) panel.innerHTML = '<div style="color:#f87171;">' + escHtml(d.message || 'Ошибка проверки') + '</div>';
+            if (panel) panel.innerHTML = '<div style="color:var(--danger);">' + escHtml(d.message || 'Ошибка проверки') + '</div>';
             return;
         }
         _mbRenderInspector(d);
@@ -4623,12 +4623,12 @@ function _mbRenderInspector(d) {
     }
     const sugModel = trn.suggested_base_model;
     const sug = sugModel
-        ? ('<div style="margin-top:10px;padding:8px;background:#0f172a;border:1px solid #1e3a8a;border-radius:6px;"><div style="font-size:11px;color:#93c5fd;margin-bottom:6px;">Рекомендуемая базовая HF-модель для SOUP вместо .gguf:</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="fb-btn" data-mid="' + escHtml(sugModel) + '" onclick="mbUseSuggestedHf(this.dataset.mid)">' + escHtml(sugModel) + '</button></div></div>')
+        ? ('<div class="v-alert-info" style="margin-top:10px;"><div style="font-size:12px;font-weight:600;margin-bottom:6px;">Рекомендуемая базовая HF-модель для SOUP вместо .gguf:</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="fb-btn" data-mid="' + escHtml(sugModel) + '" onclick="mbUseSuggestedHf(this.dataset.mid)">' + escHtml(sugModel) + '</button></div></div>')
         : '';
     panel.innerHTML =
-        '<div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:4px;word-break:break-all;">' + escHtml(d.name || d.path) + '</div>' +
-        '<div style="font-size:11px;color:#64748b;font-family:monospace;margin-bottom:8px;word-break:break-all;">' + escHtml(d.path) + '</div>' +
-        '<div style="margin-bottom:8px;"><span class="compat-pill compat-ok">' + escHtml(d.format_label || d.format || 'folder') + '</span> <span style="font-size:11px;color:#94a3b8;margin-left:6px;">Размер: ' + escHtml(d.size_str || '-') + '</span></div>' +
+        '<div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;word-break:break-all;">' + escHtml(d.name || d.path) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:8px;word-break:break-all;">' + escHtml(d.path) + '</div>' +
+        '<div style="margin-bottom:8px;"><span class="compat-pill compat-ok">' + escHtml(d.format_label || d.format || 'folder') + '</span> <span style="font-size:11px;color:var(--text-secondary);margin-left:6px;">Размер: ' + escHtml(d.size_str || '-') + '</span></div>' +
         '<div class="pf-item"><div><b>Инференс SHARD:</b> ' + escHtml(inf.reason_ru || '-') + '</div><span class="compat-pill ' + (inf.supported ? 'compat-ok' : 'compat-no') + '">' + (inf.supported ? 'ДА' : 'НЕТ') + '</span></div>' +
         '<div class="pf-item"><div><b>Обучение SOUP:</b> ' + escHtml(trn.reason_ru || '-') + '</div><span class="compat-pill ' + (trn.supported ? 'compat-ok' : 'compat-no') + '">' + (trn.supported ? 'ДА' : 'НЕТ') + '</span></div>' +
         sug +
