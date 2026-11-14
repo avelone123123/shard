@@ -1208,3 +1208,113 @@ class LanManager:
             host = parsed.hostname or "127.0.0.1"
             port = parsed.port or DEFAULT_MASTER_PORT
             return self.join(host, code=code, share=share, port=port, bind_host=("127.0.0.1" if share else None))
+        from . import net_strategy
+        mgr = net_strategy.get_network_manager()
+        st = mgr.connect(raw, preferred_mode=mode)
+        if not st.get("ok") or not st.get("local_url"):
+            return {"status": "error", "message": st.get("last_error") or "Tunnel connection failed", "network": st}
+        parsed = urlparse(st["local_url"])
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or DEFAULT_MASTER_PORT
+        res = self.join(host, code=code, share=share, port=port, bind_host=("127.0.0.1" if share else None))
+        res["network"] = st
+        return res
+    def _choose_worker_port(self):
+        env_p = os.environ.get("SHARD_RPC_PORT")
+        preferred = []
+        if env_p:
+            try:
+                preferred.append(int(env_p))
+            except Exception:
+                pass
+        preferred.append(DEFAULT_RPC_PORT)
+        for cand in preferred:
+            if not (1 <= cand <= 65535):
+                continue
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                s.bind(("0.0.0.0", cand))
+                return cand
+            except OSError:
+                continue
+            finally:
+                try:
+                    s.close()
+                except Exception:
+                    pass
+        return _free_port()
+    def _start_worker(self, master_ip=None, bind_host=None):
+        if self._rpc_proc is not None and self._rpc_proc.poll() is None:
+            return
+        port = self._choose_worker_port()
+        with self._lock:
+            mip = master_ip or ((self._state.get("master") or {}).get("ip"))
+        eff_bind = str(bind_host or "").strip() or _route_local_ip_for(mip) or "0.0.0.0"
+        cmd = worker_cmd(port, exe=find_rpc_server(), host=eff_bind)
+        kw = {}
+        if os.name == "nt":
+            kw["creationflags"] = _CREATE_NO_WINDOW
+        self._rpc_proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, **kw)
+        with self._lock:
+            self._state["rpc_port"] = port
+            self._save()
+        time.sleep(0.3)
+        if self._rpc_proc.poll() is not None:
+            tail = ""
+            try:
+                tail = (self._rpc_proc.stderr.read() or b"").decode("utf-8", "ignore")[-200:]
+            except Exception:
+                pass
+            self._rpc_proc = None
+            raise RuntimeError(f"ggml-rpc-server не запустился: {tail[:150]}")
+    def _stop_worker(self):
+        if self._rpc_proc is not None:
+            try:
+                self._rpc_proc.terminate()
+            except Exception:
+                pass
+            try:
+                self._rpc_proc.wait(timeout=5)
+            except Exception:
+                try:
+                    self._rpc_proc.kill()
+                except Exception:
+                    pass
+            self._rpc_proc = None
+        with self._lock:
+            self._state["rpc_port"] = None
+    def off(self, quiet=False):
+        with self._lock:
+            mode = self._state.get("mode")
+            master = dict(self._state.get("master") or {})
+            threads = list(self._threads.values())
+        self._stop.set()
+        cur = threading.current_thread()
+        for t in threads:
+            if t is not cur and t.is_alive():
+                t.join(timeout=3.0)
+        with self._lock:
+            self._threads = {}
+        if mode == "worker":
+            self._stop_worker()
+        if mode in ("member", "worker"):
+            token = master.get("token")
+            if master.get("ip") and token:
+                try:
+                    import requests
+                    requests.post(
+                        f"http://{master['ip']}:{master.get('port', DEFAULT_MASTER_PORT)}/api/lan/leave",
+                        json={"token": token, "client_id": master.get("client_id") or self.node_id()},
+                        timeout=2,
+                    )
+                except Exception:
+                    pass
+        with self._lock:
+            self._state.update({
+                "mode": "off",
+                "pairing_code": None,
+                "members": [],
+                "master": None,
+                "created_at": None,
+                "rpc_port": None,
+                "open": False,
