@@ -446,6 +446,38 @@ def preflight_training_check(base_model=None, dataset_snapshot_id=None, task="sf
             msg = f"Критически мало свободного места на диске: {free_gb} ГБ (нужно минимум 2 ГБ)."
             checks.append({"name": "disk", "label": "Диск", "status": "fail", "message": msg, "detail": str(_runs_dir())})
             errors.append(msg)
+        elif du.free < 10 * 1024 ** 3:
+            msg = f"Свободно {free_gb} ГБ — для сохранения чекпоинтов и весов рекомендуется >= 10 ГБ."
+            checks.append({"name": "disk", "label": "Диск", "status": "warn", "message": msg, "detail": str(_runs_dir())})
+            warnings.append(msg)
+        else:
+            checks.append({"name": "disk", "label": "Диск", "status": "pass", "message": f"Свободно {free_gb} ГБ.", "detail": str(_runs_dir())})
+    except Exception as e:
+        checks.append({"name": "disk", "label": "Диск", "status": "warn", "message": f"Не удалось проверить диск: {e}", "detail": ""})
+    if soup_info.get("cuda_available"):
+        checks.append({"name": "hardware", "label": "Ускорение GPU/CPU", "status": "pass", "message": "CUDA доступна; можно использовать квантование 4bit/LoRA.", "detail": ""})
+    else:
+        msg = "CUDA GPU не обнаружена в среде SOUP. Обучение пойдет на CPU (quantization будет автоматически переключен на none)."
+        checks.append({"name": "hardware", "label": "Ускорение GPU/CPU", "status": "warn", "message": msg, "detail": ""})
+        warnings.append(msg)
+    eng_st = engine_instance.get_status()
+    if eng_st.get("status") == "generating":
+        msg = "Движок инференса сейчас генерирует ответ. Дождитесь завершения перед стартом обучения."
+        checks.append({"name": "engine_lock", "label": "Память инференса", "status": "fail", "message": msg, "detail": ""})
+        errors.append(msg)
+    elif eng_st.get("is_loaded"):
+        checks.append({
+            "name": "engine_lock",
+            "label": "Память инференса",
+            "status": "warn",
+            "message": "В память загружена модель инференса; перед обучением она будет выгружена для экономии RAM/VRAM.",
+            "detail": str(eng_st.get("active_model") or ""),
+        })
+    else:
+        checks.append({"name": "engine_lock", "label": "Память инференса", "status": "pass", "message": "Память свободна от инференс-модели.", "detail": ""})
+    with _STATE_LOCK:
+        active = _active_job_unlocked(reconcile_jobs())
+        if active is not None:
 def start_training_job(
     base_model=None,
     dataset_snapshot_id=None,
