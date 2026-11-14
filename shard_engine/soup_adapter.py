@@ -645,7 +645,7 @@ def detect_soup(custom_cmd=None, probe_deps=True, check_remote=False):
                 if m:
                     soup_version = soup_version or m.group(1)
         except Exception:
-            soup_version = None
+            cli_available = False
     if probe is None:
         probe = _in_process_probe(check_deps=False)
         py_exe = sys.executable
