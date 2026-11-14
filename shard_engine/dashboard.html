@@ -1758,3 +1758,113 @@ async function netTogglePublish() {
         netRefresh(true);
     } catch(e) {
         showToast('Ошибка', e.message);
+    }
+}
+async function netLoadPeers() {
+    const el = document.getElementById('netPeersList');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/net/peers', {headers: getAuthHeaders()});
+        const data = await res.json();
+        const conn = data.connected || [];
+        const pend = data.pending || [];
+        const blk = data.revoked || [];
+        let html = '';
+        if (pend.length > 0) {
+            html += '<div style="font-size:12px;font-weight:600;color:#fbbf24;margin-bottom:6px;">Запросы на подключение (' + pend.length + '):</div>';
+            html += pend.map(p => {
+                const pid = escHtml(p.node_id || p.peer_node_id || '');
+                return '<div style="background:#0d1117;border:1px solid #d29922;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span style="font-size:11px;font-family:monospace;color:#fff;">' + pid + '</span>' +
+                    '<div style="display:flex;gap:6px;">' +
+                    '<button class="btn-action active" data-pid="' + pid + '" onclick="netApprovePeer(this.dataset.pid)">Одобрить</button>' +
+                    '<button class="btn-action" style="border-color:#f85149;color:#f85149;" data-pid="' + pid + '" onclick="netRejectPeer(this.dataset.pid)">Отклонить</button>' +
+                    '</div></div>';
+            }).join('');
+        }
+        if (conn.length > 0) {
+            html += '<div style="font-size:12px;font-weight:600;color:#238636;margin:10px 0 6px;">Активные пиры (' + conn.length + '):</div>';
+            html += conn.map(p => {
+                const pid = escHtml(p.node_id || p.peer_node_id || '');
+                const tkind = escHtml(p.transport_kind || p.mode || 'tunnel');
+                const rpm = p.rpm_limit ? ('RPM: ' + p.rpm_limit) : 'без лимита RPM';
+                return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
+                    '<div><div style="font-size:11px;font-family:monospace;color:#fff;">' + pid + '</div>' +
+                    '<div style="font-size:10px;color:var(--text-muted);">' + tkind + ' &bull; ' + rpm + '</div></div>' +
+                    '<div style="display:flex;gap:6px;">' +
+                    '<button class="btn-action" data-pid="' + pid + '" onclick="netKickPeer(this.dataset.pid)">Кикнуть</button>' +
+                    '<button class="btn-action" style="border-color:#f85149;color:#f85149;" data-pid="' + pid + '" onclick="netBlockPeer(this.dataset.pid)">Забанить</button>' +
+                    '</div></div>';
+            }).join('');
+        }
+        if (blk.length > 0) {
+            html += '<div style="font-size:12px;font-weight:600;color:#f85149;margin:10px 0 6px;">Заблокированные узлы (' + blk.length + '):</div>';
+            html += blk.map(b => {
+                const pid = escHtml(b.node_id || b.peer_node_id || b || '');
+                return '<div style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:6px 10px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">' +
+                    '<span style="font-size:11px;font-family:monospace;color:#8b949e;">' + pid + '</span>' +
+                    '<button class="btn-action" data-pid="' + pid + '" onclick="netUnblockPeer(this.dataset.pid)">Разблокировать</button>' +
+                    '</div>';
+            }).join('');
+        }
+        if (!html) {
+            html = '<div style="padding:16px;color:var(--text-muted);font-size:12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;text-align:center;">Нет активных пиров и запросов.</div>';
+        }
+        el.innerHTML = html;
+    } catch(e) {
+        el.innerHTML = '<div style="color:#f85149;font-size:12px;">Ошибка загрузки списка пиров.</div>';
+    }
+}
+async function netApprovePeer(pid) {
+    await fetch('/api/net/peers/' + encodeURIComponent(pid) + '/approve', {method: 'POST', headers: getAuthHeaders()});
+    netLoadPeers();
+}
+async function netRejectPeer(pid) {
+    await fetch('/api/net/peers/' + encodeURIComponent(pid) + '/reject', {method: 'POST', headers: getAuthHeaders()});
+    netLoadPeers();
+}
+async function netKickPeer(pid) {
+    await fetch('/api/net/peers/' + encodeURIComponent(pid) + '/kick', {method: 'POST', headers: getAuthHeaders()});
+    netLoadPeers();
+}
+async function netBlockPeer(pid) {
+    await fetch('/api/net/peers/' + encodeURIComponent(pid) + '/block', {method: 'POST', headers: getAuthHeaders()});
+    netLoadPeers();
+}
+async function netUnblockPeer(pid) {
+    await fetch('/api/net/peers/' + encodeURIComponent(pid) + '/unblock', {method: 'POST', headers: getAuthHeaders()});
+    netLoadPeers();
+}
+async function netLoadConfig() {
+    try {
+        const res = await fetch('/api/net/config', {headers: getAuthHeaders()});
+        const cfg = await res.json();
+        const discEl = document.getElementById('netCfgDiscoveryUrls');
+        if (discEl) discEl.value = (cfg.discovery_urls || []).join('\n');
+        const relayEl = document.getElementById('netCfgRelayUrls');
+        if (relayEl) relayEl.value = (cfg.relay_urls || []).join('\n');
+        const offEl = document.getElementById('netCfgOfflineOnly');
+        if (offEl) offEl.checked = Boolean(cfg.offline_only);
+    } catch(e) {}
+}
+async function netSaveServersConfig() {
+    const discRaw = (document.getElementById('netCfgDiscoveryUrls') || {}).value || '';
+    const relayRaw = (document.getElementById('netCfgRelayUrls') || {}).value || '';
+    const off = Boolean((document.getElementById('netCfgOfflineOnly') || {}).checked);
+    const discUrls = discRaw.split('\n').map(s => s.trim()).filter(Boolean);
+    const relayUrls = relayRaw.split('\n').map(s => s.trim()).filter(Boolean);
+    try {
+        const res = await fetch('/api/net/config', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({discovery_urls: discUrls, relay_urls: relayUrls, offline_only: off})
+        });
+        showToast('Сохранено', 'Настройки серверов сохранены');
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netRunDiag() {
+    const el = document.getElementById('netDiagOutput');
+    if (!el) return;
+    el.innerText = 'Запуск диагностики (платформа, WireGuard, STUN NAT)...';
