@@ -310,3 +310,27 @@ def classify_model_path(target_path, deep_size=False):
                     "Отдельный файл .safetensors без config.json и токенизатора нельзя загрузить для обучения SOUP.",
                 )
             return {
+                "path": str(p),
+                "name": p.name,
+                "is_dir": False,
+                "format": "safetensors_file",
+                "format_label": "SafeTensors (Веса)",
+                "valid": True,
+                "size_bytes": sz,
+                "size_str": _fmt_size(sz),
+                "resolved_parent_dir": str(parent) if has_cfg else None,
+                "compatibility": compat,
+            }
+        return {
+            "path": str(p),
+            "name": p.name,
+            "is_dir": False,
+            "format": "other_file",
+            "format_label": "Файл",
+            "valid": False,
+            "size_bytes": sz,
+            "size_str": _fmt_size(sz),
+            "compatibility": _compat_block(False, "Не является моделью.", False, "Не является моделью.", False, "Файл не является поддерживаемым форматом модели."),
+        }
+    if p.is_dir():
+        cfg = _read_json_small(p / "config.json")
