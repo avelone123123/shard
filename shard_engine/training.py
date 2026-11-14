@@ -438,3 +438,113 @@ def start_training_job(
                     j["finished_at"] = time.time()
                     j["returncode"] = dry_res["returncode"]
                     j["error"] = (dry_res["stderr"] or dry_res["stdout"] or "soup train --dry-run failed")[:500]
+                    break
+            _save_jobs(jobs)
+        raise RuntimeError(f"SOUP config validation (--dry-run) failed: {(dry_res['stderr'] or dry_res['stdout'])[:300]}")
+    if dry_run:
+        with _STATE_LOCK:
+            jobs = _load_jobs()
+            for j in jobs:
+                if j["job_id"] == job_id:
+                    j["status"] = "completed"
+                    j["finished_at"] = time.time()
+                    j["returncode"] = 0
+                    j["training_completed"] = False
+                    j["dry_run_output"] = (dry_res["stdout"] or dry_res["stderr"])[:2000]
+                    result_job = dict(j)
+                    break
+            _save_jobs(jobs)
+        feedback._append_audit("training_dry_run_completed", {"job_id": job_id})
+        return result_job
+    proc, log_fh = soup_adapter.launch_train_popen(
+        soup_info,
+        config_path,
+        log_path,
+        run_name=experiment_name or job_id,
+    )
+    with _STATE_LOCK:
+        _ACTIVE_PROCS[job_id] = proc
+        _LOG_HANDLES[job_id] = log_fh
+        jobs = _load_jobs()
+        for j in jobs:
+            if j["job_id"] == job_id:
+                j["status"] = "running"
+                j["pid"] = proc.pid
+                result_job = dict(j)
+                break
+        _save_jobs(jobs)
+    feedback._append_audit("training_job_started", {"job_id": job_id, "pid": proc.pid, "base_model": base, "task": task_norm})
+    t = threading.Thread(target=_watch_job, args=(job_id, proc, log_fh, soup_cmd), daemon=True)
+    t.start()
+    return result_job
+def cancel_training_job(job_id):
+    _validate_safe_id(job_id, "job_id")
+    with _STATE_LOCK:
+        jobs = _load_jobs()
+        target = None
+        for j in jobs:
+            if j.get("job_id") == job_id:
+                target = j
+                break
+        if target is None:
+            raise KeyError(f"Training job '{job_id}' not found.")
+        if target.get("status") in ("completed", "failed", "cancelled", "interrupted"):
+            return target
+        target["status"] = "cancelled"
+        target["finished_at"] = time.time()
+        target["error"] = "Cancelled by owner."
+        proc = _ACTIVE_PROCS.get(job_id)
+        _save_jobs(jobs)
+    if proc is not None:
+        soup_adapter.terminate_process(proc)
+    feedback._append_audit("training_job_cancelled", {"job_id": job_id})
+    return get_training_job(job_id)
+def resume_training_job(job_id, checkpoint="auto", soup_cmd=None):
+    _validate_safe_id(job_id, "job_id")
+    soup_info = soup_adapter.detect_soup(custom_cmd=soup_cmd, probe_deps=True)
+    if not soup_info.get("available"):
+        raise RuntimeError("SOUP CLI is not available.")
+    with _STATE_LOCK:
+        jobs = reconcile_jobs()
+        if _active_job_unlocked(jobs) is not None:
+            raise RuntimeError("Another training job is already active.")
+        target = None
+        for j in jobs:
+            if j.get("job_id") == job_id:
+                target = j
+                break
+        if target is None:
+            raise KeyError(f"Training job '{job_id}' not found.")
+        cfg_path = target.get("soup_config_path")
+        if not cfg_path or not os.path.isfile(cfg_path):
+            raise FileNotFoundError("Saved soup.yaml for this job is missing.")
+        log_path = target["log_path"]
+        target["status"] = "running"
+        target["host_pid"] = os.getpid()
+        target["finished_at"] = None
+        target["error"] = None
+        _save_jobs(jobs)
+    proc, log_fh = soup_adapter.launch_train_popen(
+        soup_info,
+        cfg_path,
+        log_path,
+        resume=checkpoint or "auto",
+        run_name=job_id,
+    )
+    with _STATE_LOCK:
+        _ACTIVE_PROCS[job_id] = proc
+        _LOG_HANDLES[job_id] = log_fh
+        jobs = _load_jobs()
+        for j in jobs:
+            if j.get("job_id") == job_id:
+                j["pid"] = proc.pid
+                out_job = dict(j)
+                break
+        _save_jobs(jobs)
+    threading.Thread(target=_watch_job, args=(job_id, proc, log_fh, soup_cmd), daemon=True).start()
+    feedback._append_audit("training_job_resumed", {"job_id": job_id, "checkpoint": checkpoint})
+    return out_job
+def list_training_jobs(limit=50):
+    with _STATE_LOCK:
+        jobs = reconcile_jobs()[:max(1, int(limit))]
+        for j in jobs:
