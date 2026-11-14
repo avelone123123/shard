@@ -128,3 +128,18 @@ Executed in an isolated disposable wheel environment (`venv_upd_sandbox` outside
 | `3_interrupted_download` | **PASS** | `status="failed"`, `Interrupted download: received 512 bytes of expected 334138 bytes.`, `rolled_back=True`, 7/7 user sentinels intact. |
 | `4_corrupt_checksum` | **PASS** | `status="failed"`, `Checksum mismatch`, `rolled_back=True`, 7/7 user sentinels intact. |
 | `5_zip_slip_block` | **PASS** | Rejected `../../pwned.txt` with `Unsafe path entry inside update archive`, `rolled_back=True`. |
+| `6_apply_upgrade` | **PASS** | Upgraded real wheel `1.8.0 -> 1.9.0`, fresh Python subprocess reported `__version__ == "1.9.0"`, 7/7 user sentinels intact. |
+| `7_rollback_and_user_data` | **PASS** | `rollback_update()` restored `140` package files to `1.8.0`, fresh subprocess confirmed `"1.8.0"`, and SHA-256 matched on all `7` sentinel files (`api_keys.json`, `settings.json`, `node_identity.json`, `feedback/fb.jsonl`, `datasets/ds-keep/dataset.jsonl`, `config.json`, `models/sentinel.gguf`). |
+
+---
+
+## 6. Automated Regression Suite & Code Hygiene
+
+- `python -m unittest discover -s . -p "tests_*.py" -v`: `Ran 171 tests in 38.617s` -> `OK (skipped=1)` (`test_wheel_contents_when_built` skipped because temporary `dist/` in the repo root was cleaned after building into `%TEMP%\shard_pypi_accept\dist`).
+- JavaScript syntax validation (`node --check`): exited `0`; `dashboard.html` and `shard_engine/dashboard.html` are byte-identical (`300591` bytes, `4475` lines, `0` blank lines, no comments).
+- Modified workspace files (uncommitted):
+  - [pyproject.toml](file:///c:/Users/avelo/Desktop/my%20projects/shard/pyproject.toml)
+  - [dashboard.html](file:///c:/Users/avelo/Desktop/my%20projects/shard/dashboard.html)
+  - [shard_engine/dashboard.html](file:///c:/Users/avelo/Desktop/my%20projects/shard/shard_engine/dashboard.html)
+  - [shard_engine/soup_adapter.py](file:///c:/Users/avelo/Desktop/my%20projects/shard/shard_engine/soup_adapter.py)
+  - [phase_i_1_acceptance_report.md](file:///c:/Users/avelo/Desktop/my%20projects/shard/phase_i_1_acceptance_report.md)
