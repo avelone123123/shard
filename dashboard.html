@@ -4107,6 +4107,81 @@ function applyClientIsolationUi() {
     const targetBtn = document.getElementById(targetTab === 'chat' ? 'navChatBtn' : 'navNetworkBtn');
     showTab(targetTab, targetBtn);
 }
+let _shardUpdateInfo = null;
+let _shardUpdPollTimer = null;
+function syncHeaderUpdateState(ver, updData) {
+    if (updData) _shardUpdateInfo = updData;
+    const pill = document.getElementById('shardVersionPill');
+    if (!pill) return;
+    const curVer = ver || (updData && updData.check && updData.check.current_version) || (shardBoot && shardBoot.version) || '...';
+    const st = updData && updData.check && updData.check.state;
+    const lat = updData && updData.check && updData.check.latest_version;
+    pill.classList.remove('has-update', 'up-to-date');
+    if (st === 'UPDATE_AVAILABLE' && lat) {
+        pill.classList.add('has-update');
+        pill.innerText = 'v' + curVer + ' -> v' + lat;
+        pill.title = 'Доступно обновление SHARD v' + lat;
+    } else if (st === 'UP_TO_DATE') {
+        pill.classList.add('up-to-date');
+        pill.innerText = 'v' + curVer;
+        pill.title = 'SHARD актуален (GitHub Releases проверен)';
+    } else {
+        pill.innerText = 'v' + curVer;
+    }
+}
+function openUpdateModal() {
+    const bd = document.getElementById('updateModalBackdrop');
+    if (bd) bd.style.display = 'flex';
+    checkShardUpdates(false);
+}
+function closeUpdateModal() {
+    const bd = document.getElementById('updateModalBackdrop');
+    if (bd) bd.style.display = 'none';
+}
+function _renderUpdateModalBody(data) {
+    const box = document.getElementById('updSummaryBox');
+    const applyBtn = document.getElementById('updApplyBtn');
+    if (!box || !data) return;
+    const chk = data.check || {};
+    const inst = data.install || {};
+    const job = data.job || {};
+    syncHeaderUpdateState(chk.current_version, data);
+    let badge = '<span class="compat-pill compat-warn">' + escHtml(chk.state || 'UNKNOWN') + '</span>';
+    if (chk.state === 'UP_TO_DATE') badge = '<span class="compat-pill compat-ok">АКТУАЛЬНО</span>';
+    if (chk.state === 'UPDATE_AVAILABLE') badge = '<span class="compat-pill compat-warn">ДОСТУПНО ОБНОВЛЕНИЕ -> v' + escHtml(chk.latest_version) + '</span>';
+    if (chk.state === 'GITHUB_UNAVAILABLE' || chk.state === 'CHECK_FAILED') badge = '<span class="compat-pill compat-no">ПРОВЕРКА НЕДОСТУПНА</span>';
+    const notes = chk.release_notes ? ('<details class="tech-details"><summary>Описание релиза GitHub</summary><pre style="margin-top:6px;white-space:pre-wrap;max-height:140px;overflow-y:auto;">' + escHtml(chk.release_notes) + '</pre></details>') : '';
+    const errLine = chk.error ? ('<div style="color:#f87171;margin-top:6px;">' + escHtml(chk.error) + '</div>') : '';
+    box.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '<div>Установленная версия: <b>v' + escHtml(chk.current_version || '-') + '</b> | Новая на GitHub: <b>v' + escHtml(chk.latest_version || '-') + '</b></div>' + badge + '</div>' +
+        '<div style="font-size:11.5px;color:#94a3b8;">Способ установки: <b>' + escHtml(inst.method || '-') + '</b> (' + escHtml(inst.package_dir || '-') + ') | Источник: ' + escHtml(chk.source || 'cache') + (chk.cached ? ' (кэш)' : '') + '</div>' +
+        errLine + notes;
+    if (applyBtn) {
+        applyBtn.disabled = (inst.method === 'packaged');
+        applyBtn.innerText = (chk.state === 'UPDATE_AVAILABLE') ? ('Установить v' + chk.latest_version + ' (с бэкапом)') : 'Переустановить / Обновить';
+    }
+    if (job && (job.status === 'running' || job.status === 'failed' || job.status === 'updated')) {
+        _renderShardUpdateProgress(job);
+    }
+}
+function _renderShardUpdateProgress(job) {
+    const pbox = document.getElementById('updProgressBox');
+    if (!pbox || !job) return;
+    pbox.style.display = 'block';
+    document.getElementById('updPhaseLabel').innerText = job.message || job.phase || job.status;
+    document.getElementById('updPctLabel').innerText = (job.progress_pct || 0) + '%';
+    const fill = document.getElementById('updTrackFill');
+    if (fill) {
+        fill.style.width = (job.progress_pct || 0) + '%';
+        fill.style.background = job.status === 'failed' ? '#ef4444' : (job.status === 'updated' ? '#10b981' : '#38bdf8');
+    }
+    const logsPre = document.getElementById('updLogsPre');
+    if (logsPre) logsPre.innerText = (job.logs || []).join('\n') || (job.error || '');
+}
+async function checkShardUpdates(force) {
+    try {
+        const res = await fetch('/api/system/update' + (force ? '?force=1' : ''), {headers: getAuthHeaders()});
 window.onload = function() {
     initChatSessions();
     loadFeedbackPolicy();
