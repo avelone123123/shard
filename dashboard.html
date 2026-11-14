@@ -2852,7 +2852,7 @@ function renderMarkdown(md) {
                 codeBuf = [];
             } else {
                 inCode = false;
-                html += '<pre style="background:#090a0f;border:1px solid #1e2638;padding:12px 14px;border-radius:6px;overflow-x:auto;font-family:Consolas,monospace;font-size:12px;color:#38bdf8;margin:12px 0;"><code>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>';
+                html += '<pre style="background:var(--surface-terminal);border:1px solid var(--border-strong);padding:12px 14px;border-radius:var(--radius-sm);overflow-x:auto;font-family:var(--font-mono);font-size:12px;color:var(--text-terminal);margin:12px 0;"><code>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>';
             }
             continue;
         }
@@ -2873,17 +2873,17 @@ function renderMarkdown(md) {
             tableBuf = [];
         }
         if (line.startsWith('# ')) {
-            html += '<h1 style="font-size:20px;font-weight:700;color:#fff;margin:18px 0 10px;border-bottom:1px solid #1e2638;padding-bottom:6px;">' + inlineMd(line.slice(2)) + '</h1>';
+            html += '<h1 style="font-size:20px;font-weight:700;color:var(--text);margin:18px 0 10px;border-bottom:1px solid var(--border-strong);padding-bottom:6px;">' + inlineMd(line.slice(2)) + '</h1>';
         } else if (line.startsWith('## ')) {
-            html += '<h2 style="font-size:16px;font-weight:700;color:#f1f5f9;margin:16px 0 8px;">' + inlineMd(line.slice(3)) + '</h2>';
+            html += '<h2 style="font-size:16px;font-weight:700;color:var(--text);margin:16px 0 8px;">' + inlineMd(line.slice(3)) + '</h2>';
         } else if (line.startsWith('### ')) {
-            html += '<h3 style="font-size:14px;font-weight:600;color:#cbd5e1;margin:14px 0 6px;">' + inlineMd(line.slice(4)) + '</h3>';
+            html += '<h3 style="font-size:14px;font-weight:600;color:var(--text-secondary);margin:14px 0 6px;">' + inlineMd(line.slice(4)) + '</h3>';
         } else if (line.startsWith('- ') || line.startsWith('* ')) {
-            html += '<li style="margin:4px 0 4px 20px;color:#cbd5e1;">' + inlineMd(line.slice(2)) + '</li>';
+            html += '<li style="margin:4px 0 4px 20px;color:var(--text-secondary);">' + inlineMd(line.slice(2)) + '</li>';
         } else if (line.trim().length === 0) {
             html += '<div style="height:8px;"></div>';
         } else {
-            html += '<p style="margin:6px 0;line-height:1.6;color:#94a3b8;">' + inlineMd(line) + '</p>';
+            html += '<p style="margin:6px 0;line-height:1.6;color:var(--text-secondary);">' + inlineMd(line) + '</p>';
         }
     }
     if (inTable && tableBuf.length > 0) {
