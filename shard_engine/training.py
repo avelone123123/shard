@@ -382,6 +382,38 @@ def preflight_training_check(base_model=None, dataset_snapshot_id=None, task="sf
             "status": "fail",
             "message": msg,
             "detail": " | ".join(soup_info.get("warnings") or []),
+        })
+        errors.append(msg)
+    ds_val = None
+    if not dataset_snapshot_id:
+        msg = "Не выбран снапшот датасета. Создайте снапшот из одобренных отзывов перед запуском."
+        checks.append({"name": "dataset", "label": "Датасет", "status": "fail", "message": msg, "detail": ""})
+        errors.append(msg)
+    else:
+        ds_val = feedback.validate_dataset_snapshot(dataset_snapshot_id, task=task, check_with_soup=False)
+        if ds_val.get("ok"):
+            status_val = "warn" if ds_val.get("warnings") else "pass"
+            msg = f"Датасет проверен: {ds_val.get('valid_records')} валидных записей ({ds_val.get('format')})."
+            if ds_val.get("warnings"):
+                warnings.extend(ds_val["warnings"])
+                msg += " " + " ".join(ds_val["warnings"])
+            checks.append({"name": "dataset", "label": "Датасет", "status": status_val, "message": msg, "detail": ""})
+        else:
+            msg = "; ".join(ds_val.get("errors") or ["Датасет не прошел проверку."])
+            checks.append({"name": "dataset", "label": "Датасет", "status": "fail", "message": msg, "detail": ""})
+            errors.append(msg)
+    ds_base = None
+    if dataset_snapshot_id:
+        try:
+            ds_base = feedback.get_dataset_manifest(dataset_snapshot_id).get("base_model")
+        except Exception:
+            ds_base = None
+    raw_base = str(base_model or ds_base or engine_instance.active_model_id or "").strip()
+    resolved_base_str = None
+    suggested_hf = []
+    if not raw_base:
+        msg = "Не указана базовая модель (Hugging Face ID или локальная HF-папка)."
+        checks.append({"name": "base_model", "label": "Базовая модель", "status": "fail", "message": msg, "detail": ""})
 def start_training_job(
     base_model=None,
     dataset_snapshot_id=None,
