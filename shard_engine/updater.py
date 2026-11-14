@@ -190,3 +190,27 @@ def _http_get(url, timeout=3.0, headers=None, stream=False):
     resp = requests.get(url, headers=hdrs, timeout=timeout, verify=True, allow_redirects=True, stream=stream)
     final_url = getattr(resp, "url", None)
     if isinstance(final_url, str) and final_url:
+        validate_remote_url(final_url)
+    return resp
+def _parse_sha256_text(text, asset_name):
+    for line in str(text or "").splitlines():
+        parts = line.strip().split()
+        if len(parts) >= 2 and re.fullmatch(r"[0-9a-fA-F]{64}", parts[0]):
+            fn = os.path.basename(parts[1].lstrip("*"))
+            if fn == asset_name:
+                return parts[0].lower()
+    return None
+def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
+    headers = {"Accept": "application/vnd.github+json"}
+    rate_limited = False
+    last_err = None
+    try:
+        r = _http_get(GITHUB_API_RELEASES_LATEST, timeout=timeout, headers=headers)
+        if r.status_code == 200:
+            data = r.json() or {}
+            tag = str(data.get("tag_name") or "").strip()
+            ver = tag.lstrip("vV")
+            if is_valid_version_str(ver) and (allow_prerelease or (not data.get("prerelease") and not is_prerelease_version(ver))):
+                assets = data.get("assets") or []
+                whl_asset = None
+                checksum_asset = None
