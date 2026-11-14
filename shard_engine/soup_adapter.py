@@ -75,6 +75,51 @@ def _split_cmd(raw):
         return cleaned
     except ValueError:
         return txt.split()
+def _validate_custom_python(raw_path):
+    if not raw_path:
+        return None
+    txt = str(raw_path).strip()
+    if not txt or "\x00" in txt:
+        raise ValueError("Invalid python_executable path.")
+    if txt.startswith("\\\\") or txt.startswith("//"):
+        raise ValueError("Network UNC paths are not permitted for python_executable.")
+    if model_browser.is_sensitive_path(txt):
+        raise PermissionError("Refusing python_executable inside protected directory.")
+    base = os.path.basename(txt)
+    if not _SAFE_PYTHON_EXE_RE.match(base):
+        raise ValueError("python_executable must point to a python executable (python / python3.12 / python.exe).")
+    if not os.path.isfile(txt):
+        raise FileNotFoundError(f"Python executable not found: {txt}")
+    return os.path.abspath(txt)
+def _soup_version_cache_path():
+    return Path(paths.cache_dir()) / "soup_version_cache.json"
+def check_latest_soup_version(force=False, timeout=2.5, allow_network=True):
+    cp = _soup_version_cache_path()
+    cached = storage.read_json_safe(cp, default=None, expected_type=dict, quarantine=False, use_backup=True) if cp.is_file() else None
+    if not force and isinstance(cached, dict) and cached.get("latest_version"):
+        if (time.time() - float(cached.get("checked_at") or 0)) < SOUP_VERSION_CACHE_TTL:
+            out = dict(cached)
+            out["cached"] = True
+            return out
+    if not allow_network:
+        return {
+            "latest_version": cached.get("latest_version") if isinstance(cached, dict) else None,
+            "requires_python": cached.get("requires_python") if isinstance(cached, dict) else ">=3.11,<3.14",
+            "source": cached.get("source") if isinstance(cached, dict) else None,
+            "release_url": "https://github.com/MakazhanAlpamys/Soup/releases",
+            "cached": bool(cached),
+            "checked_at": cached.get("checked_at") if isinstance(cached, dict) else None,
+            "error": None if cached else "Network check skipped.",
+        }
+    import requests
+    latest = None
+    req_py = ">=3.11,<3.14"
+    rel_url = "https://github.com/MakazhanAlpamys/Soup/releases"
+    src = None
+    err = None
+    try:
+        r = requests.get(SOUP_UPSTREAM_PYPI_URL, timeout=timeout, verify=True, headers={"User-Agent": "SHARD-SOUP-Checker"})
+        if r.status_code == 200:
 def _probe_python_env(py_exe, check_deps=True, timeout=8):
     if not py_exe or not os.path.isfile(py_exe):
         return None
