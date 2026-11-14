@@ -328,3 +328,113 @@ def list_available_quants(repo_id, timeout=8.0):
             "multipart": len(g["parts"]) > 1,
             "parts": g["parts"],
         })
+    quants.sort(key=lambda x: x["bpw"], reverse=True)
+    return {"repo_id": gguf_repo, "quants": quants}
+def select_gguf_file(files, wanted_quant=None, prefer_max_bpw=None):
+    if not files:
+        return None
+    groups = {}
+    for path, size in files:
+        m = _PART_RE.match(os.path.basename(path))
+        if m:
+            key = f"{os.path.dirname(path)}/{m.group(1)}".lstrip("/")
+            g = groups.setdefault(key, {"parts": [], "total": 0})
+            g["parts"].append(path)
+            g["total"] += size
+        else:
+            if _MULTIPART_RE.search(os.path.basename(path)):
+                pm = re.match(r"(?i)(.*)-\d{5}-of-\d{3,}\.gguf$", os.path.basename(path))
+                if pm:
+                    key = f"{os.path.dirname(path)}/{pm.group(1)}".lstrip("/")
+                    g = groups.get(key)
+                    if g is not None:
+                        g["parts"].append(path)
+                        g["total"] += size
+                continue
+            groups[path] = {"parts": [path], "total": size}
+    cands = []
+    for key, g in groups.items():
+        rep = g["parts"][0]
+        q = parse_quant_from_name(rep)
+        if not q:
+            continue
+        cands.append({
+            "path": rep,
+            "size_bytes": g["total"],
+            "quant": q,
+            "multipart": len(g["parts"]) > 1,
+            "parts": g["parts"],
+        })
+    if not cands:
+        return None
+    if wanted_quant:
+        w = normalize_quant(wanted_quant)
+        if w:
+            exact = [c for c in cands if c["quant"] == w]
+            if exact:
+                return _prefer_single(exact)
+            w_bpw = QUANT_BPW[w]
+            smaller = [c for c in cands if QUANT_BPW.get(c["quant"], 0) < w_bpw]
+            if smaller:
+                return _prefer_single([max(smaller, key=lambda c: QUANT_BPW.get(c["quant"], 0))])
+            smaller_or_equal = [c for c in cands if QUANT_BPW.get(c["quant"], 0) <= w_bpw + 0.01]
+            if smaller_or_equal:
+                return _prefer_single([max(smaller_or_equal, key=lambda c: QUANT_BPW.get(c["quant"], 0))])
+    if prefer_max_bpw is not None:
+        fits = [c for c in cands if QUANT_BPW.get(c["quant"], 0) <= prefer_max_bpw + 0.01]
+        if fits:
+            return _prefer_single([max(fits, key=lambda c: QUANT_BPW.get(c["quant"], 0))])
+    return _prefer_single(cands)
+def _prefer_single(cands):
+    if len(cands) == 1:
+        return cands[0]
+    best = max(cands, key=lambda c: QUANT_BPW.get(c["quant"], 0))
+    singles = [c for c in cands if not c["multipart"] and c["quant"] == best["quant"]]
+    return singles[0] if singles else best
+def download_gguf(repo_id, selection, progress_cb=None, cancel_check=None):
+    loc = find_local_gguf(repo_id, selection.get("quant") if isinstance(selection, dict) else None)
+    if loc and os.path.isfile(loc.get("path", "")) and loc.get("size_bytes", 0) > 0:
+        return loc["path"]
+    canonical_repo = find_gguf_repo(repo_id) or repo_id
+    hf_home = settings.models_dir() or os.environ.get("HF_HOME") or paths.default_models_dir()
+    snap = os.path.join(hf_home, "hub", f"models--{canonical_repo.replace('/', '--')}", "snapshots", "main")
+    parts = selection["parts"] if (isinstance(selection, dict) and "parts" in selection) else [selection.get("path", "model.gguf") if isinstance(selection, dict) else "model.gguf"]
+    expected_total = int(selection.get("size_bytes", 0) or 0) if isinstance(selection, dict) else 0
+    first_path = None
+    completed_bytes = 0
+    for sub in parts:
+        if cancel_check and cancel_check():
+            raise RuntimeError("Загрузка отменена пользователем")
+        dest = os.path.join(snap, *sub.split("/"))
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        if os.path.isfile(dest) and validate_gguf_file(dest).get("valid"):
+            completed_bytes += os.path.getsize(dest)
+            if first_path is None:
+                first_path = dest
+            continue
+        url = f"https://huggingface.co/{canonical_repo}/resolve/main/{sub}"
+        def _part_cb(got_part, total_part, speed_bps, cur_name=os.path.basename(sub)):
+            if progress_cb:
+                tot = expected_total if expected_total > 0 else (completed_bytes + total_part)
+                progress_cb(completed_bytes + got_part, tot, speed_bps, cur_name)
+        _download_file(url, dest, progress_cb=_part_cb, cancel_check=cancel_check)
+        val = validate_gguf_file(dest)
+        if not val.get("valid"):
+            try:
+                os.remove(dest)
+            except Exception:
+                pass
+            raise RuntimeError(f"Проверка GGUF-файла не пройдена ({os.path.basename(dest)}): {val.get('reason')}")
+        completed_bytes += os.path.getsize(dest)
+        if first_path is None:
+            first_path = dest
+    if first_path and os.path.isfile(first_path):
+        return first_path
+    raise RuntimeError("GGUF скачан, но файл не найден в кэше")
+def _runtime_dirs():
+    dirs = []
+    home_rt = os.path.join(os.path.expanduser("~"), ".shard", "runtime")
+    for d in (_RUNTIME_DIR, paths.runtime_dir(), home_rt):
+        if d and os.path.normcase(os.path.abspath(d)) not in [os.path.normcase(os.path.abspath(x)) for x in dirs]:
+            dirs.append(d)
+    return dirs
