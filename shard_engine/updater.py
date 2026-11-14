@@ -766,3 +766,27 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                 def _on_prog(pct, got, tot):
                     _set_job_state(progress_pct=25 + int(pct * 0.35), message=f"Скачивание: {pct}% ({round(got / 1024 / 1024, 1)} МБ)")
                 _download_file(asset_url, dl_path, expected_size=chk.get("asset_size"), progress_cb=_on_prog, timeout=120)
+                _set_job_state(phase="verifying_artifact", progress_pct=65, message="Проверка целостности и SHA-256 архива...", log="Verifying SHA-256 and archive contents...")
+                ver_res = verify_archive_artifact(dl_path, expected_sha256=chk.get("asset_sha256"), expect_wheel=is_whl)
+                _set_job_state(log=f"Artifact verified (sha256={ver_res['sha256'][:16]}..., size={ver_res['size_bytes']})")
+                _set_job_state(phase="installing", progress_pct=75, message="Установка проверенного обновления...", log="Installing verified update...")
+                if is_whl and inst["method"] in ("pypi", "wheel"):
+                    cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-input", str(dl_path)]
+                    pr = pip_runner(cmd) if pip_runner else subprocess.run(cmd, capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
+                    if pr.returncode != 0:
+                        raise RuntimeError(f"pip install exited with code {pr.returncode}: {(pr.stderr or pr.stdout)[:300]}")
+                elif inst["method"] in ("git_clone", "editable_source"):
+                    synced = _sync_source_archive(dl_path, inst["package_dir"])
+                    _set_job_state(log=f"Synced {synced} package files into {inst['package_dir']}")
+                else:
+                    cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-input", str(dl_path)]
+                    pr = pip_runner(cmd) if pip_runner else subprocess.run(cmd, capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
+                    if pr.returncode != 0:
+                        raise RuntimeError(f"pip install failed: {(pr.stderr or pr.stdout)[:300]}")
+            _set_job_state(phase="verifying_runtime", progress_pct=90, message="Проверка запуска обновлённой версии SHARD...", log="Running post-update verification...")
+            post = verify_installation(expected_version=desired_ver if not pip_runner else None)
+            new_ver = post.get("version") or desired_ver or __version__
+            daemon_running = bool(process.running_status())
+            _write_cache({
+                "schema_version": 1,
+                "state": "UP_TO_DATE",
