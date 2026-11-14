@@ -598,3 +598,27 @@ def list_directory(raw_path=None, filter_mode="all", search=None, max_entries=50
             if ext not in (".gguf", ".safetensors") and name not in ("config.json", "adapter_config.json"):
                 continue
             try:
+                info = classify_model_path(entry.path, deep_size=False)
+            except Exception:
+                continue
+            if fmode == "gguf" and info.get("format") != "gguf_inference":
+                continue
+            if fmode == "trainable" and not info.get("compatibility", {}).get("soup_training", {}).get("supported"):
+                continue
+            files_out.append(info)
+    dirs_out.sort(key=lambda x: (0 if x.get("format") in ("hf_model_dir", "hf_hub_cache") else 1, x.get("name", "").lower()))
+    files_out.sort(key=lambda x: x.get("name", "").lower())
+    entries = (dirs_out + files_out)[:max(1, min(int(max_entries), 500))]
+    return {
+        "current_path": str(p),
+        "parent_path": parent,
+        "breadcrumbs": _breadcrumbs(p),
+        "current_dir": current_info,
+        "entries": entries,
+        "truncated": (len(dirs_out) + len(files_out)) > len(entries),
+    }
+def inspect_model_target(path_or_id, remember=False):
+    raw = str(path_or_id or "").strip()
+    if not raw or "\x00" in raw:
+        raise ValueError("Model path or Hugging Face ID is required.")
+    if raw.startswith("\\\\") or raw.startswith("//"):
