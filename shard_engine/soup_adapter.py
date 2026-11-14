@@ -790,6 +790,10 @@ def _local_model_has_chat_template(model_path):
     if not p.is_dir():
         return True
     if (p / "chat_template.jinja").is_file() or (p / "chat_template.json").is_file():
+        return True
+    tok_cfg = p / "tokenizer_config.json"
+    if not tok_cfg.is_file():
+        return False
 def build_soup_config(base_model, dataset_path, output_dir, task="sft", fmt=None, experiment_name=None, params=None):
     errors = []
     params = dict(params or {})
