@@ -62,3 +62,15 @@ To replace the dark-neon aesthetic without harming developer readability during 
 - `--accent-text` on `--surface-elevated` (`7.04:1`), on `--bg` (`6.50:1`); `#FFFFFF` on `--accent` (`4.77:1`); `#FFFFFF` on `--accent-hover` (`6.79:1`); `--accent-active` on `--accent-soft` (`7.87:1`).
 - Semantic badges: `--success` on `--success-bg` (`5.93:1`), `--warning` on `--warning-bg` (`5.75:1`), `--danger` on `--danger-bg` (`5.30:1`), `--info` on `--info-bg` (`6.39:1`), `#FFFFFF` on `--danger` (`6.47:1`).
 - Terminal: `--accent-soft` on `#18201F` (`13.48:1`), `#FAF9F5` on `#18201F` (`15.75:1`).
+
+---
+
+## 3. Files Modified & Parity Check
+
+- `shard_engine/dashboard.html` — redesigned CSS design system, semantic helper classes, inline SVG favicon, accessible modal `role="dialog"` + `aria-modal="true"` + `Escape` close handler, labeled Server Hub grid, responsive tablet breakpoints, and unified theme tokens across JS templates.
+- `dashboard.html` — synchronized 100% byte-for-byte with `shard_engine/dashboard.html` (`315,175` bytes, `4,597` lines, `0` blank lines, `0` HTML/CSS comments, `0` emojis, `node --check` exit code `0`).
+
+Note: Uncommitted pre-existing Phase I.1 edits (`pyproject.toml`, `shard_engine/soup_adapter.py`, `phase_i_1_acceptance_report.md`) were left intact and nothing was committed or pushed.
+
+---
+
