@@ -2907,18 +2907,18 @@ async function openModelCard(modelId) {
     authorEl.innerText = modelId.split('/')[0] || 'Community';
     hfLink.removeAttribute('href');
     launchBtn.onclick = () => { loadModel(modelId); closeModelCard(); };
-    bodyEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text-muted);"><div class="think-pulse" style="width:14px;height:14px;"></div><div style="font-size:13px;color:#cbd5e1;">Загрузка спецификации и описания модели...</div></div>';
+    bodyEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text-muted);"><div class="think-pulse" style="width:14px;height:14px;"></div><div style="font-size:13px;color:var(--text-secondary);">Загрузка спецификации и описания модели...</div></div>';
     try {
         const res = await fetch('/api/hf/model/' + encodeURIComponent(modelId));
         const data = await res.json();
         const dlSpan = (data.downloads != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ' + Number(data.downloads).toLocaleString('ru-RU') + ' скачиваний</span>' : '';
-        const likeSpan = (data.likes != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ' + Number(data.likes).toLocaleString('ru-RU') + ' лайков</span>' : '';
+        const likeSpan = (data.likes != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ' + Number(data.likes).toLocaleString('ru-RU') + ' лайков</span>' : '';
         statsEl.innerHTML = '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> ' + escHtml(data.pipeline_tag) + '</span>' +
             dlSpan + likeSpan +
-            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + escHtml(data.compatibility ? data.compatibility.tier_label : '') + '</span>';
+            '<span class="spec-item" style="color:var(--success);font-weight:600;">' + escHtml(data.compatibility ? data.compatibility.tier_label : '') + '</span>';
         bodyEl.innerHTML = renderMarkdown(data.readme);
     } catch(e) {
-        bodyEl.innerHTML = '<div style="color:#ef4444;padding:30px;text-align:center;">Не удалось загрузить спецификацию модели.</div>';
+        bodyEl.innerHTML = '<div style="color:var(--danger);padding:30px;text-align:center;">Не удалось загрузить спецификацию модели.</div>';
     }
 }
 function closeModelCard() {
@@ -2944,7 +2944,7 @@ function openDirPicker() {
         if (s.models_dir) input.value = s.models_dir;
         const disk = s.disk || {};
         diskEl.innerHTML = '<span class="spec-item">Свободно: ' + escHtml(disk.free_gb) + ' GB из ' + escHtml(disk.total_gb) + ' GB</span>' +
-            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + (s.is_custom ? 'CUSTOM' : 'ПО УМОЛЧАНИЮ') + '</span>';
+            '<span class="spec-item" style="color:var(--success);font-weight:600;">' + (s.is_custom ? 'CUSTOM' : 'ПО УМОЛЧАНИЮ') + '</span>';
     }).catch(() => {});
     fetch('/api/drives').then(r => r.json()).then(d => {
         _drivesCache = (d && d.drives) || [];
