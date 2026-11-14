@@ -350,6 +350,38 @@ def _watch_job(job_id, proc, log_fh, custom_cmd=None):
             target["error"] = f"Soup training exited with code {rc}: " + (" | ".join(tail)[:300] if tail else "check train.log")
             _save_jobs(jobs)
             feedback._append_audit("training_job_failed", {"job_id": job_id, "returncode": rc})
+def preflight_training_check(base_model=None, dataset_snapshot_id=None, task="sft", params=None, soup_cmd=None):
+    checks = []
+    errors = []
+    warnings = []
+    soup_info = soup_adapter.detect_soup(custom_cmd=soup_cmd, probe_deps=True)
+    if soup_info.get("available") and soup_info.get("capabilities", {}).get("train"):
+        checks.append({
+            "name": "soup_env",
+            "label": "Среда SOUP CLI",
+            "status": "pass",
+            "message": f"SOUP {soup_info.get('version') or ''} готов к обучению ({soup_info.get('runtime_python') or 'venv'}).",
+            "detail": " ".join(soup_info.get("command") or []),
+        })
+    elif soup_info.get("available"):
+        missing = ", ".join(soup_info.get("missing_train_deps") or ["torch", "peft", "trl", "transformers"])
+        msg = f"SOUP установлен ({soup_info.get('version') or 'core'}), но не хватает train-зависимостей: {missing}."
+        checks.append({
+            "name": "soup_env",
+            "label": "Среда SOUP CLI",
+            "status": "fail",
+            "message": msg,
+            "detail": soup_info.get("error_explanation") or "",
+        })
+        errors.append(msg)
+    else:
+        msg = soup_info.get("error_explanation") or "SOUP CLI не установлен или не найден в изолированной среде."
+        checks.append({
+            "name": "soup_env",
+            "label": "Среда SOUP CLI",
+            "status": "fail",
+            "message": msg,
+            "detail": " | ".join(soup_info.get("warnings") or []),
 def start_training_job(
     base_model=None,
     dataset_snapshot_id=None,
