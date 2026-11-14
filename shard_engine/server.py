@@ -1868,3 +1868,113 @@ def _save_workspace_unlocked(data):
     storage.atomic_write_json(_workspace_file(), data, indent=2, fsync=True, backup=True, restrict=True)
 def _resolve_server_actor(req):
     if _is_owner_request(req):
+        return True, "owner", LAN.name() or "Owner"
+    if net_tunnel.is_tunnel_request(req):
+        pid = net_tunnel.tunnel_peer_id(req) or "peer"
+        return True, "tunnel_peer", f"peer:{pid[:10]}"
+    tok = _extract_bearer(req)
+    if tok and _token_in_pool(tok, LAN.tokens() | set(load_keys())):
+        st = LAN.status(include_secrets=False)
+        for m in st.get("members") or []:
+            if m.get("ip") == (req.client.host if req.client else ""):
+                return True, m.get("role") or "member", m.get("name") or "Участник"
+        return True, "member", "Участник"
+    return False, None, None
+@app.post("/api/server/create")
+async def api_server_create(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    name = str(data.get("name") or LAN.name() or socket.gethostname() or "shard").strip()[:64]
+    model = str(data.get("model") or engine_instance.active_model_id or "").strip() or None
+    open_lan = bool(data.get("open", False))
+    enable_lan = bool(data.get("enable_lan", True))
+    publish_global = bool(data.get("publish_global", False))
+    visibility = str(data.get("visibility") or "private").strip().lower()
+    access_mode = str(data.get("access_mode") or "invite_only").strip().lower()
+    max_participants = int(data.get("max_participants") or 16)
+    region = str(data.get("region") or "").strip()[:32]
+    load_now = bool(data.get("load_model", False))
+    lan_st = None
+    if enable_lan:
+        if LAN.is_server():
+            with LAN._lock:
+                LAN._state["name"] = name
+                LAN._state["open"] = open_lan
+                if model:
+                    LAN._state["target_model"] = model
+                LAN._save()
+            lan_st = LAN.status(include_secrets=True)
+        else:
+            lan_st = LAN.create(name=name, open_net=open_lan, model=model)
+    host_st = None
+    if publish_global:
+        try:
+            host_st = _net_mgr().publish_server(
+                name=name,
+                visibility=visibility,
+                access_mode=access_mode,
+                max_participants=max_participants,
+                region=region,
+                model=model,
+                models=[model] if model else None,
+                asgi_app=app,
+            )
+        except Exception as e:
+            return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    else:
+        host_st = _net_mgr().host_status()
+    load_info = None
+    if load_now and model and not engine_instance.is_model_active(model):
+        try:
+            load_info = engine_instance.load_model(model)
+        except Exception as e:
+            load_info = {"status": "error", "message": str(e)}
+    return {
+        "status": "ok",
+        "lan": lan_st or LAN.status(include_secrets=True),
+        "host": host_st,
+        "discovery_ok": host_st.get("discovery_ok", True) if isinstance(host_st, dict) else True,
+        "warning": host_st.get("discovery_warning") if isinstance(host_st, dict) else None,
+        "model_load": load_info,
+    }
+@app.get("/api/server/workspace")
+def api_server_workspace(req: Request):
+    ok, role, actor_name = _resolve_server_actor(req)
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация владельца или участника сервера"})
+    is_owner = role == "owner"
+    lan_st = LAN.status(include_secrets=is_owner)
+    host_st = _net_mgr().host_status()
+    eng_st = engine_instance.get_status()
+    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
+        ws = _load_workspace_unlocked()
+    return {
+        "status": "ok",
+        "is_owner": is_owner,
+        "participant_role": role,
+        "participant_name": actor_name,
+        "server_active": bool(LAN.is_server() or host_st.get("published")),
+        "lan": lan_st,
+        "network_host": host_st if is_owner else {
+            "published": bool(host_st.get("published")),
+            "display_name": host_st.get("display_name"),
+            "visibility": host_st.get("visibility"),
+            "access_mode": host_st.get("access_mode"),
+            "active_peers": host_st.get("active_peers", 0),
+            "max_participants": host_st.get("max_participants", 16),
+            "discovery_ok": host_st.get("discovery_ok", True),
+            "discovery_warning": host_st.get("discovery_warning"),
+        },
+        "engine": {
+            "status": eng_st.get("status"),
+            "active_model": eng_st.get("active_model"),
+            "current_loaded": eng_st.get("current_loaded"),
+            "is_loaded": eng_st.get("is_loaded"),
+            "lifecycle_state": eng_st.get("lifecycle_state"),
+        },
+        "shared_chats": ws.get("shared_chats", [])[-30:],
