@@ -878,3 +878,71 @@ def create_backup(output_path=None, include_runs=True, include_datasets=True):
         paths.config_dir(),
         output_path=output_path,
         include_runs=include_runs,
+        include_datasets=include_datasets,
+    )
+    feedback._append_audit("state_backup_created", {
+        "file_count": res.get("file_count"),
+        "size_bytes": res.get("size_bytes"),
+    })
+    return res
+def restore_backup(archive_path, verify_hashes=True):
+    with _STATE_LOCK:
+        jobs = reconcile_jobs()
+        if _active_job_unlocked(jobs) is not None:
+            raise RuntimeError("Stop active training jobs before restoring a state backup.")
+        res = storage.restore_state_backup(
+            archive_path,
+            paths.data_dir(),
+            paths.config_dir(),
+            verify_hashes=verify_hashes,
+        )
+    feedback._append_audit("state_backup_restored", {
+        "restored_files": res.get("restored_files"),
+    })
+    return res
+def shutdown_active_jobs():
+    procs_to_stop = []
+    with _STATE_LOCK:
+        for jid, proc in list(_ACTIVE_PROCS.items()):
+            if proc is not None and proc.poll() is None:
+                procs_to_stop.append((jid, proc))
+        if procs_to_stop:
+            jobs = _load_jobs()
+            stop_ids = {jid for jid, _ in procs_to_stop}
+            for j in jobs:
+                if j.get("job_id") in stop_ids and j.get("status") in ("queued", "validating", "running"):
+                    j["status"] = "interrupted"
+                    j["finished_at"] = time.time()
+                    j["error"] = "Interrupted by server shutdown."
+            _save_jobs(jobs)
+    for _, proc in procs_to_stop:
+        try:
+            soup_adapter.terminate_process(proc)
+        except Exception:
+            pass
+    return len(procs_to_stop)
+def training_overview():
+    soup_info = soup_adapter.detect_soup(probe_deps=False)
+    privacy = feedback.get_privacy_config()
+    stats = feedback.compute_stats()
+    datasets = feedback.list_datasets()
+    jobs = list_training_jobs(limit=20)
+    registry = list_model_versions()
+    eng = engine_instance.get_status()
+    return {
+        "soup": soup_info,
+        "privacy": privacy,
+        "feedback_stats": stats,
+        "datasets": datasets,
+        "jobs": jobs,
+        "registry": registry,
+        "engine": {
+            "status": eng.get("status"),
+            "active_model": eng.get("active_model"),
+            "is_loaded": eng.get("is_loaded"),
+        },
+        "architecture_notes": {
+            "distributed_training": "Single-node local SOUP training on host. SHARD ggml-rpc LAN pooling is inference-only.",
+            "raw_chat_ingestion": "Disabled. Only explicit user feedback with consent is recorded.",
+        },
+    }
