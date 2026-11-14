@@ -108,3 +108,113 @@ def _load_registry():
         "previous_engine_model_id": None,
         "active_engine_model_id": None,
         "versions": [],
+    }
+    with storage.file_lock(p):
+        data = storage.read_json_safe(p, default=default, expected_type=dict, quarantine=True, use_backup=True)
+        if not isinstance(data, dict):
+            return default
+        for k, v in default.items():
+            data.setdefault(k, v)
+        if not isinstance(data.get("versions"), list):
+            data["versions"] = []
+        for item in data["versions"]:
+            _hydrate_version_paths(item)
+        return data
+def _save_registry(reg):
+    p = _registry_path()
+    with storage.file_lock(p):
+        _atomic_write_json(p, reg, backup=True)
+def _sync_active_model_file(model_id_or_path):
+    val = str(model_id_or_path or "").strip()
+    if not val:
+        return
+    try:
+        storage.atomic_write_json(
+            engine_instance.active_model_file,
+            {"model_id": val, "updated_at": time.time()},
+            fsync=True,
+            backup=True,
+        )
+    except Exception:
+        pass
+def _is_job_alive_unlocked(j):
+    if j.get("status") not in ("queued", "validating", "running"):
+        return False
+    jid = j.get("job_id")
+    proc = _ACTIVE_PROCS.get(jid)
+    if proc is not None:
+        return proc.poll() is None
+    if j.get("host_pid") == os.getpid() and j.get("status") in ("queued", "validating"):
+        if (time.time() - float(j.get("created_at") or 0)) < 30:
+            return True
+    pid = j.get("pid")
+    if pid and j.get("host_pid") == os.getpid() and process.is_pid_running(pid):
+        return True
+    return False
+def _active_job_unlocked(jobs):
+    for j in jobs:
+        if _is_job_alive_unlocked(j):
+            return j
+    return None
+def reconcile_jobs():
+    recovered_jobs = []
+    with _STATE_LOCK:
+        p = _jobs_path()
+        with storage.file_lock(p):
+            jobs = _load_jobs()
+            changed = False
+            for j in jobs:
+                if j.get("status") not in ("queued", "validating", "running"):
+                    continue
+                if _is_job_alive_unlocked(j):
+                    continue
+                jid = j.get("job_id")
+                if jid in _ACTIVE_PROCS:
+                    continue
+                pid = j.get("pid")
+                if pid and j.get("host_pid") != os.getpid() and process.is_pid_running(pid):
+                    continue
+                _hydrate_job_paths(j)
+                out_dir = j.get("output_dir") or ""
+                art = soup_adapter.scan_output_artifacts(out_dir) if out_dir else j.get("artifacts") or {}
+                prog = soup_adapter.parse_train_progress(j.get("log_path"))
+                j["artifacts"] = art
+                j["progress"] = {
+                    "last_loss": prog.get("last_loss"),
+                    "last_epoch": prog.get("last_epoch"),
+                    "current_step": prog.get("current_step"),
+                    "total_steps": prog.get("total_steps"),
+                }
+                j["finished_at"] = j.get("finished_at") or time.time()
+                has_art = bool(art.get("adapter_dir") or art.get("merged_dir") or art.get("gguf_files"))
+                steps_done = bool(prog.get("total_steps") and prog.get("current_step") and int(prog["current_step"]) >= int(prog["total_steps"]))
+                if has_art and (j.get("training_completed") or steps_done):
+                    j["status"] = "completed"
+                    j["training_completed"] = True
+                    recovered_jobs.append(dict(j))
+                else:
+                    j["status"] = "interrupted"
+                    j["training_completed"] = False
+                    if not j.get("error"):
+                        j["error"] = "Training process interrupted by server shutdown or unexpected exit."
+                changed = True
+                feedback._append_audit("training_job_reconciled", {"job_id": jid, "status": j["status"]})
+            if changed:
+                _save_jobs(jobs)
+        for rj in recovered_jobs:
+            ver = _register_version_from_job(rj)
+            with storage.file_lock(p):
+                jobs2 = _load_jobs()
+                for jj in jobs2:
+                    if jj.get("job_id") == rj["job_id"] and not jj.get("model_version_id"):
+                        jj["model_version_id"] = ver["version_id"]
+                        _save_jobs(jobs2)
+                        break
+        return _load_jobs()
+def _safe_id(val, prefix):
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]+", "-", str(val or "").strip()).strip("-")
+    if not cleaned:
+        cleaned = f"{prefix}-{uuid.uuid4().hex[:8]}"
+    return cleaned[:64]
+def _register_version_from_job(job):
+    with _STATE_LOCK:
