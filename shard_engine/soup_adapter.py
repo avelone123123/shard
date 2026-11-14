@@ -20,6 +20,23 @@ SOUP_VALID_FORMATS = ("chatml", "dpo", "alpaca", "sharegpt", "kto", "plaintext",
 SOUP_VALID_BACKENDS = ("transformers", "unsloth", "mlx")
 SOUP_VALID_QUANTS = ("4bit", "8bit", "none")
 SOUP_VALID_GGUF_QUANTS = ("q4_0", "q4_k_m", "q5_k_m", "q8_0", "f16", "f32")
+SOUP_MIN_SHARD_COMPAT = "0.70.0"
+SOUP_LIFECYCLE_STATES = (
+    "NOT_INSTALLED",
+    "CHECKING_ENVIRONMENT",
+    "FINDING_PYTHON",
+    "CREATING_VENV",
+    "INSTALLING",
+    "VERIFYING",
+    "INSTALLED",
+    "UPDATE_AVAILABLE",
+    "UPDATING",
+    "FAILED",
+)
+SOUP_UPSTREAM_PYPI_URL = "https://pypi.org/pypi/soup-cli/json"
+SOUP_UPSTREAM_RELEASES_URL = "https://api.github.com/repos/MakazhanAlpamys/Soup/releases/latest"
+SOUP_VERSION_CACHE_TTL = 4 * 3600
+_SAFE_PYTHON_EXE_RE = re.compile(r"^python(\d+(?:\.\d+)*)?(?:\.exe)?$", re.IGNORECASE)
 _WIN_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 _INSTALL_LOCK = threading.RLock()
 _INSTALL_STATE = {
