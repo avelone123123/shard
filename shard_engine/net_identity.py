@@ -548,3 +548,113 @@ class InviteManager:
                 hmac.compare_digest(candidate_hmac, "0" * 64)
                 return False, "invite_not_found", None
             stored_hmac = str(target_rec.get("token_hmac") or "")
+            if len(stored_hmac) != 64 or not hmac.compare_digest(candidate_hmac, stored_hmac):
+                return False, "invalid_token", None
+            if target_rec.get("revoked"):
+                return False, "invite_revoked", None
+            now = time.time()
+            if now >= float(target_rec.get("expires_at") or 0):
+                return False, "invite_expired", None
+            uses = int(target_rec.get("uses_count") or 0)
+            max_u = target_rec.get("max_uses")
+            if max_u is not None and uses >= int(max_u):
+                return False, "invite_exhausted", None
+            target_rec["uses_count"] = uses + 1
+            consumed = target_rec.get("consumed_by")
+            if not isinstance(consumed, list):
+                consumed = []
+            consumed.append({"node_id": peer_clean, "ts": now})
+            if len(consumed) > 256:
+                consumed = consumed[-256:]
+            target_rec["consumed_by"] = consumed
+            self._save_unlocked(data)
+            return True, "ok", self._public_record(target_rec, now=now)
+    def revoke_invite(self, invite_id: str) -> bool:
+        if not isinstance(invite_id, str) or not invite_id.strip():
+            return False
+        iid = invite_id.strip()
+        with self._lock, storage.file_lock(self._path):
+            if not os.path.isfile(self._path) and not os.path.isfile(self._path + ".bak"):
+                return False
+            data, _ = self._load_unlocked(create_if_missing=False)
+            for rec in data.get("invites") or []:
+                if isinstance(rec, dict) and rec.get("invite_id") == iid:
+                    if not rec.get("revoked"):
+                        rec["revoked"] = True
+                        rec["revoked_at"] = time.time()
+                        self._save_unlocked(data)
+                    return True
+            return False
+def _clean_uri_items(items, max_items=8, max_len=512):
+    if items is None:
+        return []
+    if isinstance(items, (str, bytes)):
+        raise TypeError("Expected sequence of strings")
+    out = []
+    seen = set()
+    for item in items:
+        if not isinstance(item, str):
+            raise TypeError("URI entry must be str")
+        val = item.strip()
+        if not val:
+            continue
+        if len(val) > max_len or any(ord(c) < 32 or ord(c) == 127 or c.isspace() for c in val):
+            raise ValueError("Invalid URI list entry")
+        if val not in seen:
+            seen.add(val)
+            out.append(val)
+        if len(out) >= max_items:
+            break
+    return out
+def pack_invite_uri(node_id: str, invite_token: str | None = None, name: str = "", relays=None, direct_endpoints=None, discovery_urls=None) -> str:
+    if not isinstance(node_id, str) or not NODE_ID_RE.match(node_id):
+        raise ValueError("Invalid node_id")
+    params = [("node_id", node_id)]
+    if invite_token is not None:
+        if not isinstance(invite_token, str):
+            raise TypeError("invite_token must be str")
+        tok = invite_token.strip()
+        if not tok or len(tok) > 256 or any(ord(c) < 32 or ord(c) == 127 or c.isspace() for c in tok):
+            raise ValueError("Invalid invite_token")
+        params.append(("token", tok))
+    clean_name = "".join(ch for ch in str(name or "") if ord(ch) >= 32 and ord(ch) != 127).strip()[:64]
+    if clean_name:
+        params.append(("name", clean_name))
+    for r in _clean_uri_items(relays, max_items=8, max_len=512):
+        params.append(("relay", r))
+    for ep in _clean_uri_items(direct_endpoints, max_items=8, max_len=256):
+        params.append(("direct", ep))
+    for disc in _clean_uri_items(discovery_urls, max_items=8, max_len=512):
+        params.append(("discovery", disc))
+    uri = "shard://connect?" + urlencode(params, doseq=True)
+    if len(uri) > 4096:
+        raise ValueError("Invite URI exceeds maximum length")
+    return uri
+def parse_invite_uri(uri: str) -> dict:
+    if not isinstance(uri, str):
+        raise ValueError("URI must be a string")
+    raw = uri.strip()
+    if not raw or raw != uri or len(raw) > 4096 or any(ord(c) < 32 or ord(c) == 127 or c.isspace() for c in raw):
+        raise ValueError("Malformed invite URI")
+    if "\x23" in raw:
+        raise ValueError("Fragments not allowed in invite URI")
+    parsed = urlparse(raw)
+    if parsed.scheme != "shard" or parsed.netloc != "connect":
+        raise ValueError("Invalid invite URI scheme or host")
+    if parsed.path not in ("", "/") or parsed.username is not None or parsed.password is not None:
+        raise ValueError("Invalid invite URI structure")
+    qs = parse_qs(parsed.query, keep_blank_values=False)
+    nid_vals = qs.get("node_id") or qs.get("node") or []
+    if len(nid_vals) != 1 or not NODE_ID_RE.match(nid_vals[0]):
+        raise ValueError("Missing or invalid node_id in invite URI")
+    tok_vals = qs.get("token") or qs.get("invite_token") or []
+    if len(tok_vals) > 1:
+        raise ValueError("Multiple tokens in invite URI")
+    invite_token = None
+    if tok_vals:
+        t = tok_vals[0].strip()
+        if not t or len(t) > 256 or any(ord(c) < 32 or ord(c) == 127 or c.isspace() for c in t):
+            raise ValueError("Invalid token in invite URI")
+        invite_token = t
+    name_vals = qs.get("name") or []
+    clean_name = "".join(ch for ch in str(name_vals[0]) if ord(ch) >= 32 and ord(ch) != 127).strip()[:64] if name_vals else ""
