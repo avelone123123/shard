@@ -1428,3 +1428,113 @@ class NetworkManager:
                 pass
         return 0.0
     def _collect_direct_endpoints_for_host(self):
+        eps = []
+        ha = self._host_agent
+        port = ha.bound_p2p_port if ha is not None else None
+        if not port:
+            with self._lock:
+                port = int(self._config.get("direct_p2p_port") or 0) or None
+        if not port:
+            return eps
+        for ip_s in lan.local_ips():
+            ep = f"{ip_s}:{port}"
+            if ep not in eps:
+                eps.append(ep)
+        return eps
+    def _build_public_listing(self):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        ha = self._host_agent
+        acc = _normalize_access_mode(cfg.get("access_mode"))
+        active_peers = ha.active_peer_count if ha is not None else 0
+        max_p = int(cfg.get("max_participants") or 16)
+        listing = {
+            "node_id": self.identity.node_id,
+            "pubkey": self.identity.pubkey_b64,
+            "name": (cfg.get("display_name") or lan.LAN.name() or socket.gethostname() or "shard")[:64],
+            "role": "server",
+            "visibility": "public",
+            "access_mode": acc,
+            "open": acc == "open",
+            "requires_invite": acc != "open",
+            "status": "online",
+            "region": cfg.get("region_hint") or "",
+            "port": lan.active_http_port(),
+            "participant_count": active_peers,
+            "max_participants": max_p,
+            "slots_available": max(0, max_p - active_peers),
+            "load": self._current_load_value(),
+            "relays": list(cfg.get("relay_urls") or []),
+            "direct_endpoints": self._collect_direct_endpoints_for_host(),
+        }
+        model = self._current_model_name()
+        if model:
+            listing["active_model"] = model
+            listing["model"] = model
+        if self._host_models_override:
+            listing["models"] = list(self._host_models_override)
+        return listing
+    def _publish_private_commitments(self, dc):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        if cfg.get("offline_only") or not cfg.get("discovery_urls"):
+            return None
+        ha = self._host_agent
+        p2p_port = ha.bound_p2p_port if ha is not None else None
+        hint = {
+            "relays": list(cfg.get("relay_urls") or []),
+            "endpoints": self._collect_direct_endpoints_for_host(),
+            "p2p_port": p2p_port,
+            "ts": round(time.time(), 3),
+        }
+        ttl_s = int(cfg.get("listing_ttl_s") or 60)
+        last_res = None
+        for inv in self.invite_manager.list_invites(include_revoked=False):
+            if inv.get("expired") or inv.get("revoked"):
+                continue
+            rem = inv.get("remaining_uses")
+            if rem is not None and int(rem) <= 0:
+                continue
+            cm = net_discovery.commitment_for_invite(inv["invite_id"])
+            last_res = dc.publish_private_commitment(self.identity, cm, hint, ttl_s=ttl_s)
+        return last_res
+    def create_invite(self, label="", ttl_s=86400, max_uses=1, relays=None, direct_endpoints=None, discovery_urls=None):
+        inv = self.invite_manager.create_invite(label=label, ttl_s=ttl_s, max_uses=max_uses, network_id=self.identity.node_id)
+        cm = net_discovery.commitment_for_invite(inv["invite_id"])
+        uri = self.build_invite_uri(
+            invite_token=inv["raw_token"],
+            relays=relays,
+            direct_endpoints=direct_endpoints,
+            discovery_urls=discovery_urls,
+        )
+        with self._lock:
+            pub = bool(self._config.get("published"))
+            vis = self._config.get("visibility")
+            offline = bool(self._config.get("offline_only"))
+            has_disc = bool(self._config.get("discovery_urls"))
+        if pub and vis == "private" and not offline and has_disc:
+            try:
+                dc = self._make_discovery_client()
+                self._host_last_disc_res = self._publish_private_commitments(dc)
+            except Exception:
+                pass
+        inv["commitment"] = cm
+        inv["uri"] = uri
+        return inv
+    def list_invites(self, include_revoked=False):
+        raw_list = self.invite_manager.list_invites(include_revoked=include_revoked)
+        out = []
+        for item in raw_list:
+            rec = dict(item)
+            if "uri" not in rec and rec.get("raw_token"):
+                try:
+                    rec["uri"] = self.build_invite_uri(invite_token=rec["raw_token"])
+                except Exception:
+                    rec["uri"] = ""
+            out.append(rec)
+        return out
+    def revoke_invite(self, invite_id):
+        res = self.invite_manager.revoke_invite(invite_id)
+        if res:
+            dropped = []
+            with self._lock:
