@@ -1048,10 +1048,12 @@ def scan_output_artifacts(output_dir):
     adapter_files = []
     merged_dir = None
     search_dirs = [out] + [c for c in sorted(out.iterdir()) if c.is_dir() and not c.name.startswith("checkpoint-") and c.name != "merged"]
-    for child in sorted(out.iterdir()):
-        if child.is_dir() and child.name.startswith("checkpoint-"):
-            checkpoints.append(str(child))
-        elif child.is_file() and child.suffix.lower() == ".gguf":
+    for d in search_dirs:
+        for child in sorted(d.iterdir()):
+            if child.is_dir() and child.name.startswith("checkpoint-"):
+                checkpoints.append(str(child))
+            elif child.is_file() and child.suffix.lower() == ".gguf" and str(child) not in gguf_files:
+                gguf_files.append(str(child))
             gguf_files.append(str(child))
     if (out / "adapter_config.json").is_file():
         adapter_dir = str(out)
