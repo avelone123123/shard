@@ -2088,3 +2088,82 @@ class NetworkManager:
             "state": state,
             "mode": mode,
             "path_type": self._client_path_type,
+            "active_path": {
+                "path_type": self._client_path_type,
+                "endpoint": self._client_endpoint,
+                "mode": mode,
+                "relay_url": relay_url,
+            },
+            "local_url": local_url,
+            "rtt_ms": rtt_ms,
+            "bytes_tx": bytes_tx,
+            "bytes_rx": bytes_rx,
+            "server": copy.deepcopy(self._client_server_info),
+            "relay_url": relay_url,
+            "attempts": copy.deepcopy(self._client_attempts),
+            "peer_node_id": self._client_peer_node_id,
+            "node_id": self.identity.node_id,
+            "offline_only": bool(cfg.get("offline_only")),
+            "last_error": last_err,
+            "reason": last_err if not ok else "ok",
+            "alternatives": copy.deepcopy(self._client_alternatives),
+            "history": hist[-20:],
+            "tofu_pins": pins,
+            "host": {
+                "published": bool(cfg.get("published")),
+                "visibility": cfg.get("visibility"),
+                "access_mode": cfg.get("access_mode"),
+                "p2p_port": self._host_agent.bound_p2p_port if self._host_agent is not None else None,
+                "active_peers": self._host_agent.active_peer_count if self._host_agent is not None else 0,
+                "pending_peers_count": len(self._peers_state.get("pending_peers") or {}),
+                "relays": dict(self._host_agent._relay_connected) if self._host_agent is not None else {},
+            },
+            "config": cfg,
+        }
+    def diagnostics(self, probe_public=False, include_platform=True, include_wireguard=True):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        return network_diagnostics(
+            probe_public=probe_public,
+            offline_only=bool(cfg.get("offline_only")),
+            stun_servers=cfg.get("stun_servers"),
+            include_platform=include_platform,
+            include_wireguard=include_wireguard,
+        )
+    def shutdown(self):
+        try:
+            self.disconnect()
+        except Exception:
+            pass
+        try:
+            self.unpublish_server()
+        except Exception:
+            pass
+        self._runner.stop()
+_DEFAULT_MANAGER_LOCK = threading.Lock()
+_DEFAULT_MANAGER = None
+def get_network_manager(**kwargs):
+    global _DEFAULT_MANAGER
+    with _DEFAULT_MANAGER_LOCK:
+        if _DEFAULT_MANAGER is None:
+            _DEFAULT_MANAGER = NetworkManager(**kwargs)
+        return _DEFAULT_MANAGER
+__all__ = [
+    "DEFAULT_STUN_SERVERS",
+    "PATH_PRIORITY",
+    "VALID_VISIBILITY",
+    "VALID_ACCESS_MODES",
+    "VALID_CONNECT_MODES",
+    "TunnelState",
+    "default_network_config",
+    "classify_endpoint_path",
+    "parse_connect_target",
+    "stun_nat_profile",
+    "udp_punch_exchange",
+    "probe_direct_http",
+    "probe_direct_e2e_tcp",
+    "resolve_and_connect",
+    "network_diagnostics",
+    "NetworkManager",
+    "get_network_manager",
+]
