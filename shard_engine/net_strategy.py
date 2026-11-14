@@ -1868,3 +1868,113 @@ class NetworkManager:
                             direct_eps.append(ep)
                     for r in hint.get("relays") or ():
                         if r not in relays:
+                            relays.append(r)
+                    pub = lu.get("public") or {}
+                    listing = pub.get("listing") if isinstance(pub.get("listing"), dict) else {}
+                    if listing:
+                        server_info["name"] = server_info.get("name") or listing.get("name")
+                        server_info["model"] = listing.get("active_model") or listing.get("model")
+                        for ep in listing.get("direct_endpoints") or listing.get("endpoints") or ():
+                            if ep not in direct_eps:
+                                direct_eps.append(ep)
+                        for r in listing.get("relays") or ():
+                            if r not in relays:
+                                relays.append(r)
+        elif parsed["kind"] == "node_id":
+            if not offline and (discovery_urls or cfg.get("discovery_urls")):
+                lu = self.lookup_server(target_nid, invite_token=eff_token, discovery_urls=discovery_urls)
+                if lu:
+                    priv = lu.get("private") or {}
+                    hint = priv.get("hint") if isinstance(priv.get("hint"), dict) else {}
+                    for ep in hint.get("endpoints") or ():
+                        if ep not in direct_eps:
+                            direct_eps.append(ep)
+                    for r in hint.get("relays") or ():
+                        if r not in relays:
+                            relays.append(r)
+                    pub = lu.get("public") or {}
+                    listing = pub.get("listing") if isinstance(pub.get("listing"), dict) else {}
+                    if listing:
+                        server_info["name"] = listing.get("name")
+                        server_info["model"] = listing.get("active_model") or listing.get("model")
+                        for ep in listing.get("direct_endpoints") or listing.get("endpoints") or ():
+                            if ep not in direct_eps:
+                                direct_eps.append(ep)
+                        for r in listing.get("relays") or ():
+                            if r not in relays:
+                                relays.append(r)
+                        if listing.get("ip") and listing.get("port"):
+                            http_eps.append(f"http://{listing['ip']}:{listing['port']}")
+        elif parsed["kind"] == "relay":
+            if parsed["relay_url"] not in relays:
+                relays.append(parsed["relay_url"])
+        elif parsed["kind"] == "http":
+            http_eps.append(parsed["url"])
+            if direct_port and parsed.get("host"):
+                direct_eps.append(f"{parsed['host']}:{int(direct_port)}")
+        elif parsed["kind"] == "host_port":
+            host = parsed["host"]
+            port = parsed["port"] or (int(direct_port) if direct_port else lan.active_http_port())
+            ep = f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+            if target_nid:
+                direct_eps.append(ep)
+            http_eps.append(f"http://{ep}")
+        for cfg_r in cfg.get("relay_urls") or ():
+            if cfg_r not in relays:
+                relays.append(cfg_r)
+        if direct_port and target_nid and not direct_eps and parsed.get("host"):
+            h = parsed["host"]
+            direct_eps.append(f"[{h}]:{int(direct_port)}" if ":" in h else f"{h}:{int(direct_port)}")
+        self.disconnect()
+        self._client_state = TunnelState.CONNECTING.value
+        res = resolve_and_connect(
+            identity=self.identity,
+            target_host_id=target_nid,
+            direct_endpoints=direct_eps,
+            http_endpoints=http_eps,
+            relay_urls=relays,
+            auth_proof=eff_token,
+            preferred_mode=preferred_mode,
+            offline_only=offline,
+            allow_relay_fallback=bool(cfg.get("allow_relay_fallback", True)),
+            allow_p2p_direct=bool(cfg.get("allow_p2p_direct", True)),
+            allow_insecure_local=allow_local,
+            reconnect=bool(reconnect),
+            verify_node_id=verify_node_id,
+            runner=self._runner,
+        )
+        now = time.time()
+        if res.get("ok"):
+            peer_nid = res.get("peer_node_id") or target_nid
+            peer_pub = None
+            if res.get("agent") is not None and res["agent"]._channel is not None:
+                peer_pub = res["agent"]._channel.peer_pubkey_b64
+            if peer_nid:
+                try:
+                    self._record_tofu_pin(
+                        peer_nid,
+                        pubkey_b64=peer_pub,
+                        name=server_info.get("name"),
+                        mode=res.get("mode"),
+                        endpoint=res.get("endpoint"),
+                    )
+                except net_tunnel.TunnelAuthError as exc:
+                    if res.get("agent") is not None:
+                        try:
+                            self._runner.run_coro(res["agent"].disconnect(), timeout=4.0)
+                        except Exception:
+                            pass
+                    self._client_state = TunnelState.FAILED.value
+                    self._client_last_error = str(exc)
+                    return {"ok": False, "state": TunnelState.FAILED.value, "reason": str(exc), "attempts": res.get("attempts", [])}
+            self._client_agent = res.get("agent")
+            self._client_state = res["state"]
+            self._client_mode = res["mode"]
+            self._client_path_type = res["path_type"]
+            self._client_endpoint = res["endpoint"]
+            self._client_relay_url = res.get("relay_url")
+            self._client_local_url = res.get("local_url")
+            self._client_rtt_ms = res.get("rtt_ms")
+            self._client_peer_node_id = peer_nid
+            boot = res.get("bootstrap")
+            if isinstance(boot, dict):
