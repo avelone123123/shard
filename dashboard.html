@@ -2715,10 +2715,10 @@ async function fetchHardware() {
                 if (hwModelEl) {
                     if (engineLifecycleState === 'VALIDATION_FAILED' || engineLifecycleState === 'RUNTIME_FAILED' || eng.status === 'error') {
                         hwModelEl.innerText = 'Ошибка загрузки';
-                        hwModelEl.style.color = '#ef4444';
+                        hwModelEl.style.color = 'var(--danger)';
                     } else {
                         hwModelEl.innerText = 'Не загружена';
-                        hwModelEl.style.color = '#94a3b8';
+                        hwModelEl.style.color = 'var(--text-muted)';
                     }
                 }
             }
@@ -2749,7 +2749,7 @@ async function loadModels() {
         const models = await res.json();
         grid.innerHTML = '';
         if (badgeEl) {
-            badgeEl.innerHTML = '<span style="color:#38bdf8;font-weight:600;">Каталог Hub (3 000 000+ открытых моделей)</span> &bull; Показано: ' + models.length + (q ? ' (по запросу: "' + escapeHtml(q) + '")' : ' популярных сборок');
+            badgeEl.innerHTML = '<span style="color:var(--accent-text);font-weight:600;">Каталог Hub (3 000 000+ открытых моделей)</span> &bull; Показано: ' + models.length + (q ? ' (по запросу: "' + escapeHtml(q) + '")' : ' популярных сборок');
         }
         if (!models || models.length === 0) {
             grid.innerHTML = '<div style="color:var(--text-muted);padding:24px;font-size:13px;grid-column:1/-1;">Модели не найдены. Попробуйте другой запрос (например: qwen, deepseek, llama, gemma, mistral, phi).</div>';
@@ -2759,17 +2759,17 @@ async function loadModels() {
             const card = document.createElement('div');
             card.className = 'model-card';
             let badge = (m.compat_badge || (m.compatibility && m.compatibility.tier_label) || 'РЕКОМЕНДУЕТСЯ (VRAM+RAM)');
-            let badgeBg = 'var(--amber-bg)';
-            let badgeColor = 'var(--amber)';
-            let badgeBorder = 'rgba(245,158,11,0.25)';
+            let badgeBg = 'var(--warning-bg)';
+            let badgeColor = 'var(--warning)';
+            let badgeBorder = 'var(--warning-border)';
             if (badge.indexOf('VRAM)') !== -1) {
-                badgeBg = 'var(--emerald-bg)';
-                badgeColor = 'var(--emerald)';
-                badgeBorder = 'rgba(16,185,129,0.25)';
+                badgeBg = 'var(--success-bg)';
+                badgeColor = 'var(--success)';
+                badgeBorder = 'var(--success-border)';
             } else if (badge.indexOf('SSD') !== -1) {
-                badgeBg = 'var(--purple-bg)';
-                badgeColor = 'var(--purple)';
-                badgeBorder = 'rgba(139,92,246,0.25)';
+                badgeBg = 'var(--info-bg)';
+                badgeColor = 'var(--info)';
+                badgeBorder = 'var(--info-border)';
             }
             const desc = m.description || m.desc || '';
             const speed = m.speed_tier || (m.compatibility && m.compatibility.speed_est) || '18-32 ток/сек';
@@ -2777,16 +2777,16 @@ async function loadModels() {
             const normMid = (x) => (x || '').split('/').pop().toLowerCase().replace(/[-_]?(instruct)?[-_]?gguf$/, '');
             const isLoadingThis = (isModelLoading && (loadingModelId === m.id || loadingModelId === m.id.split('/').pop() || normMid(loadingModelId) === normMid(m.id)));
             const isActive = (isEngineLoaded && !isModelLoading && (m.id === activeModelId || normMid(m.id) === normMid(activeModelId)));
-            const btnClass = isLoadingThis ? 'btn-action loading' : (isActive ? 'btn-action active' : 'btn-action');
+            const btnClass = isLoadingThis ? 'btn-action loading' : (isActive ? 'btn-action active' : (m.is_downloaded ? 'btn-action btn-launch-ready' : 'btn-action btn-launch-dl'));
             const btnText = isLoadingThis ? ('Загрузка ' + currentLoadingPercent + '%') : (isActive ? 'АКТИВНА' : (m.is_downloaded ? 'Запустить' : 'Скачать и запустить'));
             const btnDisabled = (isLoadingThis || isActive) ? 'disabled' : '';
             const midEsc = escHtml(m.id);
-            const cancelBtnHtml = isLoadingThis ? '<button class="btn-action" style="padding:4px 8px;font-size:11px;border-color:#f85149;color:#f85149;" onclick="cancelModelLoad()">Отмена</button>' : '';
-            const dlBadge = m.is_downloaded ? '<span style="font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);font-family:Consolas,monospace;">SSD КЭШ</span>' : '';
+            const cancelBtnHtml = isLoadingThis ? '<button class="btn-action" style="padding:4px 8px;font-size:11px;border-color:var(--danger-border);color:var(--danger);background:var(--danger-bg);" onclick="cancelModelLoad()">Отмена</button>' : '';
+            const dlBadge = m.is_downloaded ? '<span class="compat-pill compat-info">SSD КЭШ</span>' : '';
             card.innerHTML = '<div class="card-top">' +
                 '<div style="cursor:pointer;" data-id="' + midEsc + '" onclick="openModelCard(this.dataset.id)">' +
-                    '<div class="model-title" style="display:flex;align-items:center;gap:6px;">' + escHtml(m.name) + dlBadge + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>' +
-                    '<div class="model-author">' + escHtml(m.author) + '</div>' +
+                    '<div class="model-title"><span style="word-break:break-word;">' + (function(n){var i=n.lastIndexOf(" ");var sp=n.lastIndexOf("-");var cut=Math.max(i,sp);if(cut>0&&cut<n.length-1){return escHtml(n.slice(0,cut+1))+'<span class="title-ext-wrap">'+escHtml(n.slice(cut+1))+'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" stroke-width="2" style="flex-shrink:0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>';}return escHtml(n)+' <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" stroke-width="2" style="vertical-align:-1px;flex-shrink:0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';})(String(m.name||'')) + '</span></div>' +
+                    '<div class="model-author" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span>' + escHtml(m.author) + '</span>' + dlBadge + '</div>' +
                 '</div>' +
                 '<div class="compat-badge" style="background:' + badgeBg + ';color:' + badgeColor + ';border-color:' + badgeBorder + ';">' + escHtml(badge) + '</div>' +
             '</div>' +
