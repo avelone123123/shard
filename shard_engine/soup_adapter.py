@@ -692,8 +692,12 @@ def detect_soup(custom_cmd=None, probe_deps=True, check_remote=False):
     can_train = bool(available and (source in ("configured", "path_bin") or not missing_train))
     return {
         "available": available,
+        "cli_available": cli_available,
+        "lifecycle_state": lifecycle,
         "source": source,
         "command": cmd,
+        "venv_present": venv_present,
+        "venv_dir": str(venv_dir),
         "python_executable": py_exe,
         "python_version": py_str,
         "python_compatible": py_ok,
