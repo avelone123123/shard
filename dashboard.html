@@ -3188,3 +3188,113 @@ function buildFeedbackWidgetHtml(uid, messages, idx) {
         '<button class="fb-btn selected" onclick="submitChatFeedback(\'' + uid + '\')">Отправить вклад</button>' +
         '</div></div>';
 }
+function openFbDrawer(uid, rating) {
+    const dr = document.getElementById('fb-drawer-' + uid);
+    const rt = document.getElementById('fb-rating-' + uid);
+    if (rt) rt.value = rating;
+    if (dr) dr.classList.add('open');
+}
+function closeFbDrawer(uid) {
+    const dr = document.getElementById('fb-drawer-' + uid);
+    if (dr) dr.classList.remove('open');
+}
+async function submitChatFeedback(uid) {
+    const dr = document.getElementById('fb-drawer-' + uid);
+    if (!dr) return;
+    const bar = dr.previousElementSibling;
+    const prompt = decodeURIComponent(bar.getAttribute('data-prompt') || '');
+    const resp = decodeURIComponent(bar.getAttribute('data-resp') || '');
+    const rating = document.getElementById('fb-rating-' + uid).value || 'up';
+    const better = (document.getElementById('fb-better-' + uid).value || '').trim();
+    const consent = !!document.getElementById('fb-consent-' + uid).checked;
+    if (!consent) {
+        showToast('Требуется согласие', 'Отметьте галочку явного согласия перед отправкой.');
+        return;
+    }
+    const headers = getAuthHeaders({'Content-Type': 'application/json'});
+    const res = await fetch('/api/feedback/submit', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+            prompt,
+            response: resp,
+            better_response: better || null,
+            rating: better && rating === 'up' ? 'correction' : rating,
+            consent_given: consent,
+            model_id: activeModelId || '',
+            model_version: feedbackPolicy.active_version_id || 'base'
+        })
+    });
+    const out = await res.json();
+    if (!res.ok) {
+        showToast('Отклонено', out.message || 'Ошибка отправки вклада');
+        return;
+    }
+    closeFbDrawer(uid);
+    showToast('Вклад принят', 'Статус: ' + out.entry_status + (out.redactions && out.redactions.length ? ' (маскированы: ' + out.redactions.join(', ') + ')' : ''));
+}
+async function openMyContributions() {
+    const res = await fetch('/api/feedback/my', {headers: getAuthHeaders()});
+    if (!res.ok) {
+        showToast('Недоступно', 'Не удалось загрузить ваши вклады.');
+        return;
+    }
+    const data = await res.json();
+    const modal = document.getElementById('modelModalBackdrop');
+    document.getElementById('modalModelTitle').innerText = 'Мои вклады и согласие';
+    document.getElementById('modalModelAuthor').innerText = 'Псевдоним участника: ' + String(data.contributor_id || '');
+    document.getElementById('modalStats').innerHTML = data.opted_out ? '<span style="color:#f87171;">Участие отозвано</span>' : '<span style="color:#10b981;">Активный участник</span>';
+    document.getElementById('modalLaunchBtn').style.display = 'none';
+    const hfLink = document.getElementById('modalHfLink');
+    if (hfLink) hfLink.style.display = 'none';
+    const rowsHtml = (data.submissions || []).map(s => '<div class="trn-row"><b>' + escHtml(s.id) + '</b> [' + escHtml(s.status) + '] rating=' + escHtml(s.rating) + '</div>').join('') || '<div style="color:#64748b;">Вы ещё не отправляли вкладов.</div>';
+    document.getElementById('modalModelBody').innerHTML = '<div style="margin-bottom:12px;"><button class="btn-delete" onclick="revokeMyParticipation()">Отозвать согласие и удалить неопубликованные вклады</button></div>' + rowsHtml;
+    modal.style.display = 'flex';
+}
+async function revokeMyParticipation() {
+    const res = await fetch('/api/feedback/revoke', {method: 'POST', headers: getAuthHeaders({'Content-Type': 'application/json'}), body: JSON.stringify({delete_existing: true})});
+    const d = await res.json();
+    closeModelCard();
+    await loadFeedbackPolicy();
+    showToast('Согласие отозвано', 'Удалено записей: ' + (d.deleted_count || 0));
+}
+let trnCurrentFilter = 'pending';
+function trnSubTab(name, btn) {
+    document.querySelectorAll('#tab-training .trn-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#tab-training .trn-subbtn').forEach(b => b.classList.remove('active'));
+    document.getElementById('trn-panel-' + name).classList.add('active');
+    btn.classList.add('active');
+    if (name === 'feedback') trnLoadFeedback(trnCurrentFilter);
+}
+async function trnRefresh(probeSoup) {
+    try {
+        const res = await fetch('/api/training/overview');
+        if (!res.ok) {
+            if (res.status === 403) document.getElementById('trnSoupBanner').innerText = 'Управление обучением доступно только владельцу сервера (localhost или X-Shard-Owner-Token).';
+            return;
+        }
+        const ov = await res.json();
+        const soup = probeSoup ? await (await fetch('/api/training/soup')).json() : ov.soup;
+        renderTrnOverview(ov, soup);
+        renderTrnDatasets(ov.datasets || []);
+        renderTrnJobs(ov.jobs || []);
+        renderTrnVersions(ov.registry || {});
+        renderTrnPrivacy(ov.privacy || {});
+        if (!document.getElementById('trnJobBase').value && ov.engine && ov.engine.active_model) {
+            document.getElementById('trnJobBase').value = ov.engine.active_model;
+        }
+        const auditRes = await fetch('/api/training/audit?limit=40');
+        if (auditRes.ok) {
+            const ad = await auditRes.json();
+            document.getElementById('trnAuditList').innerText = (ad.events || []).map(ev => new Date(ev.ts * 1000).toLocaleTimeString() + '  ' + ev.event + '  ' + JSON.stringify(ev.details)).join('\n') || 'Нет событий';
+        }
+        trnLoadFeedback(trnCurrentFilter);
+    } catch(e) {}
+}
+function renderTrnOverview(ov, soup) {
+    const c = (ov.feedback_stats && ov.feedback_stats.counts) || {};
+    const elg = (ov.feedback_stats && ov.feedback_stats.eligible_approved) || {};
+    const reg = ov.registry || {};
+    document.getElementById('trnOverviewCards').innerHTML =
+        '<div class="trn-stat"><div class="trn-stat-label">SOUP Движок</div><div class="trn-stat-val" style="color:' + (soup.available ? '#10b981' : '#f59e0b') + ';">' + (soup.available ? ('v' + lanEsc(soup.soup_version || 'ok')) : 'Не установлен') + '</div><div class="trn-stat-sub">Python ' + lanEsc(soup.python_version) + ' | CUDA: ' + (soup.cuda_available ? 'да' : 'нет') + '</div></div>' +
+        '<div class="trn-stat"><div class="trn-stat-label">Очередь отзывов</div><div class="trn-stat-val">' + (c.approved || 0) + ' одобр. / ' + (c.pending || 0) + ' ожид.</div><div class="trn-stat-sub">Готово для SFT: ' + (elg.sft || 0) + ' | DPO: ' + (elg.dpo || 0) + '</div></div>' +
