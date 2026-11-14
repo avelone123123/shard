@@ -142,3 +142,19 @@ class TestPhaseIProductHardening(unittest.TestCase):
                 with patch.object(soup_adapter, "_probe_python_env", return_value=mock_probe):
                     with patch("subprocess.run", return_value=mock_run):
                         det = soup_adapter.detect_soup(probe_deps=True, check_remote=True)
+        self.assertEqual(det["lifecycle_state"], "UPDATE_AVAILABLE")
+        self.assertTrue(det["update_available"])
+        self.assertEqual(det["latest_version"], "0.77.2")
+    def test_06_model_browser_formats_suggestions_and_security(self):
+        models_root = self._root / "local_models"
+        hf_dir = models_root / "Qwen2.5-Coder-1.5B-Instruct"
+        hf_dir.mkdir(parents=True, exist_ok=True)
+        (hf_dir / "config.json").write_text('{"model_type":"qwen2","architectures":["Qwen2ForCausalLM"]}', encoding="utf-8")
+        (hf_dir / "model.safetensors").write_bytes(b"0" * 16)
+        gguf_file = models_root / "qwen2.5-coder-1.5b-instruct-q4_k_m.gguf"
+        gguf_file.write_bytes(b"GGUF" + b"\x00" * 32)
+        lora_dir = models_root / "my-lora"
+        lora_dir.mkdir(parents=True, exist_ok=True)
+        (lora_dir / "adapter_config.json").write_text('{"base_model_name_or_path":"Qwen/Qwen2.5-1.5B-Instruct"}', encoding="utf-8")
+        (lora_dir / "adapter_model.safetensors").write_bytes(b"0" * 16)
+        roots_res = self.client.get("/api/models/browser/roots", headers=self.owner_headers)
