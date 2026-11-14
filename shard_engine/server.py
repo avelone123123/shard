@@ -2198,3 +2198,36 @@ async def api_server_issue_status(issue_id: str, req: Request):
                     "rating": "correction" if target.get("expected") else "down",
                     "model_id": target.get("model_id") or engine_instance.active_model_id or "",
                     "consent_given": True,
+                }, source="local")
+                for item in issues:
+                    if item.get("id") == issue_id:
+                        item["feedback_id"] = fb_entry.get("id")
+                        target = dict(item)
+                        break
+            except Exception:
+                pass
+        _save_workspace_unlocked(ws)
+    return {"status": "ok", "issue": target}
+def _render_dashboard_html(client_mode):
+    html = paths.read_package_text("dashboard.html")
+    st = LAN.status(include_secrets=False)
+    boot = {
+        "client_mode": bool(client_mode),
+        "is_owner": not bool(client_mode),
+        "lan_mode": st.get("mode"),
+        "lan_open": bool(st.get("open")),
+        "server_name": st.get("name"),
+        "active_model": engine_instance.active_model_id,
+    }
+    boot_json = json.dumps(boot, ensure_ascii=False).replace("</", "<\\/")
+    tag = f'<script id="shard-boot" type="application/json">{boot_json}</script>'
+    if "</head>" in html:
+        return html.replace("</head>", tag + "\n</head>", 1)
+    return tag + html
+@app.get("/", response_class=HTMLResponse)
+def dashboard(req: Request):
+    is_owner = _is_owner_request(req)
+    return _render_dashboard_html(client_mode=(not is_owner))
+@app.get("/client", response_class=HTMLResponse)
+def client_dashboard():
+    return _render_dashboard_html(client_mode=True)
