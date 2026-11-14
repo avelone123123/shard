@@ -358,3 +358,27 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
             "state": "VERSION_UNKNOWN",
             "current_version": cur_ver,
             "latest_version": None,
+            "update_available": False,
+            "cached": False,
+            "install_method": inst,
+            "error": "Installed SHARD version could not be determined.",
+            "checked_at": time.time(),
+        }
+    cached = _read_cache()
+    if not force and cached and cached.get("current_version") == cur_ver:
+        age = time.time() - float(cached.get("checked_at") or 0)
+        if age < CACHE_TTL_SECONDS and cached.get("state") in ("UP_TO_DATE", "UPDATE_AVAILABLE"):
+            out = dict(cached)
+            out["cached"] = True
+            out["install_method"] = inst
+            return out
+    if not allow_network:
+        last_lat = cached.get("latest_version") if isinstance(cached, dict) else None
+        return {
+            "state": "GITHUB_UNAVAILABLE",
+            "current_version": cur_ver,
+            "latest_version": last_lat,
+            "update_available": bool(last_lat and is_valid_version_str(last_lat) and compare_versions(cur_ver, last_lat) > 0),
+            "cached": bool(cached),
+            "install_method": inst,
+            "error": "Network update check skipped.",
