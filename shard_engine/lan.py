@@ -1318,3 +1318,113 @@ class LanManager:
                 "created_at": None,
                 "rpc_port": None,
                 "open": False,
+            })
+            self._hb_state = "idle"
+            self._hb_failures = 0
+            self._hw_peak.clear()
+            self._rebal_note = None
+            self._rebal_err_ticks = 0
+            self._rpc_applied = None
+            self._save()
+        if not quiet and mode != "off":
+            print(f"[lan] сеть отключена (был режим {mode})")
+        return {"status": "ok", "mode": "off"}
+    def _resume(self):
+        mode = self.mode()
+        if mode == "server":
+            self._start_threads("server")
+        elif mode == "worker":
+            try:
+                self._start_worker()
+            except Exception as e:
+                print(f"[lan] worker не восстановлен: {str(e)[:120]}")
+                with self._lock:
+                    self._state["mode"] = "member"
+                    self._state["rpc_port"] = None
+                    self._save()
+            self._start_threads(self.mode())
+        elif mode == "member":
+            self._start_threads("member")
+    def _start_threads(self, mode):
+        self._stop.set()
+        with self._lock:
+            prev_threads = list(self._threads.values())
+        for t in prev_threads:
+            if t.is_alive():
+                t.join(timeout=1.0)
+        self._stop.clear()
+        spawn = {
+            "hb_monitor": threading.Thread(target=self._hb_monitor_loop, daemon=True),
+        }
+        if mode == "server":
+            spawn["announce"] = threading.Thread(target=self._announce_loop, daemon=True)
+        else:
+            spawn["hb_send"] = threading.Thread(target=self._hb_send_loop, daemon=True)
+        with self._lock:
+            self._threads = spawn
+        for t in spawn.values():
+            t.start()
+    def _announce_loop(self):
+        while not self._stop.is_set() and not self._runtime_stop.is_set():
+            if self.mode() != "server":
+                break
+            with self._lock:
+                open_net = bool(self._state.get("open"))
+                nid = self._state.get("node_id")
+                name = self._state.get("name")
+            payload = beacon_payload(
+                name,
+                "server",
+                model=self._loaded_model_name(),
+                port=active_http_port(),
+                open_net=open_net,
+                node_id=nid,
+            )
+            raw = json.dumps(payload).encode("utf-8")
+            for src_ip, bcast in _broadcast_targets():
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                try:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                    if src_ip:
+                        sock.bind((src_ip, 0))
+                    sock.sendto(raw, (bcast, BEACON_PORT))
+                except Exception:
+                    pass
+                finally:
+                    try:
+                        sock.close()
+                    except Exception:
+                        pass
+            self._stop.wait(BEACON_INTERVAL_S)
+    def _loaded_model_name(self):
+        try:
+            from .engine import engine_instance
+            return engine_instance.get_status().get("current_loaded") or None
+        except Exception:
+            return None
+    def _listen_loop(self):
+        sock = None
+        while sock is None and not self._runtime_stop.is_set():
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(("", BEACON_PORT))
+                sock.settimeout(0.5)
+            except OSError:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+                sock = None
+                self._runtime_stop.wait(1.0)
+        if sock is None:
+            return
+        try:
+            while not self._runtime_stop.is_set():
+                try:
+                    raw, addr = sock.recvfrom(2048)
+                except socket.timeout:
+                    continue
+                except OSError:
+                    break
+                d = parse_beacon(raw)
