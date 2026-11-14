@@ -3880,19 +3880,19 @@ async function trnPreviewDataset(snapshotId, page) {
         document.getElementById('modalStats').innerHTML =
             '<span class="compat-pill compat-ok">Валидных: ' + (d.valid_count || 0) + '</span>' +
             ((d.invalid_count || 0) > 0 ? '<span class="compat-pill compat-no">Поврежденных: ' + d.invalid_count + '</span>' : '') +
-            '<span style="color:#38bdf8;">SHA256: ' + escHtml((ds.sha256 || '').slice(0, 16)) + '...</span>';
+            '<span style="color:var(--accent-text);">SHA256: ' + escHtml((ds.sha256 || '').slice(0, 16)) + '...</span>';
         document.getElementById('modalLaunchBtn').style.display = 'none';
         const hfLink = document.getElementById('modalHfLink');
         if (hfLink) hfLink.style.display = 'none';
         const rowsHtml = (d.records || []).map(r => {
             const stCls = r.validation_status === 'valid' ? 'compat-ok' : 'compat-no';
-            const rejTxt = r.rejected ? escHtml(r.rejected) : (r.validation_error ? ('<span style="color:#f87171;">' + escHtml(r.validation_error) + '</span>') : '-');
+            const rejTxt = r.rejected ? escHtml(r.rejected) : (r.validation_error ? ('<span style="color:var(--danger);">' + escHtml(r.validation_error) + '</span>') : '-');
             return '<tr>' +
-                '<td style="width:45px;font-family:monospace;">#' + (Number(r.index || 0) + 1) + '</td>' +
+                '<td style="width:45px;font-family:var(--font-mono);">#' + (Number(r.index || 0) + 1) + '</td>' +
                 '<td style="width:95px;"><div>' + escHtml(r.record_type || '') + '</div><span class="compat-pill ' + stCls + '">' + escHtml(r.validation_status || '') + '</span></td>' +
                 '<td><div class="ds-cell-pre">' + escHtml(r.prompt || '-') + '</div></td>' +
                 '<td><div class="ds-cell-pre">' + escHtml(r.chosen || '-') + '</div></td>' +
-                '<td><div class="ds-cell-pre">' + rejTxt + '</div><details style="margin-top:4px;"><summary style="font-size:10px;color:#64748b;cursor:pointer;">JSON</summary><pre style="font-size:10px;white-space:pre-wrap;color:#94a3b8;">' + escHtml(JSON.stringify(r.raw, null, 2)) + '</pre></details></td>' +
+                '<td><div class="ds-cell-pre">' + rejTxt + '</div><details style="margin-top:4px;"><summary style="font-size:10px;color:var(--text-muted);cursor:pointer;">JSON</summary><pre style="font-size:10px;white-space:pre-wrap;color:var(--text-secondary);">' + escHtml(JSON.stringify(r.raw, null, 2)) + '</pre></details></td>' +
                 '</tr>';
         }).join('');
         const sidAttr = escHtml(snapshotId);
@@ -3904,8 +3904,8 @@ async function trnPreviewDataset(snapshotId, page) {
             '</div></div>';
         const bodyEl = document.getElementById('modelModalBody');
         bodyEl.innerHTML = (d.records && d.records.length)
-            ? (pagerHtml + '<table class="ds-table"><thead><tr><th>#</th><th>Тип</th><th>Prompt / Контекст</th><th>Chosen / Ответ</th><th>Rejected / Статус</th></tr></thead><tbody>' + rowsHtml + '</tbody></table>' + pagerHtml)
-            : '<div style="color:#64748b;padding:24px;text-align:center;">В датасете нет записей</div>';
+            ? (pagerHtml + '<div class="ds-table-wrap"><table class="ds-table"><thead><tr><th>#</th><th>Тип</th><th>Prompt / Контекст</th><th>Chosen / Ответ</th><th>Rejected / Статус</th></tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' + pagerHtml)
+            : '<div style="color:var(--text-muted);padding:24px;text-align:center;">В датасете нет записей</div>';
         modal.style.display = 'flex';
     } catch(e) {
         showToast('Ошибка', e.message);
