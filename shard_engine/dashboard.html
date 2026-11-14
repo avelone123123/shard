@@ -3216,13 +3216,39 @@ function renderChatSessionsList() {
     });
 }
 function copyChatCodeBlock(btn){
+var wrap=btn?btn.closest('.chat-code-wrap'):null;
+var code=wrap?wrap.querySelector('code'):null;
+if(!code)return;
+copyValue(code.innerText,'Фрагмент кода');
+}
+function renderChatContent(raw){
+var txt=String(raw||'');
+var re=/```([a-zA-Z0-9_+-]*)[\t ]*\n?([\s\S]*?)```/g;
+var out='';
+var last=0;
+var m;
+function fmtInline(s){
+var e=escapeHtml(s);
+e=e.replace(/`([^`\n]+)`/g,'<code class="chat-inline-code">$1</code>');
+e=e.replace(/\*\*([^\n*]+?)\*\*/g,'<b style="color:var(--text);">$1</b>');
+return '<div class="chat-md-text">'+e+'</div>';
+}
+while((m=re.exec(txt))!==null){
+if(m.index>last){out+=fmtInline(txt.slice(last,m.index));}
+var lang=(m[1]||'code').trim();
+out+='<div class="chat-code-wrap"><div class="chat-code-head"><span>'+escapeHtml(lang)+'</span><button type="button" class="fb-btn chat-copy-code-btn" onclick="copyChatCodeBlock(this)">Копировать</button></div><pre><code>'+escapeHtml(m[2].replace(/\n$/,''))+'</code></pre></div>';
+last=re.lastIndex;
+}
+if(last<txt.length){out+=fmtInline(txt.slice(last));}
+return out||'<div class="chat-md-text"></div>';
+}
 function renderActiveChatMessages() {
     const chatBody = document.getElementById('chatBody');
     if (!chatBody) return;
     chatBody.innerHTML = '';
     const cur = chatSessions.find(s => s.id === activeChatId);
     if (!cur || cur.messages.length === 0) {
-        chatBody.innerHTML = '<div id="chatEmptyState" style="margin:auto;text-align:center;color:var(--text-muted);padding:40px 20px;"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="1.5" style="margin-bottom:12px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:14px;font-weight:600;color:#cbd5e1;margin-bottom:6px;">Диалог пуст</div><div style="font-size:12px;">Задайте любой вопрос или задачу активной модели</div></div>';
+        var actM=(document.getElementById('chatActiveModel')||{}).innerText||'Не выбрана';var hwM=(document.getElementById('hwModel')||{}).innerText||'';var isIdle=!hwM||hwM==='Не загружена';chatBody.innerHTML='<div id="chatEmptyState" class="chat-empty-panel"><div class="chat-empty-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="chat-empty-title">Локальный рабочий чат готов</div><div class="chat-empty-sub">'+(isIdle?'Выберите и запустите модель во вкладке «Каталог» или отправьте вопрос активной конфигурации.':'Активная модель: <b>'+escapeHtml(actM)+'</b>. Отправьте запрос — поддерживаются блоки кода, Markdown и оценка ответов.')+'</div><div class="chat-empty-meta"><span class="compat-pill '+(isIdle?'compat-warn':'compat-ok')+'">'+(isIdle?'Ожидает запуска модели':'Модель активна')+'</span><span class="compat-pill compat-neutral">Enter — отправить</span><span class="compat-pill compat-info">Zero-Copy Streaming</span></div></div>';
         return;
     }
     cur.messages.forEach((msg, idx) => {
@@ -3241,9 +3267,9 @@ function renderActiveChatMessages() {
             if (msg.totalSec || msg.speedVal) {
                 const timeStr = (hasThought && msg.thoughtSec > 0) ? formatDuration(msg.totalSec) + ' (размышления: ' + formatDuration(msg.thoughtSec) + ')' : formatDuration(msg.totalSec || 0);
                 const tokensVal = (msg.usage && msg.usage.total_tokens) ? msg.usage.total_tokens : (msg.tokensCount || '-');
-                telemHtml = '<div class="telemetry-row"><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + (msg.speedVal || 0) + ' токенов/сек</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + tokensVal + ' токенов</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div></div>';
+                telemHtml = '<div class="telemetry-row"><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> Время: <b>' + timeStr + '</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Скорость: <b>' + (msg.speedVal || 0) + ' токенов/сек</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg> Потрачено: <b>' + tokensVal + ' токенов</b></div><div class="telemetry-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> <b>C++20 Zero-Copy / AVX2 SIMD</b></div></div>';
             }
-            wrap.innerHTML = '<div class="msg-assistant">' + thinkHtml + '<div class="msg-content">' + escapeHtml(msg.content) + '</div>' + telemHtml + buildFeedbackWidgetHtml(idx, cur.messages, idx) + '</div>';
+            wrap.innerHTML = '<div class="msg-assistant">' + thinkHtml + '<div class="msg-content">' + renderChatContent(msg.content) + '</div>' + telemHtml + buildFeedbackWidgetHtml(idx, cur.messages, idx) + '</div>';
         }
         chatBody.appendChild(wrap);
     });
