@@ -1507,7 +1507,7 @@ async function loadLanPreview() {
         const res = await fetch('/api/lan/preview', {headers: getAuthHeaders()});
         if (!res.ok) return;
         const p = await res.json();
-        const modeTxt = p.access_mode === 'open' ? '<span style="color:#10b981;font-weight:600;">Открытый вход (без кода)</span>' : '<span style="color:#fbbf24;font-weight:600;">По коду подключения (ABCD-EFGH)</span>';
+        const modeTxt = p.access_mode === 'open' ? '<span style="color:var(--success);font-weight:600;">Открытый вход (без кода)</span>' : '<span style="color:var(--warning);font-weight:600;">По коду подключения (ABCD-EFGH)</span>';
         const fbTxt = p.allow_remote_feedback ? 'Отправка отзывов для обучения включена (по явному согласию)' : 'Отзывы от удалённых участников отключены';
         box.innerHTML = '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">' +
             '<div><b>Сервер:</b> <span style="color:#fff;">' + escHtml(p.server_name || 'SHARD Host') + '</span></div>' +
