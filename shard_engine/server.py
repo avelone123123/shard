@@ -2088,3 +2088,113 @@ async def api_server_community_post(req: Request):
         "role": role,
         "text": text,
         "ts": time.time(),
+    }
+    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
+        ws = _load_workspace_unlocked()
+        msgs = ws.setdefault("community_messages", [])
+        msgs.append(msg)
+        if len(msgs) > 200:
+            ws["community_messages"] = msgs[-200:]
+        _save_workspace_unlocked(ws)
+    return {"status": "ok", "message": msg, "messages": ws["community_messages"][-100:]}
+@app.get("/api/server/issues")
+def api_server_issues_get(req: Request):
+    ok, _, _ = _resolve_server_actor(req)
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника"})
+    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
+        ws = _load_workspace_unlocked()
+    return {"status": "ok", "issues": list(reversed(ws.get("model_issues", [])[-100:]))}
+@app.post("/api/server/issues")
+async def api_server_issues_post(req: Request):
+    ok, role, actor_name = _resolve_server_actor(req)
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника"})
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    title = str(data.get("title") or "").strip()[:160]
+    category = str(data.get("category") or "hallucination").strip().lower()[:32]
+    prompt = str(data.get("prompt") or "").strip()[:8000]
+    response = str(data.get("response") or "").strip()[:8000]
+    expected = str(data.get("expected") or data.get("expected_output") or "").strip()[:8000]
+    author = str(data.get("author") or actor_name or "Участник").strip()[:48]
+    if not title and not prompt:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Укажите заголовок или проблемный промпт"})
+    now = time.time()
+    fb_id = None
+    if bool(data.get("convert_to_feedback")) and prompt and (response or expected):
+        try:
+            fb_entry = feedback.submit_feedback({
+                "prompt": prompt,
+                "response": response or expected,
+                "better_response": expected if expected else None,
+                "rating": "correction" if expected else "down",
+                "model_id": engine_instance.active_model_id or "",
+                "consent_given": True,
+            }, source=("local" if role == "owner" else "remote"), client_hint=_contributor_identity(req))
+            fb_id = fb_entry.get("id")
+        except Exception:
+            fb_id = None
+    issue = {
+        "id": f"iss-{uuid.uuid4().hex[:8]}",
+        "title": title or prompt[:80],
+        "category": category,
+        "prompt": prompt,
+        "response": response,
+        "expected": expected,
+        "author": author,
+        "role": role,
+        "model_id": str(data.get("model_id") or engine_instance.active_model_id or ""),
+        "status": "converted_to_feedback" if fb_id else "open",
+        "feedback_id": fb_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
+        ws = _load_workspace_unlocked()
+        issues = ws.setdefault("model_issues", [])
+        issues.append(issue)
+        if len(issues) > 200:
+            ws["model_issues"] = issues[-200:]
+        _save_workspace_unlocked(ws)
+    return {"status": "ok", "issue": issue, "issues": list(reversed(ws["model_issues"][-100:]))}
+@app.post("/api/server/issues/{issue_id}/status")
+@app.post("/api/server/issues/{issue_id}/resolve")
+async def api_server_issue_status(issue_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    new_st = str(data.get("status") or "resolved").strip().lower()
+    if new_st not in ("open", "resolved", "converted_to_feedback", "delete"):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Unsupported status"})
+    target = None
+    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
+        ws = _load_workspace_unlocked()
+        issues = ws.get("model_issues", [])
+        if new_st == "delete":
+            ws["model_issues"] = [x for x in issues if x.get("id") != issue_id]
+            _save_workspace_unlocked(ws)
+            return {"status": "ok", "deleted": True}
+        for item in issues:
+            if item.get("id") == issue_id:
+                item["status"] = new_st
+                item["updated_at"] = time.time()
+                target = dict(item)
+                break
+        if target is None:
+            return JSONResponse(status_code=404, content={"status": "error", "message": "Issue not found"})
+        if new_st == "converted_to_feedback" and not target.get("feedback_id") and target.get("prompt"):
+            try:
+                fb_entry = feedback.submit_feedback({
+                    "prompt": target["prompt"],
+                    "response": target.get("response") or target.get("expected") or "error",
+                    "better_response": target.get("expected") or None,
+                    "rating": "correction" if target.get("expected") else "down",
+                    "model_id": target.get("model_id") or engine_instance.active_model_id or "",
+                    "consent_given": True,
