@@ -3515,11 +3515,12 @@ async function pollSoupInstallStatus() {
         const stillRunning = !!inst.running || activeStates.includes(inst.lifecycle_state);
         if (!stillRunning) {
             if (soupInstallPollTimer) { clearInterval(soupInstallPollTimer); soupInstallPollTimer = null; }
-            if (st.status === 'completed') {
-                showToast('SOUP установлен', 'Окружение SOUP готово к обучению');
-                trnRefresh(true);
-            } else if (st.status === 'failed') {
-                showToast('Ошибка установки SOUP', st.error || 'Проверьте наличие Python 3.11-3.13');
+            if (inst.status === 'completed') {
+                showToast('SOUP готов', inst.stage || 'Окружение SOUP проверено и готово');
+                trnRefresh(false);
+            } else if (inst.status === 'failed') {
+                showToast('Ошибка SOUP', inst.error_explanation || inst.error || 'Проверьте Python 3.11–3.13');
+                trnRefresh(false);
             }
         }
     } catch(e) {}
