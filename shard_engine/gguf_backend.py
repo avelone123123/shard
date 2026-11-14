@@ -108,3 +108,113 @@ def _repo_has_gguf(repo_id, timeout=4.0):
         files = list_gguf_files(repo_id, timeout=timeout)
         if files:
             return True
+        return repo_id.lower().endswith("-gguf")
+    except Exception:
+        return False
+def all_hub_dirs():
+    dirs = []
+    candidates = [
+        os.environ.get("HF_HOME"),
+        settings.models_dir(),
+        paths.default_models_dir(),
+        os.path.join(os.path.expanduser("~"), ".shard", "models"),
+        os.path.join(os.path.expanduser("~"), ".cache", "huggingface"),
+        str(paths.data_dir() / "models"),
+    ]
+    for d in candidates:
+        if d:
+            h = os.path.join(d, "hub") if not str(d).endswith("hub") else d
+            norm = os.path.normcase(os.path.abspath(h))
+            if os.path.isdir(h) and norm not in [os.path.normcase(os.path.abspath(x)) for x in dirs]:
+                dirs.append(h)
+    return dirs
+def find_local_gguf(model_id, wanted_quant=None):
+    if not model_id:
+        return None
+    raw = str(model_id).strip()
+    if os.path.isfile(raw) and raw.lower().endswith(".gguf") and os.path.getsize(raw) > 0:
+        v = validate_gguf_file(raw)
+        if v.get("valid"):
+            return {
+                "path": os.path.abspath(raw),
+                "size_bytes": os.path.getsize(raw),
+                "quant": parse_quant_from_name(raw) or wanted_quant or "CUSTOM",
+                "repo_id": "local",
+                "multipart": False,
+                "parts": [os.path.basename(raw)],
+            }
+    bare = raw.split("/")[-1].lower()
+    clean = re.sub(r"(?i)[-_]?(instruct)?[-_]?gguf$", "", bare)
+    name_core = re.sub(r"(?i)[-_]?instruct$", "", bare)
+    exact_candidates = []
+    fuzzy_candidates = []
+    for hub_dir in all_hub_dirs():
+        if not os.path.isdir(hub_dir):
+            continue
+        try:
+            entries = os.listdir(hub_dir)
+        except Exception:
+            continue
+        for entry in entries:
+            low = entry.lower()
+            if not low.startswith("models--"):
+                continue
+            repo_id = entry.replace("models--", "").replace("--", "/")
+            repo_tail = repo_id.split("/")[-1].lower()
+            repo_tail_no_gguf = re.sub(r"(?i)[-_]?gguf$", "", repo_tail)
+            is_exact = (repo_id.lower() == raw.lower() or repo_id.lower() == f"{raw.lower()}-gguf" or repo_tail == bare or repo_tail_no_gguf == bare or repo_tail == f"{bare}-gguf")
+            if not is_exact and not (bare in low or clean in low or name_core in low):
+                continue
+            snap_dir = os.path.join(hub_dir, entry, "snapshots")
+            if not os.path.isdir(snap_dir):
+                continue
+            try:
+                for r, _, fns in os.walk(snap_dir):
+                    for fn in fns:
+                        if fn.lower().endswith(".gguf") and not fn.endswith(".incomplete") and not fn.endswith(".part"):
+                            fp = os.path.join(r, fn)
+                            try:
+                                sz = os.path.getsize(fp)
+                                if sz > 0 and validate_gguf_file(fp).get("valid"):
+                                    q = parse_quant_from_name(fn) or "CUSTOM"
+                                    rec = {
+                                        "path": fp,
+                                        "size_bytes": sz,
+                                        "quant": q,
+                                        "repo_id": repo_id,
+                                        "multipart": False,
+                                        "parts": [fn],
+                                    }
+                                    if is_exact:
+                                        exact_candidates.append(rec)
+                                    else:
+                                        fuzzy_candidates.append(rec)
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+    candidates = exact_candidates if exact_candidates else fuzzy_candidates
+    if not candidates:
+        return None
+    if wanted_quant:
+        wq_norm = normalize_quant(wanted_quant) or wanted_quant.upper()
+        for c in candidates:
+            if c["quant"] and (c["quant"].upper() == wq_norm or c["quant"].upper() == wanted_quant.upper()):
+                return c
+    return max(candidates, key=lambda c: (QUANT_BPW.get(c["quant"], 0), c["size_bytes"]))
+def find_gguf_repo(model_id, timeout=4.0):
+    if not model_id:
+        return None
+    loc = find_local_gguf(model_id)
+    if loc and loc.get("repo_id") and loc["repo_id"] != "local":
+        return loc["repo_id"]
+    if model_id in _repo_cache:
+        return _repo_cache[model_id]
+    if "/" in model_id:
+        if model_id.lower().endswith("-gguf") or ".gguf" in model_id.lower():
+            if _repo_exists(model_id, timeout):
+                _repo_cache[model_id] = model_id
+                return model_id
+    author = model_id.split("/")[0] if "/" in model_id else ""
+    name = model_id.split("/")[-1]
+    name_clean = re.sub(r"(?i)[-_]?instruct$", "", name)
