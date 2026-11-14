@@ -493,6 +493,15 @@ def cmd_update(args):
         print("User config, keys, models, and datasets preserved.")
         if res.get("daemon_running"):
             print("SHARD server is running in background. Run 'shard restart' to activate the new version.")
+        elif res.get("restart_required"):
+            print("Restart any running SHARD CLI/server process to use the new version.")
+        return
+    print(f"[ERROR] Update failed: {res.get('error')}")
+    if res.get("rolled_back"):
+        print("Automatic rollback succeeded: previous SHARD version restored.")
+    elif res.get("rollback_error"):
+        print(f"[WARN] Automatic rollback failed: {res['rollback_error']}")
+    sys.exit(1)
 def cmd_list(args):
     from .hf_hub import browse_models
     print_banner()
