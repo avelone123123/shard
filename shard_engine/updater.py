@@ -742,3 +742,27 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
             if inst["method"] == "git_clone" and inst.get("git_available") and not (asset_url and str(asset_url).endswith(".whl")):
                 _set_job_state(phase="installing", progress_pct=45, message="Обновление через git fetch / pull...", log=f"Updating git repo in {inst['repo_root']}")
                 git_bin = shutil.which("git")
+                f_res = subprocess.run([git_bin, "fetch", "--tags", "origin"], cwd=inst["repo_root"], capture_output=True, text=True, timeout=60, creationflags=_WIN_NO_WINDOW)
+                if f_res.returncode != 0:
+                    raise RuntimeError(f"git fetch failed: {(f_res.stderr or f_res.stdout)[:300]}")
+                if target_version:
+                    ref = validate_git_ref(f"v{desired_ver}")
+                    co = subprocess.run([git_bin, "checkout", ref], cwd=inst["repo_root"], capture_output=True, text=True, timeout=30, creationflags=_WIN_NO_WINDOW)
+                    if co.returncode != 0:
+                        co = subprocess.run([git_bin, "checkout", validate_git_ref(desired_ver)], cwd=inst["repo_root"], capture_output=True, text=True, timeout=30, creationflags=_WIN_NO_WINDOW)
+                else:
+                    co = subprocess.run([git_bin, "pull", "--ff-only"], cwd=inst["repo_root"], capture_output=True, text=True, timeout=60, creationflags=_WIN_NO_WINDOW)
+                if co.returncode != 0:
+                    raise RuntimeError(f"git update failed: {(co.stderr or co.stdout)[:300]}")
+            else:
+                if not asset_url:
+                    raise RuntimeError("No downloadable release artifact URL found.")
+                validate_remote_url(asset_url)
+                is_whl = str(asset_url).lower().endswith(".whl")
+                fname = chk.get("asset_name") or ("shard_update.whl" if is_whl else "shard_update.zip")
+                fname = os.path.basename(fname) or "shard_update.zip"
+                dl_path = tmp_dir / fname
+                _set_job_state(phase="downloading", progress_pct=25, message=f"Скачивание обновления ({fname})...", log=f"Downloading {asset_url}")
+                def _on_prog(pct, got, tot):
+                    _set_job_state(progress_pct=25 + int(pct * 0.35), message=f"Скачивание: {pct}% ({round(got / 1024 / 1024, 1)} МБ)")
+                _download_file(asset_url, dl_path, expected_size=chk.get("asset_size"), progress_cb=_on_prog, timeout=120)
