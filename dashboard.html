@@ -3518,3 +3518,113 @@ function renderTrnVersions(reg) {
             '<button class="fb-btn" data-id="' + escHtml(v.version_id) + '" onclick="trnPrepareVersion(this.dataset.id, \'merged\')">Merge HF</button>' +
             '<button class="fb-btn" data-id="' + escHtml(v.version_id) + '" onclick="trnPrepareVersion(this.dataset.id, \'gguf\')">Export GGUF</button>' +
             '<button class="fb-btn selected" data-id="' + escHtml(v.version_id) + '" onclick="trnApproveVersion(this.dataset.id, true)">Одобрить</button>' +
+            '<button class="btn-action active" style="padding:3px 10px;font-size:11px;" data-id="' + escHtml(v.version_id) + '" onclick="trnDeployVersion(this.dataset.id)">Деплой</button>' +
+            '</div></div>' +
+            '<div style="font-size:12px;color:#cbd5e1;">' + lanEsc(evalTxt) + ' | артефакт: <code style="color:#38bdf8;">' + lanEsc(v.artifact_path) + '</code></div>' +
+            '</div>';
+    }).join('') || '<div class="trn-row" style="color:#64748b;">Версий моделей ещё нет. Завершите обучение чтобы создать первую версию.</div>';
+}
+async function trnEvalVersion(vid) {
+    const res = await fetch('/api/training/models/' + encodeURIComponent(vid) + '/evaluate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+    const d = await res.json();
+    showToast(res.ok ? 'Eval завершён' : 'Eval недоступен', res.ok ? ('status=' + d.version.eval_status) : d.message);
+    trnRefresh(false);
+}
+async function trnPrepareVersion(vid, target) {
+    const res = await fetch('/api/training/models/' + encodeURIComponent(vid) + '/prepare', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({target})});
+    const d = await res.json();
+    showToast(res.ok ? 'Артефакт готов' : 'Ошибка сборки', res.ok ? d.version.artifact_path : d.message);
+    trnRefresh(false);
+}
+async function trnApproveVersion(vid, approved) {
+    const res = await fetch('/api/training/models/' + encodeURIComponent(vid) + '/approve', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({approved})});
+    if (res.ok) { showToast('Подтверждено', vid); trnRefresh(false); }
+}
+async function trnDeployVersion(vid) {
+    const res = await fetch('/api/training/models/' + encodeURIComponent(vid) + '/deploy', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+    const d = await res.json();
+    showToast(res.ok ? 'Деплой запущен' : 'Деплой отклонён', res.ok ? (vid + ' -> ' + d.artifact_path) : d.message);
+    trnRefresh(false);
+    fetchHardware();
+}
+async function trnRollback() {
+    const res = await fetch('/api/training/models/rollback', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+    const d = await res.json();
+    showToast(res.ok ? 'Откат выполнен' : 'Откат невозможен', res.ok ? ('Восстановлена: ' + (d.restored_version_id || d.restored_model)) : d.message);
+    trnRefresh(false);
+    fetchHardware();
+}
+function renderTrnPrivacy(p) {
+    document.getElementById('prvAllowFeedback').checked = !!p.allow_feedback;
+    document.getElementById('prvAllowRemote').checked = !!p.allow_remote_feedback;
+    document.getElementById('prvRequireConsent').checked = !!p.require_explicit_consent;
+    document.getElementById('prvRequireReview').checked = !!p.require_manual_review;
+    document.getElementById('prvRedactSecrets').checked = !!p.redact_secrets;
+    document.getElementById('prvRedactPii').checked = !!p.redact_pii;
+}
+async function trnSavePrivacy() {
+    const payload = {
+        allow_feedback: !!document.getElementById('prvAllowFeedback').checked,
+        allow_remote_feedback: !!document.getElementById('prvAllowRemote').checked,
+        require_explicit_consent: !!document.getElementById('prvRequireConsent').checked,
+        require_manual_review: !!document.getElementById('prvRequireReview').checked,
+        redact_secrets: !!document.getElementById('prvRedactSecrets').checked,
+        redact_pii: !!document.getElementById('prvRedactPii').checked
+    };
+    const res = await fetch('/api/training/privacy', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+    if (res.ok) {
+        showToast('Сохранено', 'Настройки приватности обновлены');
+        await loadFeedbackPolicy();
+        renderActiveChatMessages();
+    }
+}
+async function trnBackupState() {
+    const out = document.getElementById('trnBackupOut');
+    if (out) out.innerText = 'Создание резервной копии...';
+    try {
+        const res = await fetch('/api/training/backup', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        const d = await res.json();
+        if (!res.ok) {
+            if (out) out.innerText = d.message || 'Ошибка создания бэкапа';
+            showToast('Ошибка бэкапа', d.message || 'Не удалось создать копию');
+            return;
+        }
+        const msg = 'Бэкап: ' + (d.backup_path || '') + ' (файлов: ' + (d.file_count || 0) + ')';
+        if (out) out.innerText = msg;
+        showToast('Бэкап создан', 'Файлов: ' + (d.file_count || 0));
+    } catch(e) {
+        if (out) out.innerText = 'Сервер недоступен';
+    }
+}
+async function trnPruneFeedback() {
+    try {
+        const res = await fetch('/api/training/feedback/prune', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        const d = await res.json();
+        if (res.ok) {
+            const removedCnt = d.removed !== undefined ? d.removed : (d.pruned || 0);
+            showToast('Очистка выполнена', 'Удалено истёкших записей: ' + removedCnt);
+            trnRefresh(false);
+        } else {
+            showToast('Ошибка', d.message || 'Не удалось очистить отзывы');
+        }
+    } catch(e) {}
+}
+function srvSubTab(name, btn) {
+    document.querySelectorAll('#tab-server .trn-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#tab-server .trn-subbtn').forEach(b => b.classList.remove('active'));
+    const p = document.getElementById('srv-panel-' + name);
+    if (p) p.classList.add('active');
+    if (btn) btn.classList.add('active');
+}
+async function srvRefresh() {
+    try {
+        const res = await fetch('/api/server/workspace', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const w = await res.json();
+        const roleBadge = document.getElementById('srvRoleBadge');
+        if (roleBadge) {
+            roleBadge.innerText = w.is_owner ? 'Роль: Владелец' : 'Роль: Участник';
+            roleBadge.style.color = w.is_owner ? '#10b981' : '#38bdf8';
+        }
+        const warnEl = document.getElementById('srvDiscoveryWarn');
+        const gHost = w.network_host || (w.global_host && w.global_host.host) || w.global_host || {};
