@@ -85,3 +85,17 @@ Tested inside clean virtual environments outside the repository directory (`%TEM
 - **CLI**: `soup.exe --version` -> `soup v0.77.2`
 - **API check**: `/api/training/soup?check_remote=1` -> `lifecycle_state: "INSTALLED"`, `soup_version: "0.77.2"`, `latest_version: "0.77.2"`, all `capabilities` flags `true`
 - **Verified imports**:
+  - `soup_cli 0.77.2`
+  - `torch 2.15.0+cpu`
+  - `transformers 5.23.0`
+  - `peft 0.21.3`
+  - `trl 0.29.1`
+  - `datasets 5.2.0`
+  - `accelerate 1.15.0`
+  - `bitsandbytes 0.50.2`
+  - `yaml 6.0.3`
+- **Accelerator limitation**: `torch.cuda.is_available()` returned `False` (`cuda_version: None`, `device_count: 0`) because default PyPI `soup-cli[train]` installs CPU-only `torch` on Windows even when an `NVIDIA GeForce RTX 2050` (`4096 MiB`) is present.
+
+---
+
+## 4. Real Dataset & Real SOUP SFT Training E2E
