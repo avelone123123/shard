@@ -36,3 +36,16 @@ To replace the dark-neon aesthetic without harming developer readability during 
 |---|---|---|
 | `--bg` | `#ECEAE3` | Warm workstation backdrop with subtle `1px` dot grid |
 | `--surface` | `#DCD9CF` | Recessed chrome buttons & tab rails |
+| `--surface-chrome` | `#D4D0C8` | Sticky header, hardware strip, modal & table headers |
+| `--surface-elevated` | `#F5F3EC` | Cards, panels, modals, text inputs |
+| `--surface-sunken` | `#E3E0D6` | Inset subcards, wells, metadata strips |
+| `--surface-terminal` | `#18201F` | Dark phosphor terminal/log/code container |
+| `--text` / `--text-secondary` / `--text-muted` | `#111315` / `#373D40` / `#52585C` | Ink hierarchy on light surfaces |
+| `--text-terminal` | `#E2ECE9` | Crisp text inside `#18201F` terminal blocks |
+| `--accent` / `--accent-hover` / `--accent-active` | `#008080` / `#006666` / `#004D4D` | Classic Teal primary actions & active state |
+| `--accent-text` / `--accent-soft` / `--accent-border` | `#005C5C` / `#D6ECEB` / `#2B8A8A` | Accessible teal text & tinted focus/selection surfaces |
+| `--border` / `--border-strong` | `#A8A49A` / `#6E6B64` | 1px–2px structural framing with crisp inset bevels |
+| `--success` / `--success-bg` / `--success-border` | `#146C35` / `#DCFCE7` / `#74C68E` | Verified status & passing preflight |
+| `--warning` / `--warning-bg` / `--warning-border` | `#9A4707` / `#FEF3C7` / `#E5A93B` | Notice / Hybrid RAM+VRAM / update warning |
+| `--danger` / `--danger-bg` / `--danger-border` | `#B91C1C` / `#FEE2E2` / `#E88B8B` | Error / destructive / rollback actions |
+| `--info` / `--info-bg` / `--info-border` | `#0F5E6E` / `#E0F2F4` / `#7AB8C2` | SSD Cache / NVMe Streaming / LAN info pills |
