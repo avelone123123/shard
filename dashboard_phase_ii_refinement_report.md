@@ -35,3 +35,10 @@ Per explicit user instruction (**Option B — Modern Slate**), all visual refine
 - **Mobile usability (`375x812` & `768x1024`)**: collapsed `.chat-sidebar` into a compact top strip and tuned mobile `.chat-container` height (`calc(100vh - 280px)`) so both `#chatEmptyState` and the `#chatInput` / `Отправить` composer bar fit cleanly above the fold on `375x812`.
 
 ### Server Hub, Network / LAN & Training / SOUP
+- **Server Hub** (`renderSrvOverviewCards`): added semantic `.compat-pill` badges distinguishing `LAN: off` vs active LAN and `Global: приватный` vs `публичный`, plus model lifecycle state pill.
+- **LAN peer rows** (`renderLanStatus`): wrapped LAN member rows in `.lan-member-row` card rows with crisp alignment.
+- **Training / SOUP** (`renderTrnJobs`, `renderTrnVersions`, `trnPreviewDataset`):
+  - Replaced identical cyan bracket labels with semantic `.compat-pill` badges (`compat-ok` for `COMPLETED`, `compat-no` for `FAILED`, `compat-warn` for queued/cancelled/pending, `compat-info` for `approved`).
+  - Added visual step progress bars (`.trn-progress-track` / `.trn-progress-fill`) computed from `current_step / total_steps`.
+  - Fixed `#trnJobBase` placeholder truncation (`Qwen/Qwen2.5-Coder-1.5B-Instruct`), widened left training panel desktop column to `365px`, stopped `Выбрать модель на ПК` button text wrapping (`white-space: nowrap; flex-shrink: 0`), added pipeline stage cue (`Адаптер -> Версия -> Деплой`), wrapped long artifact paths cleanly (`word-break: break-all`), and enclosed `.ds-table` inside horizontally scrollable `.ds-table-wrap`.
+
