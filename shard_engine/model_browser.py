@@ -406,3 +406,27 @@ def classify_model_path(target_path, deep_size=False):
                 compat = _compat_block(
                     has_gguf_snap,
                     "В снимке есть GGUF." if has_gguf_snap else "Кэш содержит веса Hugging Face SafeTensors.",
+                    True,
+                    "Готова к инференсу PyTorch.",
+                    True,
+                    f"Снимок Hugging Face ({best_snap.name[:12]}) готов для обучения SOUP.",
+                    resolved_base=str(best_snap),
+                )
+            elif has_gguf_snap:
+                compat = _compat_block(
+                    True,
+                    "Локальный GGUF-кэш готов к запуску в SHARD.",
+                    False,
+                    "Кэш содержит только .gguf (для llama.cpp).",
+                    False,
+                    "В этой папке кэша лежат только квантованные файлы .gguf, которые не подходят для обучения SOUP. Выберите HF SafeTensors модель.",
+                    suggested_base=hf_map["local_hf_snapshot_path"] or hf_map["suggested_hf_base_repo"],
+                )
+            else:
+                compat = _compat_block(False, "Снимки моделей не найдены.", False, "Снимки моделей не найдены.", False, "Папка кэша не содержит готовых весов модели.")
+            return {
+                "path": str(p),
+                "name": p.name,
+                "is_dir": True,
+                "format": "hf_hub_cache",
+                "format_label": "Кэш HF (SafeTensors)" if has_hf_snap else ("Кэш HF (GGUF)" if has_gguf_snap else "Кэш HF"),
