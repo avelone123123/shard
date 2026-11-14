@@ -680,6 +680,30 @@ def api_models_browser_list(req: Request, path: str = None, filter_mode: str = "
         return model_browser.list_directory(raw_path=path, filter_mode=filter_mode, search=search, max_entries=max_entries)
     except PermissionError as e:
         return JSONResponse(status_code=403, content={"status": "error", "message": str(e)})
+    except (FileNotFoundError, NotADirectoryError) as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/models/browser/inspect")
+async def api_models_browser_inspect(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    target = str(data.get("path") or "").strip()
+    if not target:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "path is required"})
+    try:
+        return model_browser.inspect_model_target(target, remember=bool(data.get("remember", False)))
+    except PermissionError as e:
+        return JSONResponse(status_code=403, content={"status": "error", "message": str(e)})
+    except FileNotFoundError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
 @app.get("/api/fit/{model_id:path}")
 def api_fit(model_id: str, req: Request):
     denied = _deny_non_owner(req)
