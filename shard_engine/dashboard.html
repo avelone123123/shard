@@ -3440,10 +3440,18 @@ function renderTrnOverview(ov, soup) {
     const installBtn = (!s.available || stKey === 'FAILED') ? '<button class="btn-action active" style="padding:4px 11px;font-size:11px;" onclick="trnInstallSoup(\'install\', true)">Установить SOUP (Python 3.12 venv)</button>' : '';
     const trainDepsBtn = (s.available && !(s.capabilities && s.capabilities.train)) ? '<button class="btn-action active" style="padding:4px 11px;font-size:11px;" onclick="trnInstallSoup(\'install\', true)">Доустановить [train] пакеты</button>' : '';
     const actionBtns = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">' +
-        '<button class="btn-action active" style="padding:3px 10px;font-size:11px;" onclick="trnInstallSoup(false)">Установить SOUP (Python 3.12 venv)</button>' +
-        '<button class="btn-action" style="padding:3px 10px;font-size:11px;" onclick="trnInstallSoup(true)">Починить окружение</button>' +
-        '<button class="btn-action" style="padding:3px 10px;font-size:11px;" onclick="trnRefresh(true)">Проверить SOUP</button>' +
-        '</div><div id="trnSoupInstallBox" style="margin-top:6px;font-family:monospace;font-size:11px;color:#38bdf8;"></div>';
+        installBtn + updBtn + trainDepsBtn +
+        '<button class="btn-action" style="padding:4px 11px;font-size:11px;" onclick="trnInstallSoup(\'repair\', true)">Починить окружение</button>' +
+        '<button class="btn-action" style="padding:4px 11px;font-size:11px;" onclick="trnRefresh(true)">Проверить статус и версию</button>' +
+        '</div>';
+    const inst = s.installer || {};
+    const techLogs = [].concat(inst.logs || [], s.warnings || []).join('\n') || ('Command: ' + (s.command || []).join(' '));
+    const techDetails = '<details class="tech-details"><summary>Технические детали среды SOUP (venv, Python, зависимости)</summary>' +
+        '<div style="margin-top:6px;font-family:monospace;line-height:1.5;">' +
+        '<div>Venv: ' + lanEsc(s.venv_path || '-') + ' | Runtime Python: ' + lanEsc(s.runtime_python || '-') + '</div>' +
+        '<div>Host Python: ' + lanEsc(s.host_python_version || '-') + ' | Installed SOUP: ' + lanEsc(s.soup_version || '-') + ' | Remote latest: ' + lanEsc(s.latest_version || '-') + '</div>' +
+        '<div>Train deps OK: ' + (s.capabilities && s.capabilities.train ? 'YES' : ('NO (missing: ' + lanEsc((s.missing_train_deps || []).join(', ')) + ')')) + '</div>' +
+        '<pre style="margin-top:6px;white-space:pre-wrap;max-height:140px;overflow-y:auto;">' + lanEsc(techLogs) + '</pre></div></details>';
     document.getElementById('trnSoupBanner').innerHTML =
         '<div><b>Цикл:</b> CREATE -> SHARE -> CONNECT -> USE -> FEEDBACK -> TRAIN -> IMPROVE -> DEPLOY</div>' +
         '<div style="color:#94a3b8;margin-top:4px;"><b>Архитектура:</b> ' + lanEsc((ov.architecture_notes && ov.architecture_notes.distributed_training) || '') + '</div>' +
