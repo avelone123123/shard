@@ -3455,7 +3455,11 @@ function renderTrnOverview(ov, soup) {
     document.getElementById('trnSoupBanner').innerHTML =
         '<div><b>Цикл:</b> CREATE -> SHARE -> CONNECT -> USE -> FEEDBACK -> TRAIN -> IMPROVE -> DEPLOY</div>' +
         '<div style="color:#94a3b8;margin-top:4px;"><b>Архитектура:</b> ' + lanEsc((ov.architecture_notes && ov.architecture_notes.distributed_training) || '') + '</div>' +
-        (soup.available ? '' : '<div style="color:#38bdf8;margin-top:4px;">Установка: <code>' + lanEsc(soup.install_hint || '') + '</code></div>') + warns + actionBtns;
+        errHtml + warnsHtml + actionBtns +
+        '<div id="trnSoupInstallBox" style="margin-top:8px;"></div>' + techDetails;
+    if (inst && (inst.running || inst.lifecycle_state === 'FAILED' || inst.status === 'failed')) {
+        _renderSoupInstallerBox(inst);
+    }
 }
 let soupInstallPollTimer = null;
 async function trnInstallSoup(forceRepair) {
