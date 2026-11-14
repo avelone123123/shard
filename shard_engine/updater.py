@@ -310,3 +310,27 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                     "ok": True,
                     "source": "pypi",
                     "latest_version": ver,
+                    "tag_name": f"v{ver}",
+                    "release_url": f"https://pypi.org/project/{__app_name__}/{ver}/",
+                    "release_notes": "",
+                    "published_at": whl.get("upload_time_iso_8601"),
+                    "asset_url": whl.get("url"),
+                    "asset_name": whl.get("filename"),
+                    "asset_size": whl.get("size"),
+                    "asset_sha256": (whl.get("digests") or {}).get("sha256"),
+                    "prerelease": False,
+                }
+    except Exception as e:
+        last_err = last_err or str(e)
+    try:
+        rr = _http_get(GITHUB_RAW_INIT, timeout=timeout)
+        if rr.status_code == 200:
+            m = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', rr.text)
+            if m and is_valid_version_str(m.group(1)):
+                ver = m.group(1).strip()
+                if allow_prerelease or not is_prerelease_version(ver):
+                    return {
+                        "ok": True,
+                        "source": "github_main",
+                        "latest_version": ver,
+                        "tag_name": f"v{ver}",
