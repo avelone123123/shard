@@ -763,6 +763,7 @@ def get_training_job(job_id):
                     "total_steps": prog.get("total_steps"),
                 }
                 out["artifacts"] = soup_adapter.scan_output_artifacts(out.get("output_dir") or "")
+                _enrich_job_fields(out)
                 return out
     raise KeyError(f"Training job '{job_id}' not found.")
 def list_model_versions():
@@ -1109,8 +1110,8 @@ def shutdown_active_jobs():
         except Exception:
             pass
     return len(procs_to_stop)
-def training_overview():
-    soup_info = soup_adapter.detect_soup(probe_deps=False)
+def training_overview(check_remote=False):
+    soup_info = soup_adapter.detect_soup(probe_deps=False, check_remote=bool(check_remote))
     privacy = feedback.get_privacy_config()
     stats = feedback.compute_stats()
     datasets = feedback.list_datasets()
