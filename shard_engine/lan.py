@@ -1098,3 +1098,113 @@ class LanManager:
             mode = self._state.get("mode")
             name = self._state.get("name")
             nid = self._state.get("node_id")
+            open_net = bool(self._state.get("open"))
+            target_model = self._state.get("target_model")
+            members = [dict(m) for m in self._state.get("members", [])]
+        loaded = self._loaded_model_name()
+        active_m = loaded or target_model
+        alive_members = [m for m in members if member_alive(m, now)]
+        workers = [m for m in alive_members if m.get("role") == "worker"]
+        return {
+            "is_server": mode == "server",
+            "mode": mode,
+            "server_name": name,
+            "node_id": nid,
+            "open": open_net,
+            "access_mode": "open" if open_net else "pairing_code",
+            "active_model": active_m,
+            "target_model": target_model,
+            "model_loaded": bool(loaded),
+            "member_count": len(alive_members),
+            "total_members": len(members),
+            "worker_count": len(workers),
+            "pool_capacity_mb": self.pool_capacity_mb() if mode == "server" else 0,
+            "rpc_available_locally": bool(find_rpc_server()),
+            "roles": {
+                "member": {
+                    "title": "Участник (Чат и API)",
+                    "requires_model_download": False,
+                    "shares_compute": False,
+                    "description": "Вы получаете доступ к модели хоста, общему ИИ-чату, чату сообщества и API сервера. Модель скачивать не нужно, ваша видеокарта и ОЗУ не нагружаются.",
+                },
+                "worker": {
+                    "title": "Вычислительный узел (Share Compute / RPC)",
+                    "requires_model_download": False,
+                    "shares_compute": True,
+                    "description": "Запускается локальный ggml-rpc-server: вы выделяете свободную VRAM/RAM для распределённого запуска слоёв модели по TCP. Полную модель скачивать вручную не требуется — мастер-узел передаёт веса назначенных слоёв автоматически.",
+                },
+            },
+            "privacy_notice": "Ваши личные файлы, ключи и локальные настройки остаются только на вашем ПК. Сервер видит только ваше имя, выбранную роль, пульс соединения и сообщения, отправленные вами на сервер.",
+        }
+    def join(self, ip, code, share=False, port=DEFAULT_MASTER_PORT, bind_host=None):
+        clean_ip, ip_err = validate_master_host(ip)
+        if ip_err:
+            return {"status": "error", "message": ip_err}
+        try:
+            port_num = int(port)
+            if not (1 <= port_num <= 65535):
+                return {"status": "error", "message": "Некорректный порт мастера"}
+        except Exception:
+            return {"status": "error", "message": "Некорректный порт мастера"}
+        import requests
+        url = f"http://{clean_ip}:{port_num}/api/lan/pair"
+        try:
+            r = requests.post(
+                url,
+                json={"code": str(code or ""), "name": self.name(), "share": bool(share), "client_id": self.node_id()},
+                timeout=5,
+            )
+        except Exception as e:
+            return {"status": "error", "message": f"Мастер {clean_ip}:{port_num} недоступен: {str(e)[:120]}"}
+        if r.status_code == 403:
+            return {"status": "error", "message": "Сеть закрыта: нужен код подключения"}
+        if r.status_code == 429:
+            return {"status": "error", "message": "Слишком много попыток подключения — подождите и повторите"}
+        if r.status_code != 200:
+            return {"status": "error", "message": f"Мастер ответил {r.status_code}: {r.text[:120]}"}
+        data = r.json()
+        self.off(quiet=True)
+        with self._lock:
+            self._state.update({
+                "mode": "worker" if share else "member",
+                "master": {
+                    "ip": clean_ip,
+                    "port": port_num,
+                    "token": data["token"],
+                    "name": data.get("master") or clean_ip,
+                    "client_id": data.get("client_id") or self.node_id(),
+                },
+                "created_at": time.time(),
+            })
+            self._hb_state = "connecting"
+            self._save()
+        warn = None
+        if share:
+            try:
+                self._start_worker(master_ip=clean_ip, bind_host=bind_host)
+            except Exception as e:
+                warn = str(e)[:160]
+                with self._lock:
+                    self._state["mode"] = "member"
+                    self._state["rpc_port"] = None
+                    self._save()
+        self._start_threads(self.mode())
+        res = {
+            "status": "ok",
+            "mode": self.mode(),
+            "master": data.get("master") or clean_ip,
+            "master_ip": clean_ip,
+        }
+        if warn:
+            res["warning"] = warn
+        return res
+    def join_via_tunnel(self, target, code="", share=False, mode="auto"):
+        from urllib.parse import urlparse
+        raw = str(target or "").strip()
+        if not raw:
+            return {"status": "error", "message": "Target is required"}
+        if raw.startswith(("http://127.0.0.1:", "http://localhost:")):
+            parsed = urlparse(raw)
+            host = parsed.hostname or "127.0.0.1"
+            port = parsed.port or DEFAULT_MASTER_PORT
+            return self.join(host, code=code, share=share, port=port, bind_host=("127.0.0.1" if share else None))
