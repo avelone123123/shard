@@ -4182,6 +4182,81 @@ function _renderShardUpdateProgress(job) {
 async function checkShardUpdates(force) {
     try {
         const res = await fetch('/api/system/update' + (force ? '?force=1' : ''), {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const data = await res.json();
+        _renderUpdateModalBody(data);
+        if (data.job && data.job.status === 'running' && !_shardUpdPollTimer) {
+            _shardUpdPollTimer = setInterval(pollShardUpdateStatus, 1000);
+        }
+    } catch(e) {}
+}
+async function applyShardUpdate(force) {
+    try {
+        const res = await fetch('/api/system/update/apply', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({force: !!force})
+        });
+        const d = await res.json();
+        if (!res.ok) {
+            showToast('Ошибка обновления', d.message || 'Не удалось запустить обновление');
+            return;
+        }
+        _renderShardUpdateProgress(d.job);
+        if (_shardUpdPollTimer) clearInterval(_shardUpdPollTimer);
+        _shardUpdPollTimer = setInterval(pollShardUpdateStatus, 900);
+    } catch(e) {
+        showToast('Ошибка сети', e.message);
+    }
+}
+async function pollShardUpdateStatus() {
+    try {
+        const res = await fetch('/api/system/update/status', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const d = await res.json();
+        const job = d.job || {};
+        _renderShardUpdateProgress(job);
+        if (job.status !== 'running') {
+            if (_shardUpdPollTimer) { clearInterval(_shardUpdPollTimer); _shardUpdPollTimer = null; }
+            if (job.status === 'updated') {
+                showToast('SHARD обновлён', 'Перезапустите сервер (shard restart) для применения v' + (job.new_version || ''));
+            } else if (job.status === 'failed') {
+                showToast('Обновление отменено', job.rolled_back ? 'Выполнен безопасный откат к предыдущей версии' : (job.error || 'Сбой обновления'));
+            }
+            checkShardUpdates(false);
+        }
+    } catch(e) {}
+}
+async function rollbackShardUpdate() {
+    try {
+        const res = await fetch('/api/system/update/rollback', {method: 'POST', headers: getAuthHeaders({'Content-Type': 'application/json'}), body: '{}'});
+        const d = await res.json();
+        if (!res.ok) {
+            showToast('Откат недоступен', d.message || 'Резервная копия не найдена');
+            return;
+        }
+        showToast('Откат выполнен', 'Восстановлена предыдущая версия. Перезапустите SHARD.');
+        checkShardUpdates(false);
+    } catch(e) {}
+}
+let mbMode = 'inference';
+let mbCurrentPath = '';
+let mbCurrentData = null;
+let mbSelectedItem = null;
+function openModelBrowser(mode) {
+    mbMode = mode || 'inference';
+    mbSelectedItem = null;
+    const bd = document.getElementById('browserModalBackdrop');
+    if (bd) bd.style.display = 'flex';
+    const titleEl = document.getElementById('mbModalTitle');
+    const subEl = document.getElementById('mbModalSubtitle');
+    if (titleEl) titleEl.innerText = mbMode === 'training' ? 'Выбор базовой модели для обучения SOUP' : 'Обзор моделей и дисков на ПК';
+    if (subEl) subEl.innerText = mbMode === 'training' ? 'SOUP обучает папки Hugging Face (config.json + safetensors). Квантованные .gguf для обучения блокируются.' : 'Просмотрите все диски (C:, D:, ...), найдите модели GGUF или папки Hugging Face.';
+    const filterEl = document.getElementById('mbFilterMode');
+    if (filterEl) filterEl.value = mbMode === 'training' ? 'soup' : 'all';
+    mbLoadRoots();
+}
+function closeModelBrowser() {
 window.onload = function() {
     initChatSessions();
     loadFeedbackPolicy();
