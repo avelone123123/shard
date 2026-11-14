@@ -1391,11 +1391,11 @@ async def api_feedback_revoke(req: Request):
     res = feedback.revoke_contributor(cid, delete_existing=bool(data.get("delete_existing", True)))
     return {"status": "ok", **res}
 @app.get("/api/training/overview")
-def api_training_overview(req: Request):
+def api_training_overview(req: Request, check_remote: bool = False):
     denied = _deny_non_owner(req)
     if denied:
         return denied
-    return training.training_overview()
+    return training.training_overview(check_remote=bool(check_remote))
 @app.get("/api/training/soup")
 def api_training_soup(req: Request):
     denied = _deny_non_owner(req)
