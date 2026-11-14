@@ -218,3 +218,113 @@ main{flex:1;padding:24px 28px;max-width:1440px;margin:0 auto;width:100%;}
 <div class="modal-actions">
 <button class="modal-close-btn" onclick="closeDirPicker()" title="Закрыть">
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</button>
+</div>
+</div>
+<div class="modal-body" style="padding:18px 22px;">
+<label style="font-size:11px;letter-spacing:0.08em;color:var(--text-muted);display:block;margin-bottom:6px;">ПУТЬ К ПАПКЕ</label>
+<input type="text" id="dirPathInput" style="width:100%;background:#0a0d14;border:1px solid #1e2638;border-radius:6px;color:#e2e8f0;padding:9px 12px;font-size:12.5px;font-family:Consolas,monospace;outline:none;box-sizing:border-box;" placeholder="E:\shard-models" onkeydown="if(event.key==='Enter')saveModelsDir()">
+<div style="font-size:11px;color:var(--text-muted);margin:6px 0 14px;">Применится после перезапуска приложения. Папка будет создана автоматически.</div>
+<div id="dirDriveList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;"></div>
+<div style="display:flex;justify-content:space-between;gap:10px;">
+<button class="btn-action" onclick="resetModelsDir()" style="padding:7px 14px;font-size:12px;">Сбросить по умолчанию</button>
+<button class="btn-action active" onclick="saveModelsDir()" style="padding:7px 18px;font-size:12px;">Сохранить</button>
+</div>
+</div>
+</div>
+</div>
+<header>
+<div class="brand">
+<div class="brand-logo-icon">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+<path d="M12 2L21 7V17L12 22L3 17V7L12 2Z" stroke="#475569" stroke-width="1.8" stroke-linejoin="round"/>
+<path d="M12 2V22" stroke="#334155" stroke-width="1.2"/>
+<polygon points="12,4 19,8 12,12 5,8" fill="#2563eb" fill-opacity="0.25" stroke="#3b82f6" stroke-width="1"/>
+<polygon points="12,12 19,16 12,20 5,16" fill="#1e293b" fill-opacity="0.6" stroke="#475569" stroke-width="1"/>
+</svg>
+</div>
+<div>
+<div style="display:flex;align-items:center;gap:7px;">
+<span class="brand-name">SHARD</span>
+<span class="brand-badge">RUNTIME</span>
+</div>
+<div class="brand-desc">Локальная среда запуска нейросетей // C++20 Zero-Copy Engine</div>
+</div>
+</div>
+<div class="hw-bar">
+<div class="hw-item owner-only-hw"><span>ЯДРО</span><b id="hwCore">C++20 / MASM AVX2</b></div>
+<div class="hw-item owner-only-hw"><span>GPU</span><b id="hwGpu">Поиск...</b></div>
+<div class="hw-item owner-only-hw"><span>VRAM</span><b id="hwVram">0 / 0 MB</b></div>
+<div class="hw-item owner-only-hw"><span>RAM</span><b id="hwRam">0 / 0 GB</b></div>
+<div class="hw-item"><span>МОДЕЛЬ</span><b id="hwModel" style="color:#10b981;">Не загружена</b></div>
+</div>
+</header>
+<div class="nav-tabs">
+<button id="navMarketBtn" class="nav-btn active" onclick="showTab('market', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+Каталог
+</button>
+<button id="navConnectBtn" class="nav-btn" onclick="showTab('connect', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+Инструкции и Подключение
+</button>
+<button id="navChatBtn" class="nav-btn" onclick="showTab('chat', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+Чат
+</button>
+<button id="navKeysBtn" class="nav-btn" onclick="showTab('keys', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg>
+API Ключи
+</button>
+<button id="navNetworkBtn" class="nav-btn" onclick="showTab('network', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+Сеть
+</button>
+<button id="navServerBtn" class="nav-btn" onclick="showTab('server', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+Сервер SHARD
+</button>
+<button id="navTrainingBtn" class="nav-btn" onclick="showTab('training', this)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+Обучение (SOUP)
+</button>
+</div>
+<div id="globalLoadingBanner" class="global-loading-banner" style="display:none;">
+<div class="glb-content">
+<div class="glb-left">
+<svg class="glb-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+<div class="glb-text-group">
+<div class="glb-title">
+<span class="glb-badge">Загрузка модели</span>
+<b id="glbModelName">...</b>
+<span id="glbStageText" class="glb-stage">Подготовка весов...</span>
+</div>
+<div class="glb-sub">
+<span id="glbMetrics">0 / 0 МБ • 0 МБ/с</span>
+<span class="glb-dot">•</span>
+<span id="glbEta">Осталось: вычисление...</span>
+</div>
+</div>
+</div>
+<div class="glb-right" style="display:flex;align-items:center;gap:10px;">
+<div class="glb-progress-wrap">
+<div class="glb-percent-val" id="glbPercentVal">0%</div>
+<div class="glb-track"><div id="glbTrackFill" class="glb-fill" style="width:0%;"></div></div>
+</div>
+<button class="btn-action" style="border-color:#f85149;color:#f85149;padding:4px 10px;font-size:11px;" onclick="cancelModelLoad()">Отменить</button>
+</div>
+</div>
+</div>
+<main>
+<div id="tab-market" class="section active">
+<div class="search-bar">
+<div class="search-wrapper">
+<svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+<input type="text" id="searchInput" class="search-input" placeholder="Поиск среди 3 000 000+ открытых моделей (или точный ID: owner/model)..." oninput="handleSearchDebounced()" onkeyup="handleSearch(event)">
+</div>
+<button class="filter-btn" onclick="openDirPicker()" title="Куда скачивать модели (можно подключить внешний SSD)" style="gap:6px;white-space:nowrap;flex-shrink:0;">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+<span id="modelsDirLabel">Папка моделей</span>
+</button>
+<div class="filter-tabs">
+<button class="filter-btn active" onclick="setCategory('all', this)">Все</button>
