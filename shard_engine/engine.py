@@ -1428,3 +1428,91 @@ class ShardEngine:
                 "thinking_seconds": sanitizer.think_duration,
                 "total_seconds": total_duration,
                 "tokens_per_sec": tokens_per_sec
+            },
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": token_count,
+                "total_tokens": prompt_tokens + token_count
+            }
+        }
+    def _generate_gguf(self, messages, max_tokens=512, temperature=0.7):
+        t0 = time.time()
+        self.status = "generating"
+        self._cancel_gen = False
+        sanitizer = _StreamSanitizer()
+        token_count = 0
+        prompt_tokens = 1
+        usage = None
+        try:
+            for kind, payload in self.gguf.chat_stream(
+                messages, int(max_tokens), float(temperature),
+                cancel_check=lambda: self._cancel_gen
+            ):
+                chunk = payload or ""
+                if kind == "delta":
+                    if self._cancel_gen:
+                        break
+                    if not chunk:
+                        continue
+                    for ev_type, ev_tok in sanitizer.feed(chunk):
+                        if ev_tok:
+                            token_count += 1
+                            self.total_tokens_generated += 1
+                            yield {"type": ev_type, "token": ev_tok, "done": False}
+                    if sanitizer.stopped:
+                        self._cancel_gen = True
+                        break
+                elif kind == "error":
+                    yield {"type": "content", "token": f"[Ошибка инференса: {chunk}]", "done": False}
+                    break
+                elif kind == "usage":
+                    usage = payload if isinstance(payload, dict) else None
+            for ev_type, ev_tok in sanitizer.flush():
+                if ev_tok:
+                    token_count += 1
+                    self.total_tokens_generated += 1
+                    yield {"type": ev_type, "token": ev_tok, "done": False}
+        except Exception as e:
+            token_count = max(1, token_count)
+            yield {"type": "content", "token": f"\n[Ошибка инференса: {str(e)}]", "done": False}
+        total_duration = round(time.time() - t0, 2)
+        tokens_per_sec = round(token_count / max(0.05, total_duration), 1)
+        self.last_latency_ms = int(total_duration * 1000)
+        self.status = "ready" if (self.model is not None or (self.gguf is not None and self.gguf.is_running())) else "idle"
+        if usage is None:
+            usage = {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": token_count,
+                "total_tokens": prompt_tokens + token_count
+            }
+        yield {
+            "type": "done",
+            "token": "",
+            "done": True,
+            "telemetry": {
+                "thinking_seconds": sanitizer.think_duration,
+                "total_seconds": total_duration,
+                "tokens_per_sec": tokens_per_sec
+            },
+            "usage": usage
+        }
+    def generate_sync(self, messages, max_tokens=512, temperature=0.7):
+        thought_chunks = []
+        content_chunks = []
+        usage = {}
+        telemetry = {}
+        for item in self.generate_stream(messages, max_tokens, temperature):
+            if item.get("type") == "thought":
+                thought_chunks.append(item["token"])
+            elif item.get("type") == "content":
+                content_chunks.append(item["token"])
+            elif item.get("type") == "done":
+                usage = item.get("usage", {})
+                telemetry = item.get("telemetry", {})
+        return {
+            "content": "".join(content_chunks),
+            "reasoning_content": "".join(thought_chunks),
+            "usage": usage,
+            "telemetry": telemetry
+        }
+engine_instance = ShardEngine()
