@@ -768,3 +768,113 @@ def list_models():
         "google/gemma-2-9b-it",
         "mistralai/Mistral-7B-Instruct-v0.3"
     ]
+    seen = set()
+    model_list = []
+    for m in popular:
+        if m and m.lower() not in seen:
+            seen.add(m.lower())
+            model_list.append({"id": m, "object": "model", "created": int(time.time()), "owned_by": "shard-local"})
+    return {"object": "list", "data": model_list}
+@app.get("/v1/ping")
+def api_ping():
+    is_loaded = engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
+    return {
+        "status": "ok",
+        "version": __version__,
+        "latency_ms": 0.3,
+        "engine": "shard-local-engine",
+        "active_model": engine_instance.active_model_id,
+        "is_loaded": is_loaded,
+        "node_id": _safe_node_id(),
+    }
+@app.post("/v1/chat/completions")
+async def chat_completions(req: Request):
+    data = await req.json()
+    messages = data.get("messages", [])
+    stream = data.get("stream", False)
+    max_tokens = data.get("max_tokens", 512)
+    temperature = data.get("temperature", 0.7)
+    model = data.get("model") or engine_instance.active_model_id or "shard-local-model"
+    cid = f"chatcmpl-{uuid.uuid4().hex[:12]}"
+    created = int(time.time())
+    if stream:
+        def event_generator():
+            for item in engine_instance.generate_stream(messages, max_tokens, temperature):
+                if item.get("type") == "thought":
+                    delta_payload = {
+                        "id": cid,
+                        "object": "chat.completion.chunk",
+                        "created": created,
+                        "model": model,
+                        "choices": [{"index": 0, "delta": {"reasoning_content": item["token"]}, "finish_reason": None}]
+                    }
+                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                elif item.get("type") == "content":
+                    delta_payload = {
+                        "id": cid,
+                        "object": "chat.completion.chunk",
+                        "created": created,
+                        "model": model,
+                        "choices": [{"index": 0, "delta": {"content": item["token"]}, "finish_reason": None}]
+                    }
+                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                elif item.get("type") == "done":
+                    final_payload = {
+                        "id": cid,
+                        "object": "chat.completion.chunk",
+                        "created": created,
+                        "model": model,
+                        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                        "telemetry": item.get("telemetry", {}),
+                        "usage": item.get("usage", {})
+                    }
+                    yield f"data: {json.dumps(final_payload, ensure_ascii=False)}\n\n"
+                    yield "data: [DONE]\n\n"
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+    result = engine_instance.generate_sync(messages, max_tokens, temperature)
+    return {
+        "id": cid,
+        "object": "chat.completion",
+        "created": created,
+        "model": model,
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": result["content"],
+                    "reasoning_content": result.get("reasoning_content", "")
+                },
+                "finish_reason": "stop"
+            }
+        ],
+        "telemetry": result.get("telemetry", {}),
+        "usage": result.get("usage", {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0})
+    }
+@app.post("/v1/messages")
+async def anthropic_messages(req: Request):
+    data = await req.json()
+    raw_messages = data.get("messages", [])
+    sys_prompt = data.get("system", "")
+    model = data.get("model") or engine_instance.active_model_id or "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+    max_tokens = data.get("max_tokens", 1024)
+    temperature = data.get("temperature", 0.7)
+    stream = data.get("stream", False)
+    normalized = []
+    if sys_prompt:
+        if isinstance(sys_prompt, list):
+            sys_txt = " ".join(c.get("text", "") for c in sys_prompt if isinstance(c, dict))
+        else:
+            sys_txt = str(sys_prompt)
+        if sys_txt.strip():
+            normalized.append({"role": "system", "content": sys_txt})
+    for m in raw_messages:
+        content = m.get("content", "")
+        if isinstance(content, list):
+            parts = [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
+            content = " ".join(parts)
+        normalized.append({"role": m.get("role", "user"), "content": content})
+    msg_id = f"msg_{uuid.uuid4().hex[:16]}"
+    if stream:
+        def anthropic_sse():
+            start_ev = {"type": "message_start", "message": {"id": msg_id, "type": "message", "role": "assistant", "content": [], "model": model, "stop_reason": None, "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 0}}}
