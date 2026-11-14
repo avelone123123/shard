@@ -100,3 +100,16 @@ Note: Uncommitted pre-existing Phase I.1 edits (`pyproject.toml`, `shard_engine/
   - Connect & API: switched tool (`Cursor IDE`), toggled manual/script mode (`guideManualSection` visible), ran Ping test -> `"200 OK — Эндпоинт активен! Задержка: 15.0 мс | Ядро: shard-local-engine"`.
   - Network & LAN: switched `#netSubBtn-lan` (`#net-panel-lan` visible), rendered interface badges `[lan]`, `[radmin]`, UDP beacon (`after_15_network_lan.png`).
   - Server Hub: verified 4 labeled inputs (`['Имя сервера', 'Режим сети', 'Видимость', 'Регион']`) and 4 overview cards (`after_06_server.png`).
+  - Training / SOUP: rendered live SOUP `v0.77.2`, `Python 3.12.16`, `23 одобр. / 0 ожид.` (`after_07_training_overview.png`), opened Dataset Preview (`ds-accept-e2e-ui-2-f72ab5`, `after_14_dataset_preview.png`), paginated page 1 (`показано 20 из 23`) -> page 2 (`показано 3 из 23`), ran Training Preflight -> `"Все проверки пройдены — готово к запуску обучения ... PASS"`, inspected job history (`after_08_training_jobs.png`).
+  - Update Modal (`#shardVersionPill`): displayed `"Установленная версия: v1.8.0 | Новая на GitHub: v1.8.0"`, closed cleanly with `Escape` (`after_09_update_modal.png`).
+  - Model Browser (`openModelBrowser('training')`): enumerated 7 roots (`C:\`, `D:\ (Ventoy)`, `Модели SHARD`, `Кэш Hugging Face`, `Обучение и чекпоинты SOUP`, `Загрузки`, `Домашняя папка`), closed cleanly with `Escape` (`after_10_model_browser.png`).
+
+### Full Python Unit Test Suite (`task-5618`, after final edits)
+- Command: `python -m unittest discover -s . -p "tests_*.py" -v`
+- Result: **`Ran 171 tests in 38.609s — OK (skipped=1)`**
+  - `170` passed, `0` failed (`test_09_dashboard_regression_bugs_fixed` verified byte-equality and required security/functional markers), `1` skipped (`test_wheel_contents_when_built` skipped because wheel not pre-built in `dist/`).
+
+### Captured Visual Evidence (`scratch/redesign_shots/`)
+- **BEFORE**: `before_01_market.png` .. `before_12_tablet_training.png`, metrics in `before_report.json`
+- **AFTER**: `after_01_market.png` .. `after_17_downloaded_tab.png`, metrics in `after_report.json`
+
