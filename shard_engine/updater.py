@@ -574,3 +574,27 @@ def rollback_update(backup_info=None):
                 raise ValueError(f"Unsafe target in backup: {rel}")
             storage.atomic_write_bytes(target, raw, fsync=True, backup=False)
             restored += 1
+    repo_root = ptr.get("repo_root")
+    git_commit = ptr.get("git_commit")
+    if ptr.get("method") == "git_clone" and repo_root and git_commit and shutil.which("git"):
+        try:
+            subprocess.run([shutil.which("git"), "reset", "--hard", git_commit], cwd=repo_root, capture_output=True, text=True, timeout=20, creationflags=_WIN_NO_WINDOW)
+        except Exception:
+            pass
+    state_zip = ptr.get("state_backup_path")
+    if state_zip and os.path.isfile(state_zip):
+        try:
+            storage.restore_state_backup(state_zip, paths.data_dir(), paths.config_dir(), verify_hashes=True)
+        except Exception:
+            pass
+    return {
+        "status": "rolled_back",
+        "restored_version": ptr.get("version"),
+        "restored_files": restored,
+    }
+def verify_installation(expected_version=None):
+    code = (
+        "import json, shard_engine, shard_engine.cli, shard_engine.server, shard_engine.paths as p;"
+        "ok = p.package_resource_exists('dashboard.html') and p.package_resource_exists('engine_optimizations.json');"
+        "print(json.dumps({'version': shard_engine.__version__, 'assets_ok': bool(ok)}))"
+    )
