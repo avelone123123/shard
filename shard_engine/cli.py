@@ -469,6 +469,30 @@ def cmd_update(args):
             if chk.get("release_notes"):
                 print(f"Release notes:\n{str(chk['release_notes'])[:500]}")
             print("Run 'shard update' to install safely with automatic backup & rollback.")
+        elif chk.get("state") == "UP_TO_DATE":
+            print(f"SHARD is up to date ({__version__}).")
+        elif chk.get("error"):
+            print(f"[WARN] {chk['error']}")
+        return
+    if not as_json:
+        print(f"Install method:    {inst.get('method')} ({inst.get('package_dir')})")
+    res = updater.apply_update(target_version=target, force=force, allow_prerelease=prerelease)
+    if as_json:
+        print(json.dumps(res, ensure_ascii=False, indent=2))
+        if res.get("status") == "failed":
+            sys.exit(1)
+        return
+    st = res.get("status")
+    if st == "up_to_date":
+        print(f"SHARD is already up to date ({__version__}).")
+        return
+    if st == "updated":
+        print(f"Updated SHARD: {res.get('old_version')} -> {res.get('new_version')}")
+        if res.get("backup_path"):
+            print(f"Backup archive: {res['backup_path']}")
+        print("User config, keys, models, and datasets preserved.")
+        if res.get("daemon_running"):
+            print("SHARD server is running in background. Run 'shard restart' to activate the new version.")
 def cmd_list(args):
     from .hf_hub import browse_models
     print_banner()
