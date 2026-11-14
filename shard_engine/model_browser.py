@@ -430,3 +430,27 @@ def classify_model_path(target_path, deep_size=False):
                 "is_dir": True,
                 "format": "hf_hub_cache",
                 "format_label": "Кэш HF (SafeTensors)" if has_hf_snap else ("Кэш HF (GGUF)" if has_gguf_snap else "Кэш HF"),
+                "valid": has_hf_snap or has_gguf_snap,
+                "resolved_snapshot": str(best_snap) if best_snap else None,
+                "size_bytes": sz,
+                "size_str": _fmt_size(sz) + ("+" if partial else "") if sz else "",
+                "compatibility": compat,
+            }
+        if gguf_files:
+            valid_gguf = [g for g in gguf_files if gguf_backend.validate_gguf_file(str(g)).get("valid")]
+            first_g = valid_gguf[0] if valid_gguf else gguf_files[0]
+            hf_map = map_gguf_to_hf_base(str(first_g))
+            sz = sum(g.stat().st_size for g in gguf_files if g.is_file())
+            compat = _compat_block(
+                bool(valid_gguf),
+                f"Найдено GGUF-файлов: {len(valid_gguf)} ({_fmt_size(sz)})." if valid_gguf else "GGUF-файлы повреждены.",
+                False,
+                "GGUF не предназначен для PyTorch.",
+                False,
+                "Папка содержит только файлы .gguf для инференса. Для SOUP обучения выберите модель в формате Hugging Face SafeTensors.",
+                suggested_base=hf_map["local_hf_snapshot_path"] or hf_map["suggested_hf_base_repo"],
+            )
+            return {
+                "path": str(p),
+                "name": p.name,
+                "is_dir": True,
