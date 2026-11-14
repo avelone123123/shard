@@ -3689,6 +3689,36 @@ function _collectTrainingPayload() {
             max_length: parseInt(((document.getElementById('trnJobMaxLength') || {}).value || '2048'), 10)
         }
     };
+}
+async function trnRunPreflight() {
+    const box = document.getElementById('trnPreflightBox');
+    if (box) box.innerHTML = '<div class="trn-row" style="color:#38bdf8;">Выполнение preflight-проверки...</div>';
+    try {
+        const res = await fetch('/api/training/preflight', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify(_collectTrainingPayload())
+        });
+        const pf = await res.json();
+        const rows = (pf.checks || []).map(c => {
+            const cls = c.status === 'pass' ? 'compat-ok' : (c.status === 'warn' ? 'compat-warn' : 'compat-no');
+            return '<div class="pf-item"><div><b>' + lanEsc(c.label) + ':</b> ' + lanEsc(c.message) + '</div><span class="compat-pill ' + cls + '">' + lanEsc(c.status.toUpperCase()) + '</span></div>';
+        }).join('');
+        const sugHtml = (pf.suggested_hf_models && pf.suggested_hf_models.length && !pf.ready)
+            ? ('<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span style="color:#94a3b8;">Подобрать HF-модель:</span>' +
+                pf.suggested_hf_models.slice(0, 3).map(m => '<button class="fb-btn" data-mid="' + escHtml(m) + '" onclick="document.getElementById(\'trnJobBase\').value=this.dataset.mid;checkTrainingBaseHint();trnRunPreflight();">' + escHtml(m) + '</button>').join('') + '</div>')
+            : '';
+        if (box) {
+            box.innerHTML = '<div class="trn-row" style="border-color:' + (pf.ready ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)') + ';">' +
+                '<div style="font-weight:700;margin-bottom:6px;color:' + (pf.ready ? '#10b981' : '#f87171') + ';">' + (pf.ready ? 'Все проверки пройдены — готово к запуску обучения' : 'Обнаружены блокирующие проблемы перед стартом') + '</div>' +
+                rows + sugHtml + '</div>';
+        }
+    } catch(e) {
+        if (box) box.innerHTML = '<div class="trn-row" style="color:#f87171;">Ошибка preflight: ' + lanEsc(e.message) + '</div>';
+    }
+}
+async function trnStartJob() {
+    const payload = _collectTrainingPayload();
     const res = await fetch('/api/training/jobs/start', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
