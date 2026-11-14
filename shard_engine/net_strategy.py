@@ -218,3 +218,113 @@ def stun_nat_profile(timeout=2.0, stun_servers=None, offline_only=False):
             "symmetric_nat": None,
             "behind_nat": None,
             "public_ip": None,
+            "public_port": None,
+            "local_port": local_port,
+            "endpoints": endpoints,
+            "reason": f"{type(exc).__name__}:{exc}",
+        }
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
+    ok_eps = [e for e in endpoints if e["ok"]]
+    if not ok_eps:
+        return {
+            "ok": False,
+            "offline_only": False,
+            "nat_type": "udp_blocked",
+            "symmetric_nat": None,
+            "behind_nat": None,
+            "public_ip": None,
+            "public_port": None,
+            "local_port": local_port,
+            "endpoints": endpoints,
+            "reason": "no_stun_response",
+        }
+    mappings = {(e["public_ip"], e["public_port"]) for e in ok_eps}
+    ports_seen = {e["public_port"] for e in ok_eps}
+    if len(ok_eps) >= 2:
+        if len(mappings) > 1 or len(ports_seen) > 1:
+            symmetric_nat = True
+            nat_type = "symmetric_nat"
+        else:
+            symmetric_nat = False
+            nat_type = "cone_or_compatible"
+    else:
+        symmetric_nat = None
+        nat_type = "unknown"
+    pub_ip = ok_eps[0]["public_ip"]
+    pub_port = ok_eps[0]["public_port"]
+    try:
+        local_ip_set = set(lan.local_ips())
+        behind_nat = pub_ip not in local_ip_set
+    except Exception:
+        behind_nat = True
+    return {
+        "ok": True,
+        "offline_only": False,
+        "nat_type": nat_type,
+        "symmetric_nat": symmetric_nat,
+        "behind_nat": behind_nat,
+        "public_ip": pub_ip,
+        "public_port": pub_port,
+        "local_port": local_port,
+        "endpoints": endpoints,
+        "reason": "ok",
+    }
+def udp_punch_exchange(bind_port, peer_host, peer_port, nonce_token, timeout_s=1.5):
+    tok = str(nonce_token or "").strip()
+    if not tok or len(tok) > 128 or any(ord(c) < 33 or ord(c) == 127 for c in tok):
+        return {"ok": False, "rtt_ms": None, "local_port": None, "remote": None, "error": "invalid_nonce_token"}
+    try:
+        bp = int(bind_port or 0)
+        pp = int(peer_port)
+        if not (0 <= bp <= 65535) or not (1 <= pp <= 65535):
+            return {"ok": False, "rtt_ms": None, "local_port": None, "remote": None, "error": "invalid_port"}
+    except Exception:
+        return {"ok": False, "rtt_ms": None, "local_port": None, "remote": None, "error": "invalid_port"}
+    host_s = str(peer_host or "").strip()
+    if not host_s:
+        return {"ok": False, "rtt_ms": None, "local_port": None, "remote": None, "error": "invalid_peer_host"}
+    tok_b = tok.encode("utf-8")
+    punch_pkt = _PUNCH_PREFIX + tok_b
+    ack_pkt = _PUNCH_ACK_PREFIX + tok_b
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    if sys.platform.startswith("win") and hasattr(sock, "ioctl"):
+        try:
+            sock.ioctl(0x9800000C, False)
+        except Exception:
+            pass
+    local_port = None
+    try:
+        sock.bind(("0.0.0.0", bp))
+        local_port = sock.getsockname()[1]
+        peer_ip = socket.gethostbyname(host_s)
+        target = (peer_ip, pp)
+        deadline = time.monotonic() + max(0.1, float(timeout_s))
+        t_first = time.perf_counter()
+        next_send = 0.0
+        while True:
+            now_m = time.monotonic()
+            if now_m >= deadline:
+                return {"ok": False, "rtt_ms": None, "local_port": local_port, "remote": None, "error": "timeout"}
+            if now_m >= next_send:
+                try:
+                    sock.sendto(punch_pkt, target)
+                except OSError:
+                    pass
+                next_send = now_m + 0.18
+            rem = max(0.02, min(0.15, deadline - time.monotonic()))
+            sock.settimeout(rem)
+            try:
+                data, addr = sock.recvfrom(1024)
+            except (socket.timeout, ConnectionResetError, BlockingIOError):
+                continue
+            if len(data) == len(ack_pkt) and hmac.compare_digest(data, ack_pkt):
+                return {
+                    "ok": True,
+                    "rtt_ms": round((time.perf_counter() - t_first) * 1000.0, 3),
+                    "local_port": local_port,
+                    "remote": f"{addr[0]}:{addr[1]}",
+                    "mode": "ack",
