@@ -382,3 +382,27 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
             "cached": bool(cached),
             "install_method": inst,
             "error": "Network update check skipped.",
+            "checked_at": cached.get("checked_at") if isinstance(cached, dict) else None,
+        }
+    try:
+        remote = fetch_latest_remote_info(timeout=timeout, allow_prerelease=allow_prerelease)
+    except Exception as e:
+        remote = {"ok": False, "error": str(e), "rate_limited": False}
+    if not remote.get("ok"):
+        err_msg = remote.get("error") or "GitHub unavailable"
+        is_net_err = any(k in err_msg.lower() for k in ("timed out", "timeout", "connection", "name", "dns", "ssl", "rate limit", "unreachable", "http 403", "http 429", "http 5"))
+        st_code = "GITHUB_UNAVAILABLE" if (remote.get("rate_limited") or is_net_err or "http " not in err_msg.lower()) else "CHECK_FAILED"
+        last_lat = cached.get("latest_version") if isinstance(cached, dict) else None
+        payload = {
+            "schema_version": 1,
+            "state": st_code,
+            "current_version": cur_ver,
+            "latest_version": last_lat,
+            "update_available": bool(last_lat and is_valid_version_str(last_lat) and compare_versions(cur_ver, last_lat) > 0),
+            "source": cached.get("source") if isinstance(cached, dict) else None,
+            "release_url": cached.get("release_url") if isinstance(cached, dict) else f"https://github.com/{GITHUB_REPO}/releases",
+            "release_notes": cached.get("release_notes") if isinstance(cached, dict) else "",
+            "published_at": cached.get("published_at") if isinstance(cached, dict) else None,
+            "asset_url": cached.get("asset_url") if isinstance(cached, dict) else None,
+            "asset_name": cached.get("asset_name") if isinstance(cached, dict) else None,
+            "asset_size": cached.get("asset_size") if isinstance(cached, dict) else None,
