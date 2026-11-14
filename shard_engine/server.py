@@ -548,3 +548,113 @@ async def api_del_key(req: Request):
         target = str(req.query_params.get("key", "")).strip()
     keys = load_keys()
     matched = None
+    for k in keys:
+        if target and secrets.compare_digest(k, target):
+            matched = k
+            break
+    if matched is not None:
+        keys.remove(matched)
+        if not keys:
+            keys.append(f"sk-shard-{secrets.token_hex(8)}")
+        save_keys(keys)
+        return {"status": "ok", "deleted": target, "keys": keys}
+    return JSONResponse(status_code=404, content={"status": "error", "message": "Key not found"})
+@app.get("/api/settings")
+def api_get_settings(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {
+        "models_dir": settings.models_dir(),
+        "default_models_dir": settings.DEFAULT_MODELS_DIR,
+        "is_custom": settings.is_custom_models_dir(),
+        "disk": settings.disk_info()
+    }
+@app.post("/api/settings")
+async def api_set_settings(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    data = await req.json()
+    if data.get("reset"):
+        path = settings.reset_models_dir()
+        return {"status": "ok", "models_dir": path, "is_custom": False,
+                "message": "Возвращена папка по умолчанию. Применится после перезапуска приложения"}
+    path = (data.get("models_dir") or "").strip()
+    try:
+        saved = settings.set_models_dir(path)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+    return {"status": "ok", "models_dir": saved, "is_custom": True,
+            "disk": settings.disk_info(saved),
+            "message": f"Папка моделей сохранена: {saved}. Применится после перезапуска приложения"}
+@app.get("/api/drives")
+def api_drives(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {
+        "drives": settings.available_drives(),
+        "current": settings.models_dir(),
+        "disk": settings.disk_info()
+    }
+@app.get("/api/fit/{model_id:path}")
+def api_fit(model_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    mid = (model_id or "").strip()
+    if not mid:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "model_id required"})
+    try:
+        hw = get_hardware_profile()
+        return fit_report(mid, hw=hw)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": f"Ошибка оценки: {e}"})
+def _backup_and_write(target_path, content_str):
+    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+    if os.path.exists(target_path):
+        bak = target_path + ".shard.bak"
+        if not os.path.exists(bak):
+            try:
+                shutil.copy2(target_path, bak)
+            except Exception:
+                pass
+    storage.atomic_write_text(target_path, content_str, fsync=True, backup=False, restrict=True)
+def _set_win_user_env(var_map):
+    if os.name != "nt":
+        return
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment", 0, winreg.KEY_SET_VALUE) as key_handle:
+            for k, v in var_map.items():
+                winreg.SetValueEx(key_handle, k, 0, winreg.REG_SZ, str(v))
+    except Exception:
+        pass
+@app.post("/api/integrations/apply")
+async def api_apply_integration(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    data = await req.json()
+    tool = (data.get("tool") or "claude").lower().strip()
+    if tool not in _VALID_TOOLS:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Неизвестная интеграция"})
+    cur_keys = load_keys()
+    key = (data.get("key") or (cur_keys[0] if cur_keys else "sk-shard-local")).strip()
+    model = (data.get("model") or engine_instance.active_model_id or "Qwen/Qwen2.5-Coder-1.5B-Instruct").strip()
+    if not _SAFE_KEY_RE.match(key):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Недопустимый формат ключа"})
+    if not _SAFE_MODEL_RE.match(model) or ".." in model:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Недопустимый формат модели"})
+    home = os.path.expanduser("~")
+    port = os.environ.get("SHARD_PORT", "8000")
+    base_url = f"http://localhost:{port}/v1"
+    try:
+        if tool == "claude":
+            target = os.path.join(home, ".claude", "settings.json")
+            existing = {}
