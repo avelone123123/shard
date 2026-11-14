@@ -2748,3 +2748,113 @@ async function loadModel(modelId) {
             loadModels();
         }
     } catch(e) {
+        isModelLoading = false;
+        loadingModelId = '';
+        updateLoadingUI(false);
+        setPollRate(5000);
+        showToast('Ошибка', 'Не удалось отправить запрос на загрузку');
+    }
+}
+async function loadKeys() {
+    try {
+        const res = await fetch('/api/keys');
+        const data = await res.json();
+        const list = document.getElementById('keysList');
+        if (!list) return;
+        list.innerHTML = '';
+        const keys = data.keys || [];
+        if (keys.length > 0) {
+            if (!activeApiKey || !keys.includes(activeApiKey)) {
+                activeApiKey = keys[0];
+            }
+        } else {
+            activeApiKey = '';
+        }
+        const sidebarKeyEl = document.getElementById('sidebarApiKey');
+        if (sidebarKeyEl) {
+            if (activeApiKey) {
+                sidebarKeyEl.innerText = activeApiKey;
+                sidebarKeyEl.style.color = '#10b981';
+            } else {
+                sidebarKeyEl.innerText = 'Не создан';
+                sidebarKeyEl.style.color = '#ef4444';
+            }
+        }
+        updateGuide();
+        if (keys.length === 0) {
+            list.innerHTML = '<div style="padding:28px 16px;text-align:center;color:var(--text-muted);background:#090a0f;border:1px dashed var(--border);border-radius:6px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.5" style="margin-bottom:8px;"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3"/></svg><div style="font-size:13px;font-weight:600;color:#cbd5e1;margin-bottom:4px;">Ключи API еще не созданы</div><div style="font-size:12px;">Нажмите кнопку выше для генерации вашего уникального локального ключа</div></div>';
+            return;
+        }
+        keys.forEach(k => {
+            const item = document.createElement('div');
+            item.style.display = 'flex';
+            item.style.justifyContent = 'space-between';
+            item.style.alignItems = 'center';
+            item.style.padding = '8px 12px';
+            item.style.background = '#090a0f';
+            item.style.border = (k === activeApiKey) ? '1px solid #10b981' : '1px solid var(--border)';
+            item.style.borderRadius = '5px';
+            item.style.fontFamily = 'Consolas, monospace';
+            item.style.fontSize = '12px';
+            const kEsc = escHtml(k);
+            item.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="color:#f1f5f9;">' + kEsc + '</span>' + (k === activeApiKey ? '<span style="font-size:10px;padding:2px 6px;border-radius:3px;background:rgba(16,185,129,0.15);color:#10b981;font-weight:600;">АКТИВЕН</span>' : '') + '</div><div style="display:flex;gap:6px;"><button class="btn-action" style="padding:4px 10px;font-size:11px;" data-key="' + kEsc + '" onclick="copyValue(this.dataset.key, \'Ключ API\')">Скопировать</button><button class="btn-action" style="padding:4px 10px;font-size:11px;border-color:#7f1d1d;color:#fca5a5;" data-key="' + kEsc + '" onclick="deleteKey(this.dataset.key)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Удалить</button></div>';
+            list.appendChild(item);
+        });
+    } catch(e) {}
+}
+async function generateKey() {
+    try {
+        const res = await fetch('/api/keys/generate', {method: 'POST'});
+        const data = await res.json();
+        activeApiKey = data.key;
+        showToast('Ключ создан', data.key);
+        await loadKeys();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось создать ключ');
+    }
+}
+async function deleteKey(k) {
+    try {
+        const res = await fetch('/api/keys/delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({key: k})
+        });
+        showToast('Ключ удален', k);
+        if (activeApiKey === k) activeApiKey = '';
+        await loadKeys();
+    } catch(e) {
+        showToast('Ошибка', 'Не удалось удалить ключ');
+    }
+}
+function formatDuration(sec) {
+    if (sec >= 60) {
+        const m = Math.floor(sec / 60);
+        const s = Math.round(sec % 60);
+        return m + ' мин ' + s + ' сек';
+    }
+    return sec.toFixed(2) + ' сек';
+}
+function toggleThink(id) {
+    const body = document.getElementById('think-body-' + id);
+    const arrow = document.getElementById('think-arrow-' + id);
+    if (!body) return;
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    } else {
+        body.style.display = 'none';
+        if (arrow) arrow.style.transform = 'rotate(-90deg)';
+    }
+}
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function saveChatSessions() {
+    try {
+        localStorage.setItem('shard_chat_sessions_v1', JSON.stringify(chatSessions));
+    } catch(e) {}
+}
+function initChatSessions() {
+    try {
