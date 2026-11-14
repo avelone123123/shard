@@ -1648,3 +1648,113 @@ async function netCreateInvite() {
             showToast('Ошибка', data.message || 'Не удалось создать инвайт');
         }
     } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netLoadInvites() {
+    const el = document.getElementById('netInvitesList');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/net/invites', {headers: getAuthHeaders()});
+        const data = await res.json();
+        const invs = data.invites || [];
+        if (invs.length === 0) {
+            el.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;text-align:center;">Нет активных инвайтов. Сгенерируйте инвайт выше.</div>';
+            return;
+        }
+        el.innerHTML = invs.map(inv => {
+            const iid = escHtml(inv.id || inv.invite_id || '');
+            const uri = escHtml(inv.uri || '');
+            const uses = (inv.uses_count || inv.uses || 0) + ' / ' + (inv.max_uses || 1);
+            const exp = inv.expires_at ? new Date(inv.expires_at * 1000).toLocaleString() : 'Без срока';
+            const lbl = inv.label ? ('<span style="color:#58a6ff;">' + escHtml(inv.label) + '</span> &bull; ') : '';
+            const uriSnippet = uri ? ('<div style="font-size:10px;color:#38bdf8;font-family:monospace;margin-top:3px;word-break:break-all;">' + uri + '</div>') : '';
+            return '<div style="background:#0d1117;border:1px solid #21262d;border-radius:6px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:200px;">' +
+                '<div style="font-size:12px;color:#fff;">' + lbl + 'Использовано: ' + uses + ' &bull; Истекает: ' + exp + '</div>' +
+                '<div style="font-size:11px;color:var(--text-muted);font-family:monospace;margin-top:2px;">' + iid + '</div>' +
+                uriSnippet +
+                '</div>' +
+                '<div style="display:flex;gap:6px;">' +
+                '<button class="btn-action" data-uri="' + uri + '" onclick="copyNetUri(this.dataset.uri)">Копировать URI</button>' +
+                '<button class="btn-action" style="border-color:#f85149;color:#f85149;" data-iid="' + iid + '" onclick="netRevokeInvite(this.dataset.iid)">Отозвать</button>' +
+                '</div>' +
+                '</div>';
+        }).join('');
+    } catch(e) {
+        el.innerHTML = '<div style="color:#f85149;font-size:12px;">Ошибка загрузки инвайтов.</div>';
+    }
+}
+function copyNetUri(uri) {
+    copyValue(uri, 'URI инвайта');
+}
+async function netRevokeInvite(iid) {
+    try {
+        const res = await fetch('/api/net/invites/revoke', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({invite_id: iid})
+        });
+        showToast('Отозван', 'Инвайт закрыт');
+        netLoadInvites();
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netLoadHostConfig() {
+    try {
+        const res = await fetch('/api/net/config', {headers: getAuthHeaders()});
+        const cfg = await res.json();
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; };
+        setVal('netHostName', cfg.display_name || '');
+        setVal('netHostRegion', cfg.region_hint || '');
+        setVal('netHostVisibility', cfg.visibility || 'public');
+        setVal('netHostAccess', cfg.access_policy || cfg.access_mode || 'open');
+        setVal('netHostMaxPeers', cfg.max_peers || cfg.max_participants || 8);
+        setVal('netHostBandwidth', cfg.bandwidth_kbps || 0);
+    } catch(e) {}
+}
+async function netSaveHostConfig() {
+    const payload = {
+        display_name: (document.getElementById('netHostName') || {}).value || '',
+        region_hint: (document.getElementById('netHostRegion') || {}).value || '',
+        visibility: (document.getElementById('netHostVisibility') || {}).value || 'public',
+        access_policy: (document.getElementById('netHostAccess') || {}).value || 'open',
+        max_peers: parseInt((document.getElementById('netHostMaxPeers') || {}).value || '8', 10),
+        bandwidth_kbps: parseInt((document.getElementById('netHostBandwidth') || {}).value || '0', 10)
+    };
+    try {
+        const res = await fetch('/api/net/config', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify(payload)
+        });
+        showToast('Сохранено', 'Настройки хоста обновлены');
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netTogglePublish() {
+    const isPub = lastNetStatus && lastNetStatus.host && lastNetStatus.host.published;
+    const url = isPub ? '/api/net/unpublish' : '/api/net/publish';
+    const body = isPub ? {} : {
+        name: (document.getElementById('netHostName') || {}).value || '',
+        visibility: (document.getElementById('netHostVisibility') || {}).value || 'public',
+        access_policy: (document.getElementById('netHostAccess') || {}).value || 'open',
+        region: (document.getElementById('netHostRegion') || {}).value || ''
+    };
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!isPub && (data.discovery_ok === false || data.warning)) {
+            showToast('Опубликовано локально', data.warning || 'Публичный Discovery-сервер не настроен или недоступен');
+        } else {
+            showToast('Статус обновлён', isPub ? 'Сервер снят с публикации' : 'Сервер опубликован в SHARD Network');
+        }
+        netRefresh(true);
+    } catch(e) {
+        showToast('Ошибка', e.message);
