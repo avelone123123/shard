@@ -1428,3 +1428,113 @@ async function lanRunDiagnose(probePublic) {
             (d.tailscale && d.tailscale.installed ? ('<div><b>Tailscale CLI:</b> ' + ((d.tailscale.running || d.tailscale.online) ? ('online (' + escHtml(d.tailscale.ip || (d.tailscale.ips || []).join(', ') || 'active') + (d.tailscale.online_peers !== undefined ? (', пиры: ' + escHtml(d.tailscale.online_peers)) : '') + ')') : 'offline') + '</div>') : '') +
             stunInfo + upnpInfo + '</div>';
     } catch(e) {
+        box.innerHTML = '<div style="font-size:12px;color:#f85149;">Ошибка диагностики сети.</div>';
+    }
+}
+async function lanCreate() {
+    const name = document.getElementById('lanName').value.trim();
+    const open = document.getElementById('lanOpen').checked;
+    const res = await fetch('/api/lan/create', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: name, open: open})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+        showToast('Сеть создана', open ? 'Открытая сеть: вход без кода' : 'Код подключения: ' + (data.pairing_code || ''));
+        lanRefresh();
+    } else {
+        showToast('Ошибка', data.message || 'Не удалось создать сеть');
+    }
+}
+async function lanToggleOpen(open) {
+    const res = await fetch('/api/lan/open', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({open: !!open})
+    });
+    const data = await res.json();
+    if (data.status === 'ok') showToast(open ? 'Сеть открыта' : 'Сеть закрыта', data.message || '');
+    else showToast('Ошибка', data.message || 'Не удалось изменить сеть');
+    lanRefresh();
+}
+let currentNetSubTab = 'browser';
+let lastNetStatus = null;
+function netSubTab(tab, btn) {
+    currentNetSubTab = tab;
+    document.querySelectorAll('#tab-network .trn-subbtn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#tab-network .trn-panel').forEach(p => p.classList.remove('active'));
+    const p = document.getElementById('net-panel-' + tab);
+    if (p) p.classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (tab === 'browser') netLoadServers();
+    else if (tab === 'invites') netLoadInvites();
+    else if (tab === 'host') { netLoadHostConfig(); netLoadPeers(); }
+    else if (tab === 'lan') lanRefresh();
+    else if (tab === 'settings') { netLoadConfig(); }
+}
+async function netRefresh(force) {
+    try {
+        const res = await fetch('/api/net/status', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const st = await res.json();
+        renderNetStatus(st);
+        if (currentNetSubTab === 'browser' || force) netLoadServers();
+        if (currentNetSubTab === 'invites' || force) netLoadInvites();
+        if (currentNetSubTab === 'host' || force) netLoadPeers();
+    } catch(e) {}
+}
+function renderNetStatus(st) {
+    if (!st) return;
+    lastNetStatus = st;
+    const badge = document.getElementById('netGlobalNodeBadge');
+    if (badge && st.node_id) {
+        badge.innerText = 'Node: ' + st.node_id.substring(0, 16) + '...';
+        badge.title = 'SHARD Node ID: ' + st.node_id;
+    }
+    const banner = document.getElementById('netActiveConnBanner');
+    const cli = st.client || {};
+    if (cli.state && cli.state !== 'disconnected') {
+        if (banner) {
+            banner.style.display = 'block';
+            const modeBadge = cli.state === 'relay_connected' ? '<span style="color:#d29922;font-weight:600;">[Слепой Relay]</span>' : '<span style="color:#238636;font-weight:600;">[Direct P2P/LAN]</span>';
+            const rttText = cli.rtt_ms ? (' &bull; ' + cli.rtt_ms + ' ms') : '';
+            const txrx = (cli.bytes_tx || cli.bytes_rx) ? (' &bull; TX: ' + formatBytes(cli.bytes_tx || 0) + ' / RX: ' + formatBytes(cli.bytes_rx || 0)) : '';
+            banner.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
+                '<div><div style="font-size:13px;font-weight:600;color:#fff;">Подключено к удалённому узлу ' + modeBadge + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);font-family:monospace;margin-top:2px;">Цель: ' + escHtml(cli.target || '') + rttText + txrx + '</div></div>' +
+                '<button class="btn-action" style="border-color:#f85149;color:#f85149;" onclick="netDisconnect()">Отключиться</button>' +
+                '</div>';
+        }
+    } else {
+        if (banner) banner.style.display = 'none';
+    }
+    const host = st.host || {};
+    const pubBtn = document.getElementById('netPublishToggleBtn');
+    if (pubBtn) {
+        if (host.published) {
+            pubBtn.innerText = 'Снять с публикации';
+            pubBtn.style.borderColor = '#f85149';
+            pubBtn.style.color = '#f85149';
+        } else {
+            pubBtn.innerText = 'Опубликовать';
+            pubBtn.style.borderColor = '#238636';
+            pubBtn.style.color = '#fff';
+        }
+    }
+}
+function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+async function netLoadServers() {
+    const grid = document.getElementById('netServersGrid');
+    if (!grid) return;
+    const q = (document.getElementById('netSearchQ') || {}).value || '';
+    const reg = (document.getElementById('netSearchRegion') || {}).value || '';
+    const acc = (document.getElementById('netSearchAccess') || {}).value || '';
+    try {
+        const u = new URL('/api/net/servers', window.location.origin);
+        if (q) u.searchParams.set('q', q);
+        if (reg) u.searchParams.set('region', reg);
