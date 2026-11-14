@@ -2470,11 +2470,11 @@ function updateGuide() {
             "model": "shard/" + activeModelId
         };
         manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации OpenCode:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">1. Путь к файлу конфигурации OpenCode:</div>' +
             '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Создайте или замените config.json официальным блоком OpenCode:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">2. Создайте или замените config.json официальным блоком OpenCode:</div>' +
             '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeOpenCodeManual"></pre><button class="btn-copy" onclick="copyOpenCodeManual()">Скопировать</button></div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">3. Запустите OpenCode:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:4px;">3. Запустите OpenCode:</div>' +
             '<div>OpenCode загрузит провайдер @ai-sdk/openai-compatible и подключится напрямую к локальному серверу Shard.</div>' +
         '</div>';
         const pre = document.getElementById('codeOpenCodeManual');
@@ -2500,9 +2500,9 @@ function updateGuide() {
             }
         };
         manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">1. Путь к файлу конфигурации Continue:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">1. Путь к файлу конфигурации Continue:</div>' +
             '<div class="script-box" style="margin-bottom:12px;">' + filePath + '</div>' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">2. Добавьте Shard в секцию models в config.json:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">2. Добавьте Shard в секцию models в config.json:</div>' +
             '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeContinueManual"></pre><button class="btn-copy" onclick="copyText(\'codeContinueManual\', \'Конфиг Continue скопирован\')">Скопировать</button></div>' +
         '</div>';
         const pre = document.getElementById('codeContinueManual');
@@ -2510,7 +2510,7 @@ function updateGuide() {
     } else if (currentTool === 'aider') {
         const cmd = 'aider --openai-api-base http://localhost:8000/v1 --openai-api-key ' + keyFallback + ' --model openai/' + activeModelId;
         manualBox.innerHTML = '<div class="guide-steps">' +
-            '<div style="font-weight:600;color:#cbd5e1;margin-bottom:6px;">Запуск Aider с подключением к Shard:</div>' +
+            '<div style="font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Запуск Aider с подключением к Shard:</div>' +
             '<div class="code-panel" style="margin-bottom:12px;"><pre id="codeAiderManual"></pre><button class="btn-copy" onclick="copyText(\'codeAiderManual\', \'Команда Aider скопирована\')">Скопировать</button></div>' +
         '</div>';
         const pre = document.getElementById('codeAiderManual');
