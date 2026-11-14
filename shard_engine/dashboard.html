@@ -768,3 +768,113 @@ macOS
 <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e;margin-bottom:8px;cursor:pointer;">
 <input type="checkbox" id="lanShare"> Стать вычислительным узлом (отдать VRAM/RAM)
 </label>
+<button class="btn-action" onclick="lanJoin()">Подключиться</button>
+</div>
+</div>
+<div id="lanOffWrap" style="margin-top:10px;text-align:right;">
+<button class="btn-action" onclick="lanOff()" style="border-color:#f85149;color:#f85149;">Отключить сеть</button>
+</div>
+</div>
+</div>
+<div id="net-panel-settings" class="trn-panel">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px;">Свои серверы Discovery</div>
+<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Адреса Discovery-серверов (по одному на строку). Пусто = сервер по умолчанию.</div>
+<textarea id="netCfgDiscoveryUrls" class="trn-input" rows="3" style="resize:vertical;margin-bottom:8px;"></textarea>
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:6px;">Свои слепые Relay-серверы</div>
+<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">Адреса WebSocket Relay-серверов (по одному на строку).</div>
+<textarea id="netCfgRelayUrls" class="trn-input" rows="3" style="resize:vertical;margin-bottom:8px;"></textarea>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#cbd5e1;margin-bottom:8px;cursor:pointer;">
+<input type="checkbox" id="netCfgOfflineOnly"> Автономный режим (offline_only) — запрет внешних сетевых запросов
+</label>
+<button class="btn-action" onclick="netSaveServersConfig()">Сохранить настройки серверов</button>
+</div>
+<div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+<div style="font-size:13px;font-weight:600;color:#fff;">Сетевая диагностика и WireGuard</div>
+<button class="btn-action" onclick="netRunDiag()">Запустить аудит</button>
+</div>
+<div id="netDiagOutput" style="font-size:12px;color:var(--text-muted);font-family:monospace;white-space:pre-wrap;background:#080a0f;padding:10px;border-radius:6px;border:1px solid #21262d;max-height:260px;overflow-y:auto;">Нажмите «Запустить аудит» для проверки платформы, брандмауэра и STUN NAT.</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tab-training" class="section">
+<div class="info-card" style="margin-bottom:16px;">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+<div>
+<h3>Совместное обучение моделей (SHARD x SOUP)</h3>
+<p style="margin:0;">Сбор отзывов по явному согласию, очистка данных, дообучение через SOUP, оценка качества, деплой и безопасный откат.</p>
+</div>
+<div style="display:flex;gap:8px;align-items:center;">
+<button class="btn-action" onclick="trnRollback()" style="border-color:#d97706;color:#fbbf24;">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+Откатить версию
+</button>
+<button class="btn-action" onclick="trnRefresh(true)">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+Обновить
+</button>
+</div>
+</div>
+<div class="trn-subtabs">
+<button class="trn-subbtn active" onclick="trnSubTab('overview', this)">Обзор</button>
+<button class="trn-subbtn" onclick="trnSubTab('feedback', this)">Отзывы и Датасеты</button>
+<button class="trn-subbtn" onclick="trnSubTab('jobs', this)">Обучение (SOUP)</button>
+<button class="trn-subbtn" onclick="trnSubTab('versions', this)">Версии и Деплой</button>
+<button class="trn-subbtn" onclick="trnSubTab('privacy', this)">Приватность и Доступ</button>
+</div>
+<div id="trn-panel-overview" class="trn-panel active">
+<div class="trn-grid" id="trnOverviewCards"></div>
+<div id="trnSoupBanner" class="trn-row" style="font-size:12px;">Проверка окружения SOUP...</div>
+<div style="font-size:12px;color:#94a3b8;margin:12px 0 6px;font-weight:600;">Журнал событий (Audit Log)</div>
+<div id="trnAuditList" class="trn-log" style="max-height:170px;">Нет событий</div>
+</div>
+<div id="trn-panel-feedback" class="trn-panel">
+<div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;">
+<div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+<div style="display:flex;gap:6px;flex-wrap:wrap;">
+<button class="filter-btn active" onclick="trnLoadFeedback('pending', this)">На проверке</button>
+<button class="filter-btn" onclick="trnLoadFeedback('approved', this)">Одобренные</button>
+<button class="filter-btn" onclick="trnLoadFeedback('included_in_dataset', this)">В датасете</button>
+<button class="filter-btn" onclick="trnLoadFeedback('rejected', this)">Отклонённые</button>
+</div>
+<span id="trnFeedbackMeta" style="font-size:11px;color:#8892a4;"></span>
+</div>
+<div id="trnFeedbackQueue">Загрузка отзывов...</div>
+</div>
+<div class="trn-row">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">Собрать неизменяемый датасет</div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Формат / задача SOUP</label>
+<select id="trnDsTask" class="trn-input" style="margin-bottom:8px;">
+<option value="sft">SFT (chatml — ответы и исправления)</option>
+<option value="dpo">DPO (пары prompt / chosen / rejected)</option>
+</select>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Имя снимка (опционально)</label>
+<input id="trnDsName" class="trn-input" placeholder="e.g. coding-v1" style="margin-bottom:8px;">
+<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-bottom:10px;cursor:pointer;">
+<input type="checkbox" id="trnDsIncludePending"> Включить непроверенные (pending)
+</label>
+<button class="btn-action active" style="width:100%;justify-content:center;" onclick="trnBuildDataset()">Собрать датасет</button>
+<div style="font-size:12px;font-weight:600;color:#cbd5e1;margin:14px 0 8px;">Сохранённые датасеты</div>
+<div id="trnDatasetsList" style="font-size:12px;color:#8892a4;">Нет датасетов</div>
+</div>
+</div>
+</div>
+<div id="trn-panel-jobs" class="trn-panel">
+<div style="display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start;">
+<div class="trn-row">
+<div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:10px;">Запуск обучения (SOUP)</div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Датасет</label>
+<select id="trnJobDataset" class="trn-input" style="margin-bottom:8px;"></select>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Базовая модель (HF ID или локальная папка)</label>
+<input id="trnJobBase" class="trn-input" placeholder="Qwen/Qwen2.5-Coder-1.5B-Instruct" style="margin-bottom:8px;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+<div>
+<label style="font-size:11px;color:#8892a4;display:block;margin-bottom:4px;">Метод</label>
+<select id="trnJobTask" class="trn-input">
+<option value="sft">SFT</option>
+<option value="dpo">DPO</option>
