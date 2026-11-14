@@ -1758,3 +1758,113 @@ def api_net_invite_delete(req: Request, invite_id: str):
 async def api_net_connect(req: Request):
     denied = _deny_non_owner(req)
     if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    target = str(data.get("target") or "").strip()
+    if not target:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "target required"})
+    mode = str(data.get("mode") or "auto").strip()
+    auth_proof = data.get("auth_proof")
+    verify_node_id = data.get("verify_node_id")
+    try:
+        res = _net_mgr().connect(target, mode=mode, auth_proof=auth_proof, verify_node_id=verify_node_id)
+        return res
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/net/disconnect")
+def api_net_disconnect(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    res = _net_mgr().disconnect()
+    return {"status": "ok", "client": res}
+@app.get("/api/net/peers")
+def api_net_peers(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    mgr = _net_mgr()
+    return {
+        "status": "ok",
+        "connected": mgr.list_connected_peers(),
+        "pending": mgr.list_pending_peers(),
+        "authorized": mgr.list_authorized_peers(),
+        "revoked": mgr.list_revoked_peers(),
+    }
+@app.post("/api/net/peers/{peer_id}/approve")
+def api_net_peer_approve(req: Request, peer_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    ok = _net_mgr().approve_peer(peer_id)
+    return {"status": "ok", "approved": bool(ok)}
+@app.post("/api/net/peers/{peer_id}/reject")
+def api_net_peer_reject(req: Request, peer_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    ok = _net_mgr().reject_peer(peer_id)
+    return {"status": "ok", "rejected": bool(ok)}
+@app.post("/api/net/peers/{peer_id}/kick")
+def api_net_peer_kick(req: Request, peer_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    ok = _net_mgr().kick_peer(peer_id)
+    return {"status": "ok", "kicked": bool(ok)}
+@app.post("/api/net/peers/{peer_id}/block")
+def api_net_peer_block(req: Request, peer_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    ok = _net_mgr().block_peer(peer_id)
+    return {"status": "ok", "blocked": bool(ok)}
+@app.post("/api/net/peers/{peer_id}/unblock")
+def api_net_peer_unblock(req: Request, peer_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    ok = _net_mgr().unblock_peer(peer_id)
+    return {"status": "ok", "unblocked": bool(ok)}
+@app.post("/api/net/peers/{peer_id}/quota")
+async def api_net_peer_quota(req: Request, peer_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    rpm = data.get("rpm")
+    kbps = data.get("kbps")
+    try:
+        peer = _net_mgr().set_peer_quota(peer_id, max_requests_per_min=rpm, bandwidth_kbps=kbps)
+        return {"status": "ok", "peer": peer}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/net/diagnostics")
+def api_net_diagnostics(req: Request, nat: bool = False, port: int = None):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return _net_mgr().diagnostics(probe_public=bool(nat))
+_WORKSPACE_LOCK = threading.RLock()
+def _workspace_file():
+    return Path(paths.data_dir()) / "server_workspace.json"
+def _load_workspace_unlocked():
+    p = _workspace_file()
+    default = {"shared_chats": [], "community_messages": [], "model_issues": []}
+    d = storage.read_json_safe(p, default=default, expected_type=dict, quarantine=True, use_backup=True)
+    if not isinstance(d, dict):
+        return default
+    for k in ("shared_chats", "community_messages", "model_issues"):
+        if not isinstance(d.get(k), list):
+            d[k] = []
+    return d
+def _save_workspace_unlocked(data):
+    storage.atomic_write_json(_workspace_file(), data, indent=2, fsync=True, backup=True, restrict=True)
+def _resolve_server_actor(req):
+    if _is_owner_request(req):
