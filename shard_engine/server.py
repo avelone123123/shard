@@ -650,6 +650,36 @@ async def api_system_update_apply(req: Request):
     except Exception as e:
         return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
 @app.get("/api/system/update/status")
+def api_system_update_status(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"status": "ok", "job": updater.get_update_status(), "install": updater.detect_installation_method()}
+@app.post("/api/system/update/rollback")
+def api_system_update_rollback(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        res = updater.rollback_update()
+        return {"status": "ok", "rollback": res}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.get("/api/models/browser/roots")
+def api_models_browser_roots(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return model_browser.list_roots()
+@app.get("/api/models/browser/list")
+def api_models_browser_list(req: Request, path: str = None, filter_mode: str = "all", search: str = None, max_entries: int = 500):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        return model_browser.list_directory(raw_path=path, filter_mode=filter_mode, search=search, max_entries=max_entries)
+    except PermissionError as e:
+        return JSONResponse(status_code=403, content={"status": "error", "message": str(e)})
 @app.get("/api/fit/{model_id:path}")
 def api_fit(model_id: str, req: Request):
     denied = _deny_non_owner(req)
