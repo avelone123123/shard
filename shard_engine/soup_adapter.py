@@ -501,7 +501,7 @@ def _run_install_worker(action, custom_python=None, include_train=True):
                     [base_py, "-m", "venv", str(venv_dir)],
                     capture_output=True,
                     text=True,
-                    timeout=120,
+                    timeout=180,
                     creationflags=_WIN_NO_WINDOW,
                 )
                 if r_venv.returncode != 0 or not venv_py.is_file():
