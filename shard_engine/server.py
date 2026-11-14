@@ -1506,6 +1506,36 @@ def api_training_dataset_detail(snapshot_id: str, req: Request, preview: int = 1
         return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
     except FileNotFoundError as e:
         return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+@app.get("/api/training/datasets/{snapshot_id}/preview")
+def api_training_dataset_preview(snapshot_id: str, req: Request, page: int = 1, page_size: int = 20):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        return feedback.preview_dataset_paginated(snapshot_id, page=page, page_size=page_size)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except FileNotFoundError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
+@app.post("/api/training/datasets/{snapshot_id}/validate")
+async def api_training_dataset_validate(snapshot_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        return feedback.validate_dataset_snapshot(
+            snapshot_id,
+            task=data.get("task"),
+            check_with_soup=bool(data.get("check_with_soup", False)),
+        )
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+    except FileNotFoundError as e:
+        return JSONResponse(status_code=404, content={"status": "error", "message": str(e)})
 @app.get("/api/training/jobs")
 def api_training_jobs_list(req: Request, limit: int = 50):
     denied = _deny_non_owner(req)
