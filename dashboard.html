@@ -438,3 +438,113 @@ macOS
 <div class="mode-switch">
 <button id="modeBtnScript" class="mode-btn active" onclick="setGuideMode('script')">Скрипт (в 1 клик)</button>
 <button id="modeBtnManual" class="mode-btn" onclick="setGuideMode('manual')">Вручную (конфиг)</button>
+</div>
+<div id="guideKeyNotice"></div>
+<div id="guideScriptSection">
+<div class="script-box" id="guideScriptCode"></div>
+<button class="btn-primary-action" onclick="copyCurrentScript()">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+Скопировать команду
+</button>
+<div class="guide-steps">
+<div style="font-weight:600;color:#cbd5e1;margin-bottom:4px;">Как открыть Терминал и выполнить:</div>
+<ol id="guideScriptSteps">
+<li>Откройте Терминал: Нажмите <b>Win + X</b>, выберите <b>Терминал</b> или <b>PowerShell</b>.</li>
+<li>Вставьте скопированную команду комбинацией <b>Ctrl + V</b> и нажмите <b>Enter</b>.</li>
+<li>Готово. Настройки применятся автоматически, локальные модели Shard сразу появятся в CLI.</li>
+</ol>
+<div class="guide-note">Установщик автоматически прописывает локальный endpoint Shard (http://localhost:8000/v1) и текущий API-ключ.</div>
+</div>
+</div>
+<div id="guideManualSection" style="display:none;">
+<div id="guideManualContent"></div>
+</div>
+</div>
+<div class="step-card">
+<div class="step-title"><span class="step-badge">ШАГ 4</span> Проверка локального соединения</div>
+<div class="ping-box">
+<div>
+<div style="font-size:13px;font-weight:600;color:#fff;">Тест доступности API</div>
+<div id="pingStatusText" style="font-size:12px;color:var(--text-muted);margin-top:2px;">Нажмите кнопку для проверки соединения с C++20 ядром Shard</div>
+</div>
+<button class="btn-action" onclick="runPingTest()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+Проверить соединение
+</button>
+</div>
+</div>
+</div>
+<div class="connect-sidebar">
+<div class="sidebar-card">
+<div class="sidebar-title">
+<span>Параметры эндпоинта</span>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyAllEndpoints()">Скопировать всё</button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">Base Endpoint</div>
+<div class="ep-val" id="epBase">http://localhost:8000/v1</div>
+</div>
+<button class="ep-copy" onclick="copyValue('http://localhost:8000/v1', 'Base Endpoint')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">Models Endpoint</div>
+<div class="ep-val">http://localhost:8000/v1/models</div>
+</div>
+<button class="ep-copy" onclick="copyValue('http://localhost:8000/v1/models', 'Models Endpoint')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">Chat Endpoint</div>
+<div class="ep-val">http://localhost:8000/v1/chat/completions</div>
+</div>
+<button class="ep-copy" onclick="copyValue('http://localhost:8000/v1/chat/completions', 'Chat Endpoint')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">Claude Messages</div>
+<div class="ep-val">http://localhost:8000/v1/messages</div>
+</div>
+<button class="ep-copy" onclick="copyValue('http://localhost:8000/v1/messages', 'Claude Messages')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">Claude Count Tokens</div>
+<div class="ep-val">http://localhost:8000/v1/messages/count_tokens</div>
+</div>
+<button class="ep-copy" onclick="copyValue('http://localhost:8000/v1/messages/count_tokens', 'Claude Tokens')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+<div class="ep-item">
+<div>
+<div class="ep-label">API Key</div>
+<div class="ep-val" id="sidebarApiKey" style="color:#ef4444;">Не создан</div>
+</div>
+<button class="ep-copy" onclick="copyApiKeyFromSidebar()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+</div>
+</div>
+<div class="sidebar-card">
+<div class="sidebar-title">
+<span>Доступные модели</span>
+<span style="font-size:11px;color:#10b981;">Локально</span>
+</div>
+<div class="model-item">
+<div>
+<div style="font-weight:600;color:#fff;">Qwen2.5-Coder-7B</div>
+<div style="font-size:10px;color:var(--text-muted);">Qwen/Qwen2.5-Coder-7B-Instruct</div>
+</div>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('Qwen/Qwen2.5-Coder-7B-Instruct', 'ID модели')">Копировать</button>
+</div>
+<div class="model-item">
+<div>
+<div style="font-weight:600;color:#fff;">Gemma-2-9B</div>
+<div style="font-size:10px;color:var(--text-muted);">google/gemma-2-9b-it</div>
+</div>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('google/gemma-2-9b-it', 'ID модели')">Копировать</button>
+</div>
+<div class="model-item">
+<div>
+<div style="font-weight:600;color:#fff;">DeepSeek-R1-Distill-7B</div>
+<div style="font-size:10px;color:var(--text-muted);">deepseek-ai/DeepSeek-R1-Distill-Qwen-7B</div>
+</div>
+<button class="btn-action" style="padding:2px 8px;font-size:11px;" onclick="copyValue('deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', 'ID модели')">Копировать</button>
