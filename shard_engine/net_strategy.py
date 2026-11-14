@@ -878,3 +878,113 @@ class NetworkManager:
         self._client_relay_url = None
         self._client_local_url = None
         self._client_rtt_ms = None
+        self._client_peer_node_id = None
+        self._client_server_info = None
+        self._client_attempts = []
+        self._client_last_error = None
+        self._client_alternatives = []
+        self._peer_req_windows = {}
+        self._peer_bw_windows = {}
+    def _config_path(self):
+        return self._config_path_override or paths.network_config_file()
+    def _peers_path(self):
+        return self._peers_path_override or paths.network_peers_file()
+    @property
+    def identity(self):
+        with self._lock:
+            if self._identity is None:
+                self._identity = net_identity.NodeIdentity(identity_path=self._identity_path_override)
+            return self._identity
+    @property
+    def invite_manager(self):
+        with self._lock:
+            if self._invites is None:
+                self._invites = net_identity.InviteManager(invites_path=self._invites_path_override)
+            return self._invites
+    def _load_config(self):
+        p = self._config_path()
+        default = default_network_config()
+        data = storage.read_json_safe(p, default=default, expected_type=dict, quarantine=True, use_backup=True)
+        if not isinstance(data, dict):
+            return default
+        merged = copy.deepcopy(default)
+        merged.update(data)
+        try:
+            merged["visibility"] = _normalize_visibility(merged.get("visibility"))
+        except ValueError:
+            merged["visibility"] = "private"
+        try:
+            acc = _normalize_access_mode(merged.get("access_mode") or merged.get("access_policy"))
+        except ValueError:
+            acc = "invite_only"
+        merged["access_mode"] = acc
+        merged["access_policy"] = acc
+        mp = int(merged.get("max_participants") or merged.get("max_peers") or 16)
+        mp = max(1, min(128, mp))
+        merged["max_participants"] = mp
+        merged["max_peers"] = mp
+        merged["published"] = False
+        return merged
+    def _save_config(self):
+        with self._lock:
+            snap = copy.deepcopy(self._config)
+        p = self._config_path()
+        storage.atomic_write_json(p, snap, indent=2, fsync=True, backup=True, restrict=True)
+    def _load_peers(self):
+        p = self._peers_path()
+        default = _default_peers_state()
+        data = storage.read_json_safe(p, default=default, expected_type=dict, quarantine=True, use_backup=True)
+        if not isinstance(data, dict):
+            return default
+        out = copy.deepcopy(default)
+        for key in ("tofu_pins", "authorized_peers", "pending_peers", "revoked_peers"):
+            if isinstance(data.get(key), dict):
+                out[key] = data[key]
+        if isinstance(data.get("connection_history"), list):
+            out["connection_history"] = data["connection_history"][-100:]
+        return out
+    def _save_peers(self):
+        with self._lock:
+            snap = copy.deepcopy(self._peers_state)
+        p = self._peers_path()
+        storage.atomic_write_json(p, snap, indent=2, fsync=True, backup=True, restrict=True)
+    def _validate_service_urls(self, urls, kind, allow_insecure_local):
+        valid = []
+        rejected = []
+        seen = set()
+        for raw in urls or ():
+            s = str(raw or "").strip()
+            if not s:
+                continue
+            ok, reason, info = net_identity.validate_external_service_url(s, kind=kind, allow_insecure_local=allow_insecure_local)
+            if not ok:
+                rejected.append({"url": s, "reason": reason})
+                continue
+            norm = (info.get("url") or s).strip().rstrip("/")
+            if norm not in seen:
+                seen.add(norm)
+                valid.append(norm)
+        return valid, rejected
+    def _make_discovery_client(self, extra_urls=None):
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        allow_local = bool(cfg.get("allow_insecure_local"))
+        offline = bool(cfg.get("offline_only"))
+        raw_urls = list(cfg.get("discovery_urls") or [])
+        for u in extra_urls or ():
+            if u and u not in raw_urls:
+                raw_urls.append(u)
+        valid_urls, _ = self._validate_service_urls(raw_urls, "discovery", allow_local)
+        tokens = dict(cfg.get("discovery_auth_tokens") or {})
+        dc = net_discovery.DiscoveryClient(urls=[], offline_only=offline, auth_tokens=tokens)
+        if not offline:
+            dc.urls = valid_urls
+        return dc
+    def get_config(self, include_secrets=False):
+        with self._lock:
+            out = copy.deepcopy(self._config)
+        if not include_secrets:
+            out["discovery_auth_tokens"] = {}
+            out["relay_auth_token"] = ""
+        return out
+    def set_discovery_urls(self, urls, auth_tokens=None):
