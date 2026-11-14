@@ -140,6 +140,8 @@ def soup_venv_dir():
     return str(data_dir() / "soup-venv")
 def update_cache_file():
     return str(cache_dir() / "update_cache.json")
+def legacy_update_cache_file():
+    return str(_legacy_dir() / "update_cache.json")
 def pid_file():
     return str(run_dir() / "shard.pid.json")
 def log_file():
