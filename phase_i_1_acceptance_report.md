@@ -114,3 +114,17 @@ Testing against real `soup-cli v0.77.2` and `distilgpt2` exposed two runtime fai
   - Artifacts: `checkpoint-20` and `output/job-20261114-204704-8691c5` containing `adapter_config.json` and `adapter_model.safetensors`
   - Model registry: registered `v2-3bd4b4 [pending] lora_adapter`
 - **Persistence across restart**: Killed and restarted the `127.0.0.1:18088` server -> reloaded UI and confirmed `4` datasets, `6` training jobs, full logs, and `v2-3bd4b4 [pending] lora_adapter` remained intact with `0` console/HTTP errors.
+
+---
+
+## 5. Controlled SHARD Updater & Rollback Verification
+
+Executed in an isolated disposable wheel environment (`venv_upd_sandbox` outside the repository) with `_http_get` mocked while keeping HTTPS host allowlist, SHA-256 checksum checks, zip-slip inspection, wheel installation (`pip install --upgrade`), subprocess runtime verification, backup/rollback, and user state real:
+
+| Scenario | Result | Observed Evidence |
+| --- | --- | --- |
+| `1_up_to_date` | **PASS** | `state="UP_TO_DATE"`, `update_available=False` for `v1.8.0`. |
+| `2_update_available` | **PASS** | `state="UPDATE_AVAILABLE"`, `latest_version="1.9.0"`, matched `.sha256` asset hash. |
+| `3_interrupted_download` | **PASS** | `status="failed"`, `Interrupted download: received 512 bytes of expected 334138 bytes.`, `rolled_back=True`, 7/7 user sentinels intact. |
+| `4_corrupt_checksum` | **PASS** | `status="failed"`, `Checksum mismatch`, `rolled_back=True`, 7/7 user sentinels intact. |
+| `5_zip_slip_block` | **PASS** | Rejected `../../pwned.txt` with `Unsafe path entry inside update archive`, `rolled_back=True`. |
