@@ -3637,8 +3637,11 @@ async function trnPreviewDataset(snapshotId, page) {
         const ds = d.dataset || {};
         const modal = document.getElementById('modelModalBackdrop');
         document.getElementById('modalModelTitle').innerText = 'Датасет: ' + snapshotId;
-        document.getElementById('modalModelAuthor').innerText = 'Формат: ' + ((d.dataset && d.dataset.task) || 'sft') + ' | Записей: ' + ((d.dataset && d.dataset.record_count) || 0);
-        document.getElementById('modalStats').innerHTML = '<span style="color:#38bdf8;">SHA256: ' + escHtml((d.dataset && d.dataset.sha256) || '').slice(0, 16) + '...</span>';
+        document.getElementById('modalModelAuthor').innerText = 'Задача: ' + (ds.task || 'sft') + ' | Формат: ' + (ds.format || 'chatml') + ' | Всего записей: ' + (d.total_records || 0);
+        document.getElementById('modalStats').innerHTML =
+            '<span class="compat-pill compat-ok">Валидных: ' + (d.valid_count || 0) + '</span>' +
+            ((d.invalid_count || 0) > 0 ? '<span class="compat-pill compat-no">Поврежденных: ' + d.invalid_count + '</span>' : '') +
+            '<span style="color:#38bdf8;">SHA256: ' + escHtml((ds.sha256 || '').slice(0, 16)) + '...</span>';
         document.getElementById('modalLaunchBtn').style.display = 'none';
         const hfLink = document.getElementById('modalHfLink');
         if (hfLink) hfLink.style.display = 'none';
