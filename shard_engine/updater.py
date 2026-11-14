@@ -430,3 +430,27 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
         "asset_url": remote.get("asset_url"),
         "asset_name": remote.get("asset_name"),
         "asset_size": remote.get("asset_size"),
+        "asset_sha256": remote.get("asset_sha256"),
+        "cached": False,
+        "install_method": inst,
+        "error": None,
+        "checked_at": time.time(),
+    }
+    _write_cache(payload)
+    return payload
+def check_for_updates_async(force=False, timeout=2.0):
+    def _worker():
+        try:
+            check_for_updates(force=force, timeout=timeout, allow_network=True)
+        except Exception:
+            pass
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    return t
+def startup_check_banner():
+    try:
+        res = check_for_updates(force=False, timeout=1.5, allow_network=True)
+        st = res.get("state")
+        if st == "UPDATE_AVAILABLE":
+            return f"SHARD {res['current_version']} | Latest version: {res['latest_version']} | Update available! Run: shard update"
+        if st == "UP_TO_DATE":
