@@ -1428,3 +1428,113 @@ class LanManager:
                 except OSError:
                     break
                 d = parse_beacon(raw)
+                if not d:
+                    continue
+                if d.get("node_id") and d.get("node_id") == self.node_id():
+                    continue
+                if not d.get("node_id") and d.get("name") == self.name():
+                    continue
+                peer_key = d.get("node_id") or addr[0]
+                with self._lock:
+                    if peer_key not in self._peers and len(self._peers) >= MAX_PEERS:
+                        oldest = min(self._peers.items(), key=lambda kv: kv[1].get("_ts", 0))[0]
+                        self._peers.pop(oldest, None)
+                    self._peers[peer_key] = {
+                        "_ip": addr[0],
+                        "name": d.get("name"),
+                        "role": d.get("role"),
+                        "model": d.get("model"),
+                        "port": d.get("port"),
+                        "open": d.get("open"),
+                        "_ts": time.time(),
+                    }
+        finally:
+            try:
+                sock.close()
+            except Exception:
+                pass
+    def _hb_send_loop(self):
+        while not self._stop.is_set() and not self._runtime_stop.is_set():
+            if not self.is_member():
+                break
+            status = self._send_heartbeat()
+            if status == "ok":
+                self._hb_failures = 0
+                self._hb_state = "connected"
+                wait_s = HEARTBEAT_INTERVAL_S
+            elif status == "rejected":
+                print("[lan] мастер отклонил токен или отключил сеть — выхожу из сети")
+                self.off(quiet=True)
+                break
+            else:
+                self._hb_failures += 1
+                self._hb_state = "reconnecting"
+                wait_s = min(RECONNECT_BACKOFF_MAX_S, HEARTBEAT_INTERVAL_S * (2 ** min(4, self._hb_failures - 1)))
+            self._stop.wait(wait_s)
+    def _send_heartbeat(self):
+        import requests
+        with self._lock:
+            master = dict(self._state.get("master") or {})
+            mode = self._state.get("mode")
+            rpc_port = self._state.get("rpc_port")
+        if not master.get("ip") or not master.get("token"):
+            return "rejected"
+        hw = None
+        if mode == "worker":
+            if self._rpc_proc is not None and self._rpc_proc.poll() is not None:
+                try:
+                    self._start_worker(master_ip=master.get("ip"))
+                    with self._lock:
+                        rpc_port = self._state.get("rpc_port")
+                except Exception:
+                    pass
+            try:
+                hw = _hardware.get_hardware_profile()
+            except Exception:
+                hw = None
+        else:
+            rpc_port = None
+        try:
+            r = requests.post(
+                f"http://{master['ip']}:{master.get('port', DEFAULT_MASTER_PORT)}/api/lan/heartbeat",
+                json={
+                    "token": master.get("token"),
+                    "hw": hw,
+                    "rpc_port": rpc_port,
+                    "client_id": master.get("client_id") or self.node_id(),
+                },
+                timeout=2.5,
+            )
+            if r.status_code == 200:
+                try:
+                    body = r.json()
+                    if isinstance(body, dict) and body.get("mode") == "off":
+                        return "rejected"
+                except Exception:
+                    pass
+                return "ok"
+            if r.status_code in (401, 403):
+                return "rejected"
+            return "unreachable"
+        except Exception:
+            return "unreachable"
+    def _hb_monitor_loop(self):
+        was_alive = {}
+        while not self._stop.is_set() and not self._runtime_stop.is_set():
+            if not self.is_server():
+                break
+            now = time.time()
+            with self._lock:
+                for m in self._state.get("members", []):
+                    key = m.get("client_id") or m.get("ip") or m.get("token")
+                    alive = member_alive(m, now)
+                    prev = was_alive.get(key)
+                    if prev is True and not alive:
+                        self._hw_peak.pop(key, None)
+                    was_alive[key] = alive
+            self._stop.wait(HEARTBEAT_INTERVAL_S)
+def _free_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
