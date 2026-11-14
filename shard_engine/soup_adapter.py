@@ -535,7 +535,12 @@ def _run_install_worker(action, custom_python=None, include_train=True):
                 _set_install_state(line=s)
         rc = proc.wait(timeout=1200)
         if rc != 0:
-            raise RuntimeError(f"pip install soup-cli[train] exited with code {rc}")
+            raise RuntimeError(f"pip install {pkg_spec} exited with code {rc}")
+        _set_install_state(lifecycle_state="VERIFYING", stage="Проверка SOUP CLI, Python и зависимостей", pct=90, line="Verifying installed soup-cli, CLI version command, and module imports...")
+        ver_report = verify_soup_environment(str(venv_py), check_train_deps=bool(include_train))
+        if not ver_report.get("verified"):
+            failed_checks = [k for k, v in (ver_report.get("checks") or {}).items() if not v]
+            raise RuntimeError(f"SOUP post-install verification failed ({', '.join(failed_checks)}).")
         cfg = settings._load()
         cfg["soup_python"] = str(venv_py)
         settings._save(cfg)
