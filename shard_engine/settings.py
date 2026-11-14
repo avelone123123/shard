@@ -128,3 +128,15 @@ def recent_model_paths():
         if norm not in seen:
             seen.add(norm)
             out.append(s)
+    return out[:15]
+def add_recent_model_path(path):
+    s = str(path or "").strip()
+    if not s or "\x00" in s or s.startswith("\\\\") or s.startswith("//"):
+        return recent_model_paths()
+    data = _load()
+    cur = recent_model_paths()
+    norm_new = os.path.normcase(s)
+    updated = [s] + [x for x in cur if os.path.normcase(x) != norm_new]
+    data["recent_model_paths"] = updated[:15]
+    _save(data)
+    return data["recent_model_paths"]
