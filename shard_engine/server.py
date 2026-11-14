@@ -658,3 +658,113 @@ async def api_apply_integration(req: Request):
         if tool == "claude":
             target = os.path.join(home, ".claude", "settings.json")
             existing = {}
+            if os.path.exists(target):
+                try:
+                    with open(target, "r", encoding="utf-8") as tf:
+                        existing = json.loads(tf.read())
+                except Exception:
+                    existing = {}
+            existing["hasCompletedOnboarding"] = True
+            env_blk = existing.get("env", {}) if isinstance(existing.get("env"), dict) else {}
+            env_blk.update({
+                "ANTHROPIC_BASE_URL": base_url,
+                "ANTHROPIC_AUTH_TOKEN": key,
+                "ANTHROPIC_DEFAULT_OPUS_MODEL": model,
+                "ANTHROPIC_DEFAULT_SONNET_MODEL": model,
+                "ANTHROPIC_DEFAULT_HAIKU_MODEL": model
+            })
+            existing["env"] = env_blk
+            _backup_and_write(target, json.dumps(existing, indent=2, ensure_ascii=False))
+            return {"status": "ok", "tool": tool, "path": target, "message": f"Claude Code настроен на {model}"}
+        if tool == "opencode":
+            target = os.path.join(home, ".config", "opencode", "config.json")
+            cfg = {
+                "$schema": "https://opencode.ai/config.json",
+                "provider": {
+                    "shard": {
+                        "npm": "@ai-sdk/openai-compatible",
+                        "name": "Shard Local Engine",
+                        "options": {"baseURL": base_url, "apiKey": key},
+                        "models": {
+                            model: {"name": model.split("/")[-1], "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192}},
+                            "Qwen/Qwen2.5-Coder-1.5B-Instruct": {"name": "Qwen2.5 Coder 1.5B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192}},
+                            "Qwen/Qwen2.5-Coder-7B-Instruct": {"name": "Qwen2.5 Coder 7B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192}},
+                            "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B": {"name": "DeepSeek R1 Distill 7B", "modalities": {"input": ["text"], "output": ["text"]}, "limit": {"context": 128000, "output": 8192}}
+                        }
+                    }
+                },
+                "model": f"shard/{model}"
+            }
+            _backup_and_write(target, json.dumps(cfg, indent=2, ensure_ascii=False))
+            return {"status": "ok", "tool": tool, "path": target, "message": f"OpenCode настроен на shard/{model}"}
+        if tool == "continue":
+            target = os.path.join(home, ".continue", "config.json")
+            existing = {"models": []}
+            if os.path.exists(target):
+                try:
+                    with open(target, "r", encoding="utf-8") as tf:
+                        existing = json.loads(tf.read())
+                except Exception:
+                    existing = {"models": []}
+            models_arr = [m for m in existing.get("models", []) if isinstance(m, dict) and m.get("title") != "Shard Local AI"]
+            models_arr.insert(0, {"title": "Shard Local AI", "provider": "openai", "model": model, "apiBase": base_url, "apiKey": key})
+            existing["models"] = models_arr
+            _backup_and_write(target, json.dumps(existing, indent=2, ensure_ascii=False))
+            return {"status": "ok", "tool": tool, "path": target, "message": "Continue IDE подключен к Shard Local AI"}
+        if tool == "aider":
+            target = os.path.join(home, ".aider.conf.yml")
+            yml = f"openai-api-base: {base_url}\nopenai-api-key: {key}\nmodel: openai/{model}\n"
+            _backup_and_write(target, yml)
+            return {"status": "ok", "tool": tool, "path": target, "message": f"Aider CLI настроен ({target})"}
+        if tool == "zed":
+            appdata = os.environ.get("APPDATA") or os.path.join(home, ".config")
+            target = os.path.join(appdata, "Zed", "settings.json") if os.name == "nt" else os.path.join(home, ".config", "zed", "settings.json")
+            existing = {}
+            if os.path.exists(target):
+                try:
+                    with open(target, "r", encoding="utf-8") as tf:
+                        existing = json.loads(tf.read())
+                except Exception:
+                    existing = {}
+            lm = existing.get("language_models", {}) if isinstance(existing.get("language_models"), dict) else {}
+            lm["openai"] = {"api_url": base_url, "available_models": [{"name": model, "display_name": f"Shard: {model.split('/')[-1]}", "max_tokens": 128000}]}
+            existing["language_models"] = lm
+            _backup_and_write(target, json.dumps(existing, indent=2, ensure_ascii=False))
+            return {"status": "ok", "tool": tool, "path": target, "message": "Zed Editor подключен к локальному серверу Shard"}
+        if tool == "codex":
+            target = os.path.join(home, ".codex", "config.toml")
+            toml_str = f'model = "{model}"\nmodel_provider = "shard"\n[model_providers.shard]\nname = "Shard Local"\nbase_url = "{base_url}"\nenv_key = "OPENAI_API_KEY"\n'
+            _backup_and_write(target, toml_str)
+            _set_win_user_env({"OPENAI_API_KEY": key})
+            return {"status": "ok", "tool": tool, "path": target, "message": "Codex CLI настроен на провайдер Shard Local"}
+        if tool in ("openrouter", "cursor", "env", "sdk"):
+            env_path = os.path.join(str(paths.config_dir()), "shard_local_bridge.env")
+            env_content = f"OPENAI_API_BASE={base_url}\nOPENAI_BASE_URL={base_url}\nOPENROUTER_BASE_URL={base_url}\nOPENAI_API_KEY={key}\nOPENROUTER_API_KEY={key}\nSHARD_MODEL={model}\n"
+            _backup_and_write(env_path, env_content)
+            _set_win_user_env({
+                "OPENAI_API_BASE": base_url,
+                "OPENAI_BASE_URL": base_url,
+                "OPENAI_API_KEY": key,
+                "ANTHROPIC_BASE_URL": base_url,
+                "ANTHROPIC_AUTH_TOKEN": key
+            })
+            return {"status": "ok", "tool": tool, "path": env_path, "message": "Переменные окружения и локальный роутер активированы"}
+        return JSONResponse(status_code=400, content={"status": "error", "message": f"Неизвестная интеграция: {tool}"})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+@app.get("/v1/models")
+def list_models():
+    st = engine_instance.get_status()
+    current = st.get("active_model") or "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+    cached_list = sorted(list(get_local_cached_ids()))
+    popular = [
+        current,
+        *cached_list,
+        "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+        "Qwen/Qwen2.5-Coder-7B-Instruct",
+        "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
+        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+        "meta-llama/Llama-3.2-3B-Instruct",
+        "google/gemma-2-9b-it",
+        "mistralai/Mistral-7B-Instruct-v0.3"
+    ]
