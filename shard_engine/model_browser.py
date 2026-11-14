@@ -166,3 +166,27 @@ def map_gguf_to_hf_base(path_or_name):
         mid = m["id"]
         mtail = mid.split("/")[-1].lower()
         if mtail == stem_low or stem_low in mtail or mtail in stem_low:
+            suggested = mid
+            break
+    if not suggested and cand_repo:
+        cleaned_repo = re.sub(r"(?i)[-_]?gguf$", "", cand_repo)
+        author = cleaned_repo.split("/")[0] if "/" in cleaned_repo else ""
+        tail = cleaned_repo.split("/")[-1]
+        org_map = {
+            "bartowski": None,
+            "unsloth": None,
+            "maziyarpanahi": None,
+            "thebloke": None,
+            "mradermacher": None,
+        }
+        if author.lower() in org_map:
+            for m in hf_hub.CURATED_MODELS:
+                if m["id"].split("/")[-1].lower() == tail.lower():
+                    suggested = m["id"]
+                    break
+        elif "/" in cleaned_repo:
+            suggested = cleaned_repo
+    if not suggested and stem:
+        if "qwen" in stem_low:
+            suggested = f"Qwen/{stem}"
+        elif "llama" in stem_low:
