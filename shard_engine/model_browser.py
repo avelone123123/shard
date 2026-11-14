@@ -334,3 +334,27 @@ def classify_model_path(target_path, deep_size=False):
         }
     if p.is_dir():
         cfg = _read_json_small(p / "config.json")
+        adp = _read_json_small(p / "adapter_config.json")
+        has_weights = any(p.glob("*.safetensors")) or any(p.glob("pytorch_model*.bin")) or (p / "model.safetensors.index.json").is_file()
+        gguf_files = sorted(p.glob("*.gguf"))
+        if cfg and (has_weights or "model_type" in cfg or "architectures" in cfg):
+            sz, partial = _bounded_dir_size(p) if deep_size else _bounded_dir_size(p, max_files=80)
+            compat = _compat_block(
+                bool(gguf_files),
+                "В папке есть GGUF." if gguf_files else "Папка формата Hugging Face (SafeTensors) — для GGUF используйте PyTorch или GGUF-версию.",
+                bool(has_weights),
+                "Готова к инференсу PyTorch." if has_weights else "В папке нет файлов весов .safetensors/.bin.",
+                bool(has_weights),
+                "Локальная модель Hugging Face (config.json + веса) — полностью готова для SFT/DPO обучения SOUP." if has_weights else "Найдена config.json, но отсутствуют веса .safetensors/.bin.",
+                resolved_base=str(p) if has_weights else None,
+            )
+            return {
+                "path": str(p),
+                "name": p.name,
+                "is_dir": True,
+                "format": "hf_model_dir",
+                "format_label": "Модель Hugging Face (SafeTensors)",
+                "valid": bool(has_weights),
+                "size_bytes": sz,
+                "size_str": _fmt_size(sz) + ("+" if partial else ""),
+                "model_type": cfg.get("model_type"),
