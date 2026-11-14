@@ -57,3 +57,10 @@ Per explicit user instruction (**Option B — Modern Slate**), all visual refine
 | Live Streaming LLM Reply / Live Training Run | Not Verified / Blocked by Environment | No GGUF model loaded in VRAM and no CUDA GPU present; live token streaming bubble rendering and live GPU fine-tuning runs were not executed during this visual pass |
 
 ## 4. Before / After Responsive Comparison
+
+| Viewport | Before Nav / Header | After Nav / Header | Before Overflow | After Overflow |
+|---|---|---|---|---|
+| `1440x900` (Desktop) | `50px` / `75px` | `50px` / `73px` | `false` | `false` (all 7 tabs) |
+| `1280x800` (Laptop) | `50px` / `75px` | `50px` / `73px` | `false` | `false` (all 7 tabs) |
+| `1024x768` (Small Laptop) | `50px` / `134px` | `50px` / `132px` | `false` | `false` (all 7 tabs) |
+| `768x1024` (Tablet) | `89px` / `134px` | `89px` / `132px` | `false` | `false` (all 7 tabs) |
