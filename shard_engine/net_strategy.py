@@ -1758,3 +1758,113 @@ class NetworkManager:
             cfg = copy.deepcopy(self._config)
             pend_cnt = len(self._peers_state.get("pending_peers") or {})
             rev_cnt = len(self._peers_state.get("revoked_peers") or {})
+        ha = self._host_agent
+        ha_st = ha.status() if ha is not None else {"p2p_port": None, "relays": {}, "active_peers": 0, "last_error": None}
+        disc_res = copy.deepcopy(self._host_last_disc_res) if isinstance(self._host_last_disc_res, dict) else None
+        vis = cfg.get("visibility")
+        offline = bool(cfg.get("offline_only"))
+        if bool(cfg.get("published")) and vis == "public" and not offline:
+            disc_ok = bool(disc_res and disc_res.get("ok") and cfg.get("discovery_urls"))
+            disc_warn = None if disc_ok else ((disc_res or {}).get("warning") or "Public discovery service is not configured or reachable.")
+        else:
+            disc_ok = True if disc_res is None else bool(disc_res.get("ok", True))
+            disc_warn = None
+        return {
+            "published": bool(cfg.get("published")),
+            "node_id": self.identity.node_id,
+            "pubkey_b64": self.identity.pubkey_b64,
+            "display_name": cfg.get("display_name") or lan.LAN.name(),
+            "visibility": vis,
+            "access_mode": cfg.get("access_mode"),
+            "access_policy": cfg.get("access_policy"),
+            "offline_only": offline,
+            "max_participants": cfg.get("max_participants"),
+            "direct_p2p_port": ha_st.get("p2p_port"),
+            "relay_urls": list(cfg.get("relay_urls") or []),
+            "relays_connected": ha_st.get("relays") or {},
+            "discovery_urls": list(cfg.get("discovery_urls") or []),
+            "discovery_ok": disc_ok,
+            "discovery_warning": disc_warn,
+            "active_peers": ha_st.get("active_peers", 0),
+            "connected_peers": self.list_connected_peers(),
+            "pending_peers": self.list_pending_peers(),
+            "pending_peers_count": pend_cnt,
+            "revoked_peers_count": rev_cnt,
+            "last_discovery_result": disc_res,
+            "last_heartbeat_at": self._host_last_hb_at,
+            "last_error": ha_st.get("last_error"),
+        }
+    def discover_servers(self, q="", model="", region="", access="", sort="activity", limit=100, online_only=True):
+        with self._lock:
+            offline = bool(self._config.get("offline_only"))
+        if offline:
+            return {"status": "offline", "servers": [], "count": 0, "dropped": 0, "endpoints": [], "offline_only": True}
+        dc = self._make_discovery_client()
+        return dc.fetch_servers(q=q, model=model, region=region, access=access, sort=sort, limit=limit, online_only=online_only)
+    def lookup_server(self, node_id, invite_token=None, discovery_urls=None):
+        with self._lock:
+            offline = bool(self._config.get("offline_only"))
+        if offline:
+            return None
+        dc = self._make_discovery_client(extra_urls=discovery_urls)
+        result = {"node_id": str(node_id or "").strip(), "public": None, "private": None}
+        if invite_token:
+            m = _INVITE_ID_RE.match(str(invite_token).strip())
+            if m:
+                cm = net_discovery.commitment_for_invite(m.group(1))
+                result["private"] = dc.lookup_private_commitment(cm, expected_node_id=result["node_id"] or None)
+        if result["node_id"] and net_identity.NODE_ID_RE.match(result["node_id"]):
+            result["public"] = dc.lookup_node(result["node_id"])
+        if result["public"] is None and result["private"] is None:
+            return None
+        return result
+    def connect(
+        self,
+        target,
+        invite_token=None,
+        preferred_mode="auto",
+        direct_port=None,
+        verify_node_id=None,
+        auth_proof=None,
+        discovery_urls=None,
+        relay_urls=None,
+        reconnect=True,
+        mode=None,
+        **kwargs,
+    ):
+        if kwargs:
+            raise TypeError(f"connect() got unexpected keyword argument(s): {', '.join(sorted(kwargs.keys()))}")
+        if mode is not None:
+            preferred_mode = mode
+        parsed = parse_connect_target(target, default_port=direct_port)
+        with self._lock:
+            cfg = copy.deepcopy(self._config)
+        offline = bool(cfg.get("offline_only"))
+        allow_local = bool(cfg.get("allow_insecure_local"))
+        eff_token = invite_token if invite_token is not None else auth_proof
+        if eff_token is None and parsed.get("invite_token"):
+            eff_token = parsed["invite_token"]
+        target_nid = verify_node_id or parsed.get("node_id")
+        direct_eps = []
+        http_eps = []
+        relays = list(relay_urls or ())
+        server_info = {"target": str(target)}
+        if parsed["kind"] == "shard_uri":
+            server_info["name"] = parsed.get("name") or ""
+            for ep in parsed.get("direct_endpoints") or ():
+                if ep not in direct_eps:
+                    direct_eps.append(ep)
+            for r in parsed.get("relays") or ():
+                if r not in relays:
+                    relays.append(r)
+            uri_disc = list(parsed.get("discovery_urls") or ())
+            if not offline and (uri_disc or discovery_urls or cfg.get("discovery_urls")):
+                lu = self.lookup_server(target_nid, invite_token=eff_token, discovery_urls=list(discovery_urls or ()) + uri_disc)
+                if lu:
+                    priv = lu.get("private") or {}
+                    hint = priv.get("hint") if isinstance(priv.get("hint"), dict) else {}
+                    for ep in hint.get("endpoints") or ():
+                        if ep not in direct_eps:
+                            direct_eps.append(ep)
+                    for r in hint.get("relays") or ():
+                        if r not in relays:
