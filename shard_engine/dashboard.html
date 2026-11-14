@@ -3499,14 +3499,14 @@ async function trnInstallSoup(actionOrFlag, includeTrain) {
         _renderSoupInstallerBox(inst);
         showToast('SOUP', inst.stage || inst.lifecycle_state || 'Запущено');
         if (soupInstallPollTimer) clearInterval(soupInstallPollTimer);
-        soupInstallPollTimer = setInterval(pollSoupInstallStatus, 1500);
+        soupInstallPollTimer = setInterval(pollSoupInstallStatus, 1200);
     } catch(e) {
-        if (box) box.innerText = 'Ошибка запуска установки SOUP: ' + e.message;
+        if (box) box.innerText = 'Ошибка запроса установки SOUP: ' + e.message;
     }
 }
 async function pollSoupInstallStatus() {
     try {
-        const res = await fetch('/api/training/soup/install/status');
+        const res = await fetch('/api/training/soup/install/status', {headers: getAuthHeaders()});
         if (!res.ok) return;
         const st = await res.json();
         const box = document.getElementById('trnSoupInstallBox');
