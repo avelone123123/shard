@@ -10,9 +10,11 @@ import threading
 import time
 from pathlib import Path
 from . import hardware
+from . import model_browser
 from . import paths
 from . import settings
 from . import storage
+from . import updater
 SOUP_VALID_TASKS = ("sft", "dpo", "orpo", "kto", "simpo", "ipo", "grpo")
 SOUP_VALID_FORMATS = ("chatml", "dpo", "alpaca", "sharegpt", "kto", "plaintext", "auto")
 SOUP_VALID_BACKENDS = ("transformers", "unsloth", "mlx")
