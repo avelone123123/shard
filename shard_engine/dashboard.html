@@ -2308,3 +2308,113 @@ function updateLoadingUI(isLoading, lp) {
         const currMb = lp.curr_mb || 0;
         const totalMb = lp.total_mb || 0;
         const stage = lp.stage || 'Подготовка тензоров...';
+        document.getElementById('glbModelName').innerText = shortName;
+        document.getElementById('glbStageText').innerText = stage;
+        document.getElementById('glbMetrics').innerText = currMb + ' / ' + totalMb + ' МБ • ' + speed + ' МБ/с';
+        document.getElementById('glbEta').innerText = 'Осталось: ' + eta;
+        document.getElementById('glbPercentVal').innerText = pct + '%';
+        document.getElementById('glbTrackFill').style.width = pct + '%';
+        if (chatTag) {
+            chatTag.style.display = 'inline-flex';
+            chatTag.innerHTML = '<svg class="glb-spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Загрузка: ' + pct + '% (' + eta + ')';
+        }
+        if (chatCard) {
+            chatCard.style.display = 'flex';
+            chatCard.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;"><div style="display:flex;align-items:center;gap:8px;"><svg class="glb-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><b style="font-size:13px;color:#fff;">Загрузка нейросети ' + shortName + '</b></div><span style="font-size:12px;font-weight:700;color:#38bdf8;font-family:Consolas,monospace;">' + pct + '%</span></div><div class="glb-track"><div class="glb-fill" style="width:' + pct + '%;"></div></div><div style="font-size:11px;color:#94a3b8;display:flex;justify-content:space-between;"><span>' + currMb + ' / ' + totalMb + ' МБ • ' + speed + ' МБ/с</span><span>Осталось: ' + eta + '</span></div>';
+        }
+        if (chatSpeed) {
+            chatSpeed.innerHTML = '<span style="color:#f59e0b;">Загрузка: ' + pct + '% (' + eta + ')</span>';
+        }
+        if (hwModel) {
+            hwModel.innerText = shortName + ' (' + pct + '% • ' + eta + ')';
+            hwModel.style.color = '#38bdf8';
+        }
+    } else {
+        banner.style.display = 'none';
+        if (chatTag) chatTag.style.display = 'none';
+        if (chatCard) chatCard.style.display = 'none';
+        if (chatSpeed) chatSpeed.innerHTML = '<span style="color:#38bdf8;">Готов к запросам</span>';
+        if (hwModel) {
+            const shortName = (activeModelId || '').split('/').pop() || 'Не загружена';
+            hwModel.innerText = shortName;
+            hwModel.style.color = '#10b981';
+        }
+    }
+}
+async function fetchHardware() {
+    try {
+        const ctrl = new AbortController();
+        const tid = setTimeout(() => ctrl.abort(), 4000);
+        const res = await fetch('/api/system/hardware', {signal: ctrl.signal, headers: getAuthHeaders()});
+        clearTimeout(tid);
+        if (!res.ok) {
+            if (res.status === 403 || res.status === 401) applyClientIsolationUi();
+            return;
+        }
+        const data = await res.json();
+        const hw = data.hardware || {};
+        const eng = data.engine || {};
+        const gpuEl = document.getElementById('hwGpu');
+        if (gpuEl) gpuEl.innerText = (hw.gpu_name || 'CPU Only').replace(' Laptop GPU', '').replace('NVIDIA GeForce ', '');
+        const vramEl = document.getElementById('hwVram');
+        if (vramEl) vramEl.innerText = (hw.vram_total_mb && hw.vram_total_mb > 0) ? ((hw.vram_used_mb || 0) + ' / ' + hw.vram_total_mb + ' MB') : 'N/A (CPU)';
+        const ramUsed = (hw.ram_used_gb !== undefined) ? hw.ram_used_gb : ((hw.ram_total_mb && hw.ram_avail_mb) ? ((hw.ram_total_mb - hw.ram_avail_mb) / 1024).toFixed(1) : '0.0');
+        const ramTotal = (hw.ram_total_gb !== undefined) ? hw.ram_total_gb : (hw.ram_total_mb ? (hw.ram_total_mb / 1024).toFixed(1) : '0.0');
+        const ramEl = document.getElementById('hwRam');
+        if (ramEl) ramEl.innerText = ramUsed + ' / ' + ramTotal + ' GB';
+        const lp = eng.load_progress || {};
+        isEngineLoaded = Boolean(eng.is_loaded);
+        engineLifecycleState = eng.detailed_lifecycle_state || eng.lifecycle_state || 'NOT_DOWNLOADED';
+        if (eng.status === 'loading' || lp.status === 'loading') {
+            const wasLoading = isModelLoading;
+            isModelLoading = true;
+            loadingModelId = lp.model_id || eng.active_model || activeModelId;
+            currentLoadingPercent = lp.percent || 0;
+            updateLoadingUI(true, lp);
+            if (!wasLoading) setPollRate(500);
+        } else {
+            if (isModelLoading) {
+                isModelLoading = false;
+                loadingModelId = '';
+                updateLoadingUI(false, lp);
+                setPollRate(5000);
+                if (lp.status === 'ready' && isEngineLoaded) {
+                    if (eng.active_model) activeModelId = eng.active_model;
+                    showToast('Модель готова', (eng.active_model || activeModelId).split('/').pop() + ' подключена к инференсу');
+                } else if (lp.status === 'error') {
+                    showToast('Ошибка загрузки', lp.message || 'Сбой инициализации весов');
+                }
+                loadModels();
+            } else if (isEngineLoaded && eng.active_model) {
+                activeModelId = eng.active_model;
+                const shortName = eng.active_model.split('/').pop();
+                document.getElementById('hwModel').innerText = shortName;
+                document.getElementById('hwModel').style.color = '#10b981';
+                const chatModelEl = document.getElementById('chatActiveModel');
+                if (chatModelEl) chatModelEl.innerText = shortName;
+            } else {
+                const hwModelEl = document.getElementById('hwModel');
+                if (hwModelEl) {
+                    if (engineLifecycleState === 'VALIDATION_FAILED' || engineLifecycleState === 'RUNTIME_FAILED' || eng.status === 'error') {
+                        hwModelEl.innerText = 'Ошибка загрузки';
+                        hwModelEl.style.color = '#ef4444';
+                    } else {
+                        hwModelEl.innerText = 'Не загружена';
+                        hwModelEl.style.color = '#94a3b8';
+                    }
+                }
+            }
+        }
+    } catch(e) {
+        const gpuEl = document.getElementById('hwGpu');
+        if (gpuEl && gpuEl.innerText === 'Поиск...') gpuEl.innerText = 'Ожидание данных...';
+    }
+}
+async function loadModels() {
+    if (currentCategory === 'downloaded') return loadDownloadedModels();
+    const q = document.getElementById('searchInput').value.trim();
+    const grid = document.getElementById('modelsGrid');
+    const badgeEl = document.getElementById('modelsCountBadge');
+    if (badgeEl) badgeEl.innerText = 'Загрузка каталога моделей...';
+    try {
+        const ctrl = new AbortController();
