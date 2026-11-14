@@ -2528,3 +2528,113 @@ function renderMarkdown(md) {
     let tableBuf = [];
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
+        if (line.trim().startsWith('```')) {
+            if (!inCode) {
+                inCode = true;
+                codeBuf = [];
+            } else {
+                inCode = false;
+                html += '<pre style="background:#090a0f;border:1px solid #1e2638;padding:12px 14px;border-radius:6px;overflow-x:auto;font-family:Consolas,monospace;font-size:12px;color:#38bdf8;margin:12px 0;"><code>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>';
+            }
+            continue;
+        }
+        if (inCode) {
+            codeBuf.push(line);
+            continue;
+        }
+        if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+            if (!inTable) {
+                inTable = true;
+                tableBuf = [];
+            }
+            tableBuf.push(line.trim());
+            continue;
+        } else if (inTable) {
+            inTable = false;
+            html += renderTable(tableBuf);
+            tableBuf = [];
+        }
+        if (line.startsWith('# ')) {
+            html += '<h1 style="font-size:20px;font-weight:700;color:#fff;margin:18px 0 10px;border-bottom:1px solid #1e2638;padding-bottom:6px;">' + inlineMd(line.slice(2)) + '</h1>';
+        } else if (line.startsWith('## ')) {
+            html += '<h2 style="font-size:16px;font-weight:700;color:#f1f5f9;margin:16px 0 8px;">' + inlineMd(line.slice(3)) + '</h2>';
+        } else if (line.startsWith('### ')) {
+            html += '<h3 style="font-size:14px;font-weight:600;color:#cbd5e1;margin:14px 0 6px;">' + inlineMd(line.slice(4)) + '</h3>';
+        } else if (line.startsWith('- ') || line.startsWith('* ')) {
+            html += '<li style="margin:4px 0 4px 20px;color:#cbd5e1;">' + inlineMd(line.slice(2)) + '</li>';
+        } else if (line.trim().length === 0) {
+            html += '<div style="height:8px;"></div>';
+        } else {
+            html += '<p style="margin:6px 0;line-height:1.6;color:#94a3b8;">' + inlineMd(line) + '</p>';
+        }
+    }
+    if (inTable && tableBuf.length > 0) {
+        html += renderTable(tableBuf);
+    }
+    return html;
+}
+async function openModelCard(modelId) {
+    const backdrop = document.getElementById('modelModalBackdrop');
+    const titleEl = document.getElementById('modalModelTitle');
+    const authorEl = document.getElementById('modalModelAuthor');
+    const bodyEl = document.getElementById('modelModalBody');
+    const launchBtn = document.getElementById('modalLaunchBtn');
+    const hfLink = document.getElementById('modalHfLink');
+    const statsEl = document.getElementById('modalStats');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+    if (launchBtn) launchBtn.style.display = '';
+    if (hfLink) hfLink.style.display = '';
+    titleEl.innerText = modelId.split('/').pop();
+    authorEl.innerText = modelId.split('/')[0] || 'Community';
+    hfLink.removeAttribute('href');
+    launchBtn.onclick = () => { loadModel(modelId); closeModelCard(); };
+    bodyEl.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--text-muted);"><div class="think-pulse" style="width:14px;height:14px;"></div><div style="font-size:13px;color:#cbd5e1;">Загрузка спецификации и описания модели...</div></div>';
+    try {
+        const res = await fetch('/api/hf/model/' + encodeURIComponent(modelId));
+        const data = await res.json();
+        const dlSpan = (data.downloads != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ' + Number(data.downloads).toLocaleString('ru-RU') + ' скачиваний</span>' : '';
+        const likeSpan = (data.likes != null) ? '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> ' + Number(data.likes).toLocaleString('ru-RU') + ' лайков</span>' : '';
+        statsEl.innerHTML = '<span class="spec-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> ' + escHtml(data.pipeline_tag) + '</span>' +
+            dlSpan + likeSpan +
+            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + escHtml(data.compatibility ? data.compatibility.tier_label : '') + '</span>';
+        bodyEl.innerHTML = renderMarkdown(data.readme);
+    } catch(e) {
+        bodyEl.innerHTML = '<div style="color:#ef4444;padding:30px;text-align:center;">Не удалось загрузить спецификацию модели.</div>';
+    }
+}
+function closeModelCard() {
+    const backdrop = document.getElementById('modelModalBackdrop');
+    if (backdrop) backdrop.style.display = 'none';
+    const launchBtn = document.getElementById('modalLaunchBtn');
+    if (launchBtn) launchBtn.style.display = '';
+    const hfLink = document.getElementById('modalHfLink');
+    if (hfLink) hfLink.style.display = '';
+}
+let _drivesCache = [];
+function openDirPicker() {
+    const backdrop = document.getElementById('dirModalBackdrop');
+    const input = document.getElementById('dirPathInput');
+    const listEl = document.getElementById('dirDriveList');
+    const diskEl = document.getElementById('dirDiskInfo');
+    if (!backdrop) return;
+    backdrop.style.display = 'flex';
+    input.value = '';
+    listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Загрузка дисков...</div>';
+    diskEl.innerHTML = '';
+    fetch('/api/settings').then(r => r.json()).then(s => {
+        if (s.models_dir) input.value = s.models_dir;
+        const disk = s.disk || {};
+        diskEl.innerHTML = '<span class="spec-item">Свободно: ' + escHtml(disk.free_gb) + ' GB из ' + escHtml(disk.total_gb) + ' GB</span>' +
+            '<span class="spec-item" style="color:#10b981;font-weight:600;">' + (s.is_custom ? 'CUSTOM' : 'ПО УМОЛЧАНИЮ') + '</span>';
+    }).catch(() => {});
+    fetch('/api/drives').then(r => r.json()).then(d => {
+        _drivesCache = (d && d.drives) || [];
+        listEl.innerHTML = _drivesCache.map((dr, i) =>
+            '<button class="filter-btn" onclick="pickDrive(' + i + ')" style="gap:6px;">' + escHtml(dr.path) +
+            '<span style="color:var(--text-muted);font-size:10px;">' + escHtml(dr.free_gb) + ' GB</span></button>'
+        ).join('') || '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
+    }).catch(() => {
+        listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">Диски не определены — введите путь вручную</div>';
+    });
+}
