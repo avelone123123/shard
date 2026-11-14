@@ -814,3 +814,27 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                 "old_version": __version__,
                 "new_version": new_ver,
                 "install_method": inst["method"],
+                "backup_path": backup_ptr.get("pkg_backup_path") if backup_ptr else None,
+                "restart_required": True,
+                "daemon_running": daemon_running,
+            }
+    except Exception as exc:
+        rolled = False
+        rb_err = None
+        if backup_ptr is not None:
+            try:
+                _set_job_state(phase="rolling_back", message="Ошибка обновления — откат к предыдущей рабочей версии...", log=f"Update failed ({exc}); rolling back...")
+                rollback_update(backup_ptr)
+                rolled = True
+                _set_job_state(log="Rollback completed cleanly.")
+            except Exception as rexc:
+                rb_err = str(rexc)
+                _set_job_state(log=f"Rollback error: {rb_err}")
+        _set_job_state(
+            status="failed",
+            phase="failed",
+            progress_pct=0,
+            message=f"Обновление не удалось: {exc}",
+            rolled_back=rolled,
+            error=str(exc) + (f" | Rollback error: {rb_err}" if rb_err else ""),
+            finished_at=time.time(),
