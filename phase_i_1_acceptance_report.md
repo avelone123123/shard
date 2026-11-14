@@ -70,3 +70,18 @@ Tested inside clean virtual environments outside the repository directory (`%TEM
   - Attempted browse to `C:\Windows\System32` -> blocked by backend (`HTTP 403`: `Access to system or sensitive credential directory is blocked.`).
 - **Dataset & Training UI**:
   - Created datasets from 23 approved feedback entries -> opened Preview modal -> paginated Page `1` (`20` rows) to Page `2` (`3` rows) via `Вперёд` and back via `Назад` -> clicked Validate (`Датасет валиден | OK: 23 валидных записей`) -> selected dataset in `#trnJobDataset`.
+  - Ran Preflight (`Все проверки пройдены — готово к запуску обучения` — 6 `PASS`, 1 CPU `WARN`), Dry Run (`job-20261114-203513-cb21fc` -> `Data OK: 20 train samples / Val: 3 samples`), live UI training click (`Запустить обучение`), jobs list refresh, and `#trnJobLogBox` log inspection.
+
+### 2.2 Frontend Defects Fixed During Browser Testing
+1. [dashboard.html](file:///c:/Users/avelo/Desktop/my%20projects/shard/dashboard.html) & [shard_engine/dashboard.html](file:///c:/Users/avelo/Desktop/my%20projects/shard/shard_engine/dashboard.html): Fixed `Технические детали среды SOUP` field mapping (`s.venv_dir || s.venv_path`, `s.python_executable || s.runtime_python`, `s.host_python_version || s.python_version`) so Venv, Runtime Python, and Host Python render actual values instead of `-`.
+2. [dashboard.html](file:///c:/Users/avelo/Desktop/my%20projects/shard/dashboard.html) & [shard_engine/dashboard.html](file:///c:/Users/avelo/Desktop/my%20projects/shard/shard_engine/dashboard.html): Updated `mbLoadRoots()` so custom-labeled Windows volumes preserve drive letters (e.g., `D:\ (Ventoy)`).
+
+---
+
+## 3. SOUP Python 3.12 Environment Validation
+
+- **Location**: `C:\Users\avelo\AppData\Local\Temp\shard_accept_env\data\soup-venv`
+- **Interpreter**: `Python 3.12.16` (provisioned automatically by `uv-0.13.8` using `cpython-3.12.16-windows-x86_64-none`)
+- **CLI**: `soup.exe --version` -> `soup v0.77.2`
+- **API check**: `/api/training/soup?check_remote=1` -> `lifecycle_state: "INSTALLED"`, `soup_version: "0.77.2"`, `latest_version: "0.77.2"`, all `capabilities` flags `true`
+- **Verified imports**:
