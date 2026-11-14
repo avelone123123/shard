@@ -49,3 +49,16 @@ To replace the dark-neon aesthetic without harming developer readability during 
 | `--warning` / `--warning-bg` / `--warning-border` | `#9A4707` / `#FEF3C7` / `#E5A93B` | Notice / Hybrid RAM+VRAM / update warning |
 | `--danger` / `--danger-bg` / `--danger-border` | `#B91C1C` / `#FEE2E2` / `#E88B8B` | Error / destructive / rollback actions |
 | `--info` / `--info-bg` / `--info-border` | `#0F5E6E` / `#E0F2F4` / `#7AB8C2` | SSD Cache / NVMe Streaming / LAN info pills |
+| `--font-display` | `'Silkscreen', 'JetBrains Mono', monospace` | Brand wordmark, badges, micro uppercase labels |
+| `--font-mono` | `'JetBrains Mono', 'Cascadia Mono', Consolas, monospace` | Telemetry metrics, model metadata, logs, code |
+| `--font-sans` | `'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif` | Primary body copy & UI labels |
+| Type scale | `12px / 14px / 16px / 20px / 24px / 32px` | Strict `--fs-xs` .. `--fs-2xl` tokens |
+| Spacing & radius | `4 / 8 / 12 / 16 / 24 / 32px`, `2px / 4px` | Crisp `4px` spacing grid & tactile workstation corners |
+
+### Programmatic WCAG 2.2 Contrast Ratios (21/21 pairs `>= 4.5:1`)
+- `--text` on `--bg` (`15.47:1`), on `--surface-elevated` (`16.77:1`), on `--surface` (`13.18:1`), on `--surface-chrome` (`12.11:1`).
+- `--text-secondary` on `--surface-elevated` (`9.93:1`), on `--surface` (`7.81:1`).
+- `--text-muted` on `--surface-elevated` (`6.50:1`), on `--bg` (`6.00:1`), on `--surface` (`5.11:1`).
+- `--accent-text` on `--surface-elevated` (`7.04:1`), on `--bg` (`6.50:1`); `#FFFFFF` on `--accent` (`4.77:1`); `#FFFFFF` on `--accent-hover` (`6.79:1`); `--accent-active` on `--accent-soft` (`7.87:1`).
+- Semantic badges: `--success` on `--success-bg` (`5.93:1`), `--warning` on `--warning-bg` (`5.75:1`), `--danger` on `--danger-bg` (`5.30:1`), `--info` on `--info-bg` (`6.39:1`), `#FFFFFF` on `--danger` (`6.47:1`).
+- Terminal: `--accent-soft` on `#18201F` (`13.48:1`), `#FAF9F5` on `#18201F` (`15.75:1`).
