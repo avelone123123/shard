@@ -708,6 +708,34 @@ def _extract_structured_record(obj, expected_fmt, line_no, idx):
             err = "DPO record requires non-empty prompt, chosen, and rejected"
         elif chosen_txt.strip() == rejected_txt.strip():
             err = "DPO chosen and rejected responses are identical"
+    elif isinstance(obj.get("messages"), list):
+        rec_type = "sft_chatml"
+        msgs = obj.get("messages") or []
+        prompts = []
+        replies = []
+        valid_msgs = True
+        for msg in msgs:
+            if not isinstance(msg, dict) or not msg.get("role") or msg.get("content") is None:
+                valid_msgs = False
+                break
+            role = str(msg.get("role")).strip().lower()
+            content = str(msg.get("content") or "")
+            if role in ("system", "user"):
+                prompts.append(f"[{role}] {content}" if role == "system" else content)
+            elif role == "assistant":
+                replies.append(content)
+        prompt_txt = "\n".join(p for p in prompts if p)
+        chosen_txt = "\n".join(r for r in replies if r)
+        if not valid_msgs or not msgs:
+            err = "SFT messages must be non-empty list of {role, content} objects"
+        elif not prompt_txt.strip() or not chosen_txt.strip():
+            err = "SFT record must include user prompt and assistant response"
+    elif "instruction" in obj or "output" in obj:
+        rec_type = "sft_alpaca"
+        instr = str(obj.get("instruction") or "")
+        inp = str(obj.get("input") or "")
+        prompt_txt = f"{instr}\n{inp}".strip() if inp else instr
+        chosen_txt = str(obj.get("output") or "")
 def compute_stats():
     with _LOCK:
         with storage.file_lock(_feedback_path()):
