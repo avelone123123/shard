@@ -3,9 +3,66 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Shard // On-Device Neural Engine</title>
+<title>SHARD // On-Device Neural Workstation</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230F766E'/%3E%3Cpolygon points='12,4 19,8 19,16 12,20 5,16 5,8' fill='none' stroke='%23ffffff' stroke-width='1.8'/%3E%3Cline x1='12' y1='4' x2='12' y2='20' stroke='%23ffffff' stroke-width='1.4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap">
 <style>
-:root{--bg:#0c0e14;--surface:#131620;--surface-elevated:#191d29;--border:#212736;--border-hover:#31394d;--accent:#2563eb;--accent-hover:#1d4ed8;--emerald:#10b981;--emerald-bg:rgba(16,185,129,0.08);--amber:#d97706;--amber-bg:rgba(217,119,6,0.08);--steel:#64748b;--steel-bg:rgba(100,116,139,0.08);--text:#f8fafc;--text-muted:#8892a4;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+:root{
+--bg:#16181D;
+--surface:#1D2129;
+--surface-chrome:#1A1D24;
+--surface-elevated:#232730;
+--surface-sunken:#181B21;
+--surface-hover:#2A303C;
+--surface-terminal:#101318;
+--text:#EAECEF;
+--text-secondary:#B4BCC8;
+--text-muted:#8E96A4;
+--text-terminal:#DCE5E3;
+--accent:#0F766E;
+--accent-hover:#0D655E;
+--accent-active:#115E59;
+--accent-text:#39B8A8;
+--accent-soft:#183233;
+--accent-soft-text:#5EEAD4;
+--accent-border:#265E5B;
+--border:#2E3440;
+--border-strong:#3C4352;
+--bevel-light:rgba(255,255,255,0.04);
+--bevel-shadow:rgba(0,0,0,0.28);
+--success:#52D185;
+--success-bg:#172920;
+--success-border:#27573C;
+--warning:#F0B347;
+--warning-bg:#2A2215;
+--warning-border:#5B4520;
+--danger:#F27474;
+--danger-bg:#2C1A1D;
+--danger-border:#612C33;
+--info:#66B8CE;
+--info-bg:#16272E;
+--info-border:#274D5C;
+--font-sans:'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+--font-mono:'JetBrains Mono','Cascadia Mono',Consolas,'Courier New',monospace;
+--font-display:'Space Grotesk','Inter',sans-serif;
+--fs-xs:12px;
+--fs-sm:14px;
+--fs-md:16px;
+--fs-lg:20px;
+--fs-xl:24px;
+--fs-2xl:32px;
+--sp-1:4px;
+--sp-2:8px;
+--sp-3:12px;
+--sp-4:16px;
+--sp-6:24px;
+--sp-8:32px;
+--radius-sm:6px;
+--radius-md:8px;
+--radius-lg:10px;
+}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;}
 header{background:#0c0e14;border-bottom:1px solid var(--border);padding:14px 28px;display:flex;justify-content:space-between;align-items:center;}
