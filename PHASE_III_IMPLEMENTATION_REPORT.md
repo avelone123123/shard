@@ -36,3 +36,16 @@ def _verify_server_model_ready() -> tuple[bool, str]:
     if not engine or not engine.is_model_loaded():
         return False, "No model is currently loaded in engine memory"
     try:
+        sample = engine.generate_sync("ping", max_tokens=1)
+        if not sample:
+            return False, "Inference health check failed: empty generation response"
+    except Exception as exc:
+        return False, f"Inference health check failed: {str(exc)}"
+    return True, ""
+```
+
+### 2.3 Guarded Endpoints
+The guard was integrated into four critical routes:
+- `POST /api/server/create`: Returns `HTTP 409 Conflict` (`MODEL_NOT_READY`) if `engine.is_model_loaded()` is false or `generate_sync` fails.
+- `POST /api/net/publish`: Rejects public relay publication attempts if the host model is not loaded and verified.
+- `POST /api/lan/create`: Rejects LAN compute pool creation without an active model.
