@@ -1476,6 +1476,31 @@ def api_training_soup_install_status(req: Request):
         return denied
     return {"status": "ok", "installer": soup_adapter.get_soup_install_status(), "soup": soup_adapter.detect_soup(probe_deps=False)}
 @app.post("/api/training/soup/install/cancel")
+def api_training_soup_install_cancel(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return {"status": "ok", "installer": soup_adapter.cancel_soup_install()}
+@app.get("/api/training/servers")
+def api_training_servers(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    servers = []
+    host_st = _net_mgr().host_status()
+    lan_st = LAN.status(include_secrets=False)
+    active_m = engine_instance.active_model_id or engine_instance.current_loaded_id
+    if LAN.is_server() or host_st.get("published") or engine_instance.is_loaded():
+        srv_name = LAN.name() or host_st.get("display_name") or "Local Server"
+        hf_map = model_browser.map_gguf_to_hf_base(active_m) if active_m else {}
+        suggested_hf = hf_map.get("suggested_hf_base_repo")
+        trainable = bool(suggested_hf or (active_m and not str(active_m).lower().endswith(".gguf")))
+        incompat_reason = None
+        if not trainable and active_m:
+            incompat_reason = "GGUF quantized weights cannot be trained directly with SOUP. A corresponding Hugging Face 16-bit PyTorch base repository is required."
+        servers.append({
+            "id": "srv_primary",
+            "name": srv_name,
 @app.get("/api/training/privacy")
 def api_training_privacy_get(req: Request):
     denied = _deny_non_owner(req)
