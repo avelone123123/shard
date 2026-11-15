@@ -108,3 +108,16 @@ Once this branch is merged into `master`, the repository owner can trigger the a
 1. **Configure Trusted Publisher on PyPI** (One-time setup):
    - Go to [https://pypi.org/manage/account/publishing/](https://pypi.org/manage/account/publishing/)
    - Add a "GitHub publisher":
+     - PyPI Project Name: `shard-engine`
+     - Owner: `avelone123123`
+     - Repository name: `shard`
+     - Workflow name: `publish.yml`
+     - Environment name: (leave blank or `pypi`)
+2. **Create GitHub Release**:
+   - Go to `https://github.com/avelone123123/shard/releases/new`
+   - Tag: `v1.8.0`
+   - Release Title: `SHARD v1.8.0: Unified AI Hosting, Private Sessions & Distributed Compute`
+   - Click **Publish release**.
+3. **Automated Pipeline**:
+   - GitHub Actions executes `publish.yml`, builds `dist/*`, and securely pushes the release to PyPI.
+   - Within 2 minutes, `pip install shard-engine` becomes globally available.
