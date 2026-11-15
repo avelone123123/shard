@@ -138,3 +138,16 @@ Both files remain 100% byte-for-byte identical:
 
 ---
 
+## 8. Summary of Files Changed
+
+| File | Type | Responsibility |
+| :--- | :--- | :--- |
+| `shard_engine/server.py` | Modified | Model-first verification, private chat endpoints, compute consent endpoints, SOUP cancellation, training servers route. |
+| `shard_engine/lan.py` | Modified | Canonical compute roles (`OWNER`, `COMPUTE_WORKER`, `INFERENCE_CLIENT`), consent state storage, quota enforcement. |
+| `shard_engine/soup_adapter.py` | Modified | Streaming pip stdout parser (`\r` and `\n`), `cancel_soup_install()`, `CANCELLED` lifecycle state. |
+| `dashboard.html` | Modified | Modern Slate UI with model-first banner, private chat management, compute quotas, dynamic SOUP installer. |
+| `shard_engine/dashboard.html` | Modified | Packaged copy maintained at 100% byte-parity with root dashboard. |
+| `tests_phase_iii_unified_hosting.py` | Added | 5 comprehensive unit and integration tests covering all Phase III invariants. |
+| `.github/workflows/publish.yml` | Added | GitHub Actions workflow for PyPI Trusted Publishing via OIDC. |
+| `README.md`, `README.ru.md`, `README.kz.md` | Modified | Updated installation guides (PyPI + Git) and Phase III feature matrix. |
+| `PHASE_III_ARCHITECTURE_AUDIT.md` | Added | Full technical audit of existing routes, engines, adapters, network strategies, and PyPI status. |
