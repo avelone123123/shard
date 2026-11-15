@@ -1239,6 +1239,17 @@ class LanManager:
             try:
                 quota["max_threads"] = max(1, min(128, int(max_threads)))
             except Exception:
+                pass
+        with self._lock:
+            self._state["compute_quota"] = quota
+            self._save()
+        if self.mode() == "member":
+            try:
+                self._start_worker()
+                with self._lock:
+                    self._state["mode"] = "worker"
+                    self._save()
+            except Exception as e:
     def _choose_worker_port(self):
         env_p = os.environ.get("SHARD_RPC_PORT")
         preferred = []
