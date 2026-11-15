@@ -1228,6 +1228,17 @@ class LanManager:
             return self.revoke_compute_consent()
         exe = find_rpc_server()
         if not exe:
+            return {"status": "error", "message": "ggml-rpc-server binary not found on local machine. Install llama.cpp or GGUF runtime to share compute."}
+        quota = {}
+        if max_vram_gb is not None:
+            try:
+                quota["max_vram_gb"] = max(0.5, float(max_vram_gb))
+            except Exception:
+                pass
+        if max_threads is not None:
+            try:
+                quota["max_threads"] = max(1, min(128, int(max_threads)))
+            except Exception:
     def _choose_worker_port(self):
         env_p = os.environ.get("SHARD_RPC_PORT")
         preferred = []
