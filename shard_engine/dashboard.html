@@ -3653,6 +3653,7 @@ async function trnRefresh(probeSoup) {
             document.getElementById('trnAuditList').innerText = (ad.events || []).map(ev => new Date(ev.ts * 1000).toLocaleTimeString() + '  ' + ev.event + '  ' + JSON.stringify(ev.details)).join('\n') || 'Нет событий';
         }
         trnLoadFeedback(trnCurrentFilter);
+        trnLoadTrainingServers();
     } catch(e) {}
 }
 const _SOUP_STATE_LABELS = {
