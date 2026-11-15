@@ -2317,19 +2317,25 @@ async def api_server_chat_send(req: Request):
     target_chat["messages"].append({
         "id": f"m-{uuid.uuid4().hex[:8]}",
         "role": "user",
-                "updated_at": now,
-                "messages": [],
-            }
-            chats.append(target_chat)
-            if len(chats) > 30:
-                ws["shared_chats"] = chats[-30:]
-        target_chat["messages"].append({
-            "id": f"m-{uuid.uuid4().hex[:8]}",
-            "role": "user",
-            "author": author,
-            "content": prompt,
-            "ts": now,
-        })
+        "author": actor_name or "Вы",
+        "content": prompt,
+        "ts": now,
+    })
+    history_msgs = [{"role": m["role"], "content": m["content"]} for m in target_chat["messages"][-12:] if m.get("role") in ("user", "assistant")]
+    if not engine_instance.is_loaded():
+        return JSONResponse(status_code=503, content={"status": "error", "message": "Модель не загружена на сервере"})
+    try:
+        res = engine_instance.generate_sync(history_msgs, max_tokens=max_tokens, temperature=temperature)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": f"Ошибка генерации модели: {str(e)}"})
+    reply_text = str(res.get("content") or "").strip()
+    reasoning = str(res.get("reasoning_content") or "").strip()
+    target_chat["messages"].append({
+        "id": f"m-{uuid.uuid4().hex[:8]}",
+        "role": "assistant",
+        "author": engine_instance.active_model_id or "AI Host",
+        "content": reply_text or "(пустой ответ модели)",
+        "reasoning_content": reasoning or None,
         history_msgs = [{"role": m["role"], "content": m["content"]} for m in target_chat["messages"][-12:] if m.get("role") in ("user", "assistant")]
         _save_workspace_unlocked(ws)
     result = engine_instance.generate_sync(history_msgs, max_tokens=max_tokens, temperature=temperature)
