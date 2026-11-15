@@ -100,3 +100,15 @@ Previously, the SOUP installation adapter assigned a static `pct = 55` during pa
 - Processes character streams delimited by `\r` (carriage return used by `pip` progress bars) and `\n`.
 - Parses download percentage (`(\d+(?:\.\d+)?)%`), current package names (`Collecting\s+([a-zA-Z0-9_\-\.]+)`), and byte counts (`([\d\.]+\s*[kMG]B)`).
 - Updates lifecycle telemetry synchronously without blocking the HTTP worker thread.
+
+### 5.2 Process-Tree Cancellation
+- Global process references `_CURRENT_SOUP_PROC` and `_SOUP_CANCEL_REQUESTED` track active installation jobs.
+- `cancel_soup_install()` terminates the child process and its sub-processes using `taskkill /F /T` on Windows or `SIGTERM`/`SIGKILL` on POSIX systems.
+- Lifecycle status transitions immediately to `"CANCELLED"` with `is_installing = False`.
+- Endpoint `POST /api/training/soup/install/cancel` exposes cancellation directly to the web dashboard.
+
+---
+
+## 6. Training Server & Base Model Auto-Resolution
+
+### 6.1 Server Resolution Endpoint
