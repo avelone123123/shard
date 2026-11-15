@@ -112,3 +112,16 @@ Previously, the SOUP installation adapter assigned a static `pct = 55` during pa
 ## 6. Training Server & Base Model Auto-Resolution
 
 ### 6.1 Server Resolution Endpoint
+`GET /api/training/servers` queries active server instances and inspects the currently loaded engine model.
+- If a Hugging Face model is loaded (e.g., `Qwen/Qwen2.5-Coder-7B-Instruct`), it resolves the base model identifier for SOUP fine-tuning.
+- If a GGUF model is loaded, the endpoint returns `training_supported: false` with the warning:
+  > *"Active server is running quantized GGUF weights. Parameter-efficient fine-tuning (LoRA/QLoRA) requires full Hugging Face SafeTensors weights."*
+
+### 6.2 Frontend Integration
+In the Training tab of `dashboard.html`, a "Сервер для обучения" selector was introduced. When selected, the base model input field is automatically populated, and incompatible GGUF models display a prominent warning banner preventing invalid fine-tuning attempts.
+
+---
+
+## 7. Dashboard Modern Slate UI & Byte-Parity
+
+### 7.1 Interface Enhancements
