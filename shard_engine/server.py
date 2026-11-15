@@ -2261,6 +2261,7 @@ def api_server_workspace(req: Request):
             "is_loaded": eng_st.get("is_loaded"),
             "lifecycle_state": eng_st.get("lifecycle_state"),
         },
+        "private_session_count": _get_active_private_sessions_count(),
         "shared_chats": ws.get("shared_chats", [])[-30:],
         "community_messages": ws.get("community_messages", [])[-100:],
         "model_issues": ws.get("model_issues", [])[-100:],
