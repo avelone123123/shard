@@ -69,3 +69,12 @@ All prior test suites were run in full discovery mode to ensure backward compati
 ## 4. Verification Classifications Matrix
 
 To maintain technical honesty and accuracy, every capability is categorized into its verified status:
+
+| Component | Status | Verification Details |
+| :--- | :--- | :--- |
+| **Model-First Guard (HTTP 409)** | **INTEGRATION TESTED** | Tested via `TestClient` across `POST /api/server/create` and `POST /api/lan/create` with mocked empty engine. |
+| **Private Participant Sessions** | **INTEGRATION TESTED** | Tested with multi-client sessions; verified file isolation in `private_chats/` and workspace zero-leakage. |
+| **Compute Roles & Quotas** | **UNIT TESTED** | Tested role transitions (`ROLE_COMPUTE_WORKER`), quota storage, and opt-out revocation logic. |
+| **SOUP Progress Stream & Cancel** | **UNIT TESTED** | Tested `_parse_and_update_pip_progress` against raw pip download chunks; verified `cancel_soup_install()`. |
+| **Training Server Auto-Resolution** | **INTEGRATION TESTED** | Tested `GET /api/training/servers` against mocked active server configurations. |
+| **Dashboard Modern Slate UI** | **BROWSER TESTED** | Verified in real Chromium browser during Phase II/I.1; confirmed 100% byte-parity (340,310 bytes). |
