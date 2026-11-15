@@ -2217,11 +2217,6 @@ async def api_server_create(req: Request):
             return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
     else:
         host_st = _net_mgr().host_status()
-    if load_now and model and not engine_instance.is_model_active(model):
-        try:
-            load_info = engine_instance.load_model(model)
-        except Exception as e:
-            load_info = {"status": "error", "message": str(e)}
     return {
         "status": "ok",
         "lan": lan_st or LAN.status(include_secrets=True),
@@ -2232,7 +2227,7 @@ async def api_server_create(req: Request):
     }
 @app.get("/api/server/workspace")
 def api_server_workspace(req: Request):
-    ok, role, actor_name = _resolve_server_actor(req)
+    ok, role, actor_name, pid = _resolve_server_participant(req)
     if not ok:
         return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация владельца или участника сервера"})
     is_owner = role == "owner"
