@@ -89,3 +89,14 @@ pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git
 > 
 > - **LAN VRAM Pooling**: Connect machines on your local subnet to split and run GGUF / PyTorch layers over `llama.cpp` RPC and UDP discovery.
 > - **Pre-Flight Fit Advisor (`shard fit`)**: Calculates whether a Hugging Face or GGUF model will fit on your single GPU, hybrid CPU+RAM, or pooled cluster *before* downloading gigabytes of weights.
+> - **Unified Model-First Hosting**: Prevents unbacked "ghost" servers by requiring a verified loaded model in memory (HTTP 409 if empty).
+> - **Private Participant Sessions**: Host a server for your team where each user gets an isolated, private chat session with zero prompt leakage.
+> - **Compute Quotas**: Set exact VRAM (GB) and CPU thread caps when contributing a machine to the pool.
+> - **Native SIMD Kernels**: Handcrafted MASM AVX2 assembly and C++20 routines for RMSNorm, RoPE, and MatMul.
+> - **Web Dashboard**: Zero-dependency dark Modern Slate UI at `http://localhost:8000`.
+> 
+> GitHub: https://github.com/avelone123123/shard  
+> Website: https://avelone123123.github.io/shard/  
+> 
+> We’d love your feedback, bug reports, and hardware benchmark numbers!
+
