@@ -41,3 +41,18 @@ This audit evaluates the reality versus advertising of SHARD subsystems, identif
 | | GGUFBackend         | |  | | NetworkManager     | |  | | training.py        | |
 | | (llama.cpp server)  | |  | | Blind Relay / P2P  | |  | | Dataset Manifests  | |
 | +---------------------+ |  | +--------------------+ |  | +--------------------+ |
+| +---------------------+ |  | +--------------------+ |  | +--------------------+ |
+| | Native MASM Core    | |  | | HostTunnelAgent    | |  | | feedback.py        | |
+| | AVX2 Kernels        | |  | | Encrypted WS       | |  | | Redaction Pipeline | |
+| +---------------------+ |  | +--------------------+ |  | +--------------------+ |
++-------------------------+  +------------------------+  +------------------------+
+```
+
+---
+
+## 2. Deep Dive Into Core Subsystems
+
+### 2.1 Model Management & Inference (`engine.py`, `gguf_backend.py`, `hf_hub.py`, `model_browser.py`)
+- **Implemented & Verified**:
+  - GGUF discovery in local directories and Hugging Face Hub cache.
+  - Pre-flight fit calculation (`fit.py`) evaluating VRAM, system RAM, context ceiling, and quantization tiers.
