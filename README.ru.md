@@ -146,7 +146,8 @@ SHARD объединяет свободные ресурсы GPU и RAM неск
 | **API и стриминг** | **Совместимость с OpenAI и Anthropic API** | [`server.py`](server.py) | Поддержка `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/messages` (протокол Anthropic), `/api/generate` и `/api/generate/stream` (SSE) с защитой API-ключами (`shard key`). |
 | **Веб-управление** | **Автономная панель управления (`dashboard.html`)** | [`dashboard.html`](dashboard.html) | Веб-интерфейс на `http://localhost:8000` с мониторингом VRAM/RAM, поиском и загрузкой моделей с Hugging Face, интерактивным чатом, управлением LAN-пулом и готовыми конфигами для IDE. |
 | **Контейнеризация** | **Стек Docker и NVIDIA GPU Compose** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Готовая конфигурация контейнера с постоянными томами (`shard_models_volume`, `shard_data_volume`) и пробросом GPU NVIDIA. |
-| **Совместное обучение** | **Опциональный конвейер дообучения (SOUP)** | [`soup_adapter.py`](shard_engine/soup_adapter.py), [`feedback.py`](shard_engine/feedback.py), [`training.py`](shard_engine/training.py), [`docs/COLLABORATIVE_TRAINING.ru.md`](docs/COLLABORATIVE_TRAINING.ru.md) | Сбор отзывов с явным согласием, очистка секретов/ПДн, снимки SFT/DPO, запуск обучения через SOUP, оценка Baseline vs Candidate, версионирование, деплой и откат. |
+| **Совместное обучение** | **Опциональный конвейер дообучения (SOUP)** | [`soup_adapter.py`](shard_engine/soup_adapter.py), [`feedback.py`](shard_engine/feedback.py), [`training.py`](shard_engine/training.py), [`docs/COLLABORATIVE_TRAINING.ru.md`](docs/COLLABORATIVE_TRAINING.ru.md) | Сбор отзывов с явным согласием, очистка секретов/ПДн, снимки SFT/DPO, динамический запуск и отмена обучения через SOUP, оценка Baseline vs Candidate, версионирование, деплой и откат. |
+| **Единый хостинг и приватность** | **Model-First хостинг и изоляция сессий** | [`server.py`](shard_engine/server.py), [`lan.py`](shard_engine/lan.py) | Обязательная проверка загрузки модели перед запуском/публикацией сервера (HTTP 409 `MODEL_NOT_READY`), гарантия приватности сессий участников без утечек в общий воркспейс и квоты VRAM/CPU для воркеров. |
 
 ### Экспериментальные возможности
 - **Межсетевой RPC-шардинг слоёв `llama.cpp` (`gguf_backend.py`, `lan.py`):** Распределённое выполнение слоёв по TCP/RPC между разными видеокартами в LAN показывает максимальную скорость в проводных сетях Gigabit / 2.5GbE Ethernet; при работе по Wi-Fi возможны задержки передачи тензоров.
@@ -171,13 +172,17 @@ SHARD объединяет свободные ресурсы GPU и RAM неск
 #### Вариант 1: Установка из PyPI (рекомендуется)
 Установите SHARD напрямую из официального каталога PyPI:
 ```bash
+# Базовая установка: CLI, сервер FastAPI, веб-панель, GGUF (llama.cpp) + LAN-кластер
 pip install shard-engine
 
+# Полная установка: добавляет PyTorch, Hugging Face transformers и safetensors
 pip install "shard-engine[full]"
 ```
 Для установки последней dev-версии напрямую из GitHub:
 ```bash
+# Базовая установка из GitHub
 pip install "git+https://github.com/avelone123123/shard.git"
+
 pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
 
