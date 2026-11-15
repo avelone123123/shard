@@ -34,3 +34,16 @@ pip install "shard-engine[full]"
 
 ---
 
+## 2. Packaging Artifacts & Distribution Inspection
+
+Both source distribution (`sdist`) and pure-Python wheel (`bdist_wheel`) were built using `python -m build` and validated using `twine check`.
+
+### 2.1 Wheel Content Audit
+Inspection of `dist/shard_engine-1.8.0-py3-none-any.whl` confirms the presence of all required runtime assets:
+
+| Archive Path | Uncompressed Size | Verification |
+| :--- | :--- | :--- |
+| `shard_engine/__init__.py` | 58 bytes | Declares `__version__ = "1.8.0"` |
+| `shard_engine/cli.py` | 14,812 bytes | Implements CLI subcommands (`start`, `stop`, `fit`, `lan`, etc.) |
+| `shard_engine/server.py` | 89,451 bytes | Core FastAPI application & API endpoints |
+| `shard_engine/dashboard.html` | 340,310 bytes | Packaged Modern Slate Web Dashboard |
