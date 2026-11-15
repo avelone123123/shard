@@ -603,9 +603,20 @@ def _run_install_worker(action, custom_python=None, include_train=True):
             if not ch:
                 if buf:
                     _parse_and_update_pip_progress("".join(buf))
-            if s:
-                _set_install_state(line=s)
+                break
+            if ch in ("\r", "\n"):
+                if buf:
+                    _parse_and_update_pip_progress("".join(buf))
+                    buf = []
+            else:
+                buf.append(ch)
+                if len(buf) > 512:
+                    _parse_and_update_pip_progress("".join(buf))
+                    buf = []
         rc = proc.wait(timeout=1200)
+        _CURRENT_SOUP_PROC = None
+        if _SOUP_CANCEL_REQUESTED:
+            return
         if rc != 0:
             raise RuntimeError(f"pip install {pkg_spec} exited with code {rc}")
         _set_install_state(lifecycle_state="VERIFYING", stage="Проверка SOUP CLI, Python и зависимостей", pct=90, line="Verifying installed soup-cli, CLI version command, and module imports...")
