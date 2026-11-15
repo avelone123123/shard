@@ -17,6 +17,15 @@ from . import paths as _paths
 from . import storage as _storage
 from .fit import RAM_RESERVE_MB, VRAM_RESERVE_MB
 _CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
+def _safe_print(msg):
+    try:
+        print(msg)
+    except (UnicodeEncodeError, Exception):
+        try:
+            enc = getattr(sys.stdout, "encoding", None) or "ascii"
+            print(str(msg).encode(enc, errors="replace").decode(enc, errors="replace"))
+        except Exception:
+            pass
 ROLE_OWNER = "server"
 ROLE_COMPUTE_WORKER = "worker"
 ROLE_INFERENCE_CLIENT = "member"
@@ -1386,7 +1395,7 @@ class LanManager:
             self._rpc_applied = None
             self._save()
         if not quiet and mode != "off":
-            print(f"[lan] сеть отключена (был режим {mode})")
+            _safe_print(f"[lan] сеть отключена (был режим {mode})")
         return {"status": "ok", "mode": "off"}
     def _resume(self):
         mode = self.mode()
@@ -1396,7 +1405,7 @@ class LanManager:
             try:
                 self._start_worker()
             except Exception as e:
-                print(f"[lan] worker не восстановлен: {str(e)[:120]}")
+                _safe_print(f"[lan] worker не восстановлен: {str(e)[:120]}")
                 with self._lock:
                     self._state["mode"] = "member"
                     self._state["rpc_port"] = None
@@ -1522,7 +1531,7 @@ class LanManager:
                 self._hb_state = "connected"
                 wait_s = HEARTBEAT_INTERVAL_S
             elif status == "rejected":
-                print("[lan] мастер отклонил токен или отключил сеть — выхожу из сети")
+                _safe_print("[lan] мастер отклонил токен или отключил сеть — выхожу из сети")
                 self.off(quiet=True)
                 break
             else:

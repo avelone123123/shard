@@ -1334,6 +1334,7 @@ macOS
 </div>
 </div>
 <div style="font-size:11px;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Ваши сообщения и ответы модели изолированы и видны только вам.</div>
+<div id="srvChatOutdatedWarn" class="v-alert-warn" style="display:none;margin-bottom:10px;padding:10px 12px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fca5a5;border-radius:var(--radius-sm);font-size:12px;"></div>
 <div id="srvSharedChatList" class="v-chat-well">Загрузка диалогов...</div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;">
 <input id="srvSharedChatInput" class="trn-input" placeholder="Задайте вопрос модели сервера..." style="flex:1;" onkeydown="if(event.key==='Enter')srvSendSharedChat()">
@@ -4317,9 +4318,32 @@ async function srvCreateUnified() {
     }
 }
 let srvCurrentChatId = '';
+let srvBackendOutdated = false;
 async function srvLoadPrivateChats() {
     try {
         const res = await fetch('/api/server/chats', {headers: getAuthHeaders()});
+        const sharedBox = document.getElementById('srvSharedChatList');
+        const inp = document.getElementById('srvSharedChatInput');
+        const btn = document.getElementById('srvSharedChatBtn');
+        const warnBanner = document.getElementById('srvChatOutdatedWarn');
+        if (res.status === 404) {
+            srvBackendOutdated = true;
+            if (warnBanner) {
+                warnBanner.style.display = 'block';
+                warnBanner.innerHTML = '<strong>Несовместимость API:</strong> Backend устарел. Перезапустите SHARD, чтобы загрузить актуальный API.';
+            }
+            if (sharedBox) {
+                sharedBox.innerHTML = '<div style="color:#f87171;text-align:center;padding:24px;font-size:12.5px;"><strong>Несовместимость версии API:</strong><br>Backend устарел. Перезапустите SHARD, чтобы загрузить актуальный API.</div>';
+            }
+            if (inp) inp.disabled = true;
+            if (btn) btn.disabled = true;
+            return;
+        } else {
+            srvBackendOutdated = false;
+            if (warnBanner) warnBanner.style.display = 'none';
+            if (inp) inp.disabled = false;
+            if (btn) btn.disabled = false;
+        }
         if (!res.ok) return;
         const d = await res.json();
         const chats = d.chats || [];
@@ -4335,7 +4359,6 @@ async function srvLoadPrivateChats() {
             if (sel) sel.value = srvCurrentChatId;
             await srvFetchChatDetails(srvCurrentChatId);
         } else {
-            const sharedBox = document.getElementById('srvSharedChatList');
             if (sharedBox) sharedBox.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:24px;">Нет сообщений в этом диалоге. Задайте вопрос модели сервера.</div>';
         }
     } catch(e) {}
@@ -4366,11 +4389,24 @@ function srvSwitchChat(val) {
     if (val) srvFetchChatDetails(val);
     else srvNewChat();
 }
-function srvNewChat() {
-    srvCurrentChatId = '';
+async function srvNewChat() {
     const sel = document.getElementById('srvPrivateChatSelect');
-    if (sel) sel.value = '';
     const sharedBox = document.getElementById('srvSharedChatList');
+    try {
+        const res = await fetch('/api/server/chats', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({create_only: true, title: 'Диалог ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})})
+        });
+        if (res.ok) {
+            const d = await res.json();
+            if (d.chat_id) srvCurrentChatId = d.chat_id;
+            await srvLoadPrivateChats();
+            return;
+        }
+    } catch(e) {}
+    srvCurrentChatId = '';
+    if (sel) sel.value = '';
     if (sharedBox) sharedBox.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:24px;">Новый приватный диалог. Введите запрос ниже.</div>';
 }
 async function srvDeleteCurrentChat() {
@@ -4392,6 +4428,10 @@ async function srvDeleteCurrentChat() {
 async function srvSendSharedChat() {
     const inp = document.getElementById('srvSharedChatInput');
     const btn = document.getElementById('srvSharedChatBtn');
+    if (srvBackendOutdated) {
+        showToast('Backend устарел', 'Backend устарел. Перезапустите SHARD, чтобы загрузить актуальный API.');
+        return;
+    }
     const text = (inp && inp.value || '').trim();
     if (!text) return;
     inp.value = '';
@@ -4402,6 +4442,15 @@ async function srvSendSharedChat() {
             headers: getAuthHeaders({'Content-Type': 'application/json'}),
             body: JSON.stringify({prompt: text, chat_id: srvCurrentChatId})
         });
+        if (res.status === 404) {
+            srvBackendOutdated = true;
+            showToast('Backend устарел', 'Backend устарел. Перезапустите SHARD, чтобы загрузить актуальный API.');
+            const sharedBox = document.getElementById('srvSharedChatList');
+            if (sharedBox) {
+                sharedBox.innerHTML = '<div style="color:#f87171;text-align:center;padding:24px;font-size:12.5px;">Backend устарел. Перезапустите SHARD, чтобы загрузить актуальный API.</div>';
+            }
+            return;
+        }
         const d = await res.json();
         if (!res.ok) {
             showToast('Ошибка чата', d.message || 'Модель не готова или нет доступа');
@@ -4412,7 +4461,7 @@ async function srvSendSharedChat() {
     } catch(e) {
         showToast('Ошибка', 'Не удалось отправить запрос: ' + e.message);
     } finally {
-        if (btn) btn.disabled = false;
+        if (btn && !srvBackendOutdated) btn.disabled = false;
     }
 }
 async function lanApplyComputeQuota(optIn) {

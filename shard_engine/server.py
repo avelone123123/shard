@@ -2108,6 +2108,12 @@ def _load_workspace_unlocked():
 def _save_workspace_unlocked(data):
     storage.atomic_write_json(_workspace_file(), data, indent=2, fsync=True, backup=True, restrict=True)
 def _resolve_server_participant(req):
+    session_hdr = (req.headers.get("x-participant-id") or req.headers.get("x-session-token") or "").strip()
+    if session_hdr:
+        clean_sid = hashlib.sha256(session_hdr.encode("utf-8")).hexdigest()[:16]
+        role = "owner" if _is_owner_request(req) else "member"
+        name = "Owner" if role == "owner" else f"User_{clean_sid[:6]}"
+        return True, role, name, f"p_{clean_sid}"
     if _is_owner_request(req):
         return True, "owner", LAN.name() or "Owner", "owner"
     if net_tunnel.is_tunnel_request(req):
@@ -2289,14 +2295,30 @@ async def api_server_chat_send(req: Request):
         data = await req.json()
     except Exception:
         return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    create_only = bool(data.get("create_only"))
+    title_val = str(data.get("title") or "").strip()[:56]
     prompt = str(data.get("prompt") or "").strip()[:8000]
+    now = time.time()
+    chats = _load_participant_chats(pid)
+    if create_only or (not prompt and title_val):
+        chat_id = f"pchat-{uuid.uuid4().hex[:10]}"
+        new_chat = {
+            "id": chat_id,
+            "title": title_val or "Новый диалог",
+            "created_at": now,
+            "updated_at": now,
+            "messages": [],
+        }
+        chats.append(new_chat)
+        if len(chats) > 50:
+            chats = chats[-50:]
+        _save_participant_chats(pid, chats)
+        return {"status": "ok", "chat_id": chat_id, "chat": new_chat}
     if not prompt:
         return JSONResponse(status_code=400, content={"status": "error", "message": "Пустой запрос"})
     chat_id = str(data.get("chat_id") or "").strip()
     max_tokens = min(2048, max(32, int(data.get("max_tokens") or 512)))
     temperature = max(0.0, min(2.0, float(data.get("temperature") or 0.7)))
-    now = time.time()
-    chats = _load_participant_chats(pid)
     target_chat = None
     for ch in chats:
         if ch.get("id") == chat_id:
