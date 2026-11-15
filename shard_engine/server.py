@@ -24,6 +24,7 @@ from . import net_strategy
 from . import net_tunnel
 from . import net_wireguard
 from . import paths
+from . import session_registry
 from . import settings
 from . import soup_adapter
 from . import storage
@@ -2108,35 +2109,87 @@ def _load_workspace_unlocked():
 def _save_workspace_unlocked(data):
     storage.atomic_write_json(_workspace_file(), data, indent=2, fsync=True, backup=True, restrict=True)
 def _resolve_server_participant(req):
-    session_hdr = (req.headers.get("x-participant-id") or req.headers.get("x-session-token") or "").strip()
-    if session_hdr:
-        clean_sid = hashlib.sha256(session_hdr.encode("utf-8")).hexdigest()[:16]
-        role = "owner" if _is_owner_request(req) else "member"
-        name = "Owner" if role == "owner" else f"User_{clean_sid[:6]}"
-        return True, role, name, f"p_{clean_sid}"
+    session_tok = (req.headers.get("x-session-token") or "").strip()
+    if session_tok:
+        valid, rec, _ = session_registry.validate_session(session_tok)
+        if valid and rec:
+            return True, rec.get("role") or "member", rec.get("name") or "Участник", rec.get("participant_id")
+        return False, None, None, None
+    bearer = _extract_bearer(req)
+    if bearer:
+        valid, rec, _ = session_registry.validate_session(bearer)
+        if valid and rec:
+            return True, rec.get("role") or "member", rec.get("name") or "Участник", rec.get("participant_id")
+        if _token_in_pool(bearer, LAN.tokens() | set(load_keys())):
+            st = LAN.status(include_secrets=False)
+            ip = req.client.host if req.client else "unknown"
+            clean_tok = hashlib.sha256(f"{bearer}_{ip}".encode("utf-8")).hexdigest()[:16]
+            for m in st.get("members") or []:
+                if m.get("ip") == ip:
+                    return True, m.get("role") or "member", m.get("name") or "Участник", f"member_{clean_tok}"
+            return True, "member", "Участник", f"member_{clean_tok}"
     if _is_owner_request(req):
         return True, "owner", LAN.name() or "Owner", "owner"
     if net_tunnel.is_tunnel_request(req):
         pid = net_tunnel.tunnel_peer_id(req) or "peer"
         clean_pid = hashlib.sha256(pid.encode("utf-8")).hexdigest()[:16]
         return True, "tunnel_peer", f"peer:{pid[:10]}", f"peer_{clean_pid}"
-    tok = _extract_bearer(req)
-    if tok and _token_in_pool(tok, LAN.tokens() | set(load_keys())):
-        st = LAN.status(include_secrets=False)
-        ip = req.client.host if req.client else "unknown"
-        clean_tok = hashlib.sha256(f"{tok}_{ip}".encode("utf-8")).hexdigest()[:16]
-        for m in st.get("members") or []:
-            if m.get("ip") == ip:
-                return True, m.get("role") or "member", m.get("name") or "Участник", f"member_{clean_tok}"
-        return True, "member", "Участник", f"member_{clean_tok}"
-    if LAN.is_open():
-        ip = req.client.host if req.client else "open_guest"
-        clean_ip = hashlib.sha256(f"open_{ip}".encode("utf-8")).hexdigest()[:16]
-        return True, "member", f"LAN-{ip}", f"open_{clean_ip}"
     return False, None, None, None
 def _resolve_server_actor(req):
     ok, role, name, _pid = _resolve_server_participant(req)
     return ok, role, name
+@app.post("/api/server/session")
+async def api_server_session_issue(req: Request):
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    name = str(data.get("name") or "").strip()[:48]
+    pairing_tok = str(data.get("pairing_token") or req.headers.get("x-pairing-token") or _extract_bearer(req) or "").strip()
+    is_owner = _is_owner_request(req)
+    is_tunnel = net_tunnel.is_tunnel_request(req)
+    is_lan_token = bool(pairing_tok and _token_in_pool(pairing_tok, LAN.tokens() | set(load_keys())))
+    is_open = LAN.is_open()
+    if not (is_owner or is_tunnel or is_lan_token or is_open):
+        return JSONResponse(status_code=401, content={"status": "error", "code": "PAIRING_REQUIRED", "message": "Требуется код сопряжения LAN или права владельца"})
+    if is_owner:
+        role = "owner"
+        actor_name = name or LAN.name() or "Owner"
+        method = "owner"
+    elif is_tunnel:
+        role = "tunnel_peer"
+        pid = net_tunnel.tunnel_peer_id(req) or "peer"
+        actor_name = name or f"peer:{pid[:8]}"
+        method = "tunnel"
+    elif is_lan_token:
+        role = "member"
+        actor_name = name or "Участник"
+        method = "lan_pairing"
+    else:
+        role = "member"
+        actor_name = name or f"Гость_{secrets.token_hex(2)}"
+        method = "open_access"
+    ttl = float(data.get("ttl_seconds") or 604800.0)
+    raw_token, record = session_registry.issue_session(role=role, name=actor_name, auth_method=method, ttl_seconds=ttl)
+    return {
+        "status": "ok",
+        "session_token": raw_token,
+        "participant_id": record["participant_id"],
+        "role": record["role"],
+        "name": record["name"],
+        "expires_at": record["expires_at"],
+    }
+@app.post("/api/server/session/revoke")
+async def api_server_session_revoke(req: Request):
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    token = str(data.get("session_token") or req.headers.get("x-session-token") or _extract_bearer(req) or "").strip()
+    if not token:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Missing session token"})
+    revoked = session_registry.revoke_session(token)
+    return {"status": "ok", "revoked": revoked}
 def _private_chats_dir():
     p = paths.data_dir() / "private_chats"
     p.mkdir(parents=True, exist_ok=True)
@@ -2277,15 +2330,17 @@ def api_server_chats_list(req: Request):
     ok, role, actor_name, pid = _resolve_server_participant(req)
     if not ok:
         return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника сервера"})
-    chats = _load_participant_chats(pid)
-    summaries = [{
-        "id": c.get("id"),
-        "title": c.get("title") or "Новый диалог",
-        "created_at": c.get("created_at"),
-        "updated_at": c.get("updated_at"),
-        "message_count": len(c.get("messages", [])),
-    } for c in chats]
-    return {"status": "ok", "participant_id": pid, "chats": summaries}
+    chat_file = _participant_chats_file(pid)
+    with storage.file_lock(chat_file):
+        chats = _load_participant_chats(pid)
+        summaries = [{
+            "id": c.get("id"),
+            "title": c.get("title") or "Новый диалог",
+            "created_at": c.get("created_at"),
+            "updated_at": c.get("updated_at"),
+            "message_count": len(c.get("messages", [])),
+        } for c in chats]
+        return {"status": "ok", "participant_id": pid, "chats": summaries}
 @app.post("/api/server/chats")
 async def api_server_chat_send(req: Request):
     ok, role, actor_name, pid = _resolve_server_participant(req)
@@ -2299,51 +2354,56 @@ async def api_server_chat_send(req: Request):
     title_val = str(data.get("title") or "").strip()[:56]
     prompt = str(data.get("prompt") or "").strip()[:8000]
     now = time.time()
-    chats = _load_participant_chats(pid)
+    chat_file = _participant_chats_file(pid)
     if create_only or (not prompt and title_val):
-        chat_id = f"pchat-{uuid.uuid4().hex[:10]}"
-        new_chat = {
-            "id": chat_id,
-            "title": title_val or "Новый диалог",
-            "created_at": now,
-            "updated_at": now,
-            "messages": [],
-        }
-        chats.append(new_chat)
-        if len(chats) > 50:
-            chats = chats[-50:]
-        _save_participant_chats(pid, chats)
-        return {"status": "ok", "chat_id": chat_id, "chat": new_chat}
+        with storage.file_lock(chat_file):
+            chats = _load_participant_chats(pid)
+            chat_id = f"pchat-{uuid.uuid4().hex[:10]}"
+            new_chat = {
+                "id": chat_id,
+                "title": title_val or "Новый диалог",
+                "created_at": now,
+                "updated_at": now,
+                "messages": [],
+            }
+            chats.append(new_chat)
+            if len(chats) > 50:
+                chats = chats[-50:]
+            _save_participant_chats(pid, chats)
+            return {"status": "ok", "chat_id": chat_id, "chat": new_chat}
     if not prompt:
         return JSONResponse(status_code=400, content={"status": "error", "message": "Пустой запрос"})
     chat_id = str(data.get("chat_id") or "").strip()
     max_tokens = min(2048, max(32, int(data.get("max_tokens") or 512)))
     temperature = max(0.0, min(2.0, float(data.get("temperature") or 0.7)))
-    target_chat = None
-    for ch in chats:
-        if ch.get("id") == chat_id:
-            target_chat = ch
-            break
-    if target_chat is None:
-        chat_id = f"pchat-{uuid.uuid4().hex[:10]}"
-        target_chat = {
-            "id": chat_id,
-            "title": prompt[:56],
-            "created_at": now,
-            "updated_at": now,
-            "messages": [],
-        }
-        chats.append(target_chat)
-        if len(chats) > 50:
-            chats = chats[-50:]
-    target_chat["messages"].append({
-        "id": f"m-{uuid.uuid4().hex[:8]}",
-        "role": "user",
-        "author": actor_name or "Вы",
-        "content": prompt,
-        "ts": now,
-    })
-    history_msgs = [{"role": m["role"], "content": m["content"]} for m in target_chat["messages"][-12:] if m.get("role") in ("user", "assistant")]
+    with storage.file_lock(chat_file):
+        chats = _load_participant_chats(pid)
+        target_chat = None
+        for ch in chats:
+            if ch.get("id") == chat_id:
+                target_chat = ch
+                break
+        if target_chat is None:
+            chat_id = f"pchat-{uuid.uuid4().hex[:10]}"
+            target_chat = {
+                "id": chat_id,
+                "title": prompt[:56],
+                "created_at": now,
+                "updated_at": now,
+                "messages": [],
+            }
+            chats.append(target_chat)
+            if len(chats) > 50:
+                chats = chats[-50:]
+        target_chat["messages"].append({
+            "id": f"m-{uuid.uuid4().hex[:8]}",
+            "role": "user",
+            "author": actor_name or "Вы",
+            "content": prompt,
+            "ts": now,
+        })
+        history_msgs = [{"role": m["role"], "content": m["content"]} for m in target_chat["messages"][-12:] if m.get("role") in ("user", "assistant")]
+        _save_participant_chats(pid, chats)
     if not engine_instance.is_loaded():
         return JSONResponse(status_code=503, content={"status": "error", "message": "Модель не загружена на сервере"})
     try:
@@ -2352,16 +2412,33 @@ async def api_server_chat_send(req: Request):
         return JSONResponse(status_code=500, content={"status": "error", "message": f"Ошибка генерации модели: {str(e)}"})
     reply_text = str(res.get("content") or "").strip()
     reasoning = str(res.get("reasoning_content") or "").strip()
-    target_chat["messages"].append({
-        "id": f"m-{uuid.uuid4().hex[:8]}",
-        "role": "assistant",
-        "author": engine_instance.active_model_id or "AI Host",
-        "content": reply_text or "(пустой ответ модели)",
-        "reasoning_content": reasoning or None,
-        "ts": time.time(),
-    })
-    target_chat["updated_at"] = time.time()
-    _save_participant_chats(pid, chats)
+    with storage.file_lock(chat_file):
+        chats = _load_participant_chats(pid)
+        target_chat = None
+        for ch in chats:
+            if ch.get("id") == chat_id:
+                target_chat = ch
+                break
+        if target_chat is None:
+            chat_id = f"pchat-{uuid.uuid4().hex[:10]}"
+            target_chat = {
+                "id": chat_id,
+                "title": prompt[:56],
+                "created_at": now,
+                "updated_at": now,
+                "messages": [],
+            }
+            chats.append(target_chat)
+        target_chat["messages"].append({
+            "id": f"m-{uuid.uuid4().hex[:8]}",
+            "role": "assistant",
+            "author": engine_instance.active_model_id or "AI Host",
+            "content": reply_text or "(пустой ответ модели)",
+            "reasoning_content": reasoning or None,
+            "ts": time.time(),
+        })
+        target_chat["updated_at"] = time.time()
+        _save_participant_chats(pid, chats)
     return {
         "status": "ok",
         "chat_id": chat_id,
@@ -2376,22 +2453,26 @@ def api_server_chat_get(chat_id: str, req: Request):
     ok, role, actor_name, pid = _resolve_server_participant(req)
     if not ok:
         return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника сервера"})
-    chats = _load_participant_chats(pid)
-    for ch in chats:
-        if ch.get("id") == chat_id:
-            return {"status": "ok", "chat": ch}
-    return JSONResponse(status_code=404, content={"status": "error", "message": "Диалог не найден"})
+    chat_file = _participant_chats_file(pid)
+    with storage.file_lock(chat_file):
+        chats = _load_participant_chats(pid)
+        for ch in chats:
+            if ch.get("id") == chat_id:
+                return {"status": "ok", "chat": ch}
+        return JSONResponse(status_code=404, content={"status": "error", "message": "Диалог не найден"})
 @app.delete("/api/server/chats/{chat_id}")
 def api_server_chat_delete(chat_id: str, req: Request):
     ok, role, actor_name, pid = _resolve_server_participant(req)
     if not ok:
         return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника сервера"})
-    chats = _load_participant_chats(pid)
-    kept = [c for c in chats if c.get("id") != chat_id]
-    if len(kept) == len(chats):
-        return JSONResponse(status_code=404, content={"status": "error", "message": "Диалог не найден"})
-    _save_participant_chats(pid, kept)
-    return {"status": "ok", "deleted": chat_id}
+    chat_file = _participant_chats_file(pid)
+    with storage.file_lock(chat_file):
+        chats = _load_participant_chats(pid)
+        kept = [c for c in chats if c.get("id") != chat_id]
+        if len(kept) == len(chats):
+            return JSONResponse(status_code=404, content={"status": "error", "message": "Диалог не найден"})
+        _save_participant_chats(pid, kept)
+        return {"status": "ok", "deleted": chat_id}
 @app.post("/api/server/shared-chat")
 async def api_server_shared_chat(req: Request):
     return await api_server_chat_send(req)

@@ -30,5 +30,7 @@ jobs:
         run: python -m unittest tests_phase4_network_integration.py -v
       - name: Run Phase III unified hosting tests
         run: python -m unittest tests_phase_iii_unified_hosting.py -v
+      - name: Run Phase III chat security tests
+        run: python -m unittest tests_phase_iii_chat_security.py -v
       - name: Run full test suite discovery
         run: python -m unittest discover -s . -p "tests_*.py" -v

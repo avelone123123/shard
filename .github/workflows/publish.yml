@@ -4,9 +4,25 @@ on:
     types: [published]
   workflow_dispatch:
 jobs:
+  test-before-publish:
+    name: Run test suite before publish
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e .
+      - name: Run test discovery
+        run: python -m unittest discover -s . -p "tests_*.py" -v
   build-and-publish:
     name: Build distributions and publish to PyPI
+    needs: test-before-publish
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/shard-engine
     permissions:
       id-token: write
       contents: read

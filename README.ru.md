@@ -133,7 +133,7 @@ SHARD объединяет свободные ресурсы GPU и RAM неск
 
 ## Возможности
 
-Все перечисленные ниже функции проверены по актуальному исходному коду репозитория [SHARD](https://github.com/avelone123123/shard) (`v1.8.0`).
+Все перечисленные ниже функции проверены по актуальному исходному коду репозитория [SHARD](https://github.com/avelone123123/shard) (`v1.8.1`).
 
 ### Реализованные возможности
 
@@ -439,7 +439,7 @@ for chunk in stream:
 - **Архитектура LAN-шардинга:** [`docs/LAN_SHARDING_DESIGN.md`](docs/LAN_SHARDING_DESIGN.md)
 - **Руководство для контрибьюторов:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **Кодекс поведения:** [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
-- **История изменений:** [`CHANGELOG.md`](CHANGELOG.md) (текущий релиз: `v1.8.0`)
+- **История изменений:** [`CHANGELOG.md`](CHANGELOG.md) (текущий релиз: `v1.8.1`)
 - **Сообщения об ошибках и предложения:** [GitHub Issues](https://github.com/avelone123123/shard/issues)
 - **Обсуждения и вопросы:** [GitHub Discussions](https://github.com/avelone123123/shard/discussions)
 - **Безопасность:** О найденных уязвимостях сообщайте через [GitHub Security Advisories](https://github.com/avelone123123/shard/security).

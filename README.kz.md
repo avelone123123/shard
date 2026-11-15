@@ -133,7 +133,7 @@ SHARD жұмыс процесі төрт негізгі қадамнан тұр�
 
 ## Мүмкіндіктері
 
-Төмендегі барлық мүмкіндіктер [SHARD](https://github.com/avelone123123/shard) (`v1.8.0`) репозиторийінің нақты бастапқы коды бойынша тексерілген.
+Төмендегі барлық мүмкіндіктер [SHARD](https://github.com/avelone123123/shard) (`v1.8.1`) репозиторийінің нақты бастапқы коды бойынша тексерілген.
 
 ### Іске асырылған мүмкіндіктер
 
@@ -437,7 +437,7 @@ for chunk in stream:
 - **LAN шардинг архитектурасы:** [`docs/LAN_SHARDING_DESIGN.md`](docs/LAN_SHARDING_DESIGN.md)
 - **Үлес қосушыларға нұсқаулық:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **Мінез-құлық кодексі:** [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
-- **Өзгерістер тарихы:** [`CHANGELOG.md`](CHANGELOG.md) (ағымдағы нұсқа: `v1.8.0`)
+- **Өзгерістер тарихы:** [`CHANGELOG.md`](CHANGELOG.md) (ағымдағы нұсқа: `v1.8.1`)
 - **Қателер мен ұсыныстар:** [GitHub Issues](https://github.com/avelone123123/shard/issues)
 - **Талқылаулар мен сұрақтар:** [GitHub Discussions](https://github.com/avelone123123/shard/discussions)
 - **Қауіпсіздік саясаты:** Қауіпсіздік осалдықтары туралы [GitHub Security Advisories](https://github.com/avelone123123/shard/security) арқылы хабарлаңыз.

@@ -1,5 +1,15 @@
 # Shard Engine Changelog
 
+## [1.8.1] - 2026-11-15
+
+### Security & Hardening
+
+- **Private Session Security Registry**: Implemented secure server-side session registry (`shard_engine/session_registry.py`) issuing cryptographic opaque tokens (`secrets.token_urlsafe(32)`), storing only salted SHA-256 digests, enforcing TTL expiration and instant revocation (`POST /api/server/session/revoke`).
+- **Verified Credential Isolation**: Derived participant identity strictly from validated credentials (LAN pairing token, cryptographic P2P tunnel peer identity, owner credentials, or verified session token); completely removed trust in client-supplied `X-Participant-Id` and arbitrary unknown `X-Session-Token` headers.
+- **NAT / Shared IP Leakage Elimination**: Removed silent IP fallback for unauthenticated requests, ensuring multiple guests behind the same NAT / Wi-Fi subnet receive distinct cryptographic sessions and cannot observe, tamper with, or delete each other's conversations.
+- **Concurrency Protection**: Wrapped all private chat read-modify-write mutations in re-entrant `storage.file_lock` to eliminate lost updates and race conditions during simultaneous participant activity.
+- **Session Endpoints**: Added `POST /api/server/session` (session issuance) and `POST /api/server/session/revoke` (session revocation) with complete test coverage in `tests_phase_iii_chat_security.py`.
+
 ## [1.8.0] - 2026-11-11
 
 ### Added

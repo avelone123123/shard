@@ -909,6 +909,9 @@ class LanManager:
         if open_net:
             return {"status": "ok", "open": True, "message": "Сеть открыта: подключение без кода"}
         return {"status": "ok", "open": False, "message": "Сеть закрыта: нужен код подключения"}
+    def is_open(self):
+        with self._lock:
+            return bool(self._state.get("open"))
     def handle_pair(self, code, ip, name=None, share=False, client_id=None, transport=None, rpc_host=None, tunnel_peer=None):
         code = normalize_code(code)
         tpeer = str(tunnel_peer or "").strip()[:80] or None

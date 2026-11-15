@@ -1420,10 +1420,12 @@ function getClientSessionId() {
     }
     return cid;
 }
+let clientSessionToken = localStorage.getItem('shard_server_session_token') || '';
 function getAuthHeaders(extra) {
     const h = Object.assign({}, extra || {});
     const tok = (clientLanSession && clientLanSession.token) || activeApiKey || '';
     if (tok) h['Authorization'] = 'Bearer ' + tok;
+    if (clientSessionToken) h['X-Session-Token'] = clientSessionToken;
     return h;
 }
 function showToast(title, sub) {
@@ -4319,9 +4321,29 @@ async function srvCreateUnified() {
 }
 let srvCurrentChatId = '';
 let srvBackendOutdated = false;
+async function srvEnsureSession() {
+    if (clientSessionToken) return clientSessionToken;
+    try {
+        const res = await fetch('/api/server/session', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({name: 'Dashboard'})
+        });
+        if (res.ok) {
+            const d = await res.json();
+            if (d.session_token) {
+                clientSessionToken = d.session_token;
+                localStorage.setItem('shard_server_session_token', clientSessionToken);
+                return clientSessionToken;
+            }
+        }
+    } catch(e) {}
+    return '';
+}
 async function srvLoadPrivateChats() {
     try {
-        const res = await fetch('/api/server/chats', {headers: getAuthHeaders()});
+        await srvEnsureSession();
+        let res = await fetch('/api/server/chats', {headers: getAuthHeaders()});
         const sharedBox = document.getElementById('srvSharedChatList');
         const inp = document.getElementById('srvSharedChatInput');
         const btn = document.getElementById('srvSharedChatBtn');
@@ -4338,12 +4360,29 @@ async function srvLoadPrivateChats() {
             if (inp) inp.disabled = true;
             if (btn) btn.disabled = true;
             return;
-        } else {
-            srvBackendOutdated = false;
-            if (warnBanner) warnBanner.style.display = 'none';
-            if (inp) inp.disabled = false;
-            if (btn) btn.disabled = false;
         }
+        if (res.status === 401) {
+            clientSessionToken = '';
+            localStorage.removeItem('shard_server_session_token');
+            await srvEnsureSession();
+            res = await fetch('/api/server/chats', {headers: getAuthHeaders()});
+            if (res.status === 401) {
+                if (warnBanner) {
+                    warnBanner.style.display = 'block';
+                    warnBanner.innerHTML = '<strong>Требуется авторизация:</strong> Требуется подключение к серверу или ввод кода сопряжения.';
+                }
+                if (sharedBox) {
+                    sharedBox.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:24px;font-size:12.5px;"><strong>Требуется авторизация:</strong><br>Введите код сопряжения в настройках LAN или авторизуйтесь на сервере.</div>';
+                }
+                if (inp) inp.disabled = true;
+                if (btn) btn.disabled = true;
+                return;
+            }
+        }
+        srvBackendOutdated = false;
+        if (warnBanner) warnBanner.style.display = 'none';
+        if (inp) inp.disabled = false;
+        if (btn) btn.disabled = false;
         if (!res.ok) return;
         const d = await res.json();
         const chats = d.chats || [];
@@ -4437,6 +4476,7 @@ async function srvSendSharedChat() {
     inp.value = '';
     if (btn) btn.disabled = true;
     try {
+        await srvEnsureSession();
         const res = await fetch('/api/server/chats', {
             method: 'POST',
             headers: getAuthHeaders({'Content-Type': 'application/json'}),
@@ -4449,6 +4489,13 @@ async function srvSendSharedChat() {
             if (sharedBox) {
                 sharedBox.innerHTML = '<div style="color:#f87171;text-align:center;padding:24px;font-size:12.5px;">Backend устарел. Перезапустите SHARD, чтобы загрузить актуальный API.</div>';
             }
+            return;
+        }
+        if (res.status === 401) {
+            clientSessionToken = '';
+            localStorage.removeItem('shard_server_session_token');
+            showToast('Требуется авторизация', 'Требуется подключение к серверу или ввод кода сопряжения.');
+            await srvLoadPrivateChats();
             return;
         }
         const d = await res.json();

@@ -133,7 +133,7 @@ SHARD turns distributed local AI infrastructure into a four-step workflow: **CRE
 
 ## Features
 
-Every feature listed below is verified directly against the [SHARD source tree](https://github.com/avelone123123/shard) (`v1.8.0`).
+Every feature listed below is verified directly against the [SHARD source tree](https://github.com/avelone123123/shard) (`v1.8.1`).
 
 ### Implemented Features
 
@@ -475,7 +475,7 @@ for chunk in stream:
 - **Architecture & LAN Design Spec:** [`docs/LAN_SHARDING_DESIGN.md`](docs/LAN_SHARDING_DESIGN.md)
 - **Contribution Guidelines:** [`CONTRIBUTING.md`](CONTRIBUTING.md) — covers zero-copy memory rules, native C++20/AVX2 build steps, and running `shard test`.
 - **Code of Conduct:** [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
-- **Release History:** [`CHANGELOG.md`](CHANGELOG.md) (current release: `v1.8.0`)
+- **Release History:** [`CHANGELOG.md`](CHANGELOG.md) (current release: `v1.8.1`)
 - **Bug Reports & Feature Requests:** [GitHub Issues](https://github.com/avelone123123/shard/issues)
 - **Community Q&A & Ideas:** [GitHub Discussions](https://github.com/avelone123123/shard/discussions)
 - **Security Policy:** Please report security vulnerabilities privately via [GitHub Security Advisories](https://github.com/avelone123123/shard/security) or by contacting the maintainer before public disclosure.
