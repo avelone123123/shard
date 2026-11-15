@@ -94,3 +94,15 @@ class TestPhaseIIIUnifiedHosting(unittest.TestCase):
         soup_adapter._parse_and_update_pip_progress("Collecting torch>=2.1.0")
         st = soup_adapter.get_soup_install_status()
         self.assertEqual(st.get("pkg_current"), "torch")
+        soup_adapter._parse_and_update_pip_progress("Downloading torch-2.2.0-cp312.whl (755.5 MB)")
+        st = soup_adapter.get_soup_install_status()
+        self.assertIn("755.5 MB", st.get("stage", ""))
+        mock_proc = mock.MagicMock()
+        mock_proc.poll.return_value = None
+        soup_adapter._CURRENT_SOUP_PROC = mock_proc
+        cancel_res = self.client.post("/api/training/soup/install/cancel")
+        self.assertEqual(cancel_res.status_code, 200)
+        c_st = cancel_res.json().get("installer", {})
+        self.assertEqual(c_st.get("lifecycle_state"), "CANCELLED")
+        self.assertEqual(c_st.get("status"), "cancelled")
+    def test_training_servers_endpoint(self):
