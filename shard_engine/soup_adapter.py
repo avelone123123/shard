@@ -416,6 +416,22 @@ def _parse_and_update_pip_progress(raw_line):
         updates["pct"] = 45
     m_prog = re.search(r"([\d\.]+(?:/[^\s]+)?\s*(?:kB|MB|GB))", s)
     if m_prog and ("━" in s or "%" in s or "/" in s):
+        updates["download_progress"] = m_prog.group(1)
+    m_inst = re.search(r"(?i)Installing collected packages:\s*(.*)", s)
+    if m_inst:
+        updates["stage"] = "Установка пакетов в окружение"
+        updates["pct"] = 80
+    _set_install_state(**updates)
+def cancel_soup_install():
+    global _SOUP_CANCEL_REQUESTED, _CURRENT_SOUP_PROC
+    _SOUP_CANCEL_REQUESTED = True
+    proc = _CURRENT_SOUP_PROC
+    if proc is not None and proc.poll() is None:
+        try:
+            if os.name == "nt":
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=_WIN_NO_WINDOW)
+            else:
+                proc.terminate()
 def verify_soup_environment(py_exe, soup_cmd=None, check_train_deps=True):
     checks = {
         "venv_present": False,
