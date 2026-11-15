@@ -579,12 +579,30 @@ def _run_install_worker(action, custom_python=None, include_train=True):
         pkg_spec = "soup-cli[train]" if include_train else "soup-cli"
         target_lifecycle = "UPDATING" if action == "update" else "INSTALLING"
         _set_install_state(lifecycle_state=target_lifecycle, stage=f"Подготовка {pkg_spec}", pct=15, line=f"Запуск pip install --upgrade {pkg_spec}...")
-        _set_install_state(lifecycle_state=target_lifecycle, stage=f"Установка {pkg_spec}", pct=55, line=f"Running pip install --upgrade {pkg_spec}...")
+        if _SOUP_CANCEL_REQUESTED:
+            return
         subprocess.run([str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", "pip"], capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
+        if _SOUP_CANCEL_REQUESTED:
+            return
         pip_cmd = [str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", pkg_spec]
-        proc = subprocess.Popen(pip_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, creationflags=_WIN_NO_WINDOW)
-        for line in proc.stdout:
-            s = line.strip()
+        global _CURRENT_SOUP_PROC
+        proc = subprocess.Popen(pip_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, creationflags=_WIN_NO_WINDOW)
+        _CURRENT_SOUP_PROC = proc
+        buf = []
+        while True:
+            if _SOUP_CANCEL_REQUESTED:
+                try:
+                    if os.name == "nt":
+                        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=_WIN_NO_WINDOW)
+                    else:
+                        proc.terminate()
+                except Exception:
+                    pass
+                break
+            ch = proc.stdout.read(1)
+            if not ch:
+                if buf:
+                    _parse_and_update_pip_progress("".join(buf))
             if s:
                 _set_install_state(line=s)
         rc = proc.wait(timeout=1200)
