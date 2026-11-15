@@ -3738,6 +3738,26 @@ function _renderSoupInstallerBox(inst) {
 }
 async function trnCancelSoupInstall() {
     try {
+        const res = await fetch('/api/training/soup/install/cancel', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+        });
+        const d = await res.json();
+        if (d.installer) _renderSoupInstallerBox(d.installer);
+        showToast('SOUP', 'Установка отменена');
+        if (soupInstallPollTimer) { clearInterval(soupInstallPollTimer); soupInstallPollTimer = null; }
+        trnRefresh(false);
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function trnLoadTrainingServers() {
+    const sel = document.getElementById('trnJobServer');
+    if (!sel) return;
+    try {
+        const res = await fetch('/api/training/servers', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const d = await res.json();
 }
 async function trnInstallSoup(actionOrFlag, includeTrain) {
     const action = (actionOrFlag === true) ? 'repair' : (actionOrFlag === false ? 'install' : (actionOrFlag || 'install'));
