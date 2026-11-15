@@ -658,6 +658,7 @@ def _run_install_worker(action, custom_python=None, include_train=True):
             line=f"ERROR: {exc}",
         )
 def install_or_repair_soup(action="install", custom_python=None, background=True, include_train=True):
+    global _SOUP_CANCEL_REQUESTED
     act = str(action or "install").strip().lower()
     if act not in ("install", "update", "repair"):
         raise ValueError("action must be install, update, or repair")
