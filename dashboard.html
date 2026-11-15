@@ -4318,6 +4318,18 @@ async function srvCreateUnified() {
 }
 let srvCurrentChatId = '';
 async function srvLoadPrivateChats() {
+    try {
+        const res = await fetch('/api/server/chats', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const d = await res.json();
+        const chats = d.chats || [];
+        const sel = document.getElementById('srvPrivateChatSelect');
+        if (sel) {
+            sel.innerHTML = '<option value="">+ Новый диалог</option>' +
+                chats.map(c => '<option value="' + lanEsc(c.id) + '"' + (c.id === srvCurrentChatId ? ' selected' : '') + '>' + lanEsc(c.title || 'Диалог ' + c.id) + ' (' + (c.message_count || 0) + ')</option>').join('');
+        }
+        if (srvCurrentChatId) {
+            await srvFetchChatDetails(srvCurrentChatId);
 async function srvSendSharedChat() {
     const inp = document.getElementById('srvSharedChatInput');
     const auth = document.getElementById('srvSharedChatAuthor');
