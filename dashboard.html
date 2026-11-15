@@ -1325,16 +1325,24 @@ macOS
 </div>
 <div id="srv-panel-shared-chat" class="trn-panel">
 <div class="trn-row" style="margin-bottom:12px;">
-<div class="v-section-title" style="margin-bottom:6px;">Общий диалог участников с серверной моделью</div>
-<div id="srvSharedChatList" class="v-chat-well">Загрузка общего чата...</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px;">
+<div class="v-section-title" style="margin:0;">Приватный диалог с моделью сервера</div>
+<div style="display:flex;align-items:center;gap:6px;">
+<select id="srvPrivateChatSelect" class="trn-input" style="width:180px;padding:4px 8px;font-size:11px;" onchange="srvSwitchChat(this.value)"><option value="">Новый диалог</option></select>
+<button class="btn-action" style="padding:3px 8px;font-size:11px;" onclick="srvNewChat()">+ Новый</button>
+<button class="btn-action" style="padding:3px 8px;font-size:11px;color:var(--danger);" onclick="srvDeleteCurrentChat()">Удалить</button>
+</div>
+</div>
+<div style="font-size:11px;color:var(--accent);margin-bottom:8px;display:flex;align-items:center;gap:6px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Ваши сообщения и ответы модели изолированы и видны только вам.</div>
+<div id="srvSharedChatList" class="v-chat-well">Загрузка диалогов...</div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;">
-<input id="srvSharedChatAuthor" class="trn-input" placeholder="Ваше имя" style="width:160px;">
-<input id="srvSharedChatInput" class="trn-input" placeholder="Задайте вопрос общей модели сервера..." style="flex:1;" onkeydown="if(event.key==='Enter')srvSendSharedChat()">
+<input id="srvSharedChatInput" class="trn-input" placeholder="Задайте вопрос модели сервера..." style="flex:1;" onkeydown="if(event.key==='Enter')srvSendSharedChat()">
 <button id="srvSharedChatBtn" class="btn-action active" onclick="srvSendSharedChat()">Отправить ИИ</button>
 </div>
 </div>
 </div>
 <div id="srv-panel-members" class="trn-panel">
+<div class="trn-row" style="margin-bottom:12px;background:var(--surface-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;"><div class="v-section-title" style="margin-bottom:6px;">Выделение ресурсов вашего ПК (Compute Worker)</div><div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;">Вы можете предоставить свободную память GPU/RAM и ядра CPU хосту для распределённого запуска модели.</div><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px;"><div><label class="v-field-label" style="font-size:11px;">Лимит VRAM (ГБ)</label><input id="lanQuotaVram" class="trn-input" type="number" step="0.5" value="4.0" style="width:100px;"></div><div><label class="v-field-label" style="font-size:11px;">Потоки CPU</label><input id="lanQuotaThreads" class="trn-input" type="number" value="4" style="width:80px;"></div><div style="display:flex;gap:8px;align-items:flex-end;"><button class="btn-action active" onclick="lanApplyComputeQuota(true)">Включить Compute Worker</button><button class="btn-action" onclick="lanApplyComputeQuota(false)">Отозвать ресурсы</button></div></div><div class="v-alert-warn" style="font-size:11px;">Пул вычислений стабилен в локальной сети LAN (Ethernet/Wi-Fi). Пул вычислений через WAN/Relay экспериментален из-за сетевых задержек.</div></div>
 <div id="srvMembersBox" class="trn-row">Загрузка участников и узлов...</div>
 </div>
 <div id="srv-panel-community" class="trn-panel">
