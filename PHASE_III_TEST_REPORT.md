@@ -24,3 +24,12 @@ OK
 
 ---
 
+## 2. Dedicated Phase III Test Suite (`tests_phase_iii_unified_hosting.py`)
+
+A specialized test suite was created in `tests_phase_iii_unified_hosting.py` using `fastapi.testclient.TestClient` and temporary mock environments to test the newly implemented endpoints under isolated conditions.
+
+### Test Case Breakdown
+
+| Test Case | Description | Assertion Targets | Status |
+| :--- | :--- | :--- | :--- |
+| `test_server_model_ready_guard_enforced_409` | Verifies that creating a server or creating a LAN pool without an active model returns HTTP 409 Conflict. | - `status_code == 409`<br>- `data["code"] == "MODEL_NOT_READY"`<br>- Rejection before state mutation | **PASSED** |
