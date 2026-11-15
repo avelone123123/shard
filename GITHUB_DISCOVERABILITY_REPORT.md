@@ -66,3 +66,14 @@ We are excited to announce the release of SHARD v1.8.0! This release brings ente
 ```bash
 # Install via PyPI
 pip install shard-engine
+pip install "shard-engine[full]"
+
+# Or install latest release directly from GitHub
+pip install "git+https://github.com/avelone123123/shard.git"
+pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
+```
+```
+
+---
+
+## 4. Community Launch Materials
