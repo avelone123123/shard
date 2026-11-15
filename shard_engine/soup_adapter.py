@@ -396,6 +396,10 @@ def _set_install_state(lifecycle_state=None, status=None, stage=None, line=None,
                 _INSTALL_STATE["logs"] = _INSTALL_STATE["logs"][-300:]
         for k, v in extra.items():
             _INSTALL_STATE[k] = v
+def _parse_and_update_pip_progress(raw_line):
+    s = str(raw_line or "").strip()
+    if not s:
+        return
 def verify_soup_environment(py_exe, soup_cmd=None, check_train_deps=True):
     checks = {
         "venv_present": False,
