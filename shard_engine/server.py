@@ -1134,6 +1134,21 @@ def installer_script(req: Request, tool: str = "claude", os: str = "linux", key:
                  'echo "[OK] Shard: OPENAI_API_BASE and OPENAI_API_KEY exported for ' + tool_clean + '."\n'
     return PlainTextResponse(script, media_type="text/plain; charset=utf-8")
 def _verify_server_model_ready(model_id=None):
+    if not engine_instance.is_loaded():
+        return False, "No model is loaded in memory. Load and verify a model before hosting or publishing."
+    target = (model_id or "").strip() or engine_instance.active_model_id or engine_instance.current_loaded_id
+    if target and not engine_instance.is_model_active(target):
+        return False, f"Model '{target}' is not active in memory (active: '{engine_instance.current_loaded_id or engine_instance.active_model_id}')."
+    state = engine_instance.detailed_lifecycle_state(target)
+    if state != "READY":
+        return False, f"Model lifecycle state is '{state}', expected 'READY'."
+    try:
+        res = engine_instance.generate_sync([{"role": "user", "content": "ping"}], max_tokens=8, temperature=0.0)
+        if not res or ("content" not in res and "reasoning_content" not in res):
+            return False, "Model self-test inference returned an invalid payload."
+    except Exception as e:
+        return False, f"Model self-test inference failed: {str(e)}"
+    return True, ""
 @app.post("/api/lan/create")
 async def api_lan_create(req: Request):
     denied = _deny_non_owner(req)
