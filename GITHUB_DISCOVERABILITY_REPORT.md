@@ -20,3 +20,15 @@ The repository metadata was updated via the GitHub CLI (`gh repo edit`) to maxim
 
 ### 1.2 Topic Matrix (18 Verified Topics)
 The repository is indexed across 18 focused developer topics:
+
+| Category | Topics |
+| :--- | :--- |
+| **Distributed & Clustering** | `distributed-inference`, `p2p`, `self-hosted` |
+| **Local AI & Runtime** | `local-ai`, `local-llm`, `llm`, `offline` |
+| **Hardware & Performance** | `vram`, `avx2`, `windows` |
+| **ML Frameworks & Backends** | `pytorch`, `gguf`, `llama-cpp`, `huggingface`, `inference` |
+| **Training & Fine-Tuning** | `fine-tuning`, `lora` |
+| **API & Web Platform** | `fastapi` |
+
+---
+
