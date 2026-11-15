@@ -42,3 +42,12 @@ A specialized test suite was created in `tests_phase_iii_unified_hosting.py` usi
 
 ## 3. Regression Suite Breakdown
 
+All prior test suites were run in full discovery mode to ensure backward compatibility and prevent regression in existing core subsystems.
+
+### 3.1 Core Inference & Kernel Tests (`tests_shard.py`)
+- **MASM AVX2 SIMD Kernels**: Verified `RMSNorm`, `LayerNorm`, `RoPE`, `Softmax`, and `MatMul` numerical accuracy against float32 reference implementations.
+- **Pre-Flight Fit Advisor (`fit.py`)**: Verified memory footprint calculations, context limits, and quantization recommendations across 7B, 13B, and 70B parameter models.
+- **Engine Orchestrator (`engine.py`)**: Verified SafeTensors model loading, KV cache management, and token-by-token SSE streaming.
+- **GGUF Backend (`gguf_backend.py`)**: Verified platform binary discovery, `llama-server` process supervisor, and RPC node arguments.
+
+### 3.2 CLI & Packaging Tests (`tests_cli_pkg.py`)
