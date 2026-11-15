@@ -2241,6 +2241,7 @@ def api_server_workspace(req: Request):
         "is_owner": is_owner,
         "participant_role": role,
         "participant_name": actor_name,
+        "participant_id": pid,
         "server_active": bool(LAN.is_server() or host_st.get("published")),
         "lan": lan_st,
         "network_host": host_st if is_owner else {
