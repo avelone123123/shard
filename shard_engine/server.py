@@ -1251,6 +1251,7 @@ def api_lan_off(req: Request):
     if denied:
         return denied
     return LAN.off()
+@app.post("/api/lan/compute/consent")
 @app.get("/api/lan/status")
 def api_lan_status(req: Request):
     if _is_owner_request(req):
