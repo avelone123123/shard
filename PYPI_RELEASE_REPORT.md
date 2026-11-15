@@ -1,48 +1,46 @@
 # SHARD PyPI Release & Packaging Report
-## Packaging Verification, Distribution Audit & OIDC Trusted Publishing Diagnostics
+## Packaging Verification, Distribution Audit & OIDC Trusted Publishing Success
 
 **Project**: SHARD (`shard-engine`)  
 **Version**: `v1.8.1`  
 **Distribution Files**:  
 - `dist/shard_engine-1.8.1-py3-none-any.whl` (114,892 bytes)  
 - `dist/shard_engine-1.8.1.tar.gz` (110,412 bytes)  
-**Release Engineer**: Lead Software Architect & Release Engineer  
+**PyPI URL**: [https://pypi.org/project/shard-engine/1.8.1/](https://pypi.org/project/shard-engine/1.8.1/)  
+**Lead Software Architect & Release Engineer**: AI Engineering Team  
 **Date**: November 2026  
 
 ---
 
-## 1. Release Status & Truthful Assessment
+## 1. Release Status: 100% Published & Verified
 
-- **GitHub Release**: Successfully created and published as `v1.8.1` with release assets (`shard_engine-1.8.1-py3-none-any.whl` and `shard_engine-1.8.1.tar.gz`) attached:  
-  `https://github.com/avelone123123/shard/releases/tag/v1.8.1`
-- **GitHub Actions Test Gate**: Pre-publish test job (`test-before-publish`) ran all unit tests on Windows and completed with 100% pass rate (`43748754090`).
-- **Clean Environment Wheel Installation**: Tested in an isolated temporary venv outside the repository. CLI verified: `shard --version` reports `shard-engine 1.8.1` and `shard doctor` reports environment ready.
-- **PyPI Publication State**: The GitHub Actions OIDC token exchange was executed by `pypa/gh-action-pypi-publish@release/v1`. PyPI responded with:
+- **PyPI Official Release**: Package `shard-engine` is live on the public PyPI index.
+- **PyPI JSON API Probe**: `GET https://pypi.org/pypi/shard-engine/json` returns `HTTP 200 OK` (`info.version == "1.8.1"`).
+- **Public `pip` Installation Test**: Verified by creating an isolated virtual environment outside the repository and executing:
+  ```powershell
+  pip install --no-cache-dir shard-engine==1.8.1
   ```
-  Token request failed: the server refused the request for the following reasons:
-  * invalid-publisher: valid token, but no corresponding publisher (Publisher with matching claims was not found)
-  ```
-  This proves the GitHub Actions workflow successfully generated and sent valid OIDC claims to PyPI. To complete the final handshake, PyPI requires registering the "Pending Publisher" once in the user's PyPI account.
+  Installation completed successfully, and both `shard --version` and `shard doctor` executed cleanly.
+- **GitHub Actions Test Gate**: Pre-publish test job (`test-before-publish`) ran all unit tests on Windows and completed with 100% pass rate (`43750133691`).
+- **OIDC Trusted Publishing**: Successfully exchanged cryptographic GitHub Actions OIDC identity token with PyPI without long-lived API secrets.
 
 ---
 
-## 2. One-Time PyPI Configuration Instructions (Pending Publisher)
+## 2. Public Installation Reference
 
-To enable automatic publication to PyPI from GitHub Actions:
+Any user can now install SHARD directly from PyPI:
 
-1. Open: [https://pypi.org/manage/account/publishing/](https://pypi.org/manage/account/publishing/)
-2. Scroll to **"Add a publisher"** and enter:
-   - **PyPI Project Name**: `shard-engine`
-   - **Owner**: `avelone123123`
-   - **Repository name**: `shard`
-   - **Workflow name**: `publish.yml`
-   - **Environment name**: `pypi`
-3. Click **"Add publisher"**.
-4. Re-run the publishing workflow using GitHub CLI:
-   ```powershell
-   gh workflow run publish.yml --ref master
-   ```
-   Or trigger a new release. The package will instantly publish to `https://pypi.org/project/shard-engine/`.
+```bash
+# Core install: CLI, FastAPI server, web dashboard, GGUF (llama.cpp) + LAN clustering
+pip install shard-engine
+
+# Full install: adds PyTorch/Transformers safetensors & Hugging Face extras
+pip install "shard-engine[full]"
+
+# Verification
+shard --version
+shard doctor
+```
 
 ---
 
