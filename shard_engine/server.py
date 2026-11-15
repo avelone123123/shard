@@ -2375,7 +2375,7 @@ async def api_server_shared_chat(req: Request):
     return await api_server_chat_send(req)
 @app.delete("/api/server/shared-chat/{chat_id}")
 def api_server_shared_chat_delete(chat_id: str, req: Request):
-    return {"status": "ok", "deleted": len(ws["shared_chats"]) < before}
+    return api_server_chat_delete(chat_id, req)
 @app.get("/api/server/community")
 def api_server_community_get(req: Request):
     ok, _, _ = _resolve_server_actor(req)
