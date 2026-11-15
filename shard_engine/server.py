@@ -2217,7 +2217,6 @@ async def api_server_create(req: Request):
             return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
     else:
         host_st = _net_mgr().host_status()
-    load_info = None
     if load_now and model and not engine_instance.is_model_active(model):
         try:
             load_info = engine_instance.load_model(model)
