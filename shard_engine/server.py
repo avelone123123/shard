@@ -2109,15 +2109,27 @@ def _save_workspace_unlocked(data):
     storage.atomic_write_json(_workspace_file(), data, indent=2, fsync=True, backup=True, restrict=True)
 def _resolve_server_participant(req):
     if _is_owner_request(req):
-        return True, "owner", LAN.name() or "Owner"
+        return True, "owner", LAN.name() or "Owner", "owner"
     if net_tunnel.is_tunnel_request(req):
         pid = net_tunnel.tunnel_peer_id(req) or "peer"
-        return True, "tunnel_peer", f"peer:{pid[:10]}"
+        clean_pid = hashlib.sha256(pid.encode("utf-8")).hexdigest()[:16]
+        return True, "tunnel_peer", f"peer:{pid[:10]}", f"peer_{clean_pid}"
     tok = _extract_bearer(req)
     if tok and _token_in_pool(tok, LAN.tokens() | set(load_keys())):
         st = LAN.status(include_secrets=False)
+        ip = req.client.host if req.client else "unknown"
+        clean_tok = hashlib.sha256(f"{tok}_{ip}".encode("utf-8")).hexdigest()[:16]
         for m in st.get("members") or []:
-            if m.get("ip") == (req.client.host if req.client else ""):
+            if m.get("ip") == ip:
+                return True, m.get("role") or "member", m.get("name") or "Участник", f"member_{clean_tok}"
+        return True, "member", "Участник", f"member_{clean_tok}"
+    if LAN.is_open():
+        ip = req.client.host if req.client else "open_guest"
+        clean_ip = hashlib.sha256(f"open_{ip}".encode("utf-8")).hexdigest()[:16]
+        return True, "member", f"LAN-{ip}", f"open_{clean_ip}"
+    return False, None, None, None
+def _resolve_server_actor(req):
+    ok, role, name, _pid = _resolve_server_participant(req)
                 return True, m.get("role") or "member", m.get("name") or "Участник"
         return True, "member", "Участник"
     return False, None, None
