@@ -4418,6 +4418,21 @@ async function srvSendSharedChat() {
 async function lanApplyComputeQuota(optIn) {
     const vram = parseFloat((document.getElementById('lanQuotaVram') || {}).value || '4.0');
     const threads = parseInt((document.getElementById('lanQuotaThreads') || {}).value || '4', 10);
+    try {
+        const url = optIn ? '/api/lan/compute/consent' : '/api/lan/compute/opt_out';
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({opt_in: Boolean(optIn), max_vram_gb: vram, max_threads: threads})
+        });
+        const d = await res.json();
+        if (res.ok && d.status === 'ok') {
+            showToast(optIn ? 'Compute Worker активен' : 'Ресурсы отозваны', 'Роль: ' + (d.role || 'member'));
+            srvRefresh();
+        } else {
+            showToast('Ошибка', d.message || 'Не удалось применить параметры');
+        }
+    } catch(e) {
     }
 }
 async function srvSendCommunityMsg() {
