@@ -106,3 +106,15 @@ class TestPhaseIIIUnifiedHosting(unittest.TestCase):
         self.assertEqual(c_st.get("lifecycle_state"), "CANCELLED")
         self.assertEqual(c_st.get("status"), "cancelled")
     def test_training_servers_endpoint(self):
+        with mock.patch.object(server.engine_instance, "is_loaded", return_value=True), \
+             mock.patch.object(server.engine_instance, "active_model_id", "Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF"):
+            r = self.client.get("/api/training/servers")
+            self.assertEqual(r.status_code, 200)
+            srvs = r.json().get("servers", [])
+            self.assertGreaterEqual(len(srvs), 1)
+            primary = srvs[0]
+            self.assertTrue(primary.get("is_loaded"))
+            self.assertEqual(primary.get("training_base_model"), "Qwen/Qwen2.5-Coder-1.5B-Instruct")
+            self.assertTrue(primary.get("trainable"))
+if __name__ == "__main__":
+    unittest.main()
