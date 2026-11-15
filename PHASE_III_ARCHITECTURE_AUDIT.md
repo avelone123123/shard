@@ -128,3 +128,18 @@ This audit evaluates the reality versus advertising of SHARD subsystems, identif
 | Compute | LAN RPC Pooling | IMPLEMENTED | UNIT TESTED | YES | YES (LAN) | llama.cpp `--rpc` tensor splitting |
 | Compute | Global WAN Pooling | EXPERIMENTAL | PARTIALLY TESTED | NO | NO | Labeled experimental, roadmap defined |
 | SOUP | Environment Provision | IMPLEMENTED | UNIT TESTED | YES | YES | Isolated Python 3.12 venv via uv |
+| SOUP | Truthful Progress | IMPLEMENTED (Phase III) | INTEGRATION TESTED | YES | YES | Real streaming parser, stall detection |
+| SOUP | Server-Linked Base | IMPLEMENTED (Phase III) | INTEGRATION TESTED | YES | YES | GGUF-to-HF mapping, server selector |
+| Packaging | Sdist / Wheel Build | IMPLEMENTED | UNIT TESTED | YES | YES | PEP 639 compliant, entry point verified |
+| Release | PyPI Workflow | IMPLEMENTED (Phase III) | WORKFLOW CREATED | N/A | N/A | OIDC Trusted Publishing workflow added |
+
+---
+
+## 4. Phase III Architecture Recommendations
+
+1. **Enforce Invariant**: No server may publish or accept client connections without an active, loaded model that has passed a verified inference health check.
+2. **Strict Privacy**: Discard shared workspace conversations. Store all participant sessions in isolated participant files. Never return private chat text in server workspace endpoints.
+3. **Transparent Compute**: Clearly distinguish `INFERENCE_CLIENT` from `COMPUTE_WORKER`. Never allocate a participant's hardware without explicit opt-in.
+4. **Intuitive Fine-Tuning**: Allow selecting any active SHARD server to automatically configure the SOUP training base model.
+5. **Truth in Telemetry**: Replace fake progress percentages with real package-level status, byte tracking, and elapsed timers.
+6. **Honest Documentation**: Document verified LAN pooling versus experimental global WAN pooling, and provide working installation commands.
