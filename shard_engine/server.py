@@ -2130,9 +2130,34 @@ def _resolve_server_participant(req):
     return False, None, None, None
 def _resolve_server_actor(req):
     ok, role, name, _pid = _resolve_server_participant(req)
-                return True, m.get("role") or "member", m.get("name") or "Участник"
-        return True, "member", "Участник"
-    return False, None, None
+    return ok, role, name
+def _private_chats_dir():
+    p = paths.data_dir() / "private_chats"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+def _participant_chats_file(participant_id):
+    safe_id = re.sub(r"[^a-zA-Z0-9_\-]", "_", str(participant_id or "unknown").strip())[:64]
+    return _private_chats_dir() / f"{safe_id}.json"
+def _load_participant_chats(participant_id):
+    p = _participant_chats_file(participant_id)
+    with storage.file_lock(p):
+        d = storage.read_json_safe(p, default=[], expected_type=list, quarantine=True, use_backup=True)
+    return d if isinstance(d, list) else []
+def _save_participant_chats(participant_id, chats):
+    p = _participant_chats_file(participant_id)
+    storage.atomic_write_json(p, chats, indent=2, fsync=True, backup=True, restrict=True)
+def _get_active_private_sessions_count():
+    try:
+        p = _private_chats_dir()
+        if not p.is_dir():
+            return 0
+        cnt = 0
+        for f in p.glob("*.json"):
+            if not f.name.endswith((".bak", ".tmp")):
+                cnt += 1
+        return cnt
+    except Exception:
+        return 0
 @app.post("/api/server/create")
 async def api_server_create(req: Request):
     denied = _deny_non_owner(req)
