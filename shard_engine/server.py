@@ -2360,25 +2360,21 @@ def api_server_chat_get(chat_id: str, req: Request):
             return {"status": "ok", "chat": ch}
     return JSONResponse(status_code=404, content={"status": "error", "message": "Диалог не найден"})
 @app.delete("/api/server/chats/{chat_id}")
-                "content": reply_text,
-                "telemetry": result.get("telemetry", {}),
-                "ts": time.time(),
-            })
-            target_chat["updated_at"] = time.time()
-            if len(target_chat["messages"]) > 100:
-                target_chat["messages"] = target_chat["messages"][-100:]
-            _save_workspace_unlocked(ws)
-    return {"status": "ok", "chat_id": chat_id, "chat": target_chat, "reply": reply_text, "telemetry": result.get("telemetry", {})}
+def api_server_chat_delete(chat_id: str, req: Request):
+    ok, role, actor_name, pid = _resolve_server_participant(req)
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника сервера"})
+    chats = _load_participant_chats(pid)
+    kept = [c for c in chats if c.get("id") != chat_id]
+    if len(kept) == len(chats):
+        return JSONResponse(status_code=404, content={"status": "error", "message": "Диалог не найден"})
+    _save_participant_chats(pid, kept)
+    return {"status": "ok", "deleted": chat_id}
+@app.post("/api/server/shared-chat")
+async def api_server_shared_chat(req: Request):
+    return await api_server_chat_send(req)
 @app.delete("/api/server/shared-chat/{chat_id}")
 def api_server_shared_chat_delete(chat_id: str, req: Request):
-    denied = _deny_non_owner(req)
-    if denied:
-        return denied
-    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
-        ws = _load_workspace_unlocked()
-        before = len(ws.get("shared_chats", []))
-        ws["shared_chats"] = [c for c in ws.get("shared_chats", []) if c.get("id") != chat_id]
-        _save_workspace_unlocked(ws)
     return {"status": "ok", "deleted": len(ws["shared_chats"]) < before}
 @app.get("/api/server/community")
 def api_server_community_get(req: Request):
