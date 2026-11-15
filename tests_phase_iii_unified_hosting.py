@@ -82,3 +82,15 @@ class TestPhaseIIIUnifiedHosting(unittest.TestCase):
         data = st.json()
         self.assertIn("wan_experimental_warning", data)
         with mock.patch("shard_engine.lan.find_rpc_server", return_value="/bin/ggml-rpc-server"):
+            with mock.patch.object(server.LAN, "_start_worker", return_value=None):
+                c_res = self.client.post("/api/lan/compute/consent", json={"opt_in": True, "max_vram_gb": 6.0, "max_threads": 8})
+                self.assertEqual(c_res.status_code, 200)
+                quota = c_res.json().get("compute_quota", {})
+                self.assertEqual(quota.get("max_vram_gb"), 6.0)
+                self.assertEqual(quota.get("max_threads"), 8)
+                opt_out = self.client.post("/api/lan/compute/opt_out")
+                self.assertEqual(opt_out.status_code, 200)
+    def test_soup_install_cancellation_and_progress_parsing(self):
+        soup_adapter._parse_and_update_pip_progress("Collecting torch>=2.1.0")
+        st = soup_adapter.get_soup_install_status()
+        self.assertEqual(st.get("pkg_current"), "torch")
