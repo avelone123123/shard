@@ -400,6 +400,22 @@ def _parse_and_update_pip_progress(raw_line):
     s = str(raw_line or "").strip()
     if not s:
         return
+    updates = {"line": s}
+    m_coll = re.search(r"(?i)Collecting\s+([a-zA-Z0-9_\-\.]+)", s)
+    if m_coll:
+        pkg = m_coll.group(1)
+        updates["pkg_current"] = pkg
+        updates["stage"] = f"Получение {pkg}"
+        updates["pct"] = 25
+    m_down = re.search(r"(?i)Downloading\s+([a-zA-Z0-9_\-\.]+)-[^\s]+\s*\(([^)]+)\)", s)
+    if m_down:
+        pkg = m_down.group(1)
+        sz = m_down.group(2)
+        updates["pkg_current"] = pkg
+        updates["stage"] = f"Загрузка {pkg} ({sz})"
+        updates["pct"] = 45
+    m_prog = re.search(r"([\d\.]+(?:/[^\s]+)?\s*(?:kB|MB|GB))", s)
+    if m_prog and ("━" in s or "%" in s or "/" in s):
 def verify_soup_environment(py_exe, soup_cmd=None, check_train_deps=True):
     checks = {
         "venv_present": False,
