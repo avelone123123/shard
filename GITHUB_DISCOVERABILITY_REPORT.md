@@ -55,3 +55,14 @@ We are excited to announce the release of SHARD v1.8.0! This release brings ente
 
 - 🛡️ **Model-First Hosting Invariant**: Servers can no longer be published or broadcasted without an active model loaded and verified via an end-to-end inference health check. Unbacked operations return `HTTP 409 Conflict` (`MODEL_NOT_READY`).
 - 🔒 **Private AI Chat Sessions for Every Participant**: Multi-user servers now isolate each participant's conversation into deterministic, client-scoped storage (`private_chats/{participant_id}.json`). Zero chat prompts or completions leak into the shared workspace payload.
+- ⚡ **Explicit Compute Worker Quotas**: Participating worker nodes can opt in with configurable VRAM (GB) and CPU thread limits (`/api/lan/compute/consent`), or revoke contribution on demand (`/api/lan/compute/opt_out`).
+- 📊 **Dynamic SOUP Fine-Tuning Streaming & Cancellation**: Replaced static progress indicators with live carriage-return (`\r`) parsing of pip downloads and full process-tree cancellation (`POST /api/training/soup/install/cancel`).
+- 🎯 **Training Server Auto-Resolution**: The training studio automatically queries running servers (`GET /api/training/servers`) to resolve Hugging Face base models and flags quantized GGUF weights that are incompatible with PEFT/LoRA.
+- 🎨 **Modern Slate Visual Refinement**: A cohesive dark aesthetic (`#16181D` / `#1D2129` / `#0F766E`) with enhanced spacing, model status banners, and 100% byte-parity between packaged and root dashboard files.
+- 📦 **Automated PyPI Publishing**: GitHub Actions workflow powered by OIDC Trusted Publishing (`publish.yml`).
+
+### Installation
+
+```bash
+# Install via PyPI
+pip install shard-engine
