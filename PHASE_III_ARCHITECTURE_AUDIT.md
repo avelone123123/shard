@@ -85,3 +85,17 @@ This audit evaluates the reality versus advertising of SHARD subsystems, identif
 
 ### 2.4 Distributed Compute & RPC Pooling (`lan.py`, `gguf_backend.py`, `net_tunnel.py`)
 - **Reality vs Marketing Assessment**:
+  - **LAN RPC Pooling**: GENUINE. `lan.py` starts `rpc-server` processes on worker nodes, computes tensor-split weights based on available VRAM/RAM, and passes `--rpc` to `llama-server`.
+  - **Global WAN Pooling**: EXPERIMENTAL. Transporting raw RPC traffic over high-latency WAN or lossy relays causes severe stalls and timeouts in `llama.cpp`. Encrypted HTTP tunneling allows remote inference consumption, but not transparent WAN layer sharding.
+- **Phase III Architectural Decision**:
+  - Separate participant roles: `OWNER`, `COMPUTE_WORKER`, and `INFERENCE_CLIENT`.
+  - Joining a server does NOT automatically donate GPU or RAM. Compute contribution requires explicit opt-in consent and provides quota controls and immediate revocation.
+  - WAN compute pooling is explicitly labeled experimental; LAN pooling is the production-ready distributed path.
+
+### 2.5 SOUP Fine-Tuning Integration (`training.py`, `soup_adapter.py`, `feedback.py`)
+- **Implemented & Verified**:
+  - Isolated Python 3.12 virtual environment provisioning via `uv` or system Python.
+  - SFT and DPO dataset compilation from explicit user feedback with PII and secret redaction.
+  - Training orchestration, preflight verification, LoRA fine-tuning execution, and model version registry.
+- **Identified Gaps**:
+  - Installer progress was previously hardcoded at 55% during package installation, causing users to believe the installation had frozen.
