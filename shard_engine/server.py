@@ -1155,9 +1155,13 @@ async def api_lan_create(req: Request):
     if denied:
         return denied
     data = await req.json()
+    model = (data.get("model") or "").strip() or engine_instance.active_model_id or engine_instance.current_loaded_id
+    ok, reason = _verify_server_model_ready(model)
+    if not ok:
+        return JSONResponse(status_code=409, content={"status": "error", "code": "MODEL_NOT_READY", "message": f"Model must be loaded and pass inference verification before hosting or publishing a server: {reason}"})
     st = LAN.create((data.get("name") or "").strip() or None,
                     open_net=bool(data.get("open")),
-                    model=(data.get("model") or "").strip() or None)
+                    model=model)
     return {"status": "ok", **st}
 @app.post("/api/lan/model")
 async def api_lan_model(req: Request):
@@ -1165,7 +1169,11 @@ async def api_lan_model(req: Request):
     if denied:
         return denied
     data = await req.json()
-    return LAN.set_model((data.get("model") or "").strip())
+    model = (data.get("model") or "").strip()
+    ok, reason = _verify_server_model_ready(model)
+    if not ok:
+        return JSONResponse(status_code=409, content={"status": "error", "code": "MODEL_NOT_READY", "message": f"Model must be loaded and pass inference verification before hosting or publishing a server: {reason}"})
+    return LAN.set_model(model)
 @app.post("/api/lan/open")
 async def api_lan_open(req: Request):
     denied = _deny_non_owner(req)
