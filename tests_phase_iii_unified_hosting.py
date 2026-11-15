@@ -70,3 +70,15 @@ class TestPhaseIIIUnifiedHosting(unittest.TestCase):
             del_b = client_b.delete(f"/api/server/chats/{chat_id_a}")
             self.assertEqual(del_b.status_code, 404)
             ws_r = client_b.get("/api/server/workspace")
+            self.assertEqual(ws_r.status_code, 200)
+            self.assertNotIn("shared_chats", ws_r.json())
+            self.assertIn("private_session_count", ws_r.json())
+            self.assertEqual(ws_r.json()["private_session_count"], 1)
+            del_a = client_a.delete(f"/api/server/chats/{chat_id_a}")
+            self.assertEqual(del_a.status_code, 200)
+    def test_compute_contribution_roles_and_quotas(self):
+        st = self.client.get("/api/lan/compute/status")
+        self.assertEqual(st.status_code, 200)
+        data = st.json()
+        self.assertIn("wan_experimental_warning", data)
+        with mock.patch("shard_engine.lan.find_rpc_server", return_value="/bin/ggml-rpc-server"):
