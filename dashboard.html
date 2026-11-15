@@ -4222,19 +4222,21 @@ async function srvRefresh() {
                 '<div class="trn-stat"><div class="trn-stat-label">Сервер и Сеть</div><div class="trn-stat-val" style="font-size:15px;">' + escHtml(w.server_name || lan.name || gHost.display_name || 'SHARD Server') + '</div><div class="srv-pill-row"><span class="compat-pill ' + ((lan.mode && lan.mode !== 'off') ? 'compat-ok' : 'compat-neutral') + '">LAN: ' + escHtml(lan.mode || 'off') + (lan.open ? ' open' : '') + '</span><span class="compat-pill ' + (gHost.published ? (gHost.discovery_ok ? 'compat-ok' : 'compat-warn') : 'compat-neutral') + '">Global: ' + (gHost.published ? (gHost.discovery_ok ? 'публичный' : 'без релея') : 'приватный') + '</span></div></div>' +
                 '<div class="trn-stat"><div class="trn-stat-label">Модель сервера</div><div class="trn-stat-val" style="font-size:15px;color:' + (eng.is_loaded ? 'var(--success)' : 'var(--warning)') + ';">' + escHtml((eng.active_model || 'Не загружена').split('/').pop()) + '</div><div class="srv-pill-row"><span class="compat-pill ' + (eng.is_loaded ? 'compat-ok' : 'compat-warn') + '">' + escHtml(eng.detailed_lifecycle_state || eng.lifecycle_state || eng.status || 'idle') + '</span></div></div>' +
                 '<div class="trn-stat"><div class="trn-stat-label">Участники и Пул</div><div class="trn-stat-val">' + mems.length + ' в LAN / ' + workers.length + ' RPC</div><div class="trn-stat-sub">' + (lan.rpc && lan.rpc.servers ? ('RPC: ' + escHtml(lan.rpc.servers)) : 'Локальный инференс хоста') + '</div></div>' +
+                '<div class="trn-stat"><div class="trn-stat-label">Приватные AI-сессии</div><div class="trn-stat-val">' + (w.private_session_count || 0) + ' активных</div><div class="trn-stat-sub">Изолированный контекст пиров</div></div>' +
                 '<div class="trn-stat"><div class="trn-stat-label">Код доступа и Пиры</div><div class="trn-stat-val" style="font-size:15px;cursor:pointer;" data-copy="' + escHtml(lan.pairing_code || '') + '" onclick="if(this.dataset.copy)copyValue(this.dataset.copy, \'Код подключения\')">' + escHtml(lan.pairing_code || (lan.open ? 'OPEN' : '—')) + '</div><div class="trn-stat-sub">Туннельных пиров: ' + (gHost.active_peers || 0) + '</div></div>';
         }
-        const sharedBox = document.getElementById('srvSharedChatList');
-        if (sharedBox) {
-            const msgs = w.shared_chats || w.shared_chat || [];
-            sharedBox.innerHTML = msgs.map(m =>
-                '<div style="padding:8px;border-bottom:1px solid var(--border);">' +
-                '<div style="font-size:11px;color:var(--accent-text);font-weight:600;margin-bottom:3px;">' + escHtml(m.author || 'Participant') + ' &bull; <span style="color:var(--text-muted);">' + escHtml((m.model || '').split('/').pop()) + '</span></div>' +
-                '<div style="color:var(--text);margin-bottom:4px;"><b>Q:</b> ' + escHtml(m.prompt) + '</div>' +
-                '<div style="color:var(--success);white-space:pre-wrap;"><b>A:</b> ' + escHtml(m.response) + '</div>' +
-                '</div>'
-            ).join('') || '<div style="color:var(--text-muted);text-align:center;padding:20px;">Общий ИИ-чат пуст. Отправьте первый запрос модели сервера.</div>';
+        const modStatus = document.getElementById('srvModelStatusText');
+        const createSubmit = document.getElementById('srvCreateSubmitBtn');
+        if (modStatus) {
+            if (eng.is_loaded) {
+                modStatus.innerHTML = '<span style="color:var(--success);font-weight:600;">Модель готова к хостингу:</span> <b>' + escHtml((eng.active_model || 'Загружена').split('/').pop()) + '</b> <span class="compat-pill compat-ok">READY</span>';
+                if (createSubmit) { createSubmit.disabled = false; createSubmit.classList.add('active'); }
+            } else {
+                modStatus.innerHTML = '<span style="color:var(--warning);font-weight:600;">Внимание:</span> Нет загруженной модели в памяти. Сервер не может быть опубликован без модели.';
+                if (createSubmit) { createSubmit.classList.remove('active'); }
+            }
         }
+        await srvLoadPrivateChats();
         const memBox = document.getElementById('srvMembersBox');
         if (memBox) {
             const peersObj = w.peers || {};
