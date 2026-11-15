@@ -4397,13 +4397,15 @@ async function srvSendSharedChat() {
     inp.value = '';
     if (btn) btn.disabled = true;
     try {
-        const res = await fetch('/api/server/shared-chat', {
+        const res = await fetch('/api/server/chats', {
             method: 'POST',
             headers: getAuthHeaders({'Content-Type': 'application/json'}),
-            body: JSON.stringify({prompt: text, author: (auth && auth.value || '').trim() || 'Participant'})
+            body: JSON.stringify({prompt: text, chat_id: srvCurrentChatId})
         });
         const d = await res.json();
-        if (!res.ok) showToast('Ошибка чата', d.message || 'Модель не готова или нет доступа');
+        if (!res.ok) {
+            showToast('Ошибка чата', d.message || 'Модель не готова или нет доступа');
+        } else {
         await srvRefresh();
     } catch(e) {
         showToast('Ошибка', 'Не удалось отправить запрос');
