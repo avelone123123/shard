@@ -31,6 +31,7 @@ SOUP_LIFECYCLE_STATES = (
     "INSTALLED",
     "UPDATE_AVAILABLE",
     "UPDATING",
+    "CANCELLED",
     "FAILED",
 )
 SOUP_UPSTREAM_PYPI_URL = "https://pypi.org/pypi/soup-cli/json"
