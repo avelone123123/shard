@@ -2336,22 +2336,30 @@ async def api_server_chat_send(req: Request):
         "author": engine_instance.active_model_id or "AI Host",
         "content": reply_text or "(пустой ответ модели)",
         "reasoning_content": reasoning or None,
-        history_msgs = [{"role": m["role"], "content": m["content"]} for m in target_chat["messages"][-12:] if m.get("role") in ("user", "assistant")]
-        _save_workspace_unlocked(ws)
-    result = engine_instance.generate_sync(history_msgs, max_tokens=max_tokens, temperature=temperature)
-    reply_text = str(result.get("content") or "").strip()
-    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
-        ws = _load_workspace_unlocked()
-        target_chat = None
-        for ch in ws.get("shared_chats", []):
-            if ch.get("id") == chat_id:
-                target_chat = ch
-                break
-        if target_chat is not None:
-            target_chat["messages"].append({
-                "id": f"m-{uuid.uuid4().hex[:8]}",
-                "role": "assistant",
-                "author": engine_instance.active_model_id or "SHARD AI",
+        "ts": time.time(),
+    })
+    target_chat["updated_at"] = time.time()
+    _save_participant_chats(pid, chats)
+    return {
+        "status": "ok",
+        "chat_id": chat_id,
+        "reply": reply_text,
+        "reasoning_content": reasoning,
+        "usage": res.get("usage", {}),
+        "telemetry": res.get("telemetry", {}),
+        "chat": target_chat,
+    }
+@app.get("/api/server/chats/{chat_id}")
+def api_server_chat_get(chat_id: str, req: Request):
+    ok, role, actor_name, pid = _resolve_server_participant(req)
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника сервера"})
+    chats = _load_participant_chats(pid)
+    for ch in chats:
+        if ch.get("id") == chat_id:
+            return {"status": "ok", "chat": ch}
+    return JSONResponse(status_code=404, content={"status": "error", "message": "Диалог не найден"})
+@app.delete("/api/server/chats/{chat_id}")
                 "content": reply_text,
                 "telemetry": result.get("telemetry", {}),
                 "ts": time.time(),
