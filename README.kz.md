@@ -183,6 +183,7 @@ pip install "shard-engine[full]"
 # GitHub-тан негізгі орнату
 pip install "git+https://github.com/avelone123123/shard.git"
 
+# GitHub-тан толық орнату
 pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
 
