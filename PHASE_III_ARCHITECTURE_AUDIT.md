@@ -56,3 +56,17 @@ This audit evaluates the reality versus advertising of SHARD subsystems, identif
 - **Implemented & Verified**:
   - GGUF discovery in local directories and Hugging Face Hub cache.
   - Pre-flight fit calculation (`fit.py`) evaluating VRAM, system RAM, context ceiling, and quantization tiers.
+  - Managed `llama.cpp` process lifecycle (`gguf_backend.py`) with stdout/stderr capture, port allocation, and health checks.
+  - Native C++20 / MASM AVX2 core bridge (`shard_bridge.py`) for SIMD acceleration.
+- **Architectural Gaps**:
+  - Prior to Phase III, server creation did not enforce that a model was successfully loaded or that it passed an inference test before publishing.
+  - Engine status and server status were decoupled: unloading a model in the engine did not downgrade an active server's state to DEGRADED.
+
+### 2.2 Server Hosting & Lifecycle (`server.py`, `lan.py`, `net_strategy.py`, `net_tunnel.py`)
+- **Implemented & Verified**:
+  - Local LAN UDP broadcast discovery on port 8001.
+  - Dynamic local IP detection filtering virtual interfaces and loopback addresses.
+  - Encrypted WebSocket relay tunnel (`net_tunnel.py`) with ChaCha20-Poly1305 end-to-end encryption.
+- **Architectural Gaps**:
+  - Ambiguity between "Server SHARD" page and "Global Network" page: both allowed configuring server names, regions, and access modes without a unified canonical state machine.
+  - When public discovery services were unreachable, the system could enter inconsistent states if error reporting was masked.
