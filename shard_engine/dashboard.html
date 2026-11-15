@@ -4330,6 +4330,29 @@ async function srvLoadPrivateChats() {
         }
         if (srvCurrentChatId) {
             await srvFetchChatDetails(srvCurrentChatId);
+        } else if (chats.length > 0 && !srvCurrentChatId) {
+            srvCurrentChatId = chats[0].id;
+            if (sel) sel.value = srvCurrentChatId;
+            await srvFetchChatDetails(srvCurrentChatId);
+        } else {
+            const sharedBox = document.getElementById('srvSharedChatList');
+            if (sharedBox) sharedBox.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:24px;">Нет сообщений в этом диалоге. Задайте вопрос модели сервера.</div>';
+        }
+    } catch(e) {}
+}
+async function srvFetchChatDetails(chatId) {
+    if (!chatId) return;
+    try {
+        const res = await fetch('/api/server/chats/' + encodeURIComponent(chatId), {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const d = await res.json();
+        const chat = d.chat || {};
+        const msgs = chat.messages || [];
+        const sharedBox = document.getElementById('srvSharedChatList');
+        if (sharedBox) {
+            sharedBox.innerHTML = msgs.map(m =>
+                '<div style="padding:8px;border-bottom:1px solid var(--border);">' +
+                '<div style="font-size:11px;color:var(--accent-text);font-weight:600;margin-bottom:3px;">' + lanEsc(m.author || (m.role === 'user' ? 'Вы' : 'SHARD AI')) + ' &bull; <span style="color:var(--text-muted);">' + new Date((m.ts || Date.now() / 1000) * 1000).toLocaleTimeString() + '</span></div>' +
 async function srvSendSharedChat() {
     const inp = document.getElementById('srvSharedChatInput');
     const auth = document.getElementById('srvSharedChatAuthor');
