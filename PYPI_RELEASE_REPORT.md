@@ -96,3 +96,15 @@ jobs:
 ```
 
 ### Benefits of OIDC Trusted Publishing
+- **Zero Secret Management**: No password or token is stored in GitHub Secrets. PyPI validates the OpenID Connect identity token directly from GitHub Actions.
+- **Cryptographic Provenance**: PyPI verifies that the wheel was built directly from the official commit in `avelone123123/shard`.
+
+---
+
+## 4. Step-by-Step Instructions to Trigger Publication
+
+Once this branch is merged into `master`, the repository owner can trigger the automated release to PyPI:
+
+1. **Configure Trusted Publisher on PyPI** (One-time setup):
+   - Go to [https://pypi.org/manage/account/publishing/](https://pypi.org/manage/account/publishing/)
+   - Add a "GitHub publisher":
