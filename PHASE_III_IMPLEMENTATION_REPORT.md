@@ -74,3 +74,16 @@ In prior iterations, shared workspaces stored a global `shared_chats` array insi
 
 ---
 
+## 4. Compute Contribution Roles & Explicit Quotas
+
+### 4.1 Canonical Node Roles
+In `shard_engine/lan.py`, nodes are categorized into explicit roles:
+- `ROLE_OWNER` (`"owner"`): Coordinates the cluster, holds the root model context, and distributes tensor layers.
+- `ROLE_COMPUTE_WORKER` (`"compute_worker"`): Worker node contributing GPU VRAM and CPU compute resources to the cluster pool.
+- `ROLE_INFERENCE_CLIENT` (`"inference_client"`): Participant connecting solely to submit inference requests without contributing compute.
+
+### 4.2 Consent & Quota Controls
+Endpoints implemented in `shard_engine/server.py` and `shard_engine/lan.py`:
+- `POST /api/lan/compute/consent`: Allows a worker node to explicitly opt in to compute sharing with customizable limits:
+  - `vram_limit_gb`: Maximum GPU memory allocated to the cluster.
+  - `cpu_threads`: Maximum CPU threads dedicated to tensor computation.
