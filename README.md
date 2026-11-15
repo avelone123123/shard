@@ -183,6 +183,7 @@ To install the latest development snapshot directly from GitHub:
 # Core install from GitHub
 pip install "git+https://github.com/avelone123123/shard.git"
 
+# Full install from GitHub
 pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
 
