@@ -1252,6 +1252,28 @@ def api_lan_off(req: Request):
         return denied
     return LAN.off()
 @app.post("/api/lan/compute/consent")
+async def api_lan_compute_consent(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    return LAN.set_compute_consent(
+        opt_in=bool(data.get("opt_in", True)),
+        max_vram_gb=data.get("max_vram_gb"),
+        max_threads=data.get("max_threads"),
+    )
+@app.post("/api/lan/compute/opt_out")
+def api_lan_compute_opt_out(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return LAN.revoke_compute_consent()
+@app.get("/api/lan/compute/status")
+def api_lan_compute_status(req: Request):
+    return LAN.compute_status()
 @app.get("/api/lan/status")
 def api_lan_status(req: Request):
     if _is_owner_request(req):
