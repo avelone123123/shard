@@ -1250,6 +1250,17 @@ class LanManager:
                     self._state["mode"] = "worker"
                     self._save()
             except Exception as e:
+                return {"status": "error", "message": f"Failed to start compute worker: {str(e)}"}
+        return self.compute_status()
+    def revoke_compute_consent(self):
+        with self._lock:
+            mode = self._state.get("mode")
+        if mode == "worker":
+            self._stop_worker()
+            with self._lock:
+                self._state["mode"] = "member"
+                self._state["rpc_port"] = None
+                self._save()
     def _choose_worker_port(self):
         env_p = os.environ.get("SHARD_RPC_PORT")
         preferred = []
