@@ -23,3 +23,16 @@ The architectural improvements implemented in Phase III enforce five non-negotia
 
 ---
 
+## 2. Model-First Server Creation & Publication Guard
+
+### 2.1 Problem Analysis
+Previously, users could create a server record (`POST /api/server/create`) or broadcast a LAN cluster (`POST /api/lan/create`) before downloading or loading any model weights. Clients connecting to such an unbacked server received generic runtime errors or hung SSE streams during generation.
+
+### 2.2 Invariant Enforcement Architecture
+A centralized helper `_verify_server_model_ready()` was introduced in `shard_engine/server.py`:
+
+```python
+def _verify_server_model_ready() -> tuple[bool, str]:
+    if not engine or not engine.is_model_loaded():
+        return False, "No model is currently loaded in engine memory"
+    try:
