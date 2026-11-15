@@ -43,3 +43,15 @@ The repository is indexed across 18 focused developer topics:
 - Mandatory verification: Pull requests must validate cleanly against `python -m unittest discover -s . -p "tests_*.py"`.
 
 ---
+
+## 3. Official Release Notes Draft (v1.8.0)
+
+```markdown
+# SHARD v1.8.0: Unified AI Hosting, Private Sessions & Distributed Compute
+
+We are excited to announce the release of SHARD v1.8.0! This release brings enterprise-grade architectural hardening, strict multi-user privacy, explicit compute worker contribution quotas, dynamic training progress monitoring, and a refined Modern Slate dashboard.
+
+### What's New in v1.8.0
+
+- 🛡️ **Model-First Hosting Invariant**: Servers can no longer be published or broadcasted without an active model loaded and verified via an end-to-end inference health check. Unbacked operations return `HTTP 409 Conflict` (`MODEL_NOT_READY`).
+- 🔒 **Private AI Chat Sessions for Every Participant**: Multi-user servers now isolate each participant's conversation into deterministic, client-scoped storage (`private_chats/{participant_id}.json`). Zero chat prompts or completions leak into the shared workspace payload.
