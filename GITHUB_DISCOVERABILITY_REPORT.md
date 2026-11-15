@@ -32,3 +32,14 @@ The repository is indexed across 18 focused developer topics:
 
 ---
 
+## 2. Community Governance & Issue Templates
+
+### 2.1 Issue Templates (`.github/ISSUE_TEMPLATE/`)
+- **Bug Report (`bug_report.md`)**: Enforces structured hardware reporting including OS, CPU model, GPU model + VRAM capacity, and SIMD instruction set support (AVX2, FMA, AVX-512) to expedite reproduction of low-level issues.
+- **Feature Request (`feature_request.md`)**: Prompts contributors to specify native pipeline layer targets (MASM Kernel, C++20 Memory Pager, FastAPI Engine, HF Hub) and estimated VRAM/throughput impacts.
+
+### 2.2 Contribution Standards (`CONTRIBUTING.md`)
+- Enforces strict code hygiene: zero-copy buffers, SIMD vectorization, minimal memory overhead.
+- Mandatory verification: Pull requests must validate cleanly against `python -m unittest discover -s . -p "tests_*.py"`.
+
+---
