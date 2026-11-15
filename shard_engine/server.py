@@ -2107,7 +2107,7 @@ def _load_workspace_unlocked():
     return d
 def _save_workspace_unlocked(data):
     storage.atomic_write_json(_workspace_file(), data, indent=2, fsync=True, backup=True, restrict=True)
-def _resolve_server_actor(req):
+def _resolve_server_participant(req):
     if _is_owner_request(req):
         return True, "owner", LAN.name() or "Owner"
     if net_tunnel.is_tunnel_request(req):
