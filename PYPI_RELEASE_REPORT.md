@@ -84,3 +84,15 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
+        python-version: "3.11"
+    - name: Install build tools
+      run: python -m pip install --upgrade pip build twine
+    - name: Build distributions
+      run: python -m build
+    - name: Validate distribution integrity
+      run: python -m twine check dist/*
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+```
+
+### Benefits of OIDC Trusted Publishing
