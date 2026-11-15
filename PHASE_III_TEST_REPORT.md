@@ -60,3 +60,12 @@ All prior test suites were run in full discovery mode to ensure backward compati
 - **SOUP Diagnostics**: Verified Python version checks, PyTorch/CUDA availability warnings, and dependency matrix auditing.
 - **Dataset Management**: Verified immutable dataset snapshots, JSONL serialization, and privacy consent filters.
 
+### 3.4 Phase I Production Tests (`tests_phase_i_production.py`)
+- **Model File Browser**: Verified drive root enumeration (`C:\`, `D:\`), path traversal safety guards, and recursive directory tree traversal.
+- **Training Orchestration**: Verified Dry Run execution, training configuration generation, and log stream polling.
+
+---
+
+## 4. Verification Classifications Matrix
+
+To maintain technical honesty and accuracy, every capability is categorized into its verified status:
