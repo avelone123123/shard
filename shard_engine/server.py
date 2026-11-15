@@ -1475,6 +1475,7 @@ def api_training_soup_install_status(req: Request):
     if denied:
         return denied
     return {"status": "ok", "installer": soup_adapter.get_soup_install_status(), "soup": soup_adapter.detect_soup(probe_deps=False)}
+@app.post("/api/training/soup/install/cancel")
 @app.get("/api/training/privacy")
 def api_training_privacy_get(req: Request):
     denied = _deny_non_owner(req)
