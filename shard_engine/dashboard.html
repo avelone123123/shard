@@ -4299,6 +4299,10 @@ async function srvCreateUnified() {
         });
         const d = await res.json();
         if (res.status === 409 || d.code === 'MODEL_NOT_READY') {
+            showToast('Требуется модель', d.message || 'Для запуска сервера загрузите модель в каталоге');
+            showTab('market', document.getElementById('navMarketBtn'));
+            return;
+        }
         if (res.ok && d.status === 'ok') {
             if (d.invite && d.invite.uri) copyValue(d.invite.uri, 'URI инвайта сервера');
             else showToast('Сервер запущен', 'Режим: ' + mode);
@@ -4312,6 +4316,8 @@ async function srvCreateUnified() {
         showToast('Ошибка', e.message);
     }
 }
+let srvCurrentChatId = '';
+async function srvLoadPrivateChats() {
 async function srvSendSharedChat() {
     const inp = document.getElementById('srvSharedChatInput');
     const auth = document.getElementById('srvSharedChatAuthor');
