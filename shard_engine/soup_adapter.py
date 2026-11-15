@@ -578,6 +578,7 @@ def _run_install_worker(action, custom_python=None, include_train=True):
         _set_install_state(venv_dir=str(venv_dir), python_executable=str(venv_py))
         pkg_spec = "soup-cli[train]" if include_train else "soup-cli"
         target_lifecycle = "UPDATING" if action == "update" else "INSTALLING"
+        _set_install_state(lifecycle_state=target_lifecycle, stage=f"Подготовка {pkg_spec}", pct=15, line=f"Запуск pip install --upgrade {pkg_spec}...")
         _set_install_state(lifecycle_state=target_lifecycle, stage=f"Установка {pkg_spec}", pct=55, line=f"Running pip install --upgrade {pkg_spec}...")
         subprocess.run([str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", "pip"], capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
         pip_cmd = [str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", pkg_spec]
