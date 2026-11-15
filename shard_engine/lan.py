@@ -1223,6 +1223,11 @@ class LanManager:
         res = self.join(host, code=code, share=share, port=port, bind_host=("127.0.0.1" if share else None))
         res["network"] = st
         return res
+    def set_compute_consent(self, opt_in=True, max_vram_gb=None, max_threads=None):
+        if not opt_in:
+            return self.revoke_compute_consent()
+        exe = find_rpc_server()
+        if not exe:
     def _choose_worker_port(self):
         env_p = os.environ.get("SHARD_RPC_PORT")
         preferred = []
