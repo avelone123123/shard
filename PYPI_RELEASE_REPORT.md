@@ -71,3 +71,16 @@ name: Publish to PyPI
 on:
   release:
     types: [published]
+  workflow_dispatch:
+jobs:
+  build-and-publish:
+    name: Build distributions and publish to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
