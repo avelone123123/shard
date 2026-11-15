@@ -2275,7 +2275,16 @@ def api_server_chats_list(req: Request):
     summaries = [{
         "id": c.get("id"),
         "title": c.get("title") or "Новый диалог",
-        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника"})
+        "created_at": c.get("created_at"),
+        "updated_at": c.get("updated_at"),
+        "message_count": len(c.get("messages", [])),
+    } for c in chats]
+    return {"status": "ok", "participant_id": pid, "chats": summaries}
+@app.post("/api/server/chats")
+async def api_server_chat_send(req: Request):
+    ok, role, actor_name, pid = _resolve_server_participant(req)
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника сервера"})
     try:
         data = await req.json()
     except Exception:
@@ -2284,7 +2293,6 @@ def api_server_chats_list(req: Request):
     if not prompt:
         return JSONResponse(status_code=400, content={"status": "error", "message": "Пустой запрос"})
     chat_id = str(data.get("chat_id") or "").strip()
-    author = str(data.get("author") or actor_name or "Участник").strip()[:48]
     max_tokens = min(2048, max(32, int(data.get("max_tokens") or 512)))
     temperature = max(0.0, min(2.0, float(data.get("temperature") or 0.7)))
     now = time.time()
