@@ -87,3 +87,16 @@ Endpoints implemented in `shard_engine/server.py` and `shard_engine/lan.py`:
 - `POST /api/lan/compute/consent`: Allows a worker node to explicitly opt in to compute sharing with customizable limits:
   - `vram_limit_gb`: Maximum GPU memory allocated to the cluster.
   - `cpu_threads`: Maximum CPU threads dedicated to tensor computation.
+  - `allow_wan`: Flag governing participation in wide-area network clusters.
+- `POST /api/lan/compute/opt_out`: Immediately revokes compute contribution, drops active tensor workers, and reassigns role to `INFERENCE_CLIENT`.
+- `GET /api/lan/compute/status`: Reports the node's current role, consent status, and allocated hardware quotas.
+
+---
+
+## 5. Truthful SOUP Installation Progress & Cancellation
+
+### 5.1 Real-Time Streaming Output Parser
+Previously, the SOUP installation adapter assigned a static `pct = 55` during package installation. In Phase III, `_parse_and_update_pip_progress(chunk)` was implemented in `shard_engine/soup_adapter.py`:
+- Processes character streams delimited by `\r` (carriage return used by `pip` progress bars) and `\n`.
+- Parses download percentage (`(\d+(?:\.\d+)?)%`), current package names (`Collecting\s+([a-zA-Z0-9_\-\.]+)`), and byte counts (`([\d\.]+\s*[kMG]B)`).
+- Updates lifecycle telemetry synchronously without blocking the HTTP worker thread.
