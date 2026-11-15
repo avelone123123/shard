@@ -2262,14 +2262,19 @@ def api_server_workspace(req: Request):
             "lifecycle_state": eng_st.get("lifecycle_state"),
         },
         "private_session_count": _get_active_private_sessions_count(),
-        "shared_chats": ws.get("shared_chats", [])[-30:],
+        "privacy_notice": "Private participant sessions are strictly isolated and never stored in workspace or exposed to peers.",
         "community_messages": ws.get("community_messages", [])[-100:],
         "model_issues": ws.get("model_issues", [])[-100:],
     }
-@app.post("/api/server/shared-chat")
-async def api_server_shared_chat(req: Request):
-    ok, role, actor_name = _resolve_server_actor(req)
+@app.get("/api/server/chats")
+def api_server_chats_list(req: Request):
+    ok, role, actor_name, pid = _resolve_server_participant(req)
     if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника сервера"})
+    chats = _load_participant_chats(pid)
+    summaries = [{
+        "id": c.get("id"),
+        "title": c.get("title") or "Новый диалог",
         return JSONResponse(status_code=401, content={"status": "error", "message": "Требуется авторизация участника"})
     try:
         data = await req.json()
