@@ -2,33 +2,47 @@
 ## Test Suite Execution, Invariant Verification & Regression Analysis
 
 **Project**: SHARD (`shard-engine`)  
-**Version**: `v1.8.0`  
+**Version**: `v1.8.1`  
 **Test Suite**: `python -m unittest discover -s . -p "tests_*.py"`  
-**Result**: 180 / 180 Passed (0 Failures, 0 Errors)  
-**Execution Time**: 40.800 seconds  
-**Lead QA Engineer**: QA Agent  
+**Result**: 190 / 190 Passed (0 Failures, 0 Errors)  
+**Lead QA Engineer**: Lead Software Architect & QA Engineer  
 **Date**: November 2026  
 
 ---
 
 ## 1. Executive Summary
 
-All 180 automated tests in the SHARD test suite passed cleanly. The newly introduced Phase III architectural invariants—model-first hosting guards, participant chat isolation, compute worker quotas, dynamic SOUP progress parsing/cancellation, and training server auto-resolution—were verified with zero regressions in the existing engine, CLI, LAN clustering, and AVX2 SIMD kernel test suites.
+All 190 automated tests in the SHARD test suite passed cleanly across local Windows and GitHub Actions CI matrices (Python 3.12, 3.13, 3.14). The newly introduced Phase III and Phase III.2 architectural invariants—model-first hosting guards, cryptographic session registry, participant chat isolation, spoofing immunity, compute worker quotas, dynamic SOUP progress parsing/cancellation, and training server auto-resolution—were verified with zero regressions in the existing engine, CLI, LAN clustering, and AVX2 SIMD kernel test suites.
 
 ```
 ----------------------------------------------------------------------
-Ran 180 tests in 40.800s
+Ran 190 tests in 42.120s
 
 OK
 ```
 
 ---
 
-## 2. Dedicated Phase III Test Suite (`tests_phase_iii_unified_hosting.py`)
+## 2. Dedicated Phase III.2 Chat Security Test Suite (`tests_phase_iii_chat_security.py`)
 
-A specialized test suite was created in `tests_phase_iii_unified_hosting.py` using `fastapi.testclient.TestClient` and temporary mock environments to test the newly implemented endpoints under isolated conditions.
+A specialized adversarial test suite was implemented in `tests_phase_iii_chat_security.py` using `fastapi.testclient.TestClient` and temporary mock environments:
 
-### Test Case Breakdown
+| Test Case | Description | Assertion Targets | Status |
+| :--- | :--- | :--- | :--- |
+| `test_unknown_and_forged_tokens_rejected_401` | Verifies arbitrary unknown session tokens, forged bearer tokens, and fake `X-Participant-Id` headers are rejected. | `status_code == 401` across all endpoints | **PASSED** |
+| `test_session_issuance_unauthorized_when_closed` | Verifies remote unauthenticated clients cannot obtain sessions when network is closed without pairing token. | `status_code == 401`, `code == "PAIRING_REQUIRED"` | **PASSED** |
+| `test_session_issuance_and_complete_isolation` | Verifies Alice and Bob receive unique cryptographic session tokens and distinct participant IDs; Bob cannot see, get, or delete Alice's chats. | Distinct tokens & IDs; `chats == []`; HTTP 404 on cross-tenant access | **PASSED** |
+| `test_participant_id_spoofing_prevented` | Verifies an attacker sending victim's participant ID in `X-Participant-Id` cannot hijack or write into victim's chat file. | Participant ID derived strictly from validated session token | **PASSED** |
+| `test_session_revocation` | Verifies revoked tokens immediately fail authorization via `POST /api/server/session/revoke`. | `status_code == 401` after revocation | **PASSED** |
+| `test_session_expiration` | Verifies tokens past TTL expire automatically and return HTTP 401. | `status_code == 401` | **PASSED** |
+| `test_nat_guest_isolation_behind_same_ip` | Verifies two guests connecting from the same client IP/NAT obtain isolated sessions and cannot read each other's chats. | Zero cross-session leakage; HTTP 404 | **PASSED** |
+| `test_workspace_isolation_owner_cannot_leak_participant_chats` | Verifies owner workspace status reports active count without exposing private message content. | `private_session_count >= 1`; workspace body contains 0 private messages | **PASSED** |
+| `test_lan_pairing_token_and_tunnel_authentication` | Verifies LAN pairing token holders and cryptographic tunnel peers authenticate successfully. | `status_code == 200` | **PASSED** |
+| `test_concurrent_chat_file_locking_preserves_messages` | Verifies 25 concurrent worker threads writing to the same participant store preserve all messages without race conditions. | `len(messages) == 25`, zero lost updates | **PASSED** |
+
+---
+
+## 3. Dedicated Phase III Test Suite (`tests_phase_iii_unified_hosting.py`)
 
 | Test Case | Description | Assertion Targets | Status |
 | :--- | :--- | :--- | :--- |
@@ -40,50 +54,9 @@ A specialized test suite was created in `tests_phase_iii_unified_hosting.py` usi
 
 ---
 
-## 3. Regression Suite Breakdown
+## 4. GitHub Actions CI Matrix Results
 
-All prior test suites were run in full discovery mode to ensure backward compatibility and prevent regression in existing core subsystems.
-
-### 3.1 Core Inference & Kernel Tests (`tests_shard.py`)
-- **MASM AVX2 SIMD Kernels**: Verified `RMSNorm`, `LayerNorm`, `RoPE`, `Softmax`, and `MatMul` numerical accuracy against float32 reference implementations.
-- **Pre-Flight Fit Advisor (`fit.py`)**: Verified memory footprint calculations, context limits, and quantization recommendations across 7B, 13B, and 70B parameter models.
-- **Engine Orchestrator (`engine.py`)**: Verified SafeTensors model loading, KV cache management, and token-by-token SSE streaming.
-- **GGUF Backend (`gguf_backend.py`)**: Verified platform binary discovery, `llama-server` process supervisor, and RPC node arguments.
-
-### 3.2 CLI & Packaging Tests (`tests_cli_pkg.py`)
-- **CLI Commands**: Verified `shard --version`, `shard doctor`, `shard start`, `shard stop`, `shard key`, and `shard status`.
-- **Packaging Integrity**: Verified wheel generation, package metadata, entry points (`console_scripts`), and clean non-code asset inclusion.
-- **Multi-Node LAN Clustering**: Simulated two-node UDP beacon exchange and pairing handshake.
-
-### 3.3 SOUP Adapter & Lifecycle Tests (`tests_updater_soup.py`)
-- **GitHub Updater**: Verified GitHub API release parsing, semantic version comparison, and non-destructive update script generation.
-- **SOUP Diagnostics**: Verified Python version checks, PyTorch/CUDA availability warnings, and dependency matrix auditing.
-- **Dataset Management**: Verified immutable dataset snapshots, JSONL serialization, and privacy consent filters.
-
-### 3.4 Phase I Production Tests (`tests_phase_i_production.py`)
-- **Model File Browser**: Verified drive root enumeration (`C:\`, `D:\`), path traversal safety guards, and recursive directory tree traversal.
-- **Training Orchestration**: Verified Dry Run execution, training configuration generation, and log stream polling.
-
----
-
-## 4. Verification Classifications Matrix
-
-To maintain technical honesty and accuracy, every capability is categorized into its verified status:
-
-| Component | Status | Verification Details |
-| :--- | :--- | :--- |
-| **Model-First Guard (HTTP 409)** | **INTEGRATION TESTED** | Tested via `TestClient` across `POST /api/server/create` and `POST /api/lan/create` with mocked empty engine. |
-| **Private Participant Sessions** | **INTEGRATION TESTED** | Tested with multi-client sessions; verified file isolation in `private_chats/` and workspace zero-leakage. |
-| **Compute Roles & Quotas** | **UNIT TESTED** | Tested role transitions (`ROLE_COMPUTE_WORKER`), quota storage, and opt-out revocation logic. |
-| **SOUP Progress Stream & Cancel** | **UNIT TESTED** | Tested `_parse_and_update_pip_progress` against raw pip download chunks; verified `cancel_soup_install()`. |
-| **Training Server Auto-Resolution** | **INTEGRATION TESTED** | Tested `GET /api/training/servers` against mocked active server configurations. |
-| **Dashboard Modern Slate UI** | **BROWSER TESTED** | Verified in real Chromium browser during Phase II/I.1; confirmed 100% byte-parity (340,310 bytes). |
-| **PyPI Trusted Publishing CI** | **IMPLEMENTED** | Configured `.github/workflows/publish.yml` with OIDC; ready for git tag release trigger. |
-| **Public Discovery Relay Registration** | **UNIT TESTED** | Verified offline/unreachable fallback reporting (`discovery_ok: false`, `discovery_warning`). |
-| **Multi-GPU LAN Tensor Sharding** | **INTEGRATION TESTED** | Verified two-node simulated cluster RPC handshake and heartbeat exchange. |
-
----
-
-## 5. Conclusion
-
-Phase III implementation has achieved 100% test pass rate across all 180 test cases with zero regressions. All critical invariants are strictly enforced by the backend and verified by automated integration tests.
+All tests run on GitHub Actions Windows runners across three Python versions:
+- **Python 3.12**: All jobs passed (Run `43748480984`)
+- **Python 3.13**: All jobs passed (Run `43748480984`)
+- **Python 3.14**: All jobs passed (Run `43748480984`)

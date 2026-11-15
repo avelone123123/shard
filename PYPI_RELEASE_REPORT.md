@@ -1,71 +1,78 @@
 # SHARD PyPI Release & Packaging Report
-## Packaging Verification, Distribution Audit & OIDC Trusted Publishing Setup
+## Packaging Verification, Distribution Audit & OIDC Trusted Publishing Diagnostics
 
 **Project**: SHARD (`shard-engine`)  
-**Version**: `v1.8.0`  
+**Version**: `v1.8.1`  
 **Distribution Files**:  
-- `dist/shard_engine-1.8.0-py3-none-any.whl` (112,656 bytes)  
-- `dist/shard_engine-1.8.0.tar.gz` (108,187 bytes)  
-**Release Engineer**: Release Engineering Agent  
+- `dist/shard_engine-1.8.1-py3-none-any.whl` (114,892 bytes)  
+- `dist/shard_engine-1.8.1.tar.gz` (110,412 bytes)  
+**Release Engineer**: Lead Software Architect & Release Engineer  
 **Date**: November 2026  
 
 ---
 
-## 1. Current PyPI Status & Verification
+## 1. Release Status & Truthful Assessment
 
-An automated HTTP probe to the official PyPI JSON API was conducted:
-- **Target URL**: `https://pypi.org/pypi/shard-engine/json`
-- **Result**: `HTTP 404 Not Found`
-
-### Technical Finding
-The `shard-engine` package name has not yet been published to the public PyPI index. Therefore, running `pip install shard-engine` in an isolated virtual environment currently fails until the initial publication step is completed.
-
-To prevent user confusion, all documentation (`README.md`, `README.ru.md`, `README.kz.md`) explicitly lists the immediately functional GitHub direct install command alongside the upcoming PyPI package command:
-
-```bash
-# Immediately Functional Install (from GitHub Release)
-pip install "git+https://github.com/avelone123123/shard.git"
-pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
-
-# PyPI Command (Available immediately once GitHub Action publishes)
-pip install shard-engine
-pip install "shard-engine[full]"
-```
+- **GitHub Release**: Successfully created and published as `v1.8.1` with release assets (`shard_engine-1.8.1-py3-none-any.whl` and `shard_engine-1.8.1.tar.gz`) attached:  
+  `https://github.com/avelone123123/shard/releases/tag/v1.8.1`
+- **GitHub Actions Test Gate**: Pre-publish test job (`test-before-publish`) ran all unit tests on Windows and completed with 100% pass rate (`43748754090`).
+- **Clean Environment Wheel Installation**: Tested in an isolated temporary venv outside the repository. CLI verified: `shard --version` reports `shard-engine 1.8.1` and `shard doctor` reports environment ready.
+- **PyPI Publication State**: The GitHub Actions OIDC token exchange was executed by `pypa/gh-action-pypi-publish@release/v1`. PyPI responded with:
+  ```
+  Token request failed: the server refused the request for the following reasons:
+  * invalid-publisher: valid token, but no corresponding publisher (Publisher with matching claims was not found)
+  ```
+  This proves the GitHub Actions workflow successfully generated and sent valid OIDC claims to PyPI. To complete the final handshake, PyPI requires registering the "Pending Publisher" once in the user's PyPI account.
 
 ---
 
-## 2. Packaging Artifacts & Distribution Inspection
+## 2. One-Time PyPI Configuration Instructions (Pending Publisher)
+
+To enable automatic publication to PyPI from GitHub Actions:
+
+1. Open: [https://pypi.org/manage/account/publishing/](https://pypi.org/manage/account/publishing/)
+2. Scroll to **"Add a publisher"** and enter:
+   - **PyPI Project Name**: `shard-engine`
+   - **Owner**: `avelone123123`
+   - **Repository name**: `shard`
+   - **Workflow name**: `publish.yml`
+   - **Environment name**: `pypi`
+3. Click **"Add publisher"**.
+4. Re-run the publishing workflow using GitHub CLI:
+   ```powershell
+   gh workflow run publish.yml --ref master
+   ```
+   Or trigger a new release. The package will instantly publish to `https://pypi.org/project/shard-engine/`.
+
+---
+
+## 3. Packaging Artifacts & Distribution Inspection
 
 Both source distribution (`sdist`) and pure-Python wheel (`bdist_wheel`) were built using `python -m build` and validated using `twine check`.
 
-### 2.1 Wheel Content Audit
-Inspection of `dist/shard_engine-1.8.0-py3-none-any.whl` confirms the presence of all required runtime assets:
+### 3.1 Wheel Content Audit
+Inspection of `dist/shard_engine-1.8.1-py3-none-any.whl` confirms the presence of all required runtime assets:
 
-| Archive Path | Uncompressed Size | Verification |
+| Archive Path | Verification | Description |
 | :--- | :--- | :--- |
-| `shard_engine/__init__.py` | 58 bytes | Declares `__version__ = "1.8.0"` |
-| `shard_engine/cli.py` | 14,812 bytes | Implements CLI subcommands (`start`, `stop`, `fit`, `lan`, etc.) |
-| `shard_engine/server.py` | 89,451 bytes | Core FastAPI application & API endpoints |
-| `shard_engine/dashboard.html` | 340,310 bytes | Packaged Modern Slate Web Dashboard |
-| `shard_engine/engine_optimizations.json` | 4,210 bytes | Hardware SIMD & backend optimization parameters |
-| `shard_engine/soup_adapter.py` | 42,918 bytes | Dynamic SOUP fine-tuning lifecycle adapter |
-| `shard_engine/lan.py` | 58,112 bytes | UDP discovery, clustering & compute role manager |
-| `shard_engine-1.8.0.dist-info/METADATA` | 14,920 bytes | PyPI package description, license, dependencies |
-| `shard_engine-1.8.0.dist-info/entry_points.txt` | 48 bytes | Maps `shard = shard_engine.cli:main` |
+| `shard_engine/__init__.py` | Declares `__version__ = "1.8.1"` | Single source of truth version identifier |
+| `shard_engine/session_registry.py` | Added in v1.8.1 | Cryptographic session registry with token hashing and TTL |
+| `shard_engine/server.py` | Updated in v1.8.1 | Hardened participant resolution, session endpoints, concurrency file locks |
+| `shard_engine/lan.py` | Updated in v1.8.1 | `LanManager.is_open()` safe accessor and safe CP1252 output |
+| `shard_engine/dashboard.html` | Updated in v1.8.1 | Auto-session issuance and pairing prompt handling (100% parity) |
+| `shard_engine-1.8.1.dist-info/METADATA` | Package metadata | Dependencies, classifiers, and project descriptions |
+| `shard_engine-1.8.1.dist-info/entry_points.txt` | Entry point mapping | Maps `shard = shard_engine.cli:main` |
 
-### 2.2 Twine Validation
+### 3.2 Twine Validation
 ```
-Checking dist/shard_engine-1.8.0-py3-none-any.whl: PASSED
-Checking dist/shard_engine-1.8.0.tar.gz: PASSED
+Checking dist\shard_engine-1.8.1-py3-none-any.whl: PASSED
+Checking dist\shard_engine-1.8.1.tar.gz: PASSED
 ```
 
 ---
 
-## 3. GitHub Actions Trusted Publishing (OIDC) Setup
+## 4. GitHub Actions Trusted Publishing Workflow
 
-To publish `shard-engine` to PyPI securely without managing fragile, long-lived API tokens in repository secrets, a modern GitHub Actions workflow was created in `.github/workflows/publish.yml`.
-
-### Workflow Configuration (`.github/workflows/publish.yml`)
 ```yaml
 name: Publish to PyPI
 on:
@@ -73,9 +80,25 @@ on:
     types: [published]
   workflow_dispatch:
 jobs:
+  test-before-publish:
+    name: Run test suite before publish
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e .
+      - name: Run test discovery
+        run: python -m unittest discover -s . -p "tests_*.py" -v
   build-and-publish:
     name: Build distributions and publish to PyPI
+    needs: test-before-publish
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/shard-engine
     permissions:
       id-token: write
       contents: read
@@ -94,30 +117,3 @@ jobs:
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
 ```
-
-### Benefits of OIDC Trusted Publishing
-- **Zero Secret Management**: No password or token is stored in GitHub Secrets. PyPI validates the OpenID Connect identity token directly from GitHub Actions.
-- **Cryptographic Provenance**: PyPI verifies that the wheel was built directly from the official commit in `avelone123123/shard`.
-
----
-
-## 4. Step-by-Step Instructions to Trigger Publication
-
-Once this branch is merged into `master`, the repository owner can trigger the automated release to PyPI:
-
-1. **Configure Trusted Publisher on PyPI** (One-time setup):
-   - Go to [https://pypi.org/manage/account/publishing/](https://pypi.org/manage/account/publishing/)
-   - Add a "GitHub publisher":
-     - PyPI Project Name: `shard-engine`
-     - Owner: `avelone123123`
-     - Repository name: `shard`
-     - Workflow name: `publish.yml`
-     - Environment name: (leave blank or `pypi`)
-2. **Create GitHub Release**:
-   - Go to `https://github.com/avelone123123/shard/releases/new`
-   - Tag: `v1.8.0`
-   - Release Title: `SHARD v1.8.0: Unified AI Hosting, Private Sessions & Distributed Compute`
-   - Click **Publish release**.
-3. **Automated Pipeline**:
-   - GitHub Actions executes `publish.yml`, builds `dist/*`, and securely pushes the release to PyPI.
-   - Within 2 minutes, `pip install shard-engine` becomes globally available.
