@@ -22,3 +22,15 @@ The `shard-engine` package name has not yet been published to the public PyPI in
 
 To prevent user confusion, all documentation (`README.md`, `README.ru.md`, `README.kz.md`) explicitly lists the immediately functional GitHub direct install command alongside the upcoming PyPI package command:
 
+```bash
+# Immediately Functional Install (from GitHub Release)
+pip install "git+https://github.com/avelone123123/shard.git"
+pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
+
+# PyPI Command (Available immediately once GitHub Action publishes)
+pip install shard-engine
+pip install "shard-engine[full]"
+```
+
+---
+
