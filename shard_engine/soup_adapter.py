@@ -680,6 +680,7 @@ def install_or_repair_soup(action="install", custom_python=None, background=True
             "python_executable": None,
             "installed_version": None,
             "pkg_current": None,
+            "download_progress": None,
             "verification": None,
             "error": None,
             "started_at": time.time(),
