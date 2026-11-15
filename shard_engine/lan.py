@@ -18,6 +18,8 @@ from . import storage as _storage
 from .fit import RAM_RESERVE_MB, VRAM_RESERVE_MB
 _CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 ROLE_OWNER = "server"
+ROLE_COMPUTE_WORKER = "worker"
+ROLE_INFERENCE_CLIENT = "member"
 BEACON_PORT = 8001
 BEACON_INTERVAL_S = 2.0
 PEER_TTL_S = 8.0
