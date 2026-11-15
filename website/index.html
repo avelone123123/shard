@@ -16,6 +16,7 @@
 <meta name="twitter:image" content="assets/branding/shard-logo.png">
 <link rel="icon" type="image/png" href="assets/branding/favicon.png">
 <link rel="stylesheet" href="styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 <header class="nav-header">
@@ -91,7 +92,8 @@
 <div class="hero-corner-mark top-right"></div>
 <div class="hero-corner-mark bottom-left"></div>
 <div class="hero-corner-mark bottom-right"></div>
-<img src="assets/animations/hero-network.gif" alt="SHARD Hero Network Animation" class="hero-gif">
+<canvas id="hero-3d-canvas" class="hero-3d-canvas"></canvas>
+<img src="assets/animations/hero-network.gif" alt="SHARD Hero Network Animation" class="hero-gif" id="hero-fallback-img">
 <div class="hero-visual-caption">
 <span data-i18n="hero_caption_title">HYBRID TOPOLOGY</span>
 <span data-i18n="hero_caption_status">LAN POOLING &amp; BLIND RELAY READY</span>
@@ -950,7 +952,7 @@ shard test</pre></div>
 </div>
 <div class="footer-bottom-bar">
 <span data-i18n="footer_copy">SHARD Project. Distributed Neural Compute. Released under the MIT License.</span>
-<span>v1.8.0 // C++20 + MASM AVX2 + FASTAPI + P2P RELAY</span>
+<span>v1.8.1 // C++20 + MASM AVX2 + FASTAPI + P2P RELAY</span>
 </div>
 </div>
 </footer>
