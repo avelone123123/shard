@@ -4377,9 +4377,20 @@ async function srvDeleteCurrentChat() {
     if (!srvCurrentChatId) return;
     try {
         const res = await fetch('/api/server/chats/' + encodeURIComponent(srvCurrentChatId), {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+            showToast('Диалог удалён', srvCurrentChatId);
+            srvCurrentChatId = '';
+            await srvLoadPrivateChats();
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
 async function srvSendSharedChat() {
     const inp = document.getElementById('srvSharedChatInput');
-    const auth = document.getElementById('srvSharedChatAuthor');
     const btn = document.getElementById('srvSharedChatBtn');
     const text = (inp && inp.value || '').trim();
     if (!text) return;
