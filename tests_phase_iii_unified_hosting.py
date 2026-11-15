@@ -46,3 +46,15 @@ class TestPhaseIIIUnifiedHosting(unittest.TestCase):
     def test_server_creation_succeeds_when_model_ready(self):
         with mock.patch.object(server.engine_instance, "is_loaded", return_value=True), \
              mock.patch.object(server.engine_instance, "is_model_active", return_value=True), \
+             mock.patch.object(server.engine_instance, "detailed_lifecycle_state", return_value="READY"), \
+             mock.patch.object(server.engine_instance, "generate_sync", return_value={"content": "pong"}):
+            r = self.client.post("/api/server/create", json={"name": "ready-srv", "enable_lan": True, "model": "ready-model"})
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.json().get("status"), "ok")
+    def test_private_chat_isolation_across_participants(self):
+        tok_a = "shard_lan_tok_alice_12345678"
+        tok_b = "shard_lan_tok_bob_87654321"
+        client_a = TestClient(server.app, client=("192.168.1.10", 51000), headers={"Authorization": f"Bearer {tok_a}"})
+        client_b = TestClient(server.app, client=("192.168.1.20", 52000), headers={"Authorization": f"Bearer {tok_b}"})
+        with mock.patch.object(server.LAN, "tokens", return_value={tok_a, tok_b}):
+            with mock.patch.object(server.engine_instance, "is_loaded", return_value=True), \
