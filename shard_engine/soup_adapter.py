@@ -432,6 +432,18 @@ def cancel_soup_install():
                 subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=_WIN_NO_WINDOW)
             else:
                 proc.terminate()
+        except Exception:
+            pass
+    _set_install_state(
+        lifecycle_state="CANCELLED",
+        status="cancelled",
+        stage="Установка отменена пользователем",
+        pct=0,
+        error="Установка прервана по запросу пользователя.",
+        finished_at=time.time(),
+        line="[CANCEL] Установка SOUP была отменена пользователем.",
+    )
+    return get_soup_install_status()
 def verify_soup_environment(py_exe, soup_cmd=None, check_train_deps=True):
     checks = {
         "venv_present": False,
