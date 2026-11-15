@@ -4406,11 +4406,18 @@ async function srvSendSharedChat() {
         if (!res.ok) {
             showToast('Ошибка чата', d.message || 'Модель не готова или нет доступа');
         } else {
-        await srvRefresh();
+            if (d.chat_id) srvCurrentChatId = d.chat_id;
+            await srvLoadPrivateChats();
+        }
     } catch(e) {
-        showToast('Ошибка', 'Не удалось отправить запрос');
+        showToast('Ошибка', 'Не удалось отправить запрос: ' + e.message);
     } finally {
         if (btn) btn.disabled = false;
+    }
+}
+async function lanApplyComputeQuota(optIn) {
+    const vram = parseFloat((document.getElementById('lanQuotaVram') || {}).value || '4.0');
+    const threads = parseInt((document.getElementById('lanQuotaThreads') || {}).value || '4', 10);
     }
 }
 async function srvSendCommunityMsg() {
