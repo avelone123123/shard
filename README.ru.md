@@ -183,6 +183,7 @@ pip install "shard-engine[full]"
 # Базовая установка из GitHub
 pip install "git+https://github.com/avelone123123/shard.git"
 
+# Полная установка из GitHub
 pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
 
