@@ -10,3 +10,15 @@
 **Date**: November 2026  
 
 ---
+
+## 1. Current PyPI Status & Verification
+
+An automated HTTP probe to the official PyPI JSON API was conducted:
+- **Target URL**: `https://pypi.org/pypi/shard-engine/json`
+- **Result**: `HTTP 404 Not Found`
+
+### Technical Finding
+The `shard-engine` package name has not yet been published to the public PyPI index. Therefore, running `pip install shard-engine` in an isolated virtual environment currently fails until the initial publication step is completed.
+
+To prevent user confusion, all documentation (`README.md`, `README.ru.md`, `README.kz.md`) explicitly lists the immediately functional GitHub direct install command alongside the upcoming PyPI package command:
+
