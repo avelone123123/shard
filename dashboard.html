@@ -3721,6 +3721,7 @@ function _renderSoupInstallerBox(inst) {
     const pct = Number(inst.progress_pct || 0);
     const tail = (inst.logs || []).slice(-6).join('\n');
     const barColor = inst.status === 'failed' ? 'var(--danger)' : (inst.status === 'completed' ? 'var(--success)' : 'var(--accent)');
+    const isRunning = inst.status === 'running' || ['CHECKING_ENVIRONMENT', 'FINDING_PYTHON', 'CREATING_VENV', 'INSTALLING', 'VERIFYING', 'UPDATING'].includes(inst.lifecycle_state);
     box.innerHTML =
         '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:9px 11px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:5px;">' +
