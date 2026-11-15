@@ -1911,6 +1911,7 @@ async def api_net_publish(req: Request):
         data = await req.json()
     except Exception:
         data = {}
+    model = (data.get("models") or [None])[0] if data.get("models") else (engine_instance.active_model_id or engine_instance.current_loaded_id)
     try:
         res = _net_mgr().publish_server(
             name=data.get("name"),
