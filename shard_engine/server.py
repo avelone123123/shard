@@ -1501,6 +1501,19 @@ def api_training_servers(req: Request):
         servers.append({
             "id": "srv_primary",
             "name": srv_name,
+            "mode": "lan" if LAN.is_server() else ("published" if host_st.get("published") else "local"),
+            "model_id": active_m,
+            "is_loaded": engine_instance.is_loaded(),
+            "trainable": trainable,
+            "training_base_model": suggested_hf or (active_m if trainable else None),
+            "incompatibility_reason": incompat_reason,
+            "details": {
+                "lan_open": lan_st.get("open", False),
+                "published": bool(host_st.get("published")),
+                "active_peers": host_st.get("active_peers", 0) + len(lan_st.get("members", [])),
+            }
+        })
+    return {"status": "ok", "servers": servers}
 @app.get("/api/training/privacy")
 def api_training_privacy_get(req: Request):
     denied = _deny_non_owner(req)
