@@ -33,3 +33,12 @@ A specialized test suite was created in `tests_phase_iii_unified_hosting.py` usi
 | Test Case | Description | Assertion Targets | Status |
 | :--- | :--- | :--- | :--- |
 | `test_server_model_ready_guard_enforced_409` | Verifies that creating a server or creating a LAN pool without an active model returns HTTP 409 Conflict. | - `status_code == 409`<br>- `data["code"] == "MODEL_NOT_READY"`<br>- Rejection before state mutation | **PASSED** |
+| `test_private_participant_chats_isolation` | Verifies deterministic participant ID derivation, disk isolation in `private_chats/`, and zero leakage into `/api/server/workspace`. | - Scoped file creation in `private_chats/`<br>- Participant A cannot read Participant B's sessions<br>- Session deletion purges file<br>- `/api/server/workspace` contains zero prompt text | **PASSED** |
+| `test_compute_contribution_consent_and_quotas` | Verifies canonical roles (`COMPUTE_WORKER`), quota storage (`vram_limit_gb`, `cpu_threads`), and opt-out revocation. | - `status["has_consented"] == True`<br>- Quota values stored and returned<br>- `opt_out` reverts role to `inference_client` | **PASSED** |
+| `test_soup_progress_streaming_and_cancellation` | Verifies non-blocking streaming progress parser for pip output (`\r` and `\n`) and process-tree cancellation. | - Regex extracts package name & percent<br>- Status transitions to `"CANCELLED"`<br>- Process termination invoked | **PASSED** |
+| `test_training_servers_endpoint` | Verifies `GET /api/training/servers` listing active servers, extracting HF base models, and flagging GGUF incompatibility. | - `status_code == 200`<br>- Returns active server list<br>- Flags `training_supported: false` for pure GGUF models | **PASSED** |
+
+---
+
+## 3. Regression Suite Breakdown
+
