@@ -77,3 +77,15 @@ pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git
 ---
 
 ## 4. Community Launch Materials
+
+### 4.1 Reddit (`r/LocalLLaMA`)
+**Title**: *Show LocalLLaMA: SHARD v1.8.0 — Pool VRAM across LAN laptops/desktops, host model-first private servers, and fine-tune with SOUP*
+
+> Hey r/LocalLLaMA,
+> 
+> A common limitation with running 14B–70B models locally is having VRAM fragmented across multiple household or office machines (e.g. an RTX 3060 on a desktop, an RTX 4060 on a laptop, a Mac mini in the corner) while none can fit the full model alone.
+> 
+> We just released **SHARD v1.8.0** (`shard-engine`):
+> 
+> - **LAN VRAM Pooling**: Connect machines on your local subnet to split and run GGUF / PyTorch layers over `llama.cpp` RPC and UDP discovery.
+> - **Pre-Flight Fit Advisor (`shard fit`)**: Calculates whether a Hugging Face or GGUF model will fit on your single GPU, hybrid CPU+RAM, or pooled cluster *before* downloading gigabytes of weights.
