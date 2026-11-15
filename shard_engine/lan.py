@@ -1272,6 +1272,12 @@ class LanManager:
             "mode": mode,
             "role": "worker" if mode == "worker" else ("server" if mode == "server" else "member"),
             "shares_compute": mode == "worker",
+            "rpc_available_locally": bool(find_rpc_server()),
+            "rpc_port": port,
+            "rpc_running": bool(self._rpc_proc is not None and self._rpc_proc.poll() is None),
+            "compute_quota": quota,
+            "wan_experimental_warning": "WAN compute pooling over internet relays is experimental. High latency can reduce inference throughput. LAN pooling over local Ethernet/Wi-Fi is recommended.",
+        }
     def _choose_worker_port(self):
         env_p = os.environ.get("SHARD_RPC_PORT")
         preferred = []
