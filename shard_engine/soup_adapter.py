@@ -40,6 +40,8 @@ SOUP_VERSION_CACHE_TTL = 4 * 3600
 _SAFE_PYTHON_EXE_RE = re.compile(r"^python(\d+(?:\.\d+)*)?(?:\.exe)?$", re.IGNORECASE)
 _WIN_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 _INSTALL_LOCK = threading.RLock()
+_CURRENT_SOUP_PROC = None
+_SOUP_CANCEL_REQUESTED = False
 _INSTALL_STATE = {
     "status": "idle",
     "lifecycle_state": "NOT_INSTALLED",
@@ -51,6 +53,8 @@ _INSTALL_STATE = {
     "venv_dir": None,
     "python_executable": None,
     "installed_version": None,
+    "pkg_current": None,
+    "download_progress": None,
     "verification": None,
     "error": None,
     "started_at": None,
