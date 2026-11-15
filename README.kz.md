@@ -146,6 +146,8 @@ SHARD жұмыс процесі төрт негізгі қадамнан тұр�
 | **API және стриминг** | **OpenAI және Anthropic API үйлесімділігі** | [`server.py`](server.py) | Нақты уақыттағы SSE стримингі және API-кілт қорғанысы (`shard key`) бар `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/messages` (Anthropic) және `/api/generate` маршруттары. |
 | **Веб-басқару** | **Тәуелсіз басқару тақтасы (`dashboard.html`)** | [`dashboard.html`](dashboard.html) | `http://localhost:8000` адресіндегі GPU/VRAM/RAM телеметриясы, Hugging Face модельдерін іздеу/жүктеу, интерактивті чат, LAN-пул менеджері және IDE интеграция блоктары бар веб-интерфейс. |
 | **Контейнерлеу** | **Docker және NVIDIA GPU Compose стегі** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Тұрақты томдары (`shard_models_volume`, `shard_data_volume`) және NVIDIA GPU қолдауы бар дайын контейнерлік конфигурация. |
+| **Бірлескен оқыту** | **SOUP қосымша fine-tuning экожүйесі** | [`soup_adapter.py`](shard_engine/soup_adapter.py), [`feedback.py`](shard_engine/feedback.py), [`training.py`](shard_engine/training.py), [`docs/COLLABORATIVE_TRAINING.md`](docs/COLLABORATIVE_TRAINING.md) | Келісімді кері байланыс, құпия деректерді тазарту, SFT/DPO бекітілген деректер жинағы, SOUP оқытуды динамикалық басқару және тоқтату, нұсқалау және қайтару. |
+| **Бірыңғай хостинг және құпиялылық** | **Model-First хостинг және жеке сессиялар** | [`server.py`](shard_engine/server.py), [`lan.py`](shard_engine/lan.py) | Серверді іске қосу/жариялау алдында модельді тексеру (HTTP 409 `MODEL_NOT_READY`), қатысушылардың жеке чаттарының толық құпиялылығы және есептеу квоталары. |
 
 ### Эксперименттік мүмкіндіктер
 - **Көп-хосттық `llama.cpp` RPC тензорлық тарату (`gguf_backend.py`, `lan.py`):** LAN ішіндегі әртүрлі бейнекарталар арасында TCP/RPC арқылы қабаттарды бөліп есептеу сымды Gigabit / 2.5GbE Ethernet желілерінде ең жоғары өнімділік көрсетеді; Wi-Fi желісінде кідіріс жоғары болуы мүмкін.
@@ -170,13 +172,17 @@ SHARD жұмыс процесі төрт негізгі қадамнан тұр�
 #### 1-нұсқа: PyPI арқылы орнату (ұсынылады)
 SHARD пакетін тікелей ресми PyPI каталогынан орнатыңыз:
 ```bash
+# Негізгі орнату: CLI, FastAPI сервері, веб-басқару, GGUF (llama.cpp) + LAN-кластер
 pip install shard-engine
 
+# Толық орнату: PyTorch, Hugging Face transformers және safetensors қосады
 pip install "shard-engine[full]"
 ```
 Соңғы әзірлеуші нұсқасын тікелей GitHub-тан орнату үшін:
 ```bash
+# GitHub-тан негізгі орнату
 pip install "git+https://github.com/avelone123123/shard.git"
+
 pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
 
