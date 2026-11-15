@@ -13,7 +13,8 @@ const MODELS_DATA = [
 { id: "llama70", name: "Llama 3.3 70B Instruct (Q4_K_M)", sizeMb: 42500, reqGb: 42.50 }
 ];
 let currentLang = localStorage.getItem("shard-lang") || "en";
-let currentTheme = localStorage.getItem("shard-theme") || "slate";
+let currentTheme = localStorage.getItem("shard-theme") === "terminal" ? "terminal" : "slate";
+localStorage.setItem("shard-theme", currentTheme);
 function setLanguage(lang) {
 currentLang = lang;
 localStorage.setItem("shard-lang", lang);
