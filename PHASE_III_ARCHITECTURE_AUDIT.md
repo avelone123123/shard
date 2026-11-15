@@ -114,3 +114,17 @@ This audit evaluates the reality versus advertising of SHARD subsystems, identif
 
 ---
 
+## 3. Subsystem Verification & Readiness Matrix
+
+| Subsystem | Component | Implementation Status | Test Coverage | Multi-Process Ready | Multi-Machine Verified | Notes |
+|---|---|---|---|---|---|---|
+| Inference | GGUF Engine | IMPLEMENTED | UNIT TESTED | YES | YES (LAN) | llama.cpp managed subprocess |
+| Inference | Native MASM AVX2 | IMPLEMENTED | UNIT TESTED | YES | N/A | ctypes bridge, fallback to pure Python |
+| Hosting | Model-First Guard | IMPLEMENTED (Phase III) | INTEGRATION TESTED | YES | YES | Rejects unready models (HTTP 409) |
+| Hosting | Unified Server State | IMPLEMENTED (Phase III) | INTEGRATION TESTED | YES | YES | Shared state between LAN and Network |
+| Privacy | Participant Isolation | IMPLEMENTED (Phase III) | INTEGRATION TESTED | YES | YES | Scoped private session storage |
+| Network | LAN UDP Discovery | IMPLEMENTED | UNIT TESTED | YES | YES | Port 8001 beacons, dynamic subnet detection |
+| Network | P2P & Relay Tunnel | IMPLEMENTED | INTEGRATION TESTED | YES | NO (1 machine test) | ChaCha20-Poly1305 end-to-end encryption |
+| Compute | LAN RPC Pooling | IMPLEMENTED | UNIT TESTED | YES | YES (LAN) | llama.cpp `--rpc` tensor splitting |
+| Compute | Global WAN Pooling | EXPERIMENTAL | PARTIALLY TESTED | NO | NO | Labeled experimental, roadmap defined |
+| SOUP | Environment Provision | IMPLEMENTED | UNIT TESTED | YES | YES | Isolated Python 3.12 venv via uv |
