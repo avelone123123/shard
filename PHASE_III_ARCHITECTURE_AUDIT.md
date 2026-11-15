@@ -99,3 +99,18 @@ This audit evaluates the reality versus advertising of SHARD subsystems, identif
   - Training orchestration, preflight verification, LoRA fine-tuning execution, and model version registry.
 - **Identified Gaps**:
   - Installer progress was previously hardcoded at 55% during package installation, causing users to believe the installation had frozen.
+  - Users had to manually input raw Hugging Face model IDs instead of selecting from their running SHARD servers.
+  - GGUF quantization files were not automatically mapped back to their Hugging Face source repositories for training base model resolution.
+
+### 2.6 Packaging & PyPI Release Infrastructure (`pyproject.toml`, `.github/workflows/`)
+- **Reality Assessment**:
+  - `shard-engine` was not published on live PyPI (HTTP 404 on JSON and Simple index).
+  - No dedicated GitHub Actions publication workflow existed in `.github/workflows/`.
+  - README instructed users to run `pip install shard-engine`, which failed for new users.
+- **Phase III Required Remediation**:
+  - Create `.github/workflows/publish.yml` using PyPI Trusted Publishing (OIDC).
+  - Update README with reliable Git installation instructions (`pip install git+https://github.com/...`) until live PyPI release.
+  - Provide complete step-by-step instructions for PyPI Trusted Publisher configuration.
+
+---
+
