@@ -34,3 +34,15 @@ class TestPhaseIIIUnifiedHosting(unittest.TestCase):
             self.assertEqual(r.status_code, 409)
             self.assertEqual(r.json().get("code"), "MODEL_NOT_READY")
     def test_model_first_lan_create_guard(self):
+        with mock.patch.object(server.engine_instance, "is_loaded", return_value=False):
+            r = self.client.post("/api/lan/create", json={"name": "lan-srv", "model": "test-model"})
+            self.assertEqual(r.status_code, 409)
+            self.assertEqual(r.json().get("code"), "MODEL_NOT_READY")
+    def test_model_first_lan_model_guard(self):
+        with mock.patch.object(server.engine_instance, "is_loaded", return_value=False):
+            r = self.client.post("/api/lan/model", json={"model": "test-model"})
+            self.assertEqual(r.status_code, 409)
+            self.assertEqual(r.json().get("code"), "MODEL_NOT_READY")
+    def test_server_creation_succeeds_when_model_ready(self):
+        with mock.patch.object(server.engine_instance, "is_loaded", return_value=True), \
+             mock.patch.object(server.engine_instance, "is_model_active", return_value=True), \
