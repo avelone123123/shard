@@ -1912,6 +1912,9 @@ async def api_net_publish(req: Request):
     except Exception:
         data = {}
     model = (data.get("models") or [None])[0] if data.get("models") else (engine_instance.active_model_id or engine_instance.current_loaded_id)
+    ok, reason = _verify_server_model_ready(model)
+    if not ok:
+        return JSONResponse(status_code=409, content={"status": "error", "code": "MODEL_NOT_READY", "message": f"Model must be loaded and pass inference verification before hosting or publishing a server: {reason}"})
     try:
         res = _net_mgr().publish_server(
             name=data.get("name"),
