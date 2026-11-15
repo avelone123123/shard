@@ -13,7 +13,7 @@ const MODELS_DATA = [
 { id: "llama70", name: "Llama 3.3 70B Instruct (Q4_K_M)", sizeMb: 42500, reqGb: 42.50 }
 ];
 let currentLang = localStorage.getItem("shard-lang") || "en";
-let currentTheme = localStorage.getItem("shard-theme") || "paper";
+let currentTheme = localStorage.getItem("shard-theme") || "slate";
 function setLanguage(lang) {
 currentLang = lang;
 localStorage.setItem("shard-lang", lang);
@@ -21,19 +21,13 @@ document.documentElement.lang = lang;
 const dict = I18N_DATA[lang] || I18N_DATA.en;
 document.querySelectorAll("[data-i18n]").forEach(el => {
 const key = el.getAttribute("data-i18n");
-if (dict[key]) {
-el.textContent = dict[key];
-}
+if (dict[key]) el.textContent = dict[key];
 });
 const langBtnText = document.getElementById("lang-btn-text");
-if (langBtnText) {
-langBtnText.textContent = lang === "en" ? "RU" : (lang === "ru" ? "KZ" : "EN");
-}
+if (langBtnText) langBtnText.textContent = lang === "en" ? "RU" : (lang === "ru" ? "KZ" : "EN");
 updateCalculator();
 const selectedNode = document.querySelector(".arch-node.selected");
-if (selectedNode) {
-inspectArchNode(selectedNode.getAttribute("data-node"));
-}
+if (selectedNode) inspectArchNode(selectedNode.getAttribute("data-node"));
 }
 function setTheme(theme) {
 currentTheme = theme;
@@ -44,9 +38,7 @@ document.documentElement.setAttribute("data-theme", "terminal");
 document.documentElement.removeAttribute("data-theme");
 }
 const themeBtnText = document.getElementById("theme-btn-text");
-if (themeBtnText) {
-themeBtnText.textContent = theme === "terminal" ? "PAPER" : "TERMINAL";
-}
+if (themeBtnText) themeBtnText.textContent = theme === "terminal" ? "SLATE" : "TERMINAL";
 }
 function inspectArchNode(nodeKey) {
 document.querySelectorAll(".arch-node").forEach(el => {
@@ -80,8 +72,10 @@ const modelId = modelSelect.value;
 const model = MODELS_DATA.find(m => m.id === modelId) || MODELS_DATA[1];
 const node1Vram = parseInt(gpu1Slider.value, 10);
 const node2Mem = parseInt(gpu2Slider.value, 10);
-document.getElementById("calc-gpu1-val").textContent = node1Vram + " GB";
-document.getElementById("calc-gpu2-val").textContent = node2Mem + " GB";
+const gpu1Val = document.getElementById("calc-gpu1-val");
+const gpu2Val = document.getElementById("calc-gpu2-val");
+if (gpu1Val) gpu1Val.textContent = node1Vram + " GB";
+if (gpu2Val) gpu2Val.textContent = node2Mem + " GB";
 const node1BudgetMb = Math.max(0, (node1Vram * 1024) - 400);
 const node2BudgetMb = Math.max(0, (node2Mem * 1024) - 2048);
 const poolCapMb = node1BudgetMb + node2BudgetMb;
@@ -164,9 +158,7 @@ const item = btn.closest(".faq-item");
 if (!item) return;
 const wasOpen = item.classList.contains("open");
 document.querySelectorAll(".faq-item").forEach(i => i.classList.remove("open"));
-if (!wasOpen) {
-item.classList.add("open");
-}
+if (!wasOpen) item.classList.add("open");
 });
 });
 }
@@ -182,6 +174,122 @@ link.addEventListener("click", () => {
 navLinks.classList.remove("mobile-open");
 });
 });
+}
+function initShard3DCore() {
+const canvas = document.getElementById("hero-3d-canvas");
+const fallbackImg = document.getElementById("hero-fallback-img");
+if (!canvas || typeof window.THREE === "undefined") {
+if (fallbackImg) fallbackImg.style.display = "block";
+if (canvas) canvas.style.display = "none";
+return;
+}
+try {
+const frame = canvas.parentElement;
+const width = frame.clientWidth || 540;
+const height = frame.clientHeight || 400;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
+camera.position.set(0, 0, 16);
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(width, height, false);
+if (fallbackImg) fallbackImg.style.display = "none";
+canvas.style.display = "block";
+const rootGroup = new THREE.Group();
+scene.add(rootGroup);
+const coreGeom = new THREE.IcosahedronGeometry(2.4, 1);
+const coreWire = new THREE.WireframeGeometry(coreGeom);
+const coreMat = new THREE.LineBasicMaterial({ color: 0x14B8A6, transparent: true, opacity: 0.85 });
+const coreMesh = new THREE.LineSegments(coreWire, coreMat);
+rootGroup.add(coreMesh);
+const innerGeom = new THREE.OctahedronGeometry(1.4, 0);
+const innerMat = new THREE.MeshBasicMaterial({ color: 0x0F766E, wireframe: true, transparent: true, opacity: 0.65 });
+const innerMesh = new THREE.Mesh(innerGeom, innerMat);
+coreMesh.add(innerMesh);
+const satellites = [
+{ pos: new THREE.Vector3(-5.6, 2.8, -1.2), pulseSpeed: 1.8, pulsePhase: 0.0 },
+{ pos: new THREE.Vector3(5.8, 2.4, 1.4), pulseSpeed: 2.1, pulsePhase: 1.5 },
+{ pos: new THREE.Vector3(-4.8, -3.2, 1.8), pulseSpeed: 1.6, pulsePhase: 3.0 },
+{ pos: new THREE.Vector3(5.2, -2.8, -1.6), pulseSpeed: 2.4, pulsePhase: 4.5 }
+];
+const pulseObjects = [];
+satellites.forEach(sat => {
+const satGeom = new THREE.OctahedronGeometry(0.7, 0);
+const satWire = new THREE.WireframeGeometry(satGeom);
+const satMat = new THREE.LineBasicMaterial({ color: 0x39B8A8, transparent: true, opacity: 0.9 });
+const satMesh = new THREE.LineSegments(satWire, satMat);
+satMesh.position.copy(sat.pos);
+rootGroup.add(satMesh);
+const linePoints = [new THREE.Vector3(0, 0, 0), sat.pos.clone()];
+const lineGeom = new THREE.BufferGeometry().setFromPoints(linePoints);
+const lineMat = new THREE.LineBasicMaterial({ color: 0x265E5B, transparent: true, opacity: 0.45 });
+const lineMesh = new THREE.Line(lineGeom, lineMat);
+rootGroup.add(lineMesh);
+const pulseGeom = new THREE.SphereGeometry(0.16, 8, 8);
+const pulseMat = new THREE.MeshBasicMaterial({ color: 0x5EEAD4 });
+const pulseMesh = new THREE.Mesh(pulseGeom, pulseMat);
+rootGroup.add(pulseMesh);
+pulseObjects.push({ mesh: pulseMesh, target: sat.pos, speed: sat.pulseSpeed, phase: sat.pulsePhase });
+});
+let mouseX = 0;
+let mouseY = 0;
+let targetRotX = 0;
+let targetRotY = 0;
+const onPointerMove = (e) => {
+const rect = frame.getBoundingClientRect();
+const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+const normX = (clientX - rect.left) / rect.width - 0.5;
+const normY = (clientY - rect.top) / rect.height - 0.5;
+targetRotY = normX * 0.55;
+targetRotX = normY * 0.35;
+};
+window.addEventListener("pointermove", onPointerMove, { passive: true });
+const resizeHandler = () => {
+const newW = frame.clientWidth;
+const newH = frame.clientHeight;
+if (!newW || !newH) return;
+camera.aspect = newW / newH;
+camera.updateProjectionMatrix();
+renderer.setSize(newW, newH, false);
+};
+window.addEventListener("resize", resizeHandler, { passive: true });
+const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (prefersReduced) {
+coreMesh.rotation.y = 0.4;
+coreMesh.rotation.x = 0.2;
+renderer.render(scene, camera);
+return;
+}
+let animFrameId = null;
+let isVisible = true;
+let clockTime = 0;
+const animate = () => {
+animFrameId = requestAnimationFrame(animate);
+if (!isVisible) return;
+clockTime += 0.016;
+rootGroup.rotation.y += (targetRotY - rootGroup.rotation.y) * 0.05 + 0.002;
+rootGroup.rotation.x += (targetRotX - rootGroup.rotation.x) * 0.05;
+coreMesh.rotation.y += 0.004;
+coreMesh.rotation.x += 0.002;
+innerMesh.rotation.y -= 0.008;
+pulseObjects.forEach(p => {
+const t = (Math.sin(clockTime * p.speed + p.phase) + 1) * 0.5;
+p.mesh.position.copy(p.target).multiplyScalar(t);
+});
+renderer.render(scene, camera);
+};
+animate();
+if ("IntersectionObserver" in window) {
+const observer = new IntersectionObserver((entries) => {
+entries.forEach(entry => { isVisible = entry.isIntersecting; });
+}, { threshold: 0.1 });
+observer.observe(canvas);
+}
+} catch (err) {
+if (fallbackImg) fallbackImg.style.display = "block";
+if (canvas) canvas.style.display = "none";
+}
 }
 document.addEventListener("DOMContentLoaded", () => {
 setTheme(currentTheme);
@@ -200,7 +308,7 @@ setLanguage(nextLang);
 const themeToggleBtn = document.getElementById("theme-toggle-btn");
 if (themeToggleBtn) {
 themeToggleBtn.addEventListener("click", () => {
-setTheme(currentTheme === "paper" ? "terminal" : "paper");
+setTheme(currentTheme === "slate" ? "terminal" : "slate");
 });
 }
 const modelSelect = document.getElementById("calc-model");
@@ -216,4 +324,5 @@ inspectArchNode(node.getAttribute("data-node"));
 });
 });
 inspectArchNode("master");
+initShard3DCore();
 });
