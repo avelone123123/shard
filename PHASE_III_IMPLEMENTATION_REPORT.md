@@ -49,3 +49,15 @@ The guard was integrated into four critical routes:
 - `POST /api/server/create`: Returns `HTTP 409 Conflict` (`MODEL_NOT_READY`) if `engine.is_model_loaded()` is false or `generate_sync` fails.
 - `POST /api/net/publish`: Rejects public relay publication attempts if the host model is not loaded and verified.
 - `POST /api/lan/create`: Rejects LAN compute pool creation without an active model.
+- `POST /api/lan/model`: Rejects model switching for active clusters if the target model is not verified and loaded.
+
+---
+
+## 3. Private AI Chat Sessions & Participant Isolation
+
+### 3.1 Problem Analysis
+In prior iterations, shared workspaces stored a global `shared_chats` array inside `workspace.json`. Every client connecting to the server could read all prompts and responses across all participants, violating basic multi-user security expectations.
+
+### 3.2 Participant-Scoped Isolation Design
+1. **Deterministic Participant Derivation**:
+   `_derive_participant_id(req)` computes a client-specific SHA-256 identifier based on the authenticated user token, session token header (`X-Session-Token`), or client host IP address.
