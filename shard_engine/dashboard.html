@@ -4298,6 +4298,7 @@ async function srvCreateUnified() {
             body: JSON.stringify({name: name || 'SHARD-Server', mode: mode, visibility: vis, region: reg, open: open, create_invite: true})
         });
         const d = await res.json();
+        if (res.status === 409 || d.code === 'MODEL_NOT_READY') {
         if (res.ok && d.status === 'ok') {
             if (d.invite && d.invite.uri) copyValue(d.invite.uri, 'URI инвайта сервера');
             else showToast('Сервер запущен', 'Режим: ' + mode);
