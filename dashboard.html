@@ -4353,6 +4353,18 @@ async function srvFetchChatDetails(chatId) {
             sharedBox.innerHTML = msgs.map(m =>
                 '<div style="padding:8px;border-bottom:1px solid var(--border);">' +
                 '<div style="font-size:11px;color:var(--accent-text);font-weight:600;margin-bottom:3px;">' + lanEsc(m.author || (m.role === 'user' ? 'Вы' : 'SHARD AI')) + ' &bull; <span style="color:var(--text-muted);">' + new Date((m.ts || Date.now() / 1000) * 1000).toLocaleTimeString() + '</span></div>' +
+                (m.reasoning_content ? ('<details class="tech-details" style="margin-bottom:4px;"><summary>Рассуждения модели (Reasoning)</summary><pre style="white-space:pre-wrap;font-size:11px;">' + lanEsc(m.reasoning_content) + '</pre></details>') : '') +
+                '<div style="color:var(--text);font-size:12.5px;line-height:1.45;white-space:pre-wrap;">' + lanEsc(m.content) + '</div>' +
+                '</div>'
+            ).join('') || '<div style="color:var(--text-muted);text-align:center;padding:24px;">Диалог пуст. Отправьте первый запрос модели.</div>';
+            sharedBox.scrollTop = sharedBox.scrollHeight;
+        }
+    } catch(e) {}
+}
+function srvSwitchChat(val) {
+    srvCurrentChatId = val;
+    if (val) srvFetchChatDetails(val);
+    else srvNewChat();
 async function srvSendSharedChat() {
     const inp = document.getElementById('srvSharedChatInput');
     const auth = document.getElementById('srvSharedChatAuthor');
