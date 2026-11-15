@@ -3758,6 +3758,29 @@ async function trnLoadTrainingServers() {
         const res = await fetch('/api/training/servers', {headers: getAuthHeaders()});
         if (!res.ok) return;
         const d = await res.json();
+        const srvs = d.servers || [];
+        sel.innerHTML = '<option value="">(Автономное обучение / Ручной ввод)</option>' +
+            srvs.map(s => '<option value="' + lanEsc(s.id) + '" data-base="' + lanEsc(s.training_base_model || '') + '" data-trainable="' + (s.trainable ? '1' : '0') + '" data-reason="' + lanEsc(s.incompatibility_reason || '') + '">' + lanEsc(s.name) + ' [' + lanEsc(s.mode) + '] — ' + lanEsc((s.model_id || 'нет модели').split('/').pop()) + (s.trainable ? '' : ' (GGUF)') + '</option>').join('');
+    } catch(e) {}
+}
+function trnOnServerSelect(val) {
+    const sel = document.getElementById('trnJobServer');
+    const baseInp = document.getElementById('trnJobBase');
+    const hint = document.getElementById('trnBaseCompatHint');
+    if (!sel || !baseInp) return;
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !val) return;
+    const base = opt.dataset.base;
+    const trainable = opt.dataset.trainable === '1';
+    const reason = opt.dataset.reason;
+    if (base) baseInp.value = base;
+    if (hint) {
+        if (!trainable) {
+            hint.innerHTML = '<span style="color:var(--danger);">' + (reason || 'Квантованная .gguf модель не поддерживает fine-tuning. Нужны 16-bit PyTorch веса.') + '</span>';
+        } else {
+            hint.innerHTML = '<span style="color:var(--success);">Привязано к модели сервера: ' + lanEsc(base) + '</span>';
+        }
+    }
 }
 async function trnInstallSoup(actionOrFlag, includeTrain) {
     const action = (actionOrFlag === true) ? 'repair' : (actionOrFlag === false ? 'install' : (actionOrFlag || 'install'));
