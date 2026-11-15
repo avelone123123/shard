@@ -146,7 +146,8 @@ Every feature listed below is verified directly against the [SHARD source tree](
 | **API & Streaming** | **OpenAI & Anthropic Compatible Server** | [`server.py`](server.py) | Serves `/v1/chat/completions`, `/v1/completions`, `/v1/models`, `/v1/messages` (Anthropic protocol), `/api/generate`, and `/api/generate/stream` with real-time Server-Sent Events (SSE) and optional API key auth (`shard key`). |
 | **Web Control Panel** | **Zero-Dependency Dashboard & Playground** | [`dashboard.html`](dashboard.html) | Built-in browser UI at `http://localhost:8000` with live GPU/VRAM/RAM telemetry, Hugging Face model search & download, quantization selector, streaming chat playground, LAN node manager, and one-click IDE integration snippets. |
 | **Containerization** | **Docker & NVIDIA GPU Compose Stack** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Production-ready container setup with persistent named volumes (`shard_models_volume`, `shard_data_volume`) and NVIDIA GPU reservation. |
-| **Collaborative Training** | **Optional SOUP Fine-Tuning Ecosystem** | [`soup_adapter.py`](shard_engine/soup_adapter.py), [`feedback.py`](shard_engine/feedback.py), [`training.py`](shard_engine/training.py), [`docs/COLLABORATIVE_TRAINING.md`](docs/COLLABORATIVE_TRAINING.md) | Privacy-first consent feedback, secret/PII redaction, immutable SFT/DPO dataset snapshots, SOUP training orchestration, Baseline vs Candidate eval, model versioning, deployment, and 1-click rollback. |
+| **Collaborative Training** | **Optional SOUP Fine-Tuning Ecosystem** | [`soup_adapter.py`](shard_engine/soup_adapter.py), [`feedback.py`](shard_engine/feedback.py), [`training.py`](shard_engine/training.py), [`docs/COLLABORATIVE_TRAINING.md`](docs/COLLABORATIVE_TRAINING.md) | Privacy-first consent feedback, secret/PII redaction, immutable SFT/DPO dataset snapshots, dynamic SOUP training orchestration with cancellation, Baseline vs Candidate eval, model versioning, deployment, and 1-click rollback. |
+| **Unified Hosting & Privacy** | **Model-First Hosting & Private Sessions** | [`server.py`](shard_engine/server.py), [`lan.py`](shard_engine/lan.py) | Enforces loaded model verification before server creation/publishing (HTTP 409 `MODEL_NOT_READY`), guarantees zero-leakage participant-isolated private chats, and enforces compute worker VRAM/CPU quotas. |
 
 ### Experimental Features
 - **Multi-Host `llama.cpp` RPC Tensor Distribution (`gguf_backend.py`, `lan.py`):** Distributed layer execution over TCP/RPC across heterogeneous LAN GPUs works best on low-latency wired Gigabit/2.5GbE Ethernet subnets; Wi-Fi links may experience higher inter-token latency.
@@ -171,13 +172,17 @@ Every feature listed below is verified directly against the [SHARD source tree](
 #### Option 1: Install via PyPI (Recommended)
 Install SHARD directly from PyPI in any environment:
 ```bash
+# Core install: CLI, FastAPI server, web dashboard, GGUF (llama.cpp) + LAN clustering
 pip install shard-engine
 
+# Full install: adds PyTorch/Transformers safetensors & Hugging Face extras
 pip install "shard-engine[full]"
 ```
 To install the latest development snapshot directly from GitHub:
 ```bash
+# Core install from GitHub
 pip install "git+https://github.com/avelone123123/shard.git"
+
 pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git"
 ```
 
