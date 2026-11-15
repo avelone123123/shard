@@ -59,3 +59,15 @@ Checking dist/shard_engine-1.8.0-py3-none-any.whl: PASSED
 Checking dist/shard_engine-1.8.0.tar.gz: PASSED
 ```
 
+---
+
+## 3. GitHub Actions Trusted Publishing (OIDC) Setup
+
+To publish `shard-engine` to PyPI securely without managing fragile, long-lived API tokens in repository secrets, a modern GitHub Actions workflow was created in `.github/workflows/publish.yml`.
+
+### Workflow Configuration (`.github/workflows/publish.yml`)
+```yaml
+name: Publish to PyPI
+on:
+  release:
+    types: [published]
