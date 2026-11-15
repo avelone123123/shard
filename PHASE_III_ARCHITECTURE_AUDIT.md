@@ -70,3 +70,18 @@ This audit evaluates the reality versus advertising of SHARD subsystems, identif
 - **Architectural Gaps**:
   - Ambiguity between "Server SHARD" page and "Global Network" page: both allowed configuring server names, regions, and access modes without a unified canonical state machine.
   - When public discovery services were unreachable, the system could enter inconsistent states if error reporting was masked.
+
+### 2.3 Participant Privacy & Conversation Isolation (`server.py`, `storage.py`)
+- **CRITICAL DEFECT IDENTIFIED**:
+  - Previous implementation of `/api/server/workspace` stored all conversations in a single shared list `shared_chats` inside `server_workspace.json`.
+  - When participants connected, all participants could view every other participant's prompt and response history.
+  - The server owner could see raw participant chat history in the dashboard.
+- **Phase III Required Remediation**:
+  - Complete architectural separation of private participant chats.
+  - Derivation of participant identities strictly from authenticated credentials (owner token, tunnel peer ID, LAN client IP/token hash, or API key hash).
+  - Isolated file per participant (`private_chats/{participant_id}.json`).
+  - Strict access controls: participant A cannot read, append, or delete participant B's sessions.
+  - Server owner diagnostics expose only aggregate metrics (`private_session_count`), never raw prompts or replies.
+
+### 2.4 Distributed Compute & RPC Pooling (`lan.py`, `gguf_backend.py`, `net_tunnel.py`)
+- **Reality vs Marketing Assessment**:
