@@ -61,3 +61,16 @@ In prior iterations, shared workspaces stored a global `shared_chats` array insi
 ### 3.2 Participant-Scoped Isolation Design
 1. **Deterministic Participant Derivation**:
    `_derive_participant_id(req)` computes a client-specific SHA-256 identifier based on the authenticated user token, session token header (`X-Session-Token`), or client host IP address.
+2. **Isolated Storage Location**:
+   Chats are saved exclusively to `paths.data_dir() / "private_chats" / "{participant_id}.json"`.
+3. **Zero-Leakage Workspace**:
+   `/api/server/workspace` was purged of raw chat arrays. It now returns only `private_session_count`, exposing zero prompt or completion text to external observers.
+
+### 3.3 Private Chat API Endpoints
+- `GET /api/server/chats`: Lists all private chat sessions belonging strictly to the requesting participant.
+- `POST /api/server/chats`: Appends a user/assistant turn or creates a new session in participant-scoped storage.
+- `GET /api/server/chats/{chat_id}`: Returns the full conversation transcript for the participant's specified session.
+- `DELETE /api/server/chats/{chat_id}`: Deletes the specified private session from disk.
+
+---
+
