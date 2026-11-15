@@ -58,3 +58,15 @@ class TestPhaseIIIUnifiedHosting(unittest.TestCase):
         client_b = TestClient(server.app, client=("192.168.1.20", 52000), headers={"Authorization": f"Bearer {tok_b}"})
         with mock.patch.object(server.LAN, "tokens", return_value={tok_a, tok_b}):
             with mock.patch.object(server.engine_instance, "is_loaded", return_value=True), \
+                 mock.patch.object(server.engine_instance, "generate_sync", return_value={"content": "Private response for Alice"}):
+                r_a = client_a.post("/api/server/chats", json={"prompt": "Confidential prompt from Alice"})
+                self.assertEqual(r_a.status_code, 200)
+                chat_id_a = r_a.json()["chat_id"]
+            list_b = client_b.get("/api/server/chats")
+            self.assertEqual(list_b.status_code, 200)
+            self.assertEqual(len(list_b.json().get("chats", [])), 0)
+            get_b = client_b.get(f"/api/server/chats/{chat_id_a}")
+            self.assertEqual(get_b.status_code, 404)
+            del_b = client_b.delete(f"/api/server/chats/{chat_id_a}")
+            self.assertEqual(del_b.status_code, 404)
+            ws_r = client_b.get("/api/server/workspace")
