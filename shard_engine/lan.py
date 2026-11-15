@@ -1261,6 +1261,12 @@ class LanManager:
                 self._state["mode"] = "member"
                 self._state["rpc_port"] = None
                 self._save()
+        return self.compute_status()
+    def compute_status(self):
+        with self._lock:
+            mode = self._state.get("mode")
+            quota = copy.deepcopy(self._state.get("compute_quota") or {})
+            port = self._state.get("rpc_port")
     def _choose_worker_port(self):
         env_p = os.environ.get("SHARD_RPC_PORT")
         preferred = []
