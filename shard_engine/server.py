@@ -2296,20 +2296,27 @@ async def api_server_chat_send(req: Request):
     max_tokens = min(2048, max(32, int(data.get("max_tokens") or 512)))
     temperature = max(0.0, min(2.0, float(data.get("temperature") or 0.7)))
     now = time.time()
-    with _WORKSPACE_LOCK, storage.file_lock(_workspace_file()):
-        ws = _load_workspace_unlocked()
-        chats = ws.setdefault("shared_chats", [])
-        target_chat = None
-        for ch in chats:
-            if ch.get("id") == chat_id:
-                target_chat = ch
-                break
-        if target_chat is None:
-            chat_id = f"schat-{uuid.uuid4().hex[:8]}"
-            target_chat = {
-                "id": chat_id,
-                "title": prompt[:56],
-                "created_at": now,
+    chats = _load_participant_chats(pid)
+    target_chat = None
+    for ch in chats:
+        if ch.get("id") == chat_id:
+            target_chat = ch
+            break
+    if target_chat is None:
+        chat_id = f"pchat-{uuid.uuid4().hex[:10]}"
+        target_chat = {
+            "id": chat_id,
+            "title": prompt[:56],
+            "created_at": now,
+            "updated_at": now,
+            "messages": [],
+        }
+        chats.append(target_chat)
+        if len(chats) > 50:
+            chats = chats[-50:]
+    target_chat["messages"].append({
+        "id": f"m-{uuid.uuid4().hex[:8]}",
+        "role": "user",
                 "updated_at": now,
                 "messages": [],
             }
