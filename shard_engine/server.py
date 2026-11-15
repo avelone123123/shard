@@ -1133,6 +1133,7 @@ def installer_script(req: Request, tool: str = "claude", os: str = "linux", key:
                  'export OPENAI_API_KEY="$KEY"\n' + \
                  'echo "[OK] Shard: OPENAI_API_BASE and OPENAI_API_KEY exported for ' + tool_clean + '."\n'
     return PlainTextResponse(script, media_type="text/plain; charset=utf-8")
+def _verify_server_model_ready(model_id=None):
 @app.post("/api/lan/create")
 async def api_lan_create(req: Request):
     denied = _deny_non_owner(req)
