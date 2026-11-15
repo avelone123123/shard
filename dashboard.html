@@ -4433,6 +4433,7 @@ async function lanApplyComputeQuota(optIn) {
             showToast('Ошибка', d.message || 'Не удалось применить параметры');
         }
     } catch(e) {
+        showToast('Ошибка', e.message);
     }
 }
 async function srvSendCommunityMsg() {
