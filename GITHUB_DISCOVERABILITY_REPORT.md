@@ -100,3 +100,15 @@ pip install "shard-engine[full] @ git+https://github.com/avelone123123/shard.git
 > 
 > We’d love your feedback, bug reports, and hardware benchmark numbers!
 
+---
+
+### 4.2 Hacker News (`Show HN`)
+**Title**: *Show HN: SHARD — Distributed local LLM inference pooling VRAM across LAN machines*
+
+> SHARD is an open-source distributed local inference runtime for running large language models across multiple consumer devices on a local network.
+> 
+> Instead of requiring enterprise multi-GPU nodes, SHARD clusters idle VRAM and system memory across machines using UDP discovery, FastAPI SSE streaming, managed `llama.cpp` RPC processes, and native C++20 / MASM AVX2 SIMD acceleration.
+> 
+> In v1.8.0, we introduced model-first server guards (preventing unbacked endpoints from broadcasting), participant-isolated private chat storage, explicit hardware quotas for worker nodes, and collaborative fine-tuning integration via SOUP.
+> 
+> Code & Architecture: https://github.com/avelone123123/shard
