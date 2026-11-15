@@ -125,3 +125,16 @@ In the Training tab of `dashboard.html`, a "Сервер для обучения
 ## 7. Dashboard Modern Slate UI & Byte-Parity
 
 ### 7.1 Interface Enhancements
+- **Server SHARD Screen**: Added a Model Readiness Check banner displaying live model status, VRAM footprint, and active context ceiling. Renamed the tab to "Мои AI-диалоги" with a private session selector, session creation/deletion buttons, and a data isolation guarantee badge.
+- **Compute Worker Panel**: Added local VRAM and CPU thread quota controls in the Members tab with explicit opt-in/opt-out toggles and experimental WAN indicators.
+- **SOUP Installer Widget**: Replaced the static indicator with live package and progress rendering alongside an "Отмена установки" action button.
+- **Visual Design**: Preserved the dark Modern Slate palette (`#16181D` background, `#1D2129` surface, `#232730` elevated surface, `#0F766E` teal accent) with zero emojis and pure inline SVG icons.
+
+### 7.2 Strict Byte-Parity
+Both files remain 100% byte-for-byte identical:
+- `dashboard.html`: 340,310 bytes
+- `shard_engine/dashboard.html`: 340,310 bytes
+- Hash match: Verified via binary read comparison (`b1 == b2 -> True`).
+
+---
+
