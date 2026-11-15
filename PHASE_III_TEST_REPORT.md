@@ -51,3 +51,12 @@ All prior test suites were run in full discovery mode to ensure backward compati
 - **GGUF Backend (`gguf_backend.py`)**: Verified platform binary discovery, `llama-server` process supervisor, and RPC node arguments.
 
 ### 3.2 CLI & Packaging Tests (`tests_cli_pkg.py`)
+- **CLI Commands**: Verified `shard --version`, `shard doctor`, `shard start`, `shard stop`, `shard key`, and `shard status`.
+- **Packaging Integrity**: Verified wheel generation, package metadata, entry points (`console_scripts`), and clean non-code asset inclusion.
+- **Multi-Node LAN Clustering**: Simulated two-node UDP beacon exchange and pairing handshake.
+
+### 3.3 SOUP Adapter & Lifecycle Tests (`tests_updater_soup.py`)
+- **GitHub Updater**: Verified GitHub API release parsing, semantic version comparison, and non-destructive update script generation.
+- **SOUP Diagnostics**: Verified Python version checks, PyTorch/CUDA availability warnings, and dependency matrix auditing.
+- **Dataset Management**: Verified immutable dataset snapshots, JSONL serialization, and privacy consent filters.
+
