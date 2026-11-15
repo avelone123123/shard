@@ -2177,6 +2177,17 @@ async def api_server_create(req: Request):
     max_participants = int(data.get("max_participants") or 16)
     region = str(data.get("region") or "").strip()[:32]
     load_now = bool(data.get("load_model", False))
+    load_info = None
+    if load_now and model and not engine_instance.is_model_active(model):
+        try:
+            load_info = engine_instance.load_model(model)
+        except Exception as e:
+            load_info = {"status": "error", "message": str(e)}
+    if enable_lan or publish_global:
+        chk_model = model or engine_instance.active_model_id or engine_instance.current_loaded_id
+        ok, reason = _verify_server_model_ready(chk_model)
+        if not ok:
+            return JSONResponse(status_code=409, content={"status": "error", "code": "MODEL_NOT_READY", "message": f"Model must be loaded and pass inference verification before hosting or publishing a server: {reason}", "model_load": load_info})
     lan_st = None
     if enable_lan:
         if LAN.is_server():
