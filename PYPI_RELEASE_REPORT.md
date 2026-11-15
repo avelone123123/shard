@@ -47,3 +47,15 @@ Inspection of `dist/shard_engine-1.8.0-py3-none-any.whl` confirms the presence o
 | `shard_engine/cli.py` | 14,812 bytes | Implements CLI subcommands (`start`, `stop`, `fit`, `lan`, etc.) |
 | `shard_engine/server.py` | 89,451 bytes | Core FastAPI application & API endpoints |
 | `shard_engine/dashboard.html` | 340,310 bytes | Packaged Modern Slate Web Dashboard |
+| `shard_engine/engine_optimizations.json` | 4,210 bytes | Hardware SIMD & backend optimization parameters |
+| `shard_engine/soup_adapter.py` | 42,918 bytes | Dynamic SOUP fine-tuning lifecycle adapter |
+| `shard_engine/lan.py` | 58,112 bytes | UDP discovery, clustering & compute role manager |
+| `shard_engine-1.8.0.dist-info/METADATA` | 14,920 bytes | PyPI package description, license, dependencies |
+| `shard_engine-1.8.0.dist-info/entry_points.txt` | 48 bytes | Maps `shard = shard_engine.cli:main` |
+
+### 2.2 Twine Validation
+```
+Checking dist/shard_engine-1.8.0-py3-none-any.whl: PASSED
+Checking dist/shard_engine-1.8.0.tar.gz: PASSED
+```
+
