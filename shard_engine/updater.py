@@ -528,10 +528,8 @@ def startup_check_banner():
         if st == "UPDATE_AVAILABLE" and is_valid_release_version(lat) and compare_versions(cur, lat) > 0:
             return f"SHARD {cur} | Latest version: {lat} | Update available! Run: shard update"
         if st == "UP_TO_DATE":
-            return f"SHARD {res['current_version']} (up to date)"
-        if st == "GITHUB_UNAVAILABLE":
-            return f"SHARD {res['current_version']} (offline mode: GitHub update check unavailable)"
-        return None
+            return f"SHARD {cur} (up to date)"
+        return f"SHARD {cur} | Latest version: unknown (update check unavailable)"
     except Exception:
         return None
 def verify_archive_artifact(archive_path, expected_sha256=None, expect_wheel=False):
