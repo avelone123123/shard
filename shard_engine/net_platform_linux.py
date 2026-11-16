@@ -587,7 +587,7 @@ def _probe_ufw(req_specs):
     if not ufw_bin:
         return {"installed": False, "status": "not_installed", "permission_error": False, "allowed_ports": [], "error": None}
     try:
-        res = subprocess.run([ufw_bin, "status"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=3.0)
+        res = proc_io.run_subprocess_safe([ufw_bin, "status"], stdin=subprocess.DEVNULL, timeout=3.0)
     except PermissionError as e:
         return {"installed": True, "status": "permission_denied", "permission_error": True, "allowed_ports": [], "error": str(e)}
     except Exception as e:
