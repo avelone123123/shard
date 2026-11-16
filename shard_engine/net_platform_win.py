@@ -755,7 +755,7 @@ def _is_process_running_win(image_name: str) -> bool:
         return False
     tasklist_exe = shutil.which("tasklist.exe") or os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "tasklist.exe")
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             [tasklist_exe, "/FI", f"IMAGENAME eq {image_name}", "/FO", "CSV", "/NH"],
             capture_output=True,
             text=True,
