@@ -991,8 +991,6 @@ def _run_soup_cmd(soup_info, args, timeout=120, env_extra=None):
     try:
         res = proc_io.run_subprocess_safe(
             cmd_base + list(args),
-            capture_output=True,
-            text=True,
             timeout=timeout,
             env=env,
             creationflags=_WIN_NO_WINDOW,
