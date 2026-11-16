@@ -328,7 +328,7 @@ def find_compatible_python(custom_python=None):
     uv_bin = _find_uv_binary()
     if uv_bin:
         try:
-            r_uv = subprocess.run(
+            r_uv = proc_io.run_subprocess_safe(
                 [uv_bin, "python", "find", ">=3.11,<3.14"],
                 capture_output=True,
                 text=True,
