@@ -465,7 +465,8 @@ def cmd_update(args):
         print(f"Update status:     {chk.get('state')}")
         lat_ver = chk.get("latest_version")
         verified_lat = lat_ver if updater.is_valid_release_version(lat_ver) else None
-        if chk.get("state") == "UPDATE_AVAILABLE":
+        print(f"Latest version:    {verified_lat or 'unknown'} (source: {chk.get('source') or 'n/a'})")
+        if chk.get("state") == "UPDATE_AVAILABLE" and verified_lat:
             print(f"Update available:  {__version__} -> {chk.get('latest_version')}")
             if chk.get("release_notes"):
                 print(f"Release notes:\n{str(chk['release_notes'])[:500]}")
