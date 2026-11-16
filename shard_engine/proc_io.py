@@ -142,3 +142,9 @@ def terminate_process_tree(proc):
             return
         if os.name == "nt":
             try:
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, timeout=8, creationflags=_WIN_NO_WINDOW)
+            except Exception:
+                proc.terminate()
+        else:
+            proc.terminate()
+            try:
