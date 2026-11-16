@@ -184,3 +184,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
                 pass
     def _reader(fh, parts, cb):
         buf = bytearray()
+        skip_lf = False
+        try:
+            while True:
+                chunk = _read_pipe_chunk(fh)
+                if not chunk:
+                    if buf:
