@@ -196,3 +196,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
                 if skip_lf:
                     if chunk[:1] == b"\n":
                         chunk = chunk[1:]
+                    skip_lf = False
+                if not chunk:
+                    continue
+                buf.extend(chunk)
+                while True:
+                    idx_n = buf.find(b"\n")
