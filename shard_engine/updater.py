@@ -286,11 +286,13 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                     checksum_asset = None
                     for a in assets:
                         if not isinstance(a, dict):
-                    asset_url = whl_asset.get("browser_download_url")
-                    asset_size = whl_asset.get("size")
-                    dig = str(whl_asset.get("digest") or "")
-                    if dig.startswith("sha256:"):
-                        asset_sha256 = dig.split(":", 1)[1].strip().lower()
+                            continue
+                        aname = str(a.get("name") or "")
+                        if aname.endswith(".whl") and whl_asset is None:
+                            whl_asset = a
+                        if aname.lower() in ("sha256sums", "sha256sums.txt", f"{aname}.sha256") or aname.lower().endswith(".sha256"):
+                            checksum_asset = a
+                    asset_url = None
                     elif checksum_asset and checksum_asset.get("browser_download_url"):
                         try:
                             cr = _http_get(checksum_asset["browser_download_url"], timeout=timeout)
