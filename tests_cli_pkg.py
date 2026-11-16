@@ -111,9 +111,10 @@ class TestCliCommandsAndFallback(unittest.TestCase):
                         with redirect_stdout(buf):
                             cli.main(["update", "--check"])
                         mrun.assert_not_called()
-                    cli.main(["update", "--check"])
-                mrun.assert_not_called()
-            self.assertIn(expected, buf.getvalue())
+                    out = buf.getvalue()
+                    self.assertIn(expected, out)
+                    if forbidden:
+                        self.assertNotIn(forbidden, out)
     def test_models_dir_and_key_offline(self):
         with tempfile.TemporaryDirectory() as tmp:
             custom = Path(tmp) / "custom_models"
