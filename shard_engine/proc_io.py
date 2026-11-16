@@ -148,3 +148,9 @@ def terminate_process_tree(proc):
         else:
             proc.terminate()
             try:
+                proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+    except Exception:
+        pass
+def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=False, on_proc=None, cwd=None, env=None, stdin=subprocess.DEVNULL, creationflags=None, prefer_utf8=True, try_oem=False, cancel_check=None, on_cancel=None, timeout=None, line_limit=4096):
