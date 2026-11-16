@@ -21,4 +21,6 @@ skill.md
 *.obj
 
 scratch/
+node_modules/
+video/.remotion/
 

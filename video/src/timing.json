@@ -1,0 +1,178 @@
+{
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "totalFrames": 1778,
+  "totalSeconds": 59.267,
+  "voice": "kokoro-v1.0.fp16:am_michael",
+  "scenes": [
+    {
+      "id": "hook",
+      "title": "01 // CLOUD LOCK-IN",
+      "startFrame": 8,
+      "durationFrames": 108,
+      "startSec": 0.25,
+      "durationSec": 3.6,
+      "beats": [
+        {
+          "text": "AI shouldn't be locked inside the cloud.",
+          "startFrame": 16,
+          "endFrame": 113,
+          "startSec": 0.55,
+          "endSec": 2.593
+        }
+      ]
+    },
+    {
+      "id": "intro",
+      "title": "02 // MEET SHARD",
+      "startFrame": 116,
+      "durationFrames": 183,
+      "startSec": 3.85,
+      "durationSec": 6.1,
+      "beats": [
+        {
+          "text": "Meet SHARD.",
+          "startFrame": 122,
+          "endFrame": 147,
+          "startSec": 4.05,
+          "endSec": 4.906
+        },
+        {
+          "text": "Your local AI infrastructure. Built for full compute ownership.",
+          "startFrame": 152,
+          "endFrame": 296,
+          "startSec": 5.066,
+          "endSec": 9.54
+        }
+      ]
+    },
+    {
+      "id": "local",
+      "title": "03 // PRE-FLIGHT FIT & DASHBOARD",
+      "startFrame": 298,
+      "durationFrames": 239,
+      "startSec": 9.95,
+      "durationSec": 7.967,
+      "beats": [
+        {
+          "text": "Inspect quantization and VRAM fit before downloading.",
+          "startFrame": 304,
+          "endFrame": 423,
+          "startSec": 10.15,
+          "endSec": 14.105
+        },
+        {
+          "text": "Launch models straight from the Modern Slate Workstation UI.",
+          "startFrame": 428,
+          "endFrame": 534,
+          "startSec": 14.265,
+          "endSec": 17.498
+        }
+      ]
+    },
+    {
+      "id": "dev",
+      "title": "04 // CLI, API & KERNELS",
+      "startFrame": 537,
+      "durationFrames": 457,
+      "startSec": 17.917,
+      "durationSec": 15.233,
+      "beats": [
+        {
+          "text": "One CLI \u00b7 One FastAPI Server (:8000)",
+          "startFrame": 543,
+          "endFrame": 674,
+          "startSec": 18.117,
+          "endSec": 22.482
+        },
+        {
+          "text": "GGUF (llama.cpp) \u00b7 PyTorch \u00b7 C++20 / MASM AVX2",
+          "startFrame": 679,
+          "endFrame": 871,
+          "startSec": 22.642,
+          "endSec": 29.036
+        },
+        {
+          "text": "OpenAI /v1/chat/completions & Anthropic /v1/messages",
+          "startFrame": 876,
+          "endFrame": 991,
+          "startSec": 29.196,
+          "endSec": 32.749
+        }
+      ]
+    },
+    {
+      "id": "distributed",
+      "title": "05 // LAN POOLING & EXPERIMENTAL P2P",
+      "startFrame": 994,
+      "durationFrames": 336,
+      "startSec": 33.15,
+      "durationSec": 11.2,
+      "beats": [
+        {
+          "text": "Pool LAN VRAM via UDP :8001 + ggml-rpc workers",
+          "startFrame": 1000,
+          "endFrame": 1188,
+          "startSec": 33.35,
+          "endSec": 39.592
+        },
+        {
+          "text": "Experimental: Ed25519 P2P NAT & ChaCha20 Blind Relays",
+          "startFrame": 1193,
+          "endFrame": 1327,
+          "startSec": 39.752,
+          "endSec": 43.948
+        }
+      ]
+    },
+    {
+      "id": "soup",
+      "title": "06 // SOUP FINE-TUNING",
+      "startFrame": 1330,
+      "durationFrames": 265,
+      "startSec": 44.35,
+      "durationSec": 8.833,
+      "beats": [
+        {
+          "text": "Consent feedback -> Secret/PII redaction -> SFT / DPO",
+          "startFrame": 1336,
+          "endFrame": 1478,
+          "startSec": 44.55,
+          "endSec": 49.279
+        },
+        {
+          "text": "Single-node SOUP fine-tuning with eval & 1-click rollback",
+          "startFrame": 1483,
+          "endFrame": 1592,
+          "startSec": 49.439,
+          "endSec": 52.766
+        }
+      ]
+    },
+    {
+      "id": "cta",
+      "title": "07 // EXPLORE SHARD",
+      "startFrame": 1596,
+      "durationFrames": 182,
+      "startSec": 53.183,
+      "durationSec": 6.067,
+      "beats": [
+        {
+          "text": "Your models. Your hardware. Your infrastructure.",
+          "startFrame": 1602,
+          "endFrame": 1678,
+          "startSec": 53.383,
+          "endSec": 55.932
+        },
+        {
+          "text": "Explore SHARD on GitHub",
+          "startFrame": 1683,
+          "endFrame": 1775,
+          "startSec": 56.092,
+          "endSec": 57.932
+        }
+      ]
+    }
+  ]
+}
