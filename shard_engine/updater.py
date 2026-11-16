@@ -786,8 +786,8 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                 if not allow_prerelease and is_prerelease_version(target_version):
                     raise ValueError("Prerelease builds are not installed unless explicitly allowed.")
             chk = check_for_updates(force=True, timeout=4.0, allow_network=True, allow_prerelease=allow_prerelease)
-            if not target_version and chk.get("state") in ("GITHUB_UNAVAILABLE", "CHECK_FAILED"):
-                raise RuntimeError(chk.get("error") or "GitHub update check failed.")
+            if not target_version and (chk.get("state") in ("GITHUB_UNAVAILABLE", "CHECK_FAILED") or not is_valid_release_version(chk.get("latest_version"))):
+                raise RuntimeError(chk.get("error") or "GitHub update check failed or version unverified.")
             desired_ver = target_version or chk.get("latest_version")
             if not force and desired_ver and compare_versions(__version__, desired_ver) <= 0:
                 _set_job_state(
