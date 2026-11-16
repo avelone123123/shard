@@ -68,3 +68,10 @@ All local checks below ran **after the final code edits**:
    - Live `shard update --check`: `Installed version: shard-engine 1.8.1`, `Update status: UP_TO_DATE`, `Latest version: 1.8.1 (source: github_release)`.
 3. **Automated Test Suites**:
    - `python -m unittest tests_windows_subprocess_and_updater.py -v`: **Ran 10 tests in 0.956s — OK**.
+   - `python -m unittest tests_cli_pkg.py tests_training_ecosystem.py tests_network_persistence_security.py tests_shard_network.py tests_phase4_network_integration.py tests_phase_iii_unified_hosting.py tests_phase_iii_chat_security.py -v`: **Ran 67 tests in 28.316s — OK**.
+   - `python -m unittest discover -s . -p "tests_*.py" -v`: **Ran 200 tests in 46.185s — FAILED (failures=1)**. The single failure is pre-existing `tests_phase_i_product_hardening.py:test_06_model_browser_formats_suggestions_and_security` (`line 171`), caused solely by a real local model directory already present on this host (`D:\shard-models\hub\models--Qwen--Qwen2.5-Coder-1.5B-Instruct\snapshots\2e1fd397ee46e1388853d2af2c993145b0f1098a`).
+
+---
+
+## 5. GitHub Actions CI Matrix Verification (PR #3)
+
