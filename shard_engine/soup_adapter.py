@@ -478,7 +478,7 @@ def _bootstrap_uv(log_fn):
     tools_uv = Path(paths.tools_dir()) / "uv"
     tools_uv.mkdir(parents=True, exist_ok=True)
     log_fn("Bootstrapping isolated uv toolchain for Python 3.12 provisioning...")
-    r = subprocess.run(
+    r = proc_io.run_subprocess_safe(
         [sys.executable, "-m", "pip", "install", "--no-input", "--upgrade", "--target", str(tools_uv), "uv"],
         capture_output=True,
         text=True,
