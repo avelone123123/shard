@@ -100,3 +100,9 @@ def _utf8_safe_split_index(buf, limit):
     pos = limit - 1
     steps = 0
     while pos >= 0 and steps < 4 and (buf[pos] & 0xC0) == 0x80:
+        pos -= 1
+        steps += 1
+    if pos < 0:
+        return limit
+    b = buf[pos]
+    if b < 0x80:
