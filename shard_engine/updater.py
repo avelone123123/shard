@@ -406,6 +406,10 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                         "asset_sha256": (whl.get("digests") or {}).get("sha256") if isinstance(whl.get("digests"), dict) else None,
                         "prerelease": False,
                     }
+                if ver:
+                    last_err = f"PyPI version rejected as invalid or placeholder: {ver!r}"
+        else:
+            last_err = last_err or f"PyPI HTTP {rp.status_code}"
     except Exception as e:
         last_err = last_err or str(e)
     return {
