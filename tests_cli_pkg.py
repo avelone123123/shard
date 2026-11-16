@@ -102,9 +102,10 @@ class TestCliCommandsAndFallback(unittest.TestCase):
             with mock.patch.dict(os.environ, {"SHARD_DATA_DIR": tmp}, clear=False):
                 for resp, expected, forbidden in (
                     (_Resp(404), "GITHUB_UNAVAILABLE", "Update available"),
-            (_Resp(200, {"info": {"version": "9.9.9"}}), "Update available"),
-        ):
-            buf = io.StringIO()
+                    (_Resp(200, {"info": {"version": shard_engine.__version__}}), "up to date", "Update available"),
+                    (_Resp(200, {"info": {"version": "2.0.0"}}), "Update available", None),
+                    (_Resp(200, {"info": {"version": "9.9.9"}}), "unknown", "Update available"),
+                ):
             with mock.patch("requests.get", return_value=resp), mock.patch("subprocess.run") as mrun:
                 with redirect_stdout(buf):
                     cli.main(["update", "--check"])
