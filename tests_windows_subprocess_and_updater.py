@@ -89,3 +89,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         self.assertEqual(res.returncode, 7)
         self.assertIn("ASCII line", res.stdout)
         self.assertIn("Русский текст stdout 🚀 “умные кавычки”", res.stdout)
+        self.assertIn("┘", res.stdout)
+        self.assertNotIn("Ошибка stderr", res.stdout)
+        self.assertIn("Ошибка stderr ┘", res.stderr)
+        self.assertIn("\ufffd", res.stderr)
+        self.assertNotIn("ASCII line", res.stderr)
+    def test_large_concurrent_stdout_and_stderr_no_deadlock(self):
+        child_code = (
