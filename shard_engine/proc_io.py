@@ -226,3 +226,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
             try:
                 fh.close()
             except Exception:
+                pass
+    threads = []
+    if proc.stdout is not None:
+        t_out = threading.Thread(target=_reader, args=(proc.stdout, out_parts, on_stdout), daemon=True)
+        t_out.start()
+        threads.append(t_out)
