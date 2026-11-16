@@ -985,6 +985,7 @@ def _run_soup_cmd(soup_info, args, timeout=120, env_extra=None):
         return {"ok": False, "returncode": -1, "stdout": "", "stderr": "soup-cli command not available"}
     env = os.environ.copy()
     env.setdefault("PYTHONIOENCODING", "utf-8")
+    env.setdefault("PYTHONUTF8", "1")
     if env_extra:
         env.update({str(k): str(v) for k, v in env_extra.items()})
     try:
