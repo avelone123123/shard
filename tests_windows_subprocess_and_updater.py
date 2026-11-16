@@ -75,3 +75,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
                 self.assertEqual(proc_io.safe_decode_subprocess_output(oem_bytes, prefer_utf8=False, try_oem=True), sample_oem)
             with mock.patch.object(proc_io, "_win_oem_encoding", return_value="cp866"):
                 self.assertEqual(proc_io.safe_decode_subprocess_output("Служба работает".encode("cp866"), prefer_utf8=False, try_oem=True), "Служба работает")
+    def test_subprocess_mixed_stdout_stderr_and_nonzero_exit(self):
+        child_code = (
+            "import sys;"
+            "sys.stdout.buffer.write('ASCII line\\n'.encode('utf-8'));"
+            "sys.stdout.buffer.write('Русский текст stdout 🚀 “умные кавычки”\\n'.encode('utf-8'));"
+            "sys.stdout.buffer.write((b'B' * 1235) + b'\\xe2\\x94\\x98\\n');"
+            "sys.stderr.buffer.write('Ошибка stderr ┘ '.encode('utf-8') + b'\\x98\\n');"
