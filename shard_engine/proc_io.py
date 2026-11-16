@@ -262,3 +262,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
         try:
             rc = proc.wait(timeout=3)
         except Exception:
+            rc = -1
+    for t in threads:
+        t.join(timeout=3.0)
+    out_full = "\n".join(out_parts)
+    err_full = "\n".join(err_parts)
+    if timed_out:
