@@ -16,6 +16,14 @@ GITHUB_REPO = os.environ.get("SHARD_GITHUB_REPO", "avelone123123/shard")
 GITHUB_API_RELEASES_LATEST = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 GITHUB_API_TAGS = f"https://api.github.com/repos/{GITHUB_REPO}/tags?per_page=15"
 PYPI_JSON_URL = f"https://pypi.org/pypi/{__app_name__}/json"
+_PLACEHOLDER_VERSIONS = frozenset({
+    "0.0.0",
+    "9.9.9",
+    "9.9.99",
+    "99.9.9",
+    "99.99.99",
+    "999.9.9",
+    "999.999.999",
 CACHE_TTL_SECONDS = 4 * 3600
 MIN_UPDATE_FREE_BYTES = 150 * 1024 * 1024
 _WIN_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
