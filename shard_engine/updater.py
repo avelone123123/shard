@@ -816,7 +816,7 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
             if inst["method"] == "git_clone" and inst.get("git_available") and not (asset_url and str(asset_url).endswith(".whl")):
                 _set_job_state(phase="installing", progress_pct=45, message="Обновление через git fetch / pull...", log=f"Updating git repo in {inst['repo_root']}")
                 git_bin = shutil.which("git")
-                f_res = subprocess.run([git_bin, "fetch", "--tags", "origin"], cwd=inst["repo_root"], capture_output=True, text=True, timeout=60, creationflags=_WIN_NO_WINDOW)
+                f_res = proc_io.run_subprocess_safe([git_bin, "fetch", "--tags", "origin"], cwd=inst["repo_root"], timeout=60, creationflags=_WIN_NO_WINDOW)
                 if f_res.returncode != 0:
                     raise RuntimeError(f"git fetch failed: {(f_res.stderr or f_res.stdout)[:300]}")
                 if target_version:
