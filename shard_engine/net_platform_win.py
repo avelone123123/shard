@@ -6,7 +6,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 _IS_WIN = os.name == "nt"
 _CREATE_NO_WINDOW = 0x08000000 if _IS_WIN else 0
