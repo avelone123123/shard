@@ -76,3 +76,9 @@ def safe_decode_subprocess_output(data, prefer_utf8=True, try_oem=False):
         pass
     if b"\n" in raw or b"\r" in raw:
         return "".join(_decode_segment(seg, prefer_utf8=prefer_utf8, try_oem=try_oem) for seg in raw.splitlines(keepends=True))
+    return _decode_segment(raw, prefer_utf8=prefer_utf8, try_oem=try_oem)
+def run_subprocess_safe(cmd, *, timeout=None, cwd=None, env=None, stdin=subprocess.DEVNULL, creationflags=None, prefer_utf8=True, try_oem=False, shell=False):
+    kw = {"stdin": stdin, "capture_output": True, "timeout": timeout, "shell": shell}
+    if cwd is not None:
+        kw["cwd"] = cwd
+    if env is not None:
