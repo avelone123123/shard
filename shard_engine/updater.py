@@ -387,13 +387,8 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
             elif isinstance(pdata, dict):
                 info_obj = pdata.get("info") if isinstance(pdata.get("info"), dict) else {}
                 ver = _strip_v_prefix(str(info_obj.get("version") or "").strip())
-                    "asset_name": whl.get("filename"),
-                    "asset_size": whl.get("size"),
-                    "asset_sha256": (whl.get("digests") or {}).get("sha256"),
-                    "prerelease": False,
-                }
-    except Exception as e:
-        last_err = last_err or str(e)
+                if is_valid_release_version(ver) and (allow_prerelease or not is_prerelease_version(ver)):
+                    urls = pdata.get("urls") or []
     try:
         rr = _http_get(GITHUB_RAW_INIT, timeout=timeout)
         if rr.status_code == 200:
