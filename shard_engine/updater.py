@@ -399,11 +399,11 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                         "tag_name": f"v{ver}",
                         "release_url": f"https://pypi.org/project/{__app_name__}/{ver}/",
                         "release_notes": "",
-                        "published_at": None,
-                        "asset_url": f"https://github.com/{GITHUB_REPO}/archive/refs/heads/main.zip",
-                        "asset_name": "shard-main.zip",
-                        "asset_size": None,
-                        "asset_sha256": None,
+                        "published_at": whl.get("upload_time_iso_8601"),
+                        "asset_url": whl.get("url"),
+                        "asset_name": whl.get("filename"),
+                        "asset_size": whl.get("size"),
+                        "asset_sha256": (whl.get("digests") or {}).get("sha256") if isinstance(whl.get("digests"), dict) else None,
                         "prerelease": False,
                     }
     except Exception as e:
