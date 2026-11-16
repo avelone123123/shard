@@ -178,3 +178,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
         txt = safe_decode_subprocess_output(chunk_bytes, prefer_utf8=prefer_utf8, try_oem=try_oem)
         parts.append(txt)
         if cb and txt:
+            try:
+                cb(txt)
+            except Exception:
+                pass
+    def _reader(fh, parts, cb):
+        buf = bytearray()
