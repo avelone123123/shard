@@ -752,8 +752,6 @@ def check_systemd_units(interfaces=()):
                 res = proc_io.run_subprocess_safe(
                     [systemctl_bin, "show", unit_name, "--property=LoadState,ActiveState,SubState,UnitFileState", "--no-pager"],
                     stdin=subprocess.DEVNULL,
-                    capture_output=True,
-                    text=True,
                     timeout=3.0,
                 )
                 combined = f"{res.stderr or ''}\n{res.stdout or ''}".strip()
