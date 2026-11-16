@@ -68,3 +68,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
             cp1251_bytes = "Ошибка доступа в системе Windows".encode("cp1251")
             if "1251" in ansi_enc:
                 self.assertEqual(proc_io.safe_decode_subprocess_output(cp1251_bytes), "Ошибка доступа в системе Windows")
+            oem_enc = str(proc_io._win_oem_encoding() or "")
+            if oem_enc:
+                sample_oem = "Служба работает" if "866" in oem_enc.lower() else "Status \u2514\u2500\u2518"
+                oem_bytes = sample_oem.encode(oem_enc)
+                self.assertEqual(proc_io.safe_decode_subprocess_output(oem_bytes, prefer_utf8=False, try_oem=True), sample_oem)
+            with mock.patch.object(proc_io, "_win_oem_encoding", return_value="cp866"):
+                self.assertEqual(proc_io.safe_decode_subprocess_output("Служба работает".encode("cp866"), prefer_utf8=False, try_oem=True), "Служба работает")
