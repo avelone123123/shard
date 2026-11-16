@@ -245,6 +245,14 @@ def _parse_sha256_text(text, asset_name):
             if fn == asset_name:
                 return parts[0].lower()
     return None
+def _safe_resp_json(resp):
+    raw_text = getattr(resp, "text", None)
+    if isinstance(raw_text, str) and not raw_text.strip():
+        return None, "Empty HTTP response body"
+    try:
+        data = resp.json()
+    except Exception as exc:
+        return None, f"Malformed JSON response: {exc}"
 def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
     headers = {"Accept": "application/vnd.github+json"}
     rate_limited = False
