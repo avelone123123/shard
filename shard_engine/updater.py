@@ -149,7 +149,13 @@ def _read_cache():
         if p.is_file():
             data = storage.read_json_safe(p, default=None, expected_type=dict, quarantine=True, use_backup=True)
             if isinstance(data, dict):
-                return data
+                repo = data.get("repo")
+                if repo and repo != GITHUB_REPO:
+                    continue
+                lat = data.get("latest_version")
+                cur = data.get("current_version")
+                if is_valid_version_str(cur) and is_valid_release_version(lat):
+                    return data
     return None
 def _write_cache(payload):
     for p in _cache_paths():
