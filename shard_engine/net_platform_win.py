@@ -759,6 +759,8 @@ def _is_process_running_win(image_name: str) -> bool:
             [tasklist_exe, "/FI", f"IMAGENAME eq {image_name}", "/FO", "CSV", "/NH"],
             timeout=4.0,
             creationflags=_CREATE_NO_WINDOW,
+            prefer_utf8=False,
+            try_oem=True,
         )
         target = f'"{image_name.lower()}"'
         for line in (res.stdout or "").splitlines():
