@@ -271,11 +271,13 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
             elif data.get("draft"):
                 last_err = "GitHub latest release is marked as draft"
             else:
-                checksum_asset = None
-                for a in assets:
-                    aname = str(a.get("name") or "")
-                    if aname.endswith(".whl") and whl_asset is None:
-                        whl_asset = a
+                tag = str(data.get("tag_name") or "").strip()
+                ver = _strip_v_prefix(tag)
+                if not is_valid_release_version(ver):
+                    if tag:
+                        last_err = f"GitHub release tag rejected as invalid or placeholder: {tag!r}"
+                    else:
+                        last_err = "GitHub release response missing tag_name"
                     if aname.lower() in ("sha256sums", "sha256sums.txt", f"{aname}.sha256") or aname.lower().endswith(".sha256"):
                         checksum_asset = a
                 asset_url = None
