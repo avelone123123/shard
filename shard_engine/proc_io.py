@@ -10,3 +10,9 @@ _UTF8_MULTIBYTE_HINT_RE = re.compile(rb"(?:[\xd0-\xd1][\x80-\xbf]|\xe2(?:\x80|[\
 def _win_ansi_encoding():
     try:
         enc = locale.getencoding() if hasattr(locale, "getencoding") else locale.getpreferredencoding(False)
+    except Exception:
+        enc = ""
+    low = str(enc or "").strip().lower()
+    if low and low not in ("utf-8", "utf8", "utf_8", "ascii"):
+        return enc
+    if os.name == "nt":
