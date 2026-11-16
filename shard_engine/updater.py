@@ -394,7 +394,7 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                     whl = next((u for u in urls if isinstance(u, dict) and str(u.get("packagetype")) == "bdist_wheel"), None) or (urls[0] if urls and isinstance(urls[0], dict) else {})
                     return {
                         "ok": True,
-                        "source": "github_main",
+                        "source": "pypi",
                         "latest_version": ver,
                         "tag_name": f"v{ver}",
                         "release_url": f"https://github.com/{GITHUB_REPO}",
