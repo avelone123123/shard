@@ -54,3 +54,10 @@ Two Windows 11 / Python 3.14 runtime issues encountered on `shard start` were in
 ---
 
 ## 4. Verification Results (Local Windows 11, Python 3.14)
+
+All local checks below ran **after the final code edits**:
+
+1. **AST, Comment, Empty-Line, and Subprocess Audit (`python scratch/audit_style.py`)**:
+   - All 13 modified/created Python files (`proc_io.py`, `soup_adapter.py`, `updater.py`, `cli.py`, `hardware.py`, `lan.py`, `gguf_backend.py`, `net_platform_win.py`, `net_platform_linux.py`, `net_wireguard.py`, `tests_cli_pkg.py`, `tests_phase_i_product_hardening.py`, `tests_windows_subprocess_and_updater.py`) parsed with `ast=OK`, `comments=0`, and `empty=[]`.
+   - Zero `text=True` or `universal_newlines=True` subprocess calls remain in `shard_engine/`.
+2. **Real Live Windows Execution (`shard start` + API + SOUP dry-run + streaming)**:
