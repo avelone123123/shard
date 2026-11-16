@@ -229,3 +229,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
                 self._data = data
                 self.text = json.dumps(data)
             def json(self):
+                return self._data
+        def _fake_http(url, timeout=3.0, headers=None, stream=False):
+            if "releases/latest" in url:
+                return _Resp(200, {"tag_name": "v9.9.9", "prerelease": False, "draft": False})
+            if "/tags" in url:
+                return _Resp(200, [{"name": "v9.9.9"}, {"name": "v0.0.0"}])
+            return _Resp(200, {"info": {"version": "9.9.9"}})
