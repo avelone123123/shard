@@ -194,7 +194,7 @@ def _probe_python_env(py_exe, check_deps=True, timeout=8):
         "print(json.dumps({'py': list(sys.version_info[:3]), 'soup_version': sv, 'present': present, 'cuda': cuda}))"
     ) % (bool(check_deps),)
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             [py_exe, "-c", script],
             capture_output=True,
             text=True,
