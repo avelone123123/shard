@@ -668,7 +668,7 @@ class LlamaBackend:
             if self.proc.poll() is not None:
                 tail = ""
                 try:
-                    tail = (self.proc.stderr.read() or b"").decode("utf-8", "ignore")[-400:]
+                    tail = proc_io.safe_decode_subprocess_output(self.proc.stderr.read(), prefer_utf8=True, try_oem=(os.name == "nt"))[-400:]
                 except Exception:
                     pass
                 code = self.proc.returncode
