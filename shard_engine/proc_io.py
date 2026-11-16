@@ -232,3 +232,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
         t_out = threading.Thread(target=_reader, args=(proc.stdout, out_parts, on_stdout), daemon=True)
         t_out.start()
         threads.append(t_out)
+    if proc.stderr is not None and not merge_stderr:
+        t_err = threading.Thread(target=_reader, args=(proc.stderr, err_parts, on_stderr), daemon=True)
+        t_err.start()
+        threads.append(t_err)
+    cancelled = False
+    timed_out = False
