@@ -106,8 +106,11 @@ class TestCliCommandsAndFallback(unittest.TestCase):
                     (_Resp(200, {"info": {"version": "2.0.0"}}), "Update available", None),
                     (_Resp(200, {"info": {"version": "9.9.9"}}), "unknown", "Update available"),
                 ):
-            with mock.patch("requests.get", return_value=resp), mock.patch("subprocess.run") as mrun:
-                with redirect_stdout(buf):
+                    buf = io.StringIO()
+                    with mock.patch("requests.get", return_value=resp), mock.patch("subprocess.run") as mrun:
+                        with redirect_stdout(buf):
+                            cli.main(["update", "--check"])
+                        mrun.assert_not_called()
                     cli.main(["update", "--check"])
                 mrun.assert_not_called()
             self.assertIn(expected, buf.getvalue())
