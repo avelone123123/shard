@@ -821,7 +821,7 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                     raise RuntimeError(f"git fetch failed: {(f_res.stderr or f_res.stdout)[:300]}")
                 if target_version:
                     ref = validate_git_ref(f"v{desired_ver}")
-                    co = subprocess.run([git_bin, "checkout", ref], cwd=inst["repo_root"], capture_output=True, text=True, timeout=30, creationflags=_WIN_NO_WINDOW)
+                    co = proc_io.run_subprocess_safe([git_bin, "checkout", ref], cwd=inst["repo_root"], timeout=30, creationflags=_WIN_NO_WINDOW)
                     if co.returncode != 0:
                         co = subprocess.run([git_bin, "checkout", validate_git_ref(desired_ver)], cwd=inst["repo_root"], capture_output=True, text=True, timeout=30, creationflags=_WIN_NO_WINDOW)
                 else:
