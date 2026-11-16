@@ -243,3 +243,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
         self.assertFalse(chk["update_available"])
         self.assertNotEqual(chk["state"], "UPDATE_AVAILABLE")
         self.assertIn("Latest version: unknown", banner)
+        self.assertNotIn("9.9.9", banner)
+        self.assertNotIn("Update available", banner)
+    def test_missing_releases_errors_ratelimit_malformed_empty(self):
+        class _BadResp:
+            def __init__(self, code, json_val=None, json_exc=None, text="err"):
+                self.status_code = code
+                self._json_val = json_val
