@@ -583,12 +583,9 @@ def _run_install_worker(action, custom_python=None, include_train=True):
             env=pip_env,
             creationflags=_WIN_NO_WINDOW,
             cancel_check=lambda: _SOUP_CANCEL_REQUESTED,
-            else:
-                buf.append(ch)
-                if len(buf) > 512:
-                    _parse_and_update_pip_progress("".join(buf))
-                    buf = []
-        rc = proc.wait(timeout=1200)
+            timeout=1200,
+            line_limit=512,
+        )
         _CURRENT_SOUP_PROC = None
         if _SOUP_CANCEL_REQUESTED:
             return
