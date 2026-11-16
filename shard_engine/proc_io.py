@@ -22,3 +22,9 @@ def _win_ansi_encoding():
                 return f"cp{int(acp)}"
         except Exception:
             pass
+    return None
+def _win_oem_encoding():
+    if os.name != "nt":
+        return None
+    try:
+        oem = ctypes.windll.kernel32.GetOEMCP()
