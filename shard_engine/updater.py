@@ -76,6 +76,13 @@ def is_valid_version_str(ver):
     s = _strip_v_prefix(raw)
     if not s or s == "0.0.0":
         return False
+    return bool(_SEMVER_RE.fullmatch(s))
+def is_placeholder_version(ver):
+    if not ver or isinstance(ver, bool):
+        return True
+    s = _strip_v_prefix(ver).lower()
+    if not s:
+        return True
     return bool(re.match(r"^\d+(?:\.\d+)+(?:[-._a-zA-Z0-9]+)?$", s))
 def is_prerelease_version(ver):
     s = str(ver or "").strip().lower().lstrip("v")
