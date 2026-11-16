@@ -256,3 +256,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
             break
         time.sleep(0.05)
     try:
+        rc = proc.wait(timeout=5)
+    except Exception:
+        terminate_process_tree(proc)
+        try:
+            rc = proc.wait(timeout=3)
+        except Exception:
