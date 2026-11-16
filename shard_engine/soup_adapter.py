@@ -564,7 +564,10 @@ def _run_install_worker(action, custom_python=None, include_train=True):
         _set_install_state(lifecycle_state=target_lifecycle, stage=f"Подготовка {pkg_spec}", pct=15, line=f"Запуск pip install --upgrade {pkg_spec}...")
         if _SOUP_CANCEL_REQUESTED:
             return
-        subprocess.run([str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", "pip"], capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
+        pip_env = os.environ.copy()
+        pip_env.setdefault("PYTHONIOENCODING", "utf-8")
+        pip_env.setdefault("PYTHONUTF8", "1")
+        proc_io.run_subprocess_safe([str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", "pip"], timeout=180, env=pip_env, creationflags=_WIN_NO_WINDOW)
         if _SOUP_CANCEL_REQUESTED:
             return
         pip_cmd = [str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", pkg_spec]
