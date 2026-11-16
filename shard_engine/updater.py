@@ -844,6 +844,9 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                 ver_res = verify_archive_artifact(dl_path, expected_sha256=chk.get("asset_sha256"), expect_wheel=is_whl)
                 _set_job_state(log=f"Artifact verified (sha256={ver_res['sha256'][:16]}..., size={ver_res['size_bytes']})")
                 _set_job_state(phase="installing", progress_pct=75, message="Установка проверенного обновления...", log="Installing verified update...")
+                pip_env = os.environ.copy()
+                pip_env.setdefault("PYTHONIOENCODING", "utf-8")
+                pip_env.setdefault("PYTHONUTF8", "1")
                 if is_whl and inst["method"] in ("pypi", "wheel"):
                     cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-input", str(dl_path)]
                     pr = pip_runner(cmd) if pip_runner else subprocess.run(cmd, capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
