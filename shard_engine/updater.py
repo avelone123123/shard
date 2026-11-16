@@ -381,13 +381,9 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
     try:
         rp = _http_get(PYPI_JSON_URL, timeout=timeout)
         if rp.status_code == 200:
-            pdata = rp.json() or {}
-            ver = str((pdata.get("info") or {}).get("version") or "").strip()
-            if is_valid_version_str(ver) and (allow_prerelease or not is_prerelease_version(ver)):
-                urls = pdata.get("urls") or []
-                whl = next((u for u in urls if str(u.get("packagetype")) == "bdist_wheel"), None) or (urls[0] if urls else {})
-                return {
-                    "ok": True,
+            pdata, p_err = _safe_resp_json(rp)
+            if p_err:
+                last_err = last_err or f"PyPI {p_err}"
                     "source": "pypi",
                     "latest_version": ver,
                     "tag_name": f"v{ver}",
