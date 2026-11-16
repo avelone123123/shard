@@ -857,7 +857,7 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                     _set_job_state(log=f"Synced {synced} package files into {inst['package_dir']}")
                 else:
                     cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-input", str(dl_path)]
-                    pr = pip_runner(cmd) if pip_runner else subprocess.run(cmd, capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
+                    pr = pip_runner(cmd) if pip_runner else proc_io.run_subprocess_safe(cmd, timeout=180, env=pip_env, creationflags=_WIN_NO_WINDOW)
                     if pr.returncode != 0:
                         raise RuntimeError(f"pip install failed: {(pr.stderr or pr.stdout)[:300]}")
             _set_job_state(phase="verifying_runtime", progress_pct=90, message="Проверка запуска обновлённой версии SHARD...", log="Running post-update verification...")
