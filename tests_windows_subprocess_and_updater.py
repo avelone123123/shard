@@ -166,3 +166,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         self.assertTrue(res["ok"])
         self.assertEqual(res["returncode"], 0)
         self.assertIn("┘", res["stdout"])
+        self.assertIn("Привет “SOUP” 🚀", res["stdout"])
+        self.assertNotIn("UnicodeDecodeError", err_capture.getvalue())
+class TestUpdateCheckerHardening(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self._env = mock.patch.dict(os.environ, {"SHARD_DATA_DIR": self._tmp.name}, clear=False)
+        self._env.start()
