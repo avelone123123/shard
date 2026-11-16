@@ -589,6 +589,7 @@ def _run_install_worker(action, custom_python=None, include_train=True):
         _CURRENT_SOUP_PROC = None
         if _SOUP_CANCEL_REQUESTED or stream_res.get("cancelled"):
             return
+        rc = stream_res["returncode"]
         if rc != 0:
             raise RuntimeError(f"pip install {pkg_spec} exited with code {rc}")
         _set_install_state(lifecycle_state="VERIFYING", stage="Проверка SOUP CLI, Python и зависимостей", pct=90, line="Verifying installed soup-cli, CLI version command, and module imports...")
