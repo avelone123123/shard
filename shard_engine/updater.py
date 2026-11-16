@@ -484,7 +484,7 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
             "checked_at": time.time(),
         }
         return payload
-    latest_ver = remote["latest_version"]
+    latest_ver = remote_ver
     cmp_res = compare_versions(cur_ver, latest_ver)
     state = "UPDATE_AVAILABLE" if cmp_res > 0 else "UP_TO_DATE"
     payload = {
