@@ -172,3 +172,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
             on_proc(proc)
         except Exception:
             pass
+    out_parts = []
+    err_parts = []
+    def _emit(chunk_bytes, parts, cb):
+        txt = safe_decode_subprocess_output(chunk_bytes, prefer_utf8=prefer_utf8, try_oem=try_oem)
+        parts.append(txt)
+        if cb and txt:
