@@ -196,8 +196,6 @@ def _probe_python_env(py_exe, check_deps=True, timeout=8):
     try:
         res = proc_io.run_subprocess_safe(
             [py_exe, "-c", script],
-            capture_output=True,
-            text=True,
             timeout=timeout,
             creationflags=_WIN_NO_WINDOW,
         )
