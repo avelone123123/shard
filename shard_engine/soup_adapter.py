@@ -1040,7 +1040,7 @@ def launch_train_popen(soup_info, config_path, log_path, resume=None, run_name=N
     if resume:
         args.extend(["--resume", str(resume)])
     Path(log_path).parent.mkdir(parents=True, exist_ok=True)
-    log_fh = open(log_path, "a", encoding="utf-8")
+    log_fh = open(log_path, "ab")
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
     if env_extra:
