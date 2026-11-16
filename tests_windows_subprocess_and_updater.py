@@ -180,3 +180,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
         for good in ("1.8.1", "v1.8.1", "V2.0.0", "1.9.0-rc1", "1.9.0-rc.1+build42", "0.77.2"):
             self.assertTrue(updater.is_valid_version_str(good), f"Expected valid: {good}")
         for good_rel in ("1.8.1", "v1.8.2", "2.0.0", "0.77.2"):
+            self.assertTrue(updater.is_valid_release_version(good_rel), f"Expected valid release: {good_rel}")
+        for bad in ("", None, "1.2", "01.2.3", "vv1.8.1", "latest", "9.9.9.9", "1.8.1; rm -rf", "0.0.0", "2.0.0 beta"):
+            self.assertFalse(updater.is_valid_version_str(bad), f"Expected invalid: {bad!r}")
+        for ph in ("9.9.9", "v9.9.9", "0.0.0", "99.99.99", "999.999.999", "123.456.789", "1.8.2-placeholder"):
+            self.assertTrue(updater.is_placeholder_version(ph), f"Expected placeholder: {ph!r}")
+            self.assertFalse(updater.is_valid_release_version(ph), f"Placeholder should not pass release check: {ph!r}")
+    def test_valid_release_tags_and_v_prefix(self):
