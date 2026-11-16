@@ -672,8 +672,6 @@ def verify_installation(expected_version=None):
     )
     res = proc_io.run_subprocess_safe(
         [sys.executable, "-c", code],
-        capture_output=True,
-        text=True,
         timeout=30,
         creationflags=_WIN_NO_WINDOW,
     )
