@@ -264,8 +264,6 @@ def _probe_python_version_fast(py_exe, timeout=4):
     try:
         res = proc_io.run_subprocess_safe(
             [py_exe, "-c", "import json, sys; print(json.dumps({'exe': sys.executable, 'ver': list(sys.version_info[:3])}))"],
-            capture_output=True,
-            text=True,
             timeout=timeout,
             creationflags=_WIN_NO_WINDOW,
         )
