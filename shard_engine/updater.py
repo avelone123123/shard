@@ -650,7 +650,7 @@ def rollback_update(backup_info=None):
     git_commit = ptr.get("git_commit")
     if ptr.get("method") == "git_clone" and repo_root and git_commit and shutil.which("git"):
         try:
-            subprocess.run([shutil.which("git"), "reset", "--hard", git_commit], cwd=repo_root, capture_output=True, text=True, timeout=20, creationflags=_WIN_NO_WINDOW)
+            proc_io.run_subprocess_safe([shutil.which("git"), "reset", "--hard", git_commit], cwd=repo_root, timeout=20, creationflags=_WIN_NO_WINDOW)
         except Exception:
             pass
     state_zip = ptr.get("state_backup_path")
