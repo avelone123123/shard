@@ -525,7 +525,7 @@ def check_wireguard_linux():
             "remediation": "Install wireguard-tools (for example: sudo apt install wireguard-tools)",
         }
     try:
-        res = subprocess.run([wg_bin, "show"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=3.0)
+        res = proc_io.run_subprocess_safe([wg_bin, "show"], stdin=subprocess.DEVNULL, timeout=3.0)
     except PermissionError as e:
         return {
             "installed": True,
