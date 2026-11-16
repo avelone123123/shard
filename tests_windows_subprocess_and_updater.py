@@ -201,3 +201,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
                 "draft": False,
                 "html_url": f"https://github.com/avelone123123/shard/releases/tag/{tag}",
                 "body": "Notes",
+                "assets": [],
+            }
+            with mock.patch("shard_engine.updater._http_get", return_value=_Resp(200, rel_payload)):
+                chk = updater.check_for_updates(force=True, allow_network=True)
+            self.assertEqual(chk["state"], "UPDATE_AVAILABLE")
+            self.assertEqual(chk["latest_version"], expected_ver)
+            self.assertTrue(chk["update_available"])
