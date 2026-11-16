@@ -33,3 +33,10 @@ Two Windows 11 / Python 3.14 runtime issues encountered on `shard start` were in
 
 ---
 
+## 3. Changes Implemented
+
+| File | Summary of Changes |
+| :--- | :--- |
+| `shard_engine/proc_io.py` | New centralized subprocess binary I/O module: `safe_decode_subprocess_output()`, `run_subprocess_safe()`, `stream_subprocess_safe()`, and `terminate_process_tree()`. Reads raw bytes (`text=False`), preserves separate stdout/stderr streams cleanly without `_readerthread` text-mode crashes or dual-pipe deadlocks, decodes per-line/segment cleanly (UTF-8 / Windows `cp1251` / optional `cp866` OEM / `errors="replace"` fallback while avoiding CP1251 mojibake on broken UTF-8 lines with stray `0x98`), supports streaming cancellation and process-tree termination on Windows (`taskkill /F /T /PID`). |
+| `shard_engine/soup_adapter.py` | Replaced all 10 `subprocess.run(..., text=True)` / `Popen(text=True)` / `taskkill` calls with `proc_io.run_subprocess_safe`, `proc_io.stream_subprocess_safe` (inside `_run_install_worker`), and `proc_io.terminate_process_tree`. Updated `launch_train_popen` to binary `"ab"` log handles with `PYTHONIOENCODING=utf-8` and `PYTHONUTF8=1`. |
+| `shard_engine/updater.py` | Added strict SemVer validation (`_SEMVER_RE`), `is_placeholder_version()`, `is_valid_release_version()` (rejecting `9.9.9`, `0.0.0`, `99.99.99`, `999.999.999`, `123.456.789`, etc.), `_safe_resp_json()`, `GITHUB_REPO` cache validation in `_read_cache()` (auto-ignoring poisoned `9.9.9` caches), removed unreliable `/main/` `GITHUB_RAW_INIT` scraping, returns `latest_version=None` / `update_available=False` / `Latest version: unknown (update check unavailable)` when verification fails, and migrated all 9 `git`/`pip`/verification subprocess calls to `proc_io.run_subprocess_safe`. |
