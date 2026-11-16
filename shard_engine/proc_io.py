@@ -130,3 +130,9 @@ def _read_pipe_chunk(fh):
             return fh.read1(4096)
         except Exception:
             return b""
+    try:
+        return fh.read(4096)
+    except Exception:
+        return b""
+def terminate_process_tree(proc):
+    if proc is None:
