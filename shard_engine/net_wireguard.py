@@ -53,9 +53,7 @@ def _run_readonly_cmd(args, timeout=3.0):
             prefer_utf8=True,
             try_oem=_WIN,
         )
-        stdout = (proc.stdout or b"").decode("utf-8", errors="replace")
-        stderr = (proc.stderr or b"").decode("utf-8", errors="replace")
-        return proc.returncode, stdout, stderr, None
+        return proc.returncode, proc.stdout or "", proc.stderr or "", None
     except FileNotFoundError as exc:
         return -1, "", "", str(exc)
     except PermissionError as exc:
