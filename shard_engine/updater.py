@@ -327,7 +327,9 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
         elif r.status_code in (403, 429):
             rate_limited = True
             last_err = f"GitHub API rate limit (HTTP {r.status_code})"
-        elif r.status_code != 404:
+        elif r.status_code == 404:
+            last_err = "GitHub release not found (HTTP 404)"
+        else:
             last_err = f"GitHub Releases HTTP {r.status_code}"
     except Exception as e:
         last_err = str(e)
