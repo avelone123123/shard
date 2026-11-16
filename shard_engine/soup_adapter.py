@@ -587,7 +587,7 @@ def _run_install_worker(action, custom_python=None, include_train=True):
             line_limit=512,
         )
         _CURRENT_SOUP_PROC = None
-        if _SOUP_CANCEL_REQUESTED:
+        if _SOUP_CANCEL_REQUESTED or stream_res.get("cancelled"):
             return
         if rc != 0:
             raise RuntimeError(f"pip install {pkg_spec} exited with code {rc}")
