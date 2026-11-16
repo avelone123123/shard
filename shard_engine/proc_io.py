@@ -154,3 +154,9 @@ def terminate_process_tree(proc):
     except Exception:
         pass
 def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=False, on_proc=None, cwd=None, env=None, stdin=subprocess.DEVNULL, creationflags=None, prefer_utf8=True, try_oem=False, cancel_check=None, on_cancel=None, timeout=None, line_limit=4096):
+    kw = {
+        "stdin": stdin,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.STDOUT if merge_stderr else subprocess.PIPE,
+        "bufsize": 0,
+    }
