@@ -257,3 +257,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
                     raise self._json_exc
                 return self._json_val
         cases = [
+            ("missing_404", lambda *a, **kw: _BadResp(404, {"message": "Not Found"}, text='{"message":"Not Found"}')),
+            ("github_500", lambda *a, **kw: _BadResp(500, {"message": "Server Error"}, text='{"message":"Server Error"}')),
+            ("rate_limit_403", lambda *a, **kw: _BadResp(403, {"message": "API rate limit exceeded"}, text='{"message":"API rate limit exceeded"}')),
+            ("rate_limit_429", lambda *a, **kw: _BadResp(429, {"message": "Too Many Requests"}, text='{"message":"Too Many Requests"}')),
+            ("malformed_json", lambda *a, **kw: _BadResp(200, json_exc=ValueError("bad json"), text="{not valid json")),
+            ("empty_body", lambda *a, **kw: _BadResp(200, json_val=None, text="")),
+            ("invalid_tag_text", lambda *a, **kw: _BadResp(200, {"tag_name": "invalid-release-string", "info": {"version": "not-semver"}})),
