@@ -489,6 +489,7 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
     state = "UPDATE_AVAILABLE" if cmp_res > 0 else "UP_TO_DATE"
     payload = {
         "schema_version": 1,
+        "repo": GITHUB_REPO,
         "state": state,
         "current_version": cur_ver,
         "latest_version": latest_ver,
