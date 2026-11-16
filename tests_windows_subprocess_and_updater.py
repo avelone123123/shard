@@ -208,3 +208,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
             self.assertEqual(chk["state"], "UPDATE_AVAILABLE")
             self.assertEqual(chk["latest_version"], expected_ver)
             self.assertTrue(chk["update_available"])
+            banner = updater.startup_check_banner()
+            self.assertIn(f"Latest version: {expected_ver}", banner)
+            self.assertIn("Update available!", banner)
+    def test_placeholder_9_9_9_rejected_in_api_and_cache(self):
+        cache_path = Path(paths.update_cache_file())
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        storage.atomic_write_json(cache_path, {
