@@ -64,3 +64,9 @@ def _decode_segment(raw, prefer_utf8=True, try_oem=False):
     return raw.decode("utf-8", errors="replace")
 def safe_decode_subprocess_output(data, prefer_utf8=True, try_oem=False):
     if data is None:
+        return ""
+    if isinstance(data, str):
+        return data
+    raw = bytes(data)
+    if not raw:
+        return ""
