@@ -250,3 +250,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
             def __init__(self, code, json_val=None, json_exc=None, text="err"):
                 self.status_code = code
                 self._json_val = json_val
+                self._json_exc = json_exc
+                self.text = text
+            def json(self):
+                if self._json_exc:
+                    raise self._json_exc
+                return self._json_val
+        cases = [
