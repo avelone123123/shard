@@ -11,7 +11,7 @@ import time
 import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
-from . import __app_name__, __version__, paths, process, storage
+from . import __app_name__, __version__, paths, proc_io, process, storage
 GITHUB_REPO = os.environ.get("SHARD_GITHUB_REPO", "avelone123123/shard")
 GITHUB_API_RELEASES_LATEST = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 GITHUB_API_TAGS = f"https://api.github.com/repos/{GITHUB_REPO}/tags?per_page=15"
