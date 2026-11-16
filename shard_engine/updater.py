@@ -389,13 +389,9 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                 ver = _strip_v_prefix(str(info_obj.get("version") or "").strip())
                 if is_valid_release_version(ver) and (allow_prerelease or not is_prerelease_version(ver)):
                     urls = pdata.get("urls") or []
-    try:
-        rr = _http_get(GITHUB_RAW_INIT, timeout=timeout)
-        if rr.status_code == 200:
-            m = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', rr.text)
-            if m and is_valid_version_str(m.group(1)):
-                ver = m.group(1).strip()
-                if allow_prerelease or not is_prerelease_version(ver):
+                    if not isinstance(urls, list):
+                        urls = []
+                    whl = next((u for u in urls if isinstance(u, dict) and str(u.get("packagetype")) == "bdist_wheel"), None) or (urls[0] if urls and isinstance(urls[0], dict) else {})
                     return {
                         "ok": True,
                         "source": "github_main",
