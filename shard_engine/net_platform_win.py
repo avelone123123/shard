@@ -734,7 +734,7 @@ def _query_service_state(service_name: str) -> dict:
         return {"installed": False, "state": "UNSUPPORTED", "running": False}
     sc_exe = shutil.which("sc.exe") or os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "sc.exe")
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             [sc_exe, "query", service_name],
             capture_output=True,
             text=True,
