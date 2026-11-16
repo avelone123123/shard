@@ -1043,6 +1043,7 @@ def launch_train_popen(soup_info, config_path, log_path, resume=None, run_name=N
     log_fh = open(log_path, "ab")
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
     if env_extra:
         env.update({str(k): str(v) for k, v in env_extra.items()})
     proc = subprocess.Popen(
