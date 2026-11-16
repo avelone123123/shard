@@ -396,7 +396,7 @@ def detect_tailscale():
     if not exe:
         return {"installed": False, "running": False, "ip": None, "dns_name": None, "online_peers": 0}
     try:
-        r = subprocess.run(
+        r = _proc_io.run_subprocess_safe(
             [exe, "status", "--json"],
             capture_output=True,
             text=True,
