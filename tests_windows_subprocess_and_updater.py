@@ -40,3 +40,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         self.assertEqual(res.returncode, 0)
         self.assertIn("\u2518", res.stdout)
         self.assertEqual(res.stderr, "")
+    def test_safe_decode_standalone_0x98_and_mixed_utf8_cyrillic_emoji(self):
+        raw_utf8 = "Привет мир 🚀 “smart quotes” ‘single’ — … ┌──┘".encode("utf-8")
+        decoded = proc_io.safe_decode_subprocess_output(raw_utf8)
+        self.assertEqual(decoded, "Привет мир 🚀 “smart quotes” ‘single’ — … ┌──┘")
+        raw_bad = b"prefix \xe2\x94\x98 " + b"\x98" + " Привет 🎉".encode("utf-8")
+        decoded_bad = proc_io.safe_decode_subprocess_output(raw_bad)
+        self.assertIn("┘", decoded_bad)
