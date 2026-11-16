@@ -12,6 +12,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
 from . import paths
+from . import proc_io
 from . import storage
 _WIN = os.name == "nt" or sys.platform == "win32"
 _CREATE_NO_WINDOW = 0x08000000 if _WIN else 0
