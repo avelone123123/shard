@@ -190,3 +190,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
                 chunk = _read_pipe_chunk(fh)
                 if not chunk:
                     if buf:
+                        _emit(bytes(buf), parts, cb)
+                        buf.clear()
+                    break
+                if skip_lf:
+                    if chunk[:1] == b"\n":
+                        chunk = chunk[1:]
