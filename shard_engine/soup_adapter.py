@@ -12,6 +12,7 @@ from pathlib import Path
 from . import hardware
 from . import model_browser
 from . import paths
+from . import proc_io
 from . import settings
 from . import storage
 from . import updater
