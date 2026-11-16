@@ -849,7 +849,7 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                 pip_env.setdefault("PYTHONUTF8", "1")
                 if is_whl and inst["method"] in ("pypi", "wheel"):
                     cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-input", str(dl_path)]
-                    pr = pip_runner(cmd) if pip_runner else subprocess.run(cmd, capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
+                    pr = pip_runner(cmd) if pip_runner else proc_io.run_subprocess_safe(cmd, timeout=180, env=pip_env, creationflags=_WIN_NO_WINDOW)
                     if pr.returncode != 0:
                         raise RuntimeError(f"pip install exited with code {pr.returncode}: {(pr.stderr or pr.stdout)[:300]}")
                 elif inst["method"] in ("git_clone", "editable_source"):
