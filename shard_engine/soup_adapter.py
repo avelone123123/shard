@@ -420,9 +420,7 @@ def cancel_soup_install():
     _SOUP_CANCEL_REQUESTED = True
     proc = _CURRENT_SOUP_PROC
     if proc is not None and proc.poll() is None:
-                proc.terminate()
-        except Exception:
-            pass
+        proc_io.terminate_process_tree(proc)
     _set_install_state(
         lifecycle_state="CANCELLED",
         status="cancelled",
