@@ -60,4 +60,4 @@ All checks below ran on the final committed deliverables (`artifacts/SHARD_promo
 - **`ffmpeg blackdetect` Check**: `0` unintended black segments (`blackdetect` output empty).
 - **Visual & Audio Review**: Inspected all keyframes across `00:00 - 00:58` (ensuring zero caption overlap, clear safe zones, crisp rendering, zero secrets/tokens) and audited full English voiceover + ducked soundtrack mix.
 - **`README.md` Audit**: Zero broken local relative links and `0` emojis.
-- **Pull Request**: Branch `chore/github-showcase-and-promo-video` pushed cleanly with PR opened against `master`.
+- **Pull Request**: Branch `chore/github-showcase-and-promo-video` pushed cleanly with PR `#4`: https://github.com/avelone123123/shard/pull/4 (not merged into `master`).
