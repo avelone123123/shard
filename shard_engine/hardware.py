@@ -162,4 +162,3 @@ def evaluate_compatibility(model_id, hw=None):
         "nvme_streaming": True,
         "description": "Послойный Zero-Copy стриминг весов с NVMe SSD без ограничений ОЗУ."
     }
-
