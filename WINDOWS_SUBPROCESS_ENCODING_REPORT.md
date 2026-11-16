@@ -19,3 +19,10 @@ Two Windows 11 / Python 3.14 runtime issues encountered on `shard start` were in
 - **Mechanism**:
   - `_run_soup_cmd()` set `PYTHONIOENCODING=utf-8` in the child environment so `soup-cli` (Rich CLI output) emitted UTF-8 box-drawing characters (`┌── Training Setup ──┐ ... └──┘`).
   - The parent called `subprocess.run(..., capture_output=True, text=True)` without specifying `encoding`. On Windows with `cp1251` active code page, Python's `subprocess` background `_readerthread` opened pipes using `encodings\cp1251.py`.
+  - Byte `0x98` is undefined in `cp1251` (`0xe2 0x94 0x98` is the UTF-8 encoding of `┘`), occurring at byte offset `1237` of the child output and raising an uncaught `UnicodeDecodeError` inside `_readerthread`, leaving `stdout` as `None`.
+- **Repo-wide subprocess audit**: All `subprocess.run`, `subprocess.Popen`, `text=True`, `capture_output=True`, and `.decode(...)` call sites in `shard_engine/` were audited and migrated to centralized binary-safe helpers in `shard_engine/proc_io.py`.
+
+### 2.2 False `Latest version: 9.9.9 | Update available!`
+
+- **Poisoned on-disk cache**: Running `tests_cli_pkg.py:test_update_check_variants()` previously wrote `"latest_version": "9.9.9"` directly into the active user's `update_cache.json` files (`C:\Users\avelo\AppData\Local\SHARD\cache\update_cache.json` and `C:\Users\avelo\.shard\update_cache.json`) because `SHARD_DATA_DIR` was not isolated to a temporary directory.
+- **Insufficient validation and fallback in `shard_engine/updater.py`**:
