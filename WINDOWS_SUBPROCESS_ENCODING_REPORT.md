@@ -47,3 +47,10 @@ Two Windows 11 / Python 3.14 runtime issues encountered on `shard start` were in
 | `shard_engine/net_platform_win.py` | Migrated `_run_powershell`, `sc.exe`, and `tasklist.exe` subprocess calls to `proc_io.run_subprocess_safe` (using `prefer_utf8=False, try_oem=True` for `sc.exe` and `tasklist.exe`). |
 | `shard_engine/net_platform_linux.py` | Migrated all 6 Linux subprocess calls (`ip`, `wg`, `ufw`, `nft`, `systemctl`) to `proc_io.run_subprocess_safe`. |
 | `shard_engine/net_wireguard.py` | Updated `_run_readonly_cmd` to use `proc_io.run_subprocess_safe(..., prefer_utf8=True, try_oem=_WIN)`. |
+| `tests_cli_pkg.py` | Isolated `test_update_check_variants()` inside `tempfile.TemporaryDirectory()` (`SHARD_DATA_DIR`) to prevent polluting real user caches; uses `2.0.0` for upgrade test and asserts `9.9.9` yields `unknown` without recommending an update. |
+| `tests_phase_i_product_hardening.py` | Updated update test fixture from `"9.9.9"` to `"2.0.0"`. |
+| `tests_windows_subprocess_and_updater.py` | Added 10 regression tests covering `0x98` at offset `1237` reproduction and safe decode, mixed UTF-8/Cyrillic/emoji/box-drawing + standalone `0x98`, large dual-pipe non-deadlocking reads, mixed stdout/stderr + non-zero exit, streaming cancellation under invalid bytes, SOUP dry-run `0x98` safety, SemVer/placeholder rejection, `9.9.9` API/cache rejection, missing/rate-limited/malformed release responses, and `v`-prefixed release tags. |
+
+---
+
+## 4. Verification Results (Local Windows 11, Python 3.14)
