@@ -136,3 +136,9 @@ def _read_pipe_chunk(fh):
         return b""
 def terminate_process_tree(proc):
     if proc is None:
+        return
+    try:
+        if proc.poll() is not None:
+            return
+        if os.name == "nt":
+            try:
