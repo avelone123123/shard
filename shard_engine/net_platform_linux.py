@@ -342,7 +342,7 @@ def _run_ip_json():
     except Exception:
         pass
     try:
-        r_link = subprocess.run([ip_bin, "-j", "-d", "link", "show"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=2.5)
+        r_link = proc_io.run_subprocess_safe([ip_bin, "-j", "-d", "link", "show"], stdin=subprocess.DEVNULL, timeout=2.5)
         if r_link.returncode == 0:
             link_out = r_link.stdout
     except Exception:
