@@ -106,7 +106,7 @@ def parse_version_tuple(ver):
     core = re.split(r"[-+]", s, maxsplit=1)[0]
     nums = []
     for tok in core.split("."):
-        m = re.match(r"^(\d+)", tok)
+        m = re.match(r"^([0-9]+)", tok)
         nums.append(int(m.group(1)) if m else 0)
     while len(nums) < 3:
         nums.append(0)
