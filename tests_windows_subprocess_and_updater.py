@@ -26,3 +26,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
             "sys.stdout.buffer.flush()\n"
         )
         thread_errs = []
+        orig_hook = threading.excepthook
+        threading.excepthook = lambda args: thread_errs.append(args.exc_value)
+        try:
+            legacy = subprocess.run([sys.executable, "-c", child_code], capture_output=True, text=True, encoding="cp1251", timeout=10)
+            self.assertIsNone(legacy.stdout)
+            self.assertTrue(any(isinstance(e, UnicodeDecodeError) and e.start == 1237 for e in thread_errs))
+            thread_errs.clear()
