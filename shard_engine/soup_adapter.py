@@ -262,7 +262,7 @@ def _probe_python_version_fast(py_exe, timeout=4):
     if not py_exe or not os.path.isfile(py_exe):
         return None
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             [py_exe, "-c", "import json, sys; print(json.dumps({'exe': sys.executable, 'ver': list(sys.version_info[:3])}))"],
             capture_output=True,
             text=True,
