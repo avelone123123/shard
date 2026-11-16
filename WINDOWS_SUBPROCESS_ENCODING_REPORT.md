@@ -12,3 +12,10 @@ Two Windows 11 / Python 3.14 runtime issues encountered on `shard start` were in
 ---
 
 ## 2. Root Cause Analysis
+
+### 2.1 Subprocess `UnicodeDecodeError` (`byte 0x98 in position 1237`)
+
+- **Triggering execution path**: `shard_engine/training.py:start_training_job()` -> `shard_engine/soup_adapter.py:dry_run_train()` -> `shard_engine/soup_adapter.py:_run_soup_cmd()` executing `soup-cli train --config <soup.yaml> --dry-run --yes` (triggered across two training runs `job-20261116-005404-9e091d` and `job-20261116-005732-eb82d3`).
+- **Mechanism**:
+  - `_run_soup_cmd()` set `PYTHONIOENCODING=utf-8` in the child environment so `soup-cli` (Rich CLI output) emitted UTF-8 box-drawing characters (`┌── Training Setup ──┐ ... └──┘`).
+  - The parent called `subprocess.run(..., capture_output=True, text=True)` without specifying `encoding`. On Windows with `cp1251` active code page, Python's `subprocess` background `_readerthread` opened pipes using `encodings\cp1251.py`.
