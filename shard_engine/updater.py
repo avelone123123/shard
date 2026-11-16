@@ -316,12 +316,14 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                         "latest_version": ver,
                         "tag_name": tag,
                         "release_url": data.get("html_url") or f"https://github.com/{GITHUB_REPO}/releases/tag/{tag}",
-                    "asset_url": asset_url,
-                    "asset_name": whl_asset.get("name") if whl_asset else f"shard-{ver}.zip",
-                    "asset_size": asset_size,
-                    "asset_sha256": asset_sha256,
-                    "prerelease": bool(data.get("prerelease")),
-                }
+                        "release_notes": (data.get("body") or "").strip(),
+                        "published_at": data.get("published_at"),
+                        "asset_url": asset_url,
+                        "asset_name": whl_asset.get("name") if whl_asset else f"shard-{ver}.zip",
+                        "asset_size": asset_size,
+                        "asset_sha256": asset_sha256,
+                        "prerelease": bool(data.get("prerelease")),
+                    }
         elif r.status_code in (403, 429):
             rate_limited = True
             last_err = f"GitHub API rate limit (HTTP {r.status_code})"
