@@ -26,3 +26,10 @@ Two Windows 11 / Python 3.14 runtime issues encountered on `shard start` were in
 
 - **Poisoned on-disk cache**: Running `tests_cli_pkg.py:test_update_check_variants()` previously wrote `"latest_version": "9.9.9"` directly into the active user's `update_cache.json` files (`C:\Users\avelo\AppData\Local\SHARD\cache\update_cache.json` and `C:\Users\avelo\.shard\update_cache.json`) because `SHARD_DATA_DIR` was not isolated to a temporary directory.
 - **Insufficient validation and fallback in `shard_engine/updater.py`**:
+  - Placeholder/sentinel versions such as `9.9.9` were accepted both from remote JSON and from local cache.
+  - `GITHUB_RAW_INIT` targeted `/main/` instead of `master` (returning HTTP 404).
+  - Unverified/failed remote checks could surface stale/cached `latest_version` values instead of reporting `unknown`.
+- **Verified upstream latest release**: GitHub Releases (`v1.8.1`, `prerelease: False`) and PyPI (`1.8.1`).
+
+---
+
