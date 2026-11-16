@@ -253,6 +253,9 @@ def _safe_resp_json(resp):
         data = resp.json()
     except Exception as exc:
         return None, f"Malformed JSON response: {exc}"
+    if data is None:
+        return None, "Empty JSON payload"
+    return data, None
 def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
     headers = {"Accept": "application/vnd.github+json"}
     rate_limited = False
