@@ -274,3 +274,5 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
         "stdout": out_full,
         "stderr": err_full,
         "cancelled": cancelled,
+        "pid": proc.pid,
+    }
