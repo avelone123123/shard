@@ -22,7 +22,7 @@ def get_hardware_profile(force_refresh=False):
         try:
             cmd = ["nvidia-smi", "--query-gpu=name,memory.total,memory.used", "--format=csv,noheader,nounits"]
             kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
-            res = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=3, **kw)
+            res = proc_io.run_subprocess_safe(cmd, stdin=subprocess.DEVNULL, timeout=3, **kw)
             if res.returncode == 0 and res.stdout.strip():
                 parts = res.stdout.strip().split("\n")[0].split(",")
                 if len(parts) >= 3:
