@@ -523,8 +523,10 @@ def startup_check_banner():
     try:
         res = check_for_updates(force=False, timeout=1.5, allow_network=True)
         st = res.get("state")
-        if st == "UPDATE_AVAILABLE":
-            return f"SHARD {res['current_version']} | Latest version: {res['latest_version']} | Update available! Run: shard update"
+        cur = res.get("current_version") or __version__
+        lat = res.get("latest_version")
+        if st == "UPDATE_AVAILABLE" and is_valid_release_version(lat) and compare_versions(cur, lat) > 0:
+            return f"SHARD {cur} | Latest version: {lat} | Update available! Run: shard update"
         if st == "UP_TO_DATE":
             return f"SHARD {res['current_version']} (up to date)"
         if st == "GITHUB_UNAVAILABLE":
