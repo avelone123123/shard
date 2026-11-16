@@ -48,7 +48,6 @@ def _run_readonly_cmd(args, timeout=3.0):
     try:
         proc = proc_io.run_subprocess_safe(
             args,
-            capture_output=True,
             timeout=timeout,
             creationflags=_CREATE_NO_WINDOW,
         )
