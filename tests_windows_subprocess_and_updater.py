@@ -96,3 +96,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         self.assertNotIn("ASCII line", res.stderr)
     def test_large_concurrent_stdout_and_stderr_no_deadlock(self):
         child_code = (
+            "import sys\n"
+            "line_out = ('OUT Кириллица 🚀 ' + ('x' * 200) + '\\n').encode('utf-8')\n"
+            "line_err = ('ERR Ошибка “test” ' + ('y' * 200) + '\\n').encode('utf-8')\n"
+            "for i in range(600):\n"
+            "    sys.stdout.buffer.write(line_out)\n"
+            "    sys.stderr.buffer.write(line_err)\n"
+            "sys.stdout.buffer.flush()\n"
