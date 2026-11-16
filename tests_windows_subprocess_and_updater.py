@@ -54,3 +54,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         decoded_only = proc_io.safe_decode_subprocess_output(raw_only_0x98)
         self.assertTrue(decoded_only.startswith("X" * 1237))
         self.assertTrue(decoded_only.endswith(" tail"))
+        if os.name == "nt" and "1252" in ansi_enc:
+            self.assertEqual(decoded_only, ("X" * 1237) + "\u02dc tail")
+        else:
+            self.assertIn("\ufffd", decoded_only)
+        invalid_byte = b"\x81" if "1252" in ansi_enc else b"\x98"
+        decoded_invalid = proc_io.safe_decode_subprocess_output((b"Y" * 1237) + invalid_byte + b" end")
+        self.assertEqual(decoded_invalid, ("Y" * 1237) + "\ufffd end")
