@@ -575,11 +575,9 @@ def _run_install_worker(action, custom_python=None, include_train=True):
         def _set_proc(p):
             global _CURRENT_SOUP_PROC
             _CURRENT_SOUP_PROC = p
-                    if os.name == "nt":
-                        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=_WIN_NO_WINDOW)
-                    else:
-                        proc.terminate()
-                except Exception:
+        stream_res = proc_io.stream_subprocess_safe(
+            pip_cmd,
+            on_stdout=_parse_and_update_pip_progress,
                     pass
                 break
             ch = proc.stdout.read(1)
