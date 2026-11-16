@@ -47,3 +47,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         raw_bad = b"prefix \xe2\x94\x98 " + b"\x98" + " Привет 🎉".encode("utf-8")
         decoded_bad = proc_io.safe_decode_subprocess_output(raw_bad)
         self.assertIn("┘", decoded_bad)
+        self.assertIn("Привет 🎉", decoded_bad)
+        self.assertIn("\ufffd", decoded_bad)
+        ansi_enc = str(proc_io._win_ansi_encoding() or "").lower()
+        raw_only_0x98 = (b"X" * 1237) + b"\x98" + b" tail"
+        decoded_only = proc_io.safe_decode_subprocess_output(raw_only_0x98)
+        self.assertTrue(decoded_only.startswith("X" * 1237))
+        self.assertTrue(decoded_only.endswith(" tail"))
