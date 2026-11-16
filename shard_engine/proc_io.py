@@ -160,3 +160,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
         "stderr": subprocess.STDOUT if merge_stderr else subprocess.PIPE,
         "bufsize": 0,
     }
+    if cwd is not None:
+        kw["cwd"] = cwd
+    if env is not None:
+        kw["env"] = env
+    if creationflags is not None:
+        kw["creationflags"] = creationflags
