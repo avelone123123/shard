@@ -263,12 +263,14 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
     try:
         r = _http_get(GITHUB_API_RELEASES_LATEST, timeout=timeout, headers=headers)
         if r.status_code == 200:
-            data = r.json() or {}
-            tag = str(data.get("tag_name") or "").strip()
-            ver = tag.lstrip("vV")
-            if is_valid_version_str(ver) and (allow_prerelease or (not data.get("prerelease") and not is_prerelease_version(ver))):
-                assets = data.get("assets") or []
-                whl_asset = None
+            data, j_err = _safe_resp_json(r)
+            if j_err:
+                last_err = f"GitHub Releases {j_err}"
+            elif not isinstance(data, dict):
+                last_err = "GitHub Releases returned unexpected JSON type"
+            elif data.get("draft"):
+                last_err = "GitHub latest release is marked as draft"
+            else:
                 checksum_asset = None
                 for a in assets:
                     aname = str(a.get("name") or "")
