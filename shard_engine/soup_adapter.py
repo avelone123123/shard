@@ -989,7 +989,7 @@ def _run_soup_cmd(soup_info, args, timeout=120, env_extra=None):
     if env_extra:
         env.update({str(k): str(v) for k, v in env_extra.items()})
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             cmd_base + list(args),
             capture_output=True,
             text=True,
