@@ -458,9 +458,10 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
         remote = fetch_latest_remote_info(timeout=timeout, allow_prerelease=allow_prerelease)
     except Exception as e:
         remote = {"ok": False, "error": str(e), "rate_limited": False}
-    if not remote.get("ok"):
-        err_msg = remote.get("error") or "GitHub unavailable"
-        is_net_err = any(k in err_msg.lower() for k in ("timed out", "timeout", "connection", "name", "dns", "ssl", "rate limit", "unreachable", "http 403", "http 429", "http 5"))
+    remote_ver = remote.get("latest_version") if isinstance(remote, dict) else None
+    if not remote.get("ok") or not is_valid_release_version(remote_ver):
+        err_msg = (remote.get("error") if isinstance(remote, dict) else None) or "GitHub unavailable"
+        is_net_err = any(k in err_msg.lower() for k in ("timed out", "timeout", "connection", "name", "dns", "ssl", "rate limit", "unreachable", "http 403", "http 404", "http 429", "http 5", "not found"))
         st_code = "GITHUB_UNAVAILABLE" if (remote.get("rate_limited") or is_net_err or "http " not in err_msg.lower()) else "CHECK_FAILED"
         last_lat = cached.get("latest_version") if isinstance(cached, dict) else None
         payload = {
