@@ -103,3 +103,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
             "    sys.stdout.buffer.write(line_out)\n"
             "    sys.stderr.buffer.write(line_err)\n"
             "sys.stdout.buffer.flush()\n"
+            "sys.stderr.buffer.flush()\n"
+        )
+        res = proc_io.run_subprocess_safe([sys.executable, "-c", child_code], timeout=15)
+        self.assertEqual(res.returncode, 0)
+        self.assertGreater(len(res.stdout), 120000)
+        self.assertGreater(len(res.stderr), 120000)
+        self.assertIn("OUT Кириллица 🚀", res.stdout)
