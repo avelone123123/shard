@@ -19,3 +19,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         self.assertEqual(idx, 1237)
         with self.assertRaises(UnicodeDecodeError) as ctx:
             payload.decode("cp1251")
+        self.assertEqual(ctx.exception.start, 1237)
+        child_code = (
+            "import sys\n"
+            "sys.stdout.buffer.write((b'A' * 1235) + b'\\xe2\\x94\\x98\\n')\n"
+            "sys.stdout.buffer.flush()\n"
+        )
+        thread_errs = []
