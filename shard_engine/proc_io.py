@@ -124,3 +124,9 @@ def _read_pipe_chunk(fh):
         if isinstance(fd, int) and fd >= 0:
             return os.read(fd, 4096)
     except Exception:
+        pass
+    if hasattr(fh, "read1"):
+        try:
+            return fh.read1(4096)
+        except Exception:
+            return b""
