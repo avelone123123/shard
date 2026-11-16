@@ -572,12 +572,9 @@ def _run_install_worker(action, custom_python=None, include_train=True):
             return
         pip_cmd = [str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", pkg_spec]
         global _CURRENT_SOUP_PROC
-        proc = subprocess.Popen(pip_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, creationflags=_WIN_NO_WINDOW)
-        _CURRENT_SOUP_PROC = proc
-        buf = []
-        while True:
-            if _SOUP_CANCEL_REQUESTED:
-                try:
+        def _set_proc(p):
+            global _CURRENT_SOUP_PROC
+            _CURRENT_SOUP_PROC = p
                     if os.name == "nt":
                         subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=_WIN_NO_WINDOW)
                     else:
