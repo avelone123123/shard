@@ -34,3 +34,9 @@ def _win_oem_encoding():
         pass
     return None
 def _decode_segment(raw, prefer_utf8=True, try_oem=False):
+    if not raw:
+        return ""
+    try:
+        return raw.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        pass
