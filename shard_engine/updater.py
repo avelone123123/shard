@@ -70,9 +70,10 @@ def _strip_v_prefix(ver):
 def is_valid_version_str(ver):
     if not ver or isinstance(ver, bool):
         return False
-    s = str(ver).strip()
-    if s.startswith("v") or s.startswith("V"):
-        s = s[1:]
+    raw = str(ver).strip()
+    if not raw or len(raw) > 64 or any(c.isspace() for c in raw):
+        return False
+    s = _strip_v_prefix(raw)
     if not s or s == "0.0.0":
         return False
     return bool(re.match(r"^\d+(?:\.\d+)+(?:[-._a-zA-Z0-9]+)?$", s))
