@@ -124,3 +124,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         self.assertEqual(len(out_cb), 600)
         self.assertEqual(len(err_cb), 600)
     def test_streaming_cancellation_while_emitting_unicode_and_0x98(self):
+        child_code = (
+            "import sys, time\n"
+            "for i in range(200):\n"
+            "    msg = f'Step {i}: Обучение ┌──┘ “OK” '.encode('utf-8') + b'\\x98\\n'\n"
+            "    sys.stdout.buffer.write(msg)\n"
+            "    sys.stdout.buffer.flush()\n"
+            "    time.sleep(0.05)\n"
