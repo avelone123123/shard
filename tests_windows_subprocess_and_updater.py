@@ -138,3 +138,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
             seen.append(line)
             if len(seen) >= 3:
                 cancel_flag["stop"] = True
+        t0 = time.monotonic()
+        sres = proc_io.stream_subprocess_safe(
+            [sys.executable, "-c", child_code],
+            on_stdout=_on_line,
+            merge_stderr=True,
+            cancel_check=lambda: cancel_flag["stop"],
+            timeout=15,
