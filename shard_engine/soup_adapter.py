@@ -537,8 +537,6 @@ def _run_install_worker(action, custom_python=None, include_train=True):
                 venv_dir.parent.mkdir(parents=True, exist_ok=True)
                 r_venv = proc_io.run_subprocess_safe(
                     [base_py, "-m", "venv", str(venv_dir)],
-                    capture_output=True,
-                    text=True,
                     timeout=180,
                     creationflags=_WIN_NO_WINDOW,
                 )
