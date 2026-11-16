@@ -106,3 +106,9 @@ def _utf8_safe_split_index(buf, limit):
         return limit
     b = buf[pos]
     if b < 0x80:
+        exp = 1
+    elif 0xC2 <= b <= 0xDF:
+        exp = 2
+    elif 0xE0 <= b <= 0xEF:
+        exp = 3
+    elif 0xF0 <= b <= 0xF4:
