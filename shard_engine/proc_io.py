@@ -28,3 +28,9 @@ def _win_oem_encoding():
         return None
     try:
         oem = ctypes.windll.kernel32.GetOEMCP()
+        if oem and int(oem) != 65001:
+            return f"cp{int(oem)}"
+    except Exception:
+        pass
+    return None
+def _decode_segment(raw, prefer_utf8=True, try_oem=False):
