@@ -738,6 +738,8 @@ def _query_service_state(service_name: str) -> dict:
             [sc_exe, "query", service_name],
             timeout=4.0,
             creationflags=_CREATE_NO_WINDOW,
+            prefer_utf8=False,
+            try_oem=True,
         )
         out = (res.stdout or "") + "\n" + (res.stderr or "")
         if res.returncode == 1060 or "1060" in out:
