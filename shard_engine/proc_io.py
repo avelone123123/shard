@@ -250,3 +250,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
             else:
                 terminate_process_tree(proc)
             break
+        if deadline is not None and time.monotonic() >= deadline:
+            timed_out = True
+            terminate_process_tree(proc)
+            break
+        time.sleep(0.05)
+    try:
