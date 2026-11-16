@@ -215,3 +215,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
         cache_path = Path(paths.update_cache_file())
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         storage.atomic_write_json(cache_path, {
+            "schema_version": 1,
+            "state": "UPDATE_AVAILABLE",
+            "current_version": shard_engine.__version__,
+            "latest_version": "9.9.9",
+            "update_available": True,
+            "checked_at": time.time(),
+        })
