@@ -374,6 +374,8 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
             elif rt.status_code in (403, 429):
                 rate_limited = True
                 last_err = f"GitHub Tags rate limit (HTTP {rt.status_code})"
+            else:
+                last_err = last_err or f"GitHub Tags HTTP {rt.status_code}"
         except Exception as e:
             last_err = str(e)
     try:
