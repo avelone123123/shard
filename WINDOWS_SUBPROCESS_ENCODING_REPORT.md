@@ -75,3 +75,10 @@ All local checks below ran **after the final code edits**:
 
 ## 5. GitHub Actions CI Matrix Verification (PR #3)
 
+Tested on `windows-latest` (`en-US` `cp1252` ANSI / `cp437` OEM) in PR `#3` (branch `fix/windows-subprocess-encoding-and-updater`, commit `09ee724`):
+
+- **Packaging and Lifecycle Audit (`audit`)**: Passed in `17s` (Run `43958423296`).
+- **Python 3.12 (`unit (3.12)`, Run `43958423172`)**: Passed — `Ran 200 tests in 36.716s — OK (skipped=1)` (`test_wheel_contents_when_built` skipped in unit job because wheel building is covered in `audit`).
+- **Python 3.13 (`unit (3.13)`, Run `43958423172`)**: Passed — `Ran 200 tests in 38.682s — OK (skipped=1)`.
+- **Python 3.14 (`unit (3.14)`, Run `43958423172`)**: Passed — `Ran 200 tests in 44.966s — OK (skipped=1)`.
+
