@@ -40,3 +40,9 @@ def _decode_segment(raw, prefer_utf8=True, try_oem=False):
         return raw.decode("utf-8", errors="strict")
     except UnicodeDecodeError:
         pass
+    if not try_oem and _UTF8_MULTIBYTE_HINT_RE.search(raw):
+        return raw.decode("utf-8", errors="replace")
+    if os.name == "nt":
+        cands = []
+        ansi = _win_ansi_encoding()
+        oem = _win_oem_encoding()
