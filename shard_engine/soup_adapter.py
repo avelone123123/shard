@@ -301,8 +301,6 @@ def find_compatible_python(custom_python=None):
                 try:
                     r = proc_io.run_subprocess_safe(
                         [py_launcher, tag, "-c", "import sys; print(sys.executable)"],
-                        capture_output=True,
-                        text=True,
                         timeout=4,
                         creationflags=_WIN_NO_WINDOW,
                     )
