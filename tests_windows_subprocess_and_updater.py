@@ -187,3 +187,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
             self.assertTrue(updater.is_placeholder_version(ph), f"Expected placeholder: {ph!r}")
             self.assertFalse(updater.is_valid_release_version(ph), f"Placeholder should not pass release check: {ph!r}")
     def test_valid_release_tags_and_v_prefix(self):
+        class _Resp:
+            def __init__(self, code, data=None, text=None):
+                self.status_code = code
+                self._data = data
+                self.text = text if text is not None else json.dumps(data)
+            def json(self):
+                return self._data
