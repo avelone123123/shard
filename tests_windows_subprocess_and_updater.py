@@ -33,3 +33,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
             self.assertIsNone(legacy.stdout)
             self.assertTrue(any(isinstance(e, UnicodeDecodeError) and e.start == 1237 for e in thread_errs))
             thread_errs.clear()
+            res = proc_io.run_subprocess_safe([sys.executable, "-c", child_code], timeout=10)
+        finally:
+            threading.excepthook = orig_hook
+        self.assertEqual(thread_errs, [])
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("\u2518", res.stdout)
+        self.assertEqual(res.stderr, "")
