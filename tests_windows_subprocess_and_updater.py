@@ -236,3 +236,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
             if "/tags" in url:
                 return _Resp(200, [{"name": "v9.9.9"}, {"name": "v0.0.0"}])
             return _Resp(200, {"info": {"version": "9.9.9"}})
+        with mock.patch("shard_engine.updater._http_get", side_effect=_fake_http):
+            chk = updater.check_for_updates(force=True, allow_network=True)
+            banner = updater.startup_check_banner()
+        self.assertIsNone(chk["latest_version"])
+        self.assertFalse(chk["update_available"])
+        self.assertNotEqual(chk["state"], "UPDATE_AVAILABLE")
+        self.assertIn("Latest version: unknown", banner)
