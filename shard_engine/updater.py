@@ -789,6 +789,8 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
             if not target_version and (chk.get("state") in ("GITHUB_UNAVAILABLE", "CHECK_FAILED") or not is_valid_release_version(chk.get("latest_version"))):
                 raise RuntimeError(chk.get("error") or "GitHub update check failed or version unverified.")
             desired_ver = target_version or chk.get("latest_version")
+            if not desired_ver or not is_valid_release_version(desired_ver):
+                raise RuntimeError("Target release version is invalid or unverified.")
             if not force and desired_ver and compare_versions(__version__, desired_ver) <= 0:
                 _set_job_state(
                     status="up_to_date",
