@@ -15,7 +15,6 @@ from . import __app_name__, __version__, paths, proc_io, process, storage
 GITHUB_REPO = os.environ.get("SHARD_GITHUB_REPO", "avelone123123/shard")
 GITHUB_API_RELEASES_LATEST = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 GITHUB_API_TAGS = f"https://api.github.com/repos/{GITHUB_REPO}/tags?per_page=15"
-GITHUB_RAW_INIT = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/shard_engine/__init__.py"
 PYPI_JSON_URL = f"https://pypi.org/pypi/{__app_name__}/json"
 CACHE_TTL_SECONDS = 4 * 3600
 MIN_UPDATE_FREE_BYTES = 150 * 1024 * 1024
