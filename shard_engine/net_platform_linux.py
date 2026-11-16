@@ -627,7 +627,7 @@ def _probe_nft(req_specs):
     if not nft_bin:
         return {"installed": False, "status": "not_installed", "permission_error": False, "allowed_ports": [], "rules_count": 0, "error": None}
     try:
-        res = subprocess.run([nft_bin, "-j", "list", "ruleset"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=3.0)
+        res = proc_io.run_subprocess_safe([nft_bin, "-j", "list", "ruleset"], stdin=subprocess.DEVNULL, timeout=3.0)
     except PermissionError as e:
         return {"installed": True, "status": "permission_denied", "permission_error": True, "allowed_ports": [], "rules_count": 0, "error": str(e)}
     except Exception as e:
