@@ -166,3 +166,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
         kw["env"] = env
     if creationflags is not None:
         kw["creationflags"] = creationflags
+    proc = subprocess.Popen(cmd, **kw)
+    if on_proc:
+        try:
+            on_proc(proc)
+        except Exception:
+            pass
