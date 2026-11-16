@@ -82,3 +82,10 @@ Tested on `windows-latest` (`en-US` `cp1252` ANSI / `cp437` OEM) in PR `#3` (bra
 - **Python 3.13 (`unit (3.13)`, Run `43958423172`)**: Passed — `Ran 200 tests in 38.682s — OK (skipped=1)`.
 - **Python 3.14 (`unit (3.14)`, Run `43958423172`)**: Passed — `Ran 200 tests in 44.966s — OK (skipped=1)`.
 
+Note: CI caught a locale assumption in the first commit (`d9b923b`) of `tests_windows_subprocess_and_updater.py`, because `en-US` runners map `0x98` in `cp1252` (`U+02DC`) whereas `ru-RU` Windows leaves `0x98` unmapped in `cp1251`. Both real `cp1252`/`cp437` and mocked `cp1251`/`cp866` paths are now explicitly tested.
+
+## 6. Remaining Limitations & Notes
+
+- `native/build_native.py` was left outside runtime `shard_engine/` scope (developer build helper only).
+- External third-party tools that emit bytes in a non-UTF-8 encoding distinct from both Windows ANSI (`cp1251`/`cp1252`) and OEM (`cp866`/`cp437`) will substitute unmappable bytes with `\ufffd` rather than crashing `_readerthread`.
+- On hosts with a real `D:\shard-models\hub\models--Qwen--Qwen2.5-Coder-1.5B-Instruct` snapshot directory, `tests_phase_i_product_hardening.py:test_06` picks up the real local snapshot path instead of the synthetic Repo ID string unless `D:\shard-models` is absent or mocked.
