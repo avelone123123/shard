@@ -46,3 +46,9 @@ def _decode_segment(raw, prefer_utf8=True, try_oem=False):
         cands = []
         ansi = _win_ansi_encoding()
         oem = _win_oem_encoding()
+        if try_oem:
+            if oem:
+                cands.append(oem)
+            if ansi and ansi not in cands:
+                cands.append(ansi)
+        elif prefer_utf8:
