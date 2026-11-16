@@ -14,6 +14,7 @@ import threading
 import time
 from . import hardware as _hardware
 from . import paths as _paths
+from . import proc_io as _proc_io
 from . import storage as _storage
 from .fit import RAM_RESERVE_MB, VRAM_RESERVE_MB
 _CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
@@ -395,10 +396,8 @@ def detect_tailscale():
     if not exe:
         return {"installed": False, "running": False, "ip": None, "dns_name": None, "online_peers": 0}
     try:
-        r = subprocess.run(
+        r = _proc_io.run_subprocess_safe(
             [exe, "status", "--json"],
-            capture_output=True,
-            text=True,
             timeout=2.5,
             creationflags=_CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
@@ -1333,7 +1332,7 @@ class LanManager:
         if self._rpc_proc.poll() is not None:
             tail = ""
             try:
-                tail = (self._rpc_proc.stderr.read() or b"").decode("utf-8", "ignore")[-200:]
+                tail = _proc_io.safe_decode_subprocess_output(self._rpc_proc.stderr.read(), prefer_utf8=True, try_oem=(os.name == "nt"))[-200:]
             except Exception:
                 pass
             self._rpc_proc = None

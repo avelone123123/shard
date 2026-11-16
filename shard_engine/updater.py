@@ -4,7 +4,6 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 import tempfile
 import threading
@@ -12,12 +11,27 @@ import time
 import zipfile
 from pathlib import Path
 from urllib.parse import urlparse
-from . import __app_name__, __version__, paths, process, storage
+from . import __app_name__, __version__, paths, proc_io, process, storage
 GITHUB_REPO = os.environ.get("SHARD_GITHUB_REPO", "avelone123123/shard")
 GITHUB_API_RELEASES_LATEST = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 GITHUB_API_TAGS = f"https://api.github.com/repos/{GITHUB_REPO}/tags?per_page=15"
-GITHUB_RAW_INIT = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/shard_engine/__init__.py"
 PYPI_JSON_URL = f"https://pypi.org/pypi/{__app_name__}/json"
+_PLACEHOLDER_VERSIONS = frozenset({
+    "0.0.0",
+    "9.9.9",
+    "9.9.99",
+    "99.9.9",
+    "99.99.99",
+    "999.9.9",
+    "999.999.999",
+    "9999.9999.9999",
+    "123.456.789",
+})
+_SEMVER_RE = re.compile(
+    r"^(?:0|[1-9][0-9]{0,5})\.(?:0|[1-9][0-9]{0,5})\.(?:0|[1-9][0-9]{0,5})"
+    r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*|(?:a|b|rc|dev|post)[0-9]+)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
 CACHE_TTL_SECONDS = 4 * 3600
 MIN_UPDATE_FREE_BYTES = 150 * 1024 * 1024
 _WIN_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
@@ -48,28 +62,51 @@ _UPDATE_JOB_STATE = {
     "started_at": None,
     "finished_at": None,
 }
+def _strip_v_prefix(ver):
+    s = str(ver or "").strip()
+    if s[:1] in ("v", "V"):
+        return s[1:]
+    return s
 def is_valid_version_str(ver):
-    if not ver:
+    if not ver or isinstance(ver, bool):
         return False
-    s = str(ver).strip()
-    if s.startswith("v") or s.startswith("V"):
-        s = s[1:]
+    raw = str(ver).strip()
+    if not raw or len(raw) > 64 or any(c.isspace() for c in raw):
+        return False
+    s = _strip_v_prefix(raw)
     if not s or s == "0.0.0":
         return False
-    return bool(re.match(r"^\d+(?:\.\d+)+(?:[-._a-zA-Z0-9]+)?$", s))
+    return bool(_SEMVER_RE.fullmatch(s))
+def is_placeholder_version(ver):
+    if not ver or isinstance(ver, bool):
+        return True
+    s = _strip_v_prefix(ver).lower()
+    if not s:
+        return True
+    core = re.split(r"[-+]", s, maxsplit=1)[0]
+    if core in _PLACEHOLDER_VERSIONS:
+        return True
+    if any(tok in s for tok in ("placeholder", "dummy", "fake", "mock", "example")):
+        return True
+    parts = core.split(".")
+    if len(parts) == 3 and all(p.isdigit() for p in parts):
+        maj, mn, pat = int(parts[0]), int(parts[1]), int(parts[2])
+        if maj >= 99 or (maj >= 9 and maj == mn == pat):
+            return True
+    return False
+def is_valid_release_version(ver):
+    return is_valid_version_str(ver) and not is_placeholder_version(ver)
 def is_prerelease_version(ver):
     s = str(ver or "").strip().lower().lstrip("v")
     if not s:
         return False
     return bool(re.search(r"(?:^|[.-])(a|alpha|b|beta|rc|dev|pre)\d*(?:$|[.-])|\d+(?:a|b|rc|dev)\d+$", s))
 def parse_version_tuple(ver):
-    s = str(ver or "0").strip()
-    if s.startswith("v") or s.startswith("V"):
-        s = s[1:]
+    s = _strip_v_prefix(ver or "0")
     core = re.split(r"[-+]", s, maxsplit=1)[0]
     nums = []
     for tok in core.split("."):
-        m = re.match(r"^(\d+)", tok)
+        m = re.match(r"^([0-9]+)", tok)
         nums.append(int(m.group(1)) if m else 0)
     while len(nums) < 3:
         nums.append(0)
@@ -112,13 +149,21 @@ def _read_cache():
         if p.is_file():
             data = storage.read_json_safe(p, default=None, expected_type=dict, quarantine=True, use_backup=True)
             if isinstance(data, dict):
-                return data
+                repo = data.get("repo")
+                if repo and repo != GITHUB_REPO:
+                    continue
+                lat = data.get("latest_version")
+                cur = data.get("current_version")
+                if is_valid_version_str(cur) and is_valid_release_version(lat):
+                    return data
     return None
 def _write_cache(payload):
+    to_write = dict(payload)
+    to_write.setdefault("repo", GITHUB_REPO)
     for p in _cache_paths():
         try:
             p.parent.mkdir(parents=True, exist_ok=True)
-            storage.atomic_write_json(p, payload, fsync=True, backup=True)
+            storage.atomic_write_json(p, to_write, fsync=True, backup=True)
         except Exception:
             pass
 def detect_installation_method(probe_git=True):
@@ -156,12 +201,12 @@ def detect_installation_method(probe_git=True):
     repo_root = str(parent_dir) if method in ("git_clone", "editable_source") else None
     if probe_git and method == "git_clone" and git_bin and repo_root:
         try:
-            st = subprocess.run([git_bin, "status", "--porcelain", "--untracked-files=no"], cwd=repo_root, capture_output=True, text=True, timeout=5, creationflags=_WIN_NO_WINDOW)
+            st = proc_io.run_subprocess_safe([git_bin, "status", "--porcelain", "--untracked-files=no"], cwd=repo_root, timeout=5, creationflags=_WIN_NO_WINDOW)
             git_dirty = bool((st.stdout or "").strip())
-            br = subprocess.run([git_bin, "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_root, capture_output=True, text=True, timeout=5, creationflags=_WIN_NO_WINDOW)
+            br = proc_io.run_subprocess_safe([git_bin, "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_root, timeout=5, creationflags=_WIN_NO_WINDOW)
             if br.returncode == 0:
                 git_branch = br.stdout.strip()
-            cm = subprocess.run([git_bin, "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True, timeout=5, creationflags=_WIN_NO_WINDOW)
+            cm = proc_io.run_subprocess_safe([git_bin, "rev-parse", "HEAD"], cwd=repo_root, timeout=5, creationflags=_WIN_NO_WINDOW)
             if cm.returncode == 0:
                 git_commit = cm.stdout.strip()
         except Exception:
@@ -200,6 +245,17 @@ def _parse_sha256_text(text, asset_name):
             if fn == asset_name:
                 return parts[0].lower()
     return None
+def _safe_resp_json(resp):
+    raw_text = getattr(resp, "text", None)
+    if isinstance(raw_text, str) and not raw_text.strip():
+        return None, "Empty HTTP response body"
+    try:
+        data = resp.json()
+    except Exception as exc:
+        return None, f"Malformed JSON response: {exc}"
+    if data is None:
+        return None, "Empty JSON payload"
+    return data, None
 def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
     headers = {"Accept": "application/vnd.github+json"}
     rate_limited = False
@@ -207,55 +263,73 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
     try:
         r = _http_get(GITHUB_API_RELEASES_LATEST, timeout=timeout, headers=headers)
         if r.status_code == 200:
-            data = r.json() or {}
-            tag = str(data.get("tag_name") or "").strip()
-            ver = tag.lstrip("vV")
-            if is_valid_version_str(ver) and (allow_prerelease or (not data.get("prerelease") and not is_prerelease_version(ver))):
-                assets = data.get("assets") or []
-                whl_asset = None
-                checksum_asset = None
-                for a in assets:
-                    aname = str(a.get("name") or "")
-                    if aname.endswith(".whl") and whl_asset is None:
-                        whl_asset = a
-                    if aname.lower() in ("sha256sums", "sha256sums.txt", f"{aname}.sha256") or aname.lower().endswith(".sha256"):
-                        checksum_asset = a
-                asset_url = None
-                asset_size = None
-                asset_sha256 = None
-                if whl_asset:
-                    asset_url = whl_asset.get("browser_download_url")
-                    asset_size = whl_asset.get("size")
-                    dig = str(whl_asset.get("digest") or "")
-                    if dig.startswith("sha256:"):
-                        asset_sha256 = dig.split(":", 1)[1].strip().lower()
-                    elif checksum_asset and checksum_asset.get("browser_download_url"):
-                        try:
-                            cr = _http_get(checksum_asset["browser_download_url"], timeout=timeout)
-                            if cr.status_code == 200:
-                                asset_sha256 = _parse_sha256_text(cr.text, whl_asset.get("name", ""))
-                        except Exception:
-                            pass
-                if not asset_url:
-                    asset_url = data.get("zipball_url") or f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{tag}.zip"
-                return {
-                    "ok": True,
-                    "source": "github_release",
-                    "latest_version": ver,
-                    "tag_name": tag,
-                    "release_url": data.get("html_url") or f"https://github.com/{GITHUB_REPO}/releases/tag/{tag}",
-                    "release_notes": (data.get("body") or "").strip(),
-                    "published_at": data.get("published_at"),
-                    "asset_url": asset_url,
-                    "asset_name": whl_asset.get("name") if whl_asset else f"shard-{ver}.zip",
-                    "asset_size": asset_size,
-                    "asset_sha256": asset_sha256,
-                    "prerelease": bool(data.get("prerelease")),
-                }
+            data, j_err = _safe_resp_json(r)
+            if j_err:
+                last_err = f"GitHub Releases {j_err}"
+            elif not isinstance(data, dict):
+                last_err = "GitHub Releases returned unexpected JSON type"
+            elif data.get("draft"):
+                last_err = "GitHub latest release is marked as draft"
+            else:
+                tag = str(data.get("tag_name") or "").strip()
+                ver = _strip_v_prefix(tag)
+                if not is_valid_release_version(ver):
+                    if tag:
+                        last_err = f"GitHub release tag rejected as invalid or placeholder: {tag!r}"
+                    else:
+                        last_err = "GitHub release response missing tag_name"
+                elif allow_prerelease or (not data.get("prerelease") and not is_prerelease_version(ver)):
+                    assets = data.get("assets") or []
+                    if not isinstance(assets, list):
+                        assets = []
+                    whl_asset = None
+                    checksum_asset = None
+                    for a in assets:
+                        if not isinstance(a, dict):
+                            continue
+                        aname = str(a.get("name") or "")
+                        if aname.endswith(".whl") and whl_asset is None:
+                            whl_asset = a
+                        if aname.lower() in ("sha256sums", "sha256sums.txt", f"{aname}.sha256") or aname.lower().endswith(".sha256"):
+                            checksum_asset = a
+                    asset_url = None
+                    asset_size = None
+                    asset_sha256 = None
+                    if whl_asset:
+                        asset_url = whl_asset.get("browser_download_url")
+                        asset_size = whl_asset.get("size")
+                        dig = str(whl_asset.get("digest") or "")
+                        if dig.startswith("sha256:"):
+                            asset_sha256 = dig.split(":", 1)[1].strip().lower()
+                        elif checksum_asset and checksum_asset.get("browser_download_url"):
+                            try:
+                                cr = _http_get(checksum_asset["browser_download_url"], timeout=timeout)
+                                if cr.status_code == 200:
+                                    asset_sha256 = _parse_sha256_text(cr.text, whl_asset.get("name", ""))
+                            except Exception:
+                                pass
+                    if not asset_url:
+                        asset_url = data.get("zipball_url") or f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{tag}.zip"
+                    return {
+                        "ok": True,
+                        "source": "github_release",
+                        "latest_version": ver,
+                        "tag_name": tag,
+                        "release_url": data.get("html_url") or f"https://github.com/{GITHUB_REPO}/releases/tag/{tag}",
+                        "release_notes": (data.get("body") or "").strip(),
+                        "published_at": data.get("published_at"),
+                        "asset_url": asset_url,
+                        "asset_name": whl_asset.get("name") if whl_asset else f"shard-{ver}.zip",
+                        "asset_size": asset_size,
+                        "asset_sha256": asset_sha256,
+                        "prerelease": bool(data.get("prerelease")),
+                    }
         elif r.status_code in (403, 429):
             rate_limited = True
             last_err = f"GitHub API rate limit (HTTP {r.status_code})"
-        elif r.status_code != 404:
+        elif r.status_code == 404:
+            last_err = "GitHub release not found (HTTP 404)"
+        else:
             last_err = f"GitHub Releases HTTP {r.status_code}"
     except Exception as e:
         last_err = str(e)
@@ -265,84 +339,77 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
             if rt.status_code == 200:
                 best_ver = None
                 best_tag = None
-                rt_list = rt.json()
-                for item in (rt_list if isinstance(rt_list, list) else []):
-                    if not isinstance(item, dict):
-                        continue
-                    t = str(item.get("name") or "").strip()
-                    v = t.lstrip("vV")
-                    if not is_valid_version_str(v):
-                        continue
-                    if not allow_prerelease and is_prerelease_version(v):
-                        continue
-                    if best_ver is None or parse_version_tuple(v) > parse_version_tuple(best_ver):
-                        best_ver = v
-                        best_tag = t
-                if best_ver:
-                    return {
-                        "ok": True,
-                        "source": "github_tags",
-                        "latest_version": best_ver,
-                        "tag_name": best_tag,
-                        "release_url": f"https://github.com/{GITHUB_REPO}/releases/tag/{best_tag}",
-                        "release_notes": "",
-                        "published_at": None,
-                        "asset_url": f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{best_tag}.zip",
-                        "asset_name": f"{best_tag}.zip",
-                        "asset_size": None,
-                        "asset_sha256": None,
-                        "prerelease": False,
-                    }
+                rt_list, rt_err = _safe_resp_json(rt)
+                if rt_err:
+                    last_err = last_err or f"GitHub Tags {rt_err}"
+                elif isinstance(rt_list, list):
+                    for item in rt_list:
+                        if not isinstance(item, dict):
+                            continue
+                        t = str(item.get("name") or "").strip()
+                        v = _strip_v_prefix(t)
+                        if not is_valid_release_version(v):
+                            continue
+                        if not allow_prerelease and is_prerelease_version(v):
+                            continue
+                        if best_ver is None or parse_version_tuple(v) > parse_version_tuple(best_ver):
+                            best_ver = v
+                            best_tag = t
+                    if best_ver:
+                        return {
+                            "ok": True,
+                            "source": "github_tags",
+                            "latest_version": best_ver,
+                            "tag_name": best_tag,
+                            "release_url": f"https://github.com/{GITHUB_REPO}/releases/tag/{best_tag}",
+                            "release_notes": "",
+                            "published_at": None,
+                            "asset_url": f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{best_tag}.zip",
+                            "asset_name": f"{best_tag}.zip",
+                            "asset_size": None,
+                            "asset_sha256": None,
+                            "prerelease": False,
+                        }
+                    last_err = last_err or "No valid release tags found on GitHub"
             elif rt.status_code in (403, 429):
                 rate_limited = True
                 last_err = f"GitHub Tags rate limit (HTTP {rt.status_code})"
+            else:
+                last_err = last_err or f"GitHub Tags HTTP {rt.status_code}"
         except Exception as e:
             last_err = str(e)
     try:
         rp = _http_get(PYPI_JSON_URL, timeout=timeout)
         if rp.status_code == 200:
-            pdata = rp.json() or {}
-            ver = str((pdata.get("info") or {}).get("version") or "").strip()
-            if is_valid_version_str(ver) and (allow_prerelease or not is_prerelease_version(ver)):
-                urls = pdata.get("urls") or []
-                whl = next((u for u in urls if str(u.get("packagetype")) == "bdist_wheel"), None) or (urls[0] if urls else {})
-                return {
-                    "ok": True,
-                    "source": "pypi",
-                    "latest_version": ver,
-                    "tag_name": f"v{ver}",
-                    "release_url": f"https://pypi.org/project/{__app_name__}/{ver}/",
-                    "release_notes": "",
-                    "published_at": whl.get("upload_time_iso_8601"),
-                    "asset_url": whl.get("url"),
-                    "asset_name": whl.get("filename"),
-                    "asset_size": whl.get("size"),
-                    "asset_sha256": (whl.get("digests") or {}).get("sha256"),
-                    "prerelease": False,
-                }
-    except Exception as e:
-        last_err = last_err or str(e)
-    try:
-        rr = _http_get(GITHUB_RAW_INIT, timeout=timeout)
-        if rr.status_code == 200:
-            m = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', rr.text)
-            if m and is_valid_version_str(m.group(1)):
-                ver = m.group(1).strip()
-                if allow_prerelease or not is_prerelease_version(ver):
+            pdata, p_err = _safe_resp_json(rp)
+            if p_err:
+                last_err = last_err or f"PyPI {p_err}"
+            elif isinstance(pdata, dict):
+                info_obj = pdata.get("info") if isinstance(pdata.get("info"), dict) else {}
+                ver = _strip_v_prefix(str(info_obj.get("version") or "").strip())
+                if is_valid_release_version(ver) and (allow_prerelease or not is_prerelease_version(ver)):
+                    urls = pdata.get("urls") or []
+                    if not isinstance(urls, list):
+                        urls = []
+                    whl = next((u for u in urls if isinstance(u, dict) and str(u.get("packagetype")) == "bdist_wheel"), None) or (urls[0] if urls and isinstance(urls[0], dict) else {})
                     return {
                         "ok": True,
-                        "source": "github_main",
+                        "source": "pypi",
                         "latest_version": ver,
                         "tag_name": f"v{ver}",
-                        "release_url": f"https://github.com/{GITHUB_REPO}",
+                        "release_url": f"https://pypi.org/project/{__app_name__}/{ver}/",
                         "release_notes": "",
-                        "published_at": None,
-                        "asset_url": f"https://github.com/{GITHUB_REPO}/archive/refs/heads/main.zip",
-                        "asset_name": "shard-main.zip",
-                        "asset_size": None,
-                        "asset_sha256": None,
+                        "published_at": whl.get("upload_time_iso_8601"),
+                        "asset_url": whl.get("url"),
+                        "asset_name": whl.get("filename"),
+                        "asset_size": whl.get("size"),
+                        "asset_sha256": (whl.get("digests") or {}).get("sha256") if isinstance(whl.get("digests"), dict) else None,
                         "prerelease": False,
                     }
+                if ver:
+                    last_err = f"PyPI version rejected as invalid or placeholder: {ver!r}"
+        else:
+            last_err = last_err or f"PyPI HTTP {rp.status_code}"
     except Exception as e:
         last_err = last_err or str(e)
     return {
@@ -367,57 +434,62 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
     cached = _read_cache()
     if not force and cached and cached.get("current_version") == cur_ver:
         age = time.time() - float(cached.get("checked_at") or 0)
-        if age < CACHE_TTL_SECONDS and cached.get("state") in ("UP_TO_DATE", "UPDATE_AVAILABLE"):
+        lat_c = cached.get("latest_version")
+        if age < CACHE_TTL_SECONDS and cached.get("state") in ("UP_TO_DATE", "UPDATE_AVAILABLE") and is_valid_release_version(lat_c):
             out = dict(cached)
             out["cached"] = True
             out["install_method"] = inst
             return out
     if not allow_network:
-        last_lat = cached.get("latest_version") if isinstance(cached, dict) else None
+        lat_c = cached.get("latest_version") if isinstance(cached, dict) else None
+        age_ok = bool(cached and (time.time() - float(cached.get("checked_at") or 0)) < CACHE_TTL_SECONDS)
+        verified_lat = lat_c if (age_ok and is_valid_release_version(lat_c)) else None
         return {
             "state": "GITHUB_UNAVAILABLE",
             "current_version": cur_ver,
-            "latest_version": last_lat,
-            "update_available": bool(last_lat and is_valid_version_str(last_lat) and compare_versions(cur_ver, last_lat) > 0),
-            "cached": bool(cached),
+            "latest_version": verified_lat,
+            "update_available": bool(verified_lat and compare_versions(cur_ver, verified_lat) > 0),
+            "cached": bool(verified_lat),
             "install_method": inst,
             "error": "Network update check skipped.",
-            "checked_at": cached.get("checked_at") if isinstance(cached, dict) else None,
+            "checked_at": cached.get("checked_at") if isinstance(cached, dict) and verified_lat else None,
         }
     try:
         remote = fetch_latest_remote_info(timeout=timeout, allow_prerelease=allow_prerelease)
     except Exception as e:
         remote = {"ok": False, "error": str(e), "rate_limited": False}
-    if not remote.get("ok"):
-        err_msg = remote.get("error") or "GitHub unavailable"
-        is_net_err = any(k in err_msg.lower() for k in ("timed out", "timeout", "connection", "name", "dns", "ssl", "rate limit", "unreachable", "http 403", "http 429", "http 5"))
+    remote_ver = remote.get("latest_version") if isinstance(remote, dict) else None
+    if not remote.get("ok") or not is_valid_release_version(remote_ver):
+        err_msg = (remote.get("error") if isinstance(remote, dict) else None) or "GitHub unavailable"
+        is_net_err = any(k in err_msg.lower() for k in ("timed out", "timeout", "connection", "name", "dns", "ssl", "rate limit", "unreachable", "http 403", "http 404", "http 429", "http 5", "not found"))
         st_code = "GITHUB_UNAVAILABLE" if (remote.get("rate_limited") or is_net_err or "http " not in err_msg.lower()) else "CHECK_FAILED"
-        last_lat = cached.get("latest_version") if isinstance(cached, dict) else None
         payload = {
             "schema_version": 1,
             "state": st_code,
             "current_version": cur_ver,
-            "latest_version": last_lat,
-            "update_available": bool(last_lat and is_valid_version_str(last_lat) and compare_versions(cur_ver, last_lat) > 0),
-            "source": cached.get("source") if isinstance(cached, dict) else None,
-            "release_url": cached.get("release_url") if isinstance(cached, dict) else f"https://github.com/{GITHUB_REPO}/releases",
-            "release_notes": cached.get("release_notes") if isinstance(cached, dict) else "",
-            "published_at": cached.get("published_at") if isinstance(cached, dict) else None,
-            "asset_url": cached.get("asset_url") if isinstance(cached, dict) else None,
-            "asset_name": cached.get("asset_name") if isinstance(cached, dict) else None,
-            "asset_size": cached.get("asset_size") if isinstance(cached, dict) else None,
-            "asset_sha256": cached.get("asset_sha256") if isinstance(cached, dict) else None,
+            "latest_version": None,
+            "tag_name": None,
+            "update_available": False,
+            "source": None,
+            "release_url": f"https://github.com/{GITHUB_REPO}/releases",
+            "release_notes": "",
+            "published_at": None,
+            "asset_url": None,
+            "asset_name": None,
+            "asset_size": None,
+            "asset_sha256": None,
             "cached": False,
             "install_method": inst,
             "error": err_msg,
             "checked_at": time.time(),
         }
         return payload
-    latest_ver = remote["latest_version"]
+    latest_ver = remote_ver
     cmp_res = compare_versions(cur_ver, latest_ver)
     state = "UPDATE_AVAILABLE" if cmp_res > 0 else "UP_TO_DATE"
     payload = {
         "schema_version": 1,
+        "repo": GITHUB_REPO,
         "state": state,
         "current_version": cur_ver,
         "latest_version": latest_ver,
@@ -451,15 +523,15 @@ def startup_check_banner():
     try:
         res = check_for_updates(force=False, timeout=1.5, allow_network=True)
         st = res.get("state")
-        if st == "UPDATE_AVAILABLE":
-            return f"SHARD {res['current_version']} | Latest version: {res['latest_version']} | Update available! Run: shard update"
+        cur = res.get("current_version") or __version__
+        lat = res.get("latest_version")
+        if st == "UPDATE_AVAILABLE" and is_valid_release_version(lat) and compare_versions(cur, lat) > 0:
+            return f"SHARD {cur} | Latest version: {lat} | Update available! Run: shard update"
         if st == "UP_TO_DATE":
-            return f"SHARD {res['current_version']} (up to date)"
-        if st == "GITHUB_UNAVAILABLE":
-            return f"SHARD {res['current_version']} (offline mode: GitHub update check unavailable)"
-        return None
+            return f"SHARD {cur} (up to date)"
+        return f"SHARD {cur} | Latest version: unknown (update check unavailable)"
     except Exception:
-        return None
+        return f"SHARD {__version__} | Latest version: unknown (update check unavailable)"
 def verify_archive_artifact(archive_path, expected_sha256=None, expect_wheel=False):
     ap = Path(archive_path)
     if not ap.is_file() or ap.stat().st_size == 0:
@@ -578,7 +650,7 @@ def rollback_update(backup_info=None):
     git_commit = ptr.get("git_commit")
     if ptr.get("method") == "git_clone" and repo_root and git_commit and shutil.which("git"):
         try:
-            subprocess.run([shutil.which("git"), "reset", "--hard", git_commit], cwd=repo_root, capture_output=True, text=True, timeout=20, creationflags=_WIN_NO_WINDOW)
+            proc_io.run_subprocess_safe([shutil.which("git"), "reset", "--hard", git_commit], cwd=repo_root, timeout=20, creationflags=_WIN_NO_WINDOW)
         except Exception:
             pass
     state_zip = ptr.get("state_backup_path")
@@ -598,10 +670,8 @@ def verify_installation(expected_version=None):
         "ok = p.package_resource_exists('dashboard.html') and p.package_resource_exists('engine_optimizations.json');"
         "print(json.dumps({'version': shard_engine.__version__, 'assets_ok': bool(ok)}))"
     )
-    res = subprocess.run(
+    res = proc_io.run_subprocess_safe(
         [sys.executable, "-c", code],
-        capture_output=True,
-        text=True,
         timeout=30,
         creationflags=_WIN_NO_WINDOW,
     )
@@ -711,12 +781,16 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                 raise RuntimeError(f"Insufficient disk space for safe update ({round(usage.free / (1024 * 1024), 1)} MB free, need at least 150 MB).")
             if target_version:
                 target_version = validate_git_ref(target_version).lstrip("vV")
+                if not is_valid_release_version(target_version):
+                    raise ValueError("Target release version is invalid or a placeholder.")
                 if not allow_prerelease and is_prerelease_version(target_version):
                     raise ValueError("Prerelease builds are not installed unless explicitly allowed.")
             chk = check_for_updates(force=True, timeout=4.0, allow_network=True, allow_prerelease=allow_prerelease)
-            if not target_version and chk.get("state") in ("GITHUB_UNAVAILABLE", "CHECK_FAILED"):
-                raise RuntimeError(chk.get("error") or "GitHub update check failed.")
+            if not target_version and (chk.get("state") in ("GITHUB_UNAVAILABLE", "CHECK_FAILED") or not is_valid_release_version(chk.get("latest_version"))):
+                raise RuntimeError(chk.get("error") or "GitHub update check failed or version unverified.")
             desired_ver = target_version or chk.get("latest_version")
+            if not desired_ver or not is_valid_release_version(desired_ver):
+                raise RuntimeError("Target release version is invalid or unverified.")
             if not force and desired_ver and compare_versions(__version__, desired_ver) <= 0:
                 _set_job_state(
                     status="up_to_date",
@@ -742,16 +816,16 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
             if inst["method"] == "git_clone" and inst.get("git_available") and not (asset_url and str(asset_url).endswith(".whl")):
                 _set_job_state(phase="installing", progress_pct=45, message="Обновление через git fetch / pull...", log=f"Updating git repo in {inst['repo_root']}")
                 git_bin = shutil.which("git")
-                f_res = subprocess.run([git_bin, "fetch", "--tags", "origin"], cwd=inst["repo_root"], capture_output=True, text=True, timeout=60, creationflags=_WIN_NO_WINDOW)
+                f_res = proc_io.run_subprocess_safe([git_bin, "fetch", "--tags", "origin"], cwd=inst["repo_root"], timeout=60, creationflags=_WIN_NO_WINDOW)
                 if f_res.returncode != 0:
                     raise RuntimeError(f"git fetch failed: {(f_res.stderr or f_res.stdout)[:300]}")
                 if target_version:
                     ref = validate_git_ref(f"v{desired_ver}")
-                    co = subprocess.run([git_bin, "checkout", ref], cwd=inst["repo_root"], capture_output=True, text=True, timeout=30, creationflags=_WIN_NO_WINDOW)
+                    co = proc_io.run_subprocess_safe([git_bin, "checkout", ref], cwd=inst["repo_root"], timeout=30, creationflags=_WIN_NO_WINDOW)
                     if co.returncode != 0:
-                        co = subprocess.run([git_bin, "checkout", validate_git_ref(desired_ver)], cwd=inst["repo_root"], capture_output=True, text=True, timeout=30, creationflags=_WIN_NO_WINDOW)
+                        co = proc_io.run_subprocess_safe([git_bin, "checkout", validate_git_ref(desired_ver)], cwd=inst["repo_root"], timeout=30, creationflags=_WIN_NO_WINDOW)
                 else:
-                    co = subprocess.run([git_bin, "pull", "--ff-only"], cwd=inst["repo_root"], capture_output=True, text=True, timeout=60, creationflags=_WIN_NO_WINDOW)
+                    co = proc_io.run_subprocess_safe([git_bin, "pull", "--ff-only"], cwd=inst["repo_root"], timeout=60, creationflags=_WIN_NO_WINDOW)
                 if co.returncode != 0:
                     raise RuntimeError(f"git update failed: {(co.stderr or co.stdout)[:300]}")
             else:
@@ -770,9 +844,12 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                 ver_res = verify_archive_artifact(dl_path, expected_sha256=chk.get("asset_sha256"), expect_wheel=is_whl)
                 _set_job_state(log=f"Artifact verified (sha256={ver_res['sha256'][:16]}..., size={ver_res['size_bytes']})")
                 _set_job_state(phase="installing", progress_pct=75, message="Установка проверенного обновления...", log="Installing verified update...")
+                pip_env = os.environ.copy()
+                pip_env.setdefault("PYTHONIOENCODING", "utf-8")
+                pip_env.setdefault("PYTHONUTF8", "1")
                 if is_whl and inst["method"] in ("pypi", "wheel"):
                     cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-input", str(dl_path)]
-                    pr = pip_runner(cmd) if pip_runner else subprocess.run(cmd, capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
+                    pr = pip_runner(cmd) if pip_runner else proc_io.run_subprocess_safe(cmd, timeout=180, env=pip_env, creationflags=_WIN_NO_WINDOW)
                     if pr.returncode != 0:
                         raise RuntimeError(f"pip install exited with code {pr.returncode}: {(pr.stderr or pr.stdout)[:300]}")
                 elif inst["method"] in ("git_clone", "editable_source"):
@@ -780,7 +857,7 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                     _set_job_state(log=f"Synced {synced} package files into {inst['package_dir']}")
                 else:
                     cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "--no-input", str(dl_path)]
-                    pr = pip_runner(cmd) if pip_runner else subprocess.run(cmd, capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
+                    pr = pip_runner(cmd) if pip_runner else proc_io.run_subprocess_safe(cmd, timeout=180, env=pip_env, creationflags=_WIN_NO_WINDOW)
                     if pr.returncode != 0:
                         raise RuntimeError(f"pip install failed: {(pr.stderr or pr.stdout)[:300]}")
             _set_job_state(phase="verifying_runtime", progress_pct=90, message="Проверка запуска обновлённой версии SHARD...", log="Running post-update verification...")

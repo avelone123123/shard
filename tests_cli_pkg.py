@@ -98,17 +98,23 @@ class TestCliCommandsAndFallback(unittest.TestCase):
                 self._data = data or {}
             def json(self):
                 return self._data
-        for resp, expected in (
-            (_Resp(404), "GITHUB_UNAVAILABLE"),
-            (_Resp(200, {"info": {"version": shard_engine.__version__}}), "up to date"),
-            (_Resp(200, {"info": {"version": "9.9.9"}}), "Update available"),
-        ):
-            buf = io.StringIO()
-            with mock.patch("requests.get", return_value=resp), mock.patch("subprocess.run") as mrun:
-                with redirect_stdout(buf):
-                    cli.main(["update", "--check"])
-                mrun.assert_not_called()
-            self.assertIn(expected, buf.getvalue())
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"SHARD_DATA_DIR": tmp}, clear=False):
+                for resp, expected, forbidden in (
+                    (_Resp(404), "GITHUB_UNAVAILABLE", "Update available"),
+                    (_Resp(200, {"info": {"version": shard_engine.__version__}}), "up to date", "Update available"),
+                    (_Resp(200, {"info": {"version": "2.0.0"}}), "Update available", None),
+                    (_Resp(200, {"info": {"version": "9.9.9"}}), "unknown", "Update available"),
+                ):
+                    buf = io.StringIO()
+                    with mock.patch("requests.get", return_value=resp), mock.patch("subprocess.run") as mrun:
+                        with redirect_stdout(buf):
+                            cli.main(["update", "--check"])
+                        mrun.assert_not_called()
+                    out = buf.getvalue()
+                    self.assertIn(expected, out)
+                    if forbidden:
+                        self.assertNotIn(forbidden, out)
     def test_models_dir_and_key_offline(self):
         with tempfile.TemporaryDirectory() as tmp:
             custom = Path(tmp) / "custom_models"

@@ -3,7 +3,7 @@ import re
 import shutil
 import subprocess
 import time
-from . import paths
+from . import paths, proc_io
 _gpu_cache = {"ts": 0.0, "gpu_name": "CPU Only", "vram_total_mb": 0, "vram_used_mb": 0, "probed": False}
 def _existing_ancestor(path):
     cur = path
@@ -22,7 +22,7 @@ def get_hardware_profile(force_refresh=False):
         try:
             cmd = ["nvidia-smi", "--query-gpu=name,memory.total,memory.used", "--format=csv,noheader,nounits"]
             kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
-            res = subprocess.run(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=3, **kw)
+            res = proc_io.run_subprocess_safe(cmd, stdin=subprocess.DEVNULL, timeout=3, **kw)
             if res.returncode == 0 and res.stdout.strip():
                 parts = res.stdout.strip().split("\n")[0].split(",")
                 if len(parts) >= 3:
@@ -162,4 +162,3 @@ def evaluate_compatibility(model_id, hw=None):
         "nvme_streaming": True,
         "description": "Послойный Zero-Copy стриминг весов с NVMe SSD без ограничений ОЗУ."
     }
-

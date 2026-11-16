@@ -463,8 +463,10 @@ def cmd_update(args):
             return
         print(f"Install method:    {inst.get('method')} ({inst.get('package_dir')})")
         print(f"Update status:     {chk.get('state')}")
-        print(f"Latest version:    {chk.get('latest_version') or 'unknown'} (source: {chk.get('source') or 'n/a'})")
-        if chk.get("state") == "UPDATE_AVAILABLE":
+        lat_ver = chk.get("latest_version")
+        verified_lat = lat_ver if updater.is_valid_release_version(lat_ver) else None
+        print(f"Latest version:    {verified_lat or 'unknown'} (source: {chk.get('source') or 'n/a'})")
+        if chk.get("state") == "UPDATE_AVAILABLE" and verified_lat:
             print(f"Update available:  {__version__} -> {chk.get('latest_version')}")
             if chk.get("release_notes"):
                 print(f"Release notes:\n{str(chk['release_notes'])[:500]}")

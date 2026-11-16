@@ -6,8 +6,8 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
+from . import proc_io
 _IS_WIN = os.name == "nt"
 _CREATE_NO_WINDOW = 0x08000000 if _IS_WIN else 0
 _RULE_NAME_RE = re.compile(r"^[a-zA-Z0-9_.-]{1,64}$")
@@ -78,12 +78,8 @@ def _run_powershell(script: str, timeout: float = 12.0) -> tuple[bool, str, str]
         return False, "", "powershell executable not found"
     wrapped = "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);$ErrorActionPreference='SilentlyContinue';" + script
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             [exe, "-NoProfile", "-NonInteractive", "-Command", wrapped],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=timeout,
             creationflags=_CREATE_NO_WINDOW,
         )
@@ -738,14 +734,12 @@ def _query_service_state(service_name: str) -> dict:
         return {"installed": False, "state": "UNSUPPORTED", "running": False}
     sc_exe = shutil.which("sc.exe") or os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "sc.exe")
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             [sc_exe, "query", service_name],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=4.0,
             creationflags=_CREATE_NO_WINDOW,
+            prefer_utf8=False,
+            try_oem=True,
         )
         out = (res.stdout or "") + "\n" + (res.stderr or "")
         if res.returncode == 1060 or "1060" in out:
@@ -761,14 +755,12 @@ def _is_process_running_win(image_name: str) -> bool:
         return False
     tasklist_exe = shutil.which("tasklist.exe") or os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "tasklist.exe")
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             [tasklist_exe, "/FI", f"IMAGENAME eq {image_name}", "/FO", "CSV", "/NH"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=4.0,
             creationflags=_CREATE_NO_WINDOW,
+            prefer_utf8=False,
+            try_oem=True,
         )
         target = f'"{image_name.lower()}"'
         for line in (res.stdout or "").splitlines():

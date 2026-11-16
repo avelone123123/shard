@@ -12,6 +12,7 @@ from pathlib import Path
 from . import hardware
 from . import model_browser
 from . import paths
+from . import proc_io
 from . import settings
 from . import storage
 from . import updater
@@ -193,10 +194,8 @@ def _probe_python_env(py_exe, check_deps=True, timeout=8):
         "print(json.dumps({'py': list(sys.version_info[:3]), 'soup_version': sv, 'present': present, 'cuda': cuda}))"
     ) % (bool(check_deps),)
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             [py_exe, "-c", script],
-            capture_output=True,
-            text=True,
             timeout=timeout,
             creationflags=_WIN_NO_WINDOW,
         )
@@ -263,10 +262,8 @@ def _probe_python_version_fast(py_exe, timeout=4):
     if not py_exe or not os.path.isfile(py_exe):
         return None
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             [py_exe, "-c", "import json, sys; print(json.dumps({'exe': sys.executable, 'ver': list(sys.version_info[:3])}))"],
-            capture_output=True,
-            text=True,
             timeout=timeout,
             creationflags=_WIN_NO_WINDOW,
         )
@@ -302,10 +299,8 @@ def find_compatible_python(custom_python=None):
         if py_launcher:
             for tag in ("-3.12", "-3.13", "-3.11"):
                 try:
-                    r = subprocess.run(
+                    r = proc_io.run_subprocess_safe(
                         [py_launcher, tag, "-c", "import sys; print(sys.executable)"],
-                        capture_output=True,
-                        text=True,
                         timeout=4,
                         creationflags=_WIN_NO_WINDOW,
                     )
@@ -333,10 +328,8 @@ def find_compatible_python(custom_python=None):
     uv_bin = _find_uv_binary()
     if uv_bin:
         try:
-            r_uv = subprocess.run(
+            r_uv = proc_io.run_subprocess_safe(
                 [uv_bin, "python", "find", ">=3.11,<3.14"],
-                capture_output=True,
-                text=True,
                 timeout=5,
                 creationflags=_WIN_NO_WINDOW,
             )
@@ -427,13 +420,7 @@ def cancel_soup_install():
     _SOUP_CANCEL_REQUESTED = True
     proc = _CURRENT_SOUP_PROC
     if proc is not None and proc.poll() is None:
-        try:
-            if os.name == "nt":
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=_WIN_NO_WINDOW)
-            else:
-                proc.terminate()
-        except Exception:
-            pass
+        proc_io.terminate_process_tree(proc)
     _set_install_state(
         lifecycle_state="CANCELLED",
         status="cancelled",
@@ -472,7 +459,7 @@ def verify_soup_environment(py_exe, soup_cmd=None, check_train_deps=True):
     ver = None
     if cmd:
         try:
-            vr = subprocess.run(cmd + ["--version"], capture_output=True, text=True, timeout=12, creationflags=_WIN_NO_WINDOW)
+            vr = proc_io.run_subprocess_safe(cmd + ["--version"], timeout=12, creationflags=_WIN_NO_WINDOW)
             txt = (vr.stdout or vr.stderr or "").strip()
             m = re.search(r"(\d+\.\d+\.\d+(?:[a-zA-Z0-9._-]*)?)", txt)
             if vr.returncode == 0 and m:
@@ -491,10 +478,8 @@ def _bootstrap_uv(log_fn):
     tools_uv = Path(paths.tools_dir()) / "uv"
     tools_uv.mkdir(parents=True, exist_ok=True)
     log_fn("Bootstrapping isolated uv toolchain for Python 3.12 provisioning...")
-    r = subprocess.run(
+    r = proc_io.run_subprocess_safe(
         [sys.executable, "-m", "pip", "install", "--no-input", "--upgrade", "--target", str(tools_uv), "uv"],
-        capture_output=True,
-        text=True,
         timeout=180,
         creationflags=_WIN_NO_WINDOW,
     )
@@ -550,10 +535,8 @@ def _run_install_worker(action, custom_python=None, include_train=True):
                 base_py = compat["python_executable"]
                 _set_install_state(line=f"Found compatible Python {compat['python_version']}: {base_py}")
                 venv_dir.parent.mkdir(parents=True, exist_ok=True)
-                r_venv = subprocess.run(
+                r_venv = proc_io.run_subprocess_safe(
                     [base_py, "-m", "venv", str(venv_dir)],
-                    capture_output=True,
-                    text=True,
                     timeout=180,
                     creationflags=_WIN_NO_WINDOW,
                 )
@@ -569,7 +552,7 @@ def _run_install_worker(action, custom_python=None, include_train=True):
                 uv_cmd = [uv_bin, "venv", "--python", "3.12", "--seed", str(venv_dir)]
                 if os.path.isdir(uv_bin):
                     uv_cmd = [sys.executable, "-c", f"import sys; sys.path.insert(0, {uv_bin!r}); from uv.__main__ import main; main()", "venv", "--python", "3.12", "--seed", str(venv_dir)]
-                r_uv = subprocess.run(uv_cmd, capture_output=True, text=True, timeout=600, creationflags=_WIN_NO_WINDOW)
+                r_uv = proc_io.run_subprocess_safe(uv_cmd, timeout=600, creationflags=_WIN_NO_WINDOW)
                 for ln in (r_uv.stdout or "").splitlines() + (r_uv.stderr or "").splitlines():
                     if ln.strip():
                         _set_install_state(line=ln.strip())
@@ -581,42 +564,32 @@ def _run_install_worker(action, custom_python=None, include_train=True):
         _set_install_state(lifecycle_state=target_lifecycle, stage=f"Подготовка {pkg_spec}", pct=15, line=f"Запуск pip install --upgrade {pkg_spec}...")
         if _SOUP_CANCEL_REQUESTED:
             return
-        subprocess.run([str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", "pip"], capture_output=True, text=True, timeout=180, creationflags=_WIN_NO_WINDOW)
+        pip_env = os.environ.copy()
+        pip_env.setdefault("PYTHONIOENCODING", "utf-8")
+        pip_env.setdefault("PYTHONUTF8", "1")
+        proc_io.run_subprocess_safe([str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", "pip"], timeout=180, env=pip_env, creationflags=_WIN_NO_WINDOW)
         if _SOUP_CANCEL_REQUESTED:
             return
         pip_cmd = [str(venv_py), "-m", "pip", "install", "--no-input", "--upgrade", pkg_spec]
         global _CURRENT_SOUP_PROC
-        proc = subprocess.Popen(pip_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, creationflags=_WIN_NO_WINDOW)
-        _CURRENT_SOUP_PROC = proc
-        buf = []
-        while True:
-            if _SOUP_CANCEL_REQUESTED:
-                try:
-                    if os.name == "nt":
-                        subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=_WIN_NO_WINDOW)
-                    else:
-                        proc.terminate()
-                except Exception:
-                    pass
-                break
-            ch = proc.stdout.read(1)
-            if not ch:
-                if buf:
-                    _parse_and_update_pip_progress("".join(buf))
-                break
-            if ch in ("\r", "\n"):
-                if buf:
-                    _parse_and_update_pip_progress("".join(buf))
-                    buf = []
-            else:
-                buf.append(ch)
-                if len(buf) > 512:
-                    _parse_and_update_pip_progress("".join(buf))
-                    buf = []
-        rc = proc.wait(timeout=1200)
+        def _set_proc(p):
+            global _CURRENT_SOUP_PROC
+            _CURRENT_SOUP_PROC = p
+        stream_res = proc_io.stream_subprocess_safe(
+            pip_cmd,
+            on_stdout=_parse_and_update_pip_progress,
+            merge_stderr=True,
+            on_proc=_set_proc,
+            env=pip_env,
+            creationflags=_WIN_NO_WINDOW,
+            cancel_check=lambda: _SOUP_CANCEL_REQUESTED,
+            timeout=1200,
+            line_limit=512,
+        )
         _CURRENT_SOUP_PROC = None
-        if _SOUP_CANCEL_REQUESTED:
+        if _SOUP_CANCEL_REQUESTED or stream_res.get("cancelled"):
             return
+        rc = stream_res["returncode"]
         if rc != 0:
             raise RuntimeError(f"pip install {pkg_spec} exited with code {rc}")
         _set_install_state(lifecycle_state="VERIFYING", stage="Проверка SOUP CLI, Python и зависимостей", pct=90, line="Verifying installed soup-cli, CLI version command, and module imports...")
@@ -724,7 +697,7 @@ def detect_soup(custom_cmd=None, probe_deps=True, check_remote=False):
     cli_available = False
     if cmd:
         try:
-            ver_res = subprocess.run(cmd + ["--version"], capture_output=True, text=True, timeout=8, creationflags=_WIN_NO_WINDOW)
+            ver_res = proc_io.run_subprocess_safe(cmd + ["--version"], timeout=8, creationflags=_WIN_NO_WINDOW)
             txt = (ver_res.stdout or ver_res.stderr or "").strip()
             m = re.search(r"(\d+\.\d+\.\d+(?:[a-zA-Z0-9._-]*)?)", txt)
             if ver_res.returncode == 0:
@@ -1012,13 +985,12 @@ def _run_soup_cmd(soup_info, args, timeout=120, env_extra=None):
         return {"ok": False, "returncode": -1, "stdout": "", "stderr": "soup-cli command not available"}
     env = os.environ.copy()
     env.setdefault("PYTHONIOENCODING", "utf-8")
+    env.setdefault("PYTHONUTF8", "1")
     if env_extra:
         env.update({str(k): str(v) for k, v in env_extra.items()})
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             cmd_base + list(args),
-            capture_output=True,
-            text=True,
             timeout=timeout,
             env=env,
             creationflags=_WIN_NO_WINDOW,
@@ -1033,7 +1005,7 @@ def _run_soup_cmd(soup_info, args, timeout=120, env_extra=None):
         return {
             "ok": False,
             "returncode": -2,
-            "stdout": (e.stdout or "") if isinstance(e.stdout, str) else "",
+            "stdout": proc_io.safe_decode_subprocess_output(getattr(e, "stdout", None)),
             "stderr": f"Command timed out after {timeout}s",
         }
     except Exception as e:
@@ -1068,16 +1040,17 @@ def launch_train_popen(soup_info, config_path, log_path, resume=None, run_name=N
     if resume:
         args.extend(["--resume", str(resume)])
     Path(log_path).parent.mkdir(parents=True, exist_ok=True)
-    log_fh = open(log_path, "a", encoding="utf-8")
+    log_fh = open(log_path, "ab")
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
     if env_extra:
         env.update({str(k): str(v) for k, v in env_extra.items()})
     proc = subprocess.Popen(
         cmd_base + args,
+        stdin=subprocess.DEVNULL,
         stdout=log_fh,
         stderr=subprocess.STDOUT,
-        text=True,
         env=env,
         creationflags=_WIN_NO_WINDOW,
     )

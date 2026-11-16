@@ -6,6 +6,7 @@ import socket
 import struct
 import subprocess
 import sys
+from . import proc_io
 _VIRTUAL_PREFIXES = (
     "veth",
     "br-",
@@ -335,13 +336,13 @@ def _run_ip_json():
     addr_out = None
     link_out = None
     try:
-        r_addr = subprocess.run([ip_bin, "-j", "addr", "show"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=2.5)
+        r_addr = proc_io.run_subprocess_safe([ip_bin, "-j", "addr", "show"], stdin=subprocess.DEVNULL, timeout=2.5)
         if r_addr.returncode == 0:
             addr_out = r_addr.stdout
     except Exception:
         pass
     try:
-        r_link = subprocess.run([ip_bin, "-j", "-d", "link", "show"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=2.5)
+        r_link = proc_io.run_subprocess_safe([ip_bin, "-j", "-d", "link", "show"], stdin=subprocess.DEVNULL, timeout=2.5)
         if r_link.returncode == 0:
             link_out = r_link.stdout
     except Exception:
@@ -524,7 +525,7 @@ def check_wireguard_linux():
             "remediation": "Install wireguard-tools (for example: sudo apt install wireguard-tools)",
         }
     try:
-        res = subprocess.run([wg_bin, "show"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=3.0)
+        res = proc_io.run_subprocess_safe([wg_bin, "show"], stdin=subprocess.DEVNULL, timeout=3.0)
     except PermissionError as e:
         return {
             "installed": True,
@@ -586,7 +587,7 @@ def _probe_ufw(req_specs):
     if not ufw_bin:
         return {"installed": False, "status": "not_installed", "permission_error": False, "allowed_ports": [], "error": None}
     try:
-        res = subprocess.run([ufw_bin, "status"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=3.0)
+        res = proc_io.run_subprocess_safe([ufw_bin, "status"], stdin=subprocess.DEVNULL, timeout=3.0)
     except PermissionError as e:
         return {"installed": True, "status": "permission_denied", "permission_error": True, "allowed_ports": [], "error": str(e)}
     except Exception as e:
@@ -626,7 +627,7 @@ def _probe_nft(req_specs):
     if not nft_bin:
         return {"installed": False, "status": "not_installed", "permission_error": False, "allowed_ports": [], "rules_count": 0, "error": None}
     try:
-        res = subprocess.run([nft_bin, "-j", "list", "ruleset"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=3.0)
+        res = proc_io.run_subprocess_safe([nft_bin, "-j", "list", "ruleset"], stdin=subprocess.DEVNULL, timeout=3.0)
     except PermissionError as e:
         return {"installed": True, "status": "permission_denied", "permission_error": True, "allowed_ports": [], "rules_count": 0, "error": str(e)}
     except Exception as e:
@@ -748,11 +749,9 @@ def check_systemd_units(interfaces=()):
         for iface in target_ifaces:
             unit_name = f"wg-quick@{iface}.service"
             try:
-                res = subprocess.run(
+                res = proc_io.run_subprocess_safe(
                     [systemctl_bin, "show", unit_name, "--property=LoadState,ActiveState,SubState,UnitFileState", "--no-pager"],
                     stdin=subprocess.DEVNULL,
-                    capture_output=True,
-                    text=True,
                     timeout=3.0,
                 )
                 combined = f"{res.stderr or ''}\n{res.stdout or ''}".strip()

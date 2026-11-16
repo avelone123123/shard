@@ -1,0 +1,273 @@
+import io
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import unittest
+from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
+from unittest import mock
+import shard_engine
+from shard_engine import cli, paths, proc_io, soup_adapter, storage, updater
+class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
+    def test_reproduce_cp1251_0x98_at_1237_and_safe_decode(self):
+        payload = (b"A" * 1235) + b"\xe2\x94\x98" + b"\r\nDry run ok"
+        idx = payload.index(0x98)
+        self.assertEqual(idx, 1237)
+        with self.assertRaises(UnicodeDecodeError) as ctx:
+            payload.decode("cp1251")
+        self.assertEqual(ctx.exception.start, 1237)
+        child_code = (
+            "import sys\n"
+            "sys.stdout.buffer.write((b'A' * 1235) + b'\\xe2\\x94\\x98\\n')\n"
+            "sys.stdout.buffer.flush()\n"
+        )
+        thread_errs = []
+        orig_hook = threading.excepthook
+        threading.excepthook = lambda args: thread_errs.append(args.exc_value)
+        try:
+            legacy = subprocess.run([sys.executable, "-c", child_code], capture_output=True, text=True, encoding="cp1251", timeout=10)
+            self.assertIsNone(legacy.stdout)
+            self.assertTrue(any(isinstance(e, UnicodeDecodeError) and e.start == 1237 for e in thread_errs))
+            thread_errs.clear()
+            res = proc_io.run_subprocess_safe([sys.executable, "-c", child_code], timeout=10)
+        finally:
+            threading.excepthook = orig_hook
+        self.assertEqual(thread_errs, [])
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("\u2518", res.stdout)
+        self.assertEqual(res.stderr, "")
+    def test_safe_decode_standalone_0x98_and_mixed_utf8_cyrillic_emoji(self):
+        raw_utf8 = "Привет мир 🚀 “smart quotes” ‘single’ — … ┌──┘".encode("utf-8")
+        decoded = proc_io.safe_decode_subprocess_output(raw_utf8)
+        self.assertEqual(decoded, "Привет мир 🚀 “smart quotes” ‘single’ — … ┌──┘")
+        raw_bad = b"prefix \xe2\x94\x98 " + b"\x98" + " Привет 🎉".encode("utf-8")
+        decoded_bad = proc_io.safe_decode_subprocess_output(raw_bad)
+        self.assertIn("┘", decoded_bad)
+        self.assertIn("Привет 🎉", decoded_bad)
+        self.assertIn("\ufffd", decoded_bad)
+        raw_only_0x98 = (b"X" * 1237) + b"\x98" + b" tail"
+        decoded_only = proc_io.safe_decode_subprocess_output(raw_only_0x98)
+        self.assertTrue(decoded_only.startswith("X" * 1237))
+        self.assertIn("\ufffd", decoded_only)
+        self.assertTrue(decoded_only.endswith(" tail"))
+        if os.name == "nt":
+            cp1251_bytes = "Ошибка доступа в системе Windows".encode("cp1251")
+            if proc_io._win_ansi_encoding() and "1251" in str(proc_io._win_ansi_encoding()).lower():
+                self.assertEqual(proc_io.safe_decode_subprocess_output(cp1251_bytes), "Ошибка доступа в системе Windows")
+            oem_enc = proc_io._win_oem_encoding()
+            if oem_enc:
+                oem_bytes = "Служба работает".encode(oem_enc)
+                self.assertEqual(proc_io.safe_decode_subprocess_output(oem_bytes, prefer_utf8=False, try_oem=True), "Служба работает")
+    def test_subprocess_mixed_stdout_stderr_and_nonzero_exit(self):
+        child_code = (
+            "import sys;"
+            "sys.stdout.buffer.write('ASCII line\\n'.encode('utf-8'));"
+            "sys.stdout.buffer.write('Русский текст stdout 🚀 “умные кавычки”\\n'.encode('utf-8'));"
+            "sys.stdout.buffer.write((b'B' * 1235) + b'\\xe2\\x94\\x98\\n');"
+            "sys.stderr.buffer.write('Ошибка stderr ┘ '.encode('utf-8') + b'\\x98\\n');"
+            "sys.stdout.buffer.flush();sys.stderr.buffer.flush();"
+            "sys.exit(7)"
+        )
+        res = proc_io.run_subprocess_safe([sys.executable, "-c", child_code], timeout=10)
+        self.assertEqual(res.returncode, 7)
+        self.assertIn("ASCII line", res.stdout)
+        self.assertIn("Русский текст stdout 🚀 “умные кавычки”", res.stdout)
+        self.assertIn("┘", res.stdout)
+        self.assertNotIn("Ошибка stderr", res.stdout)
+        self.assertIn("Ошибка stderr ┘", res.stderr)
+        self.assertIn("\ufffd", res.stderr)
+        self.assertNotIn("ASCII line", res.stderr)
+    def test_large_concurrent_stdout_and_stderr_no_deadlock(self):
+        child_code = (
+            "import sys\n"
+            "line_out = ('OUT Кириллица 🚀 ' + ('x' * 200) + '\\n').encode('utf-8')\n"
+            "line_err = ('ERR Ошибка “test” ' + ('y' * 200) + '\\n').encode('utf-8')\n"
+            "for i in range(600):\n"
+            "    sys.stdout.buffer.write(line_out)\n"
+            "    sys.stderr.buffer.write(line_err)\n"
+            "sys.stdout.buffer.flush()\n"
+            "sys.stderr.buffer.flush()\n"
+        )
+        res = proc_io.run_subprocess_safe([sys.executable, "-c", child_code], timeout=15)
+        self.assertEqual(res.returncode, 0)
+        self.assertGreater(len(res.stdout), 120000)
+        self.assertGreater(len(res.stderr), 120000)
+        self.assertIn("OUT Кириллица 🚀", res.stdout)
+        self.assertIn("ERR Ошибка “test”", res.stderr)
+        out_cb = []
+        err_cb = []
+        sres = proc_io.stream_subprocess_safe(
+            [sys.executable, "-c", child_code],
+            on_stdout=out_cb.append,
+            on_stderr=err_cb.append,
+            timeout=15,
+        )
+        self.assertEqual(sres["returncode"], 0)
+        self.assertFalse(sres["cancelled"])
+        self.assertEqual(len(out_cb), 600)
+        self.assertEqual(len(err_cb), 600)
+    def test_streaming_cancellation_while_emitting_unicode_and_0x98(self):
+        child_code = (
+            "import sys, time\n"
+            "for i in range(200):\n"
+            "    msg = f'Step {i}: Обучение ┌──┘ “OK” '.encode('utf-8') + b'\\x98\\n'\n"
+            "    sys.stdout.buffer.write(msg)\n"
+            "    sys.stdout.buffer.flush()\n"
+            "    time.sleep(0.05)\n"
+        )
+        seen = []
+        cancel_flag = {"stop": False}
+        def _on_line(line):
+            seen.append(line)
+            if len(seen) >= 3:
+                cancel_flag["stop"] = True
+        t0 = time.monotonic()
+        sres = proc_io.stream_subprocess_safe(
+            [sys.executable, "-c", child_code],
+            on_stdout=_on_line,
+            merge_stderr=True,
+            cancel_check=lambda: cancel_flag["stop"],
+            timeout=15,
+        )
+        elapsed = time.monotonic() - t0
+        self.assertTrue(sres["cancelled"])
+        self.assertGreaterEqual(len(seen), 3)
+        self.assertLess(elapsed, 8.0)
+        self.assertIn("Обучение ┌──┘ “OK”", "\n".join(seen))
+    def test_soup_run_cmd_no_readerthread_crash_on_0x98_box_drawing(self):
+        child_code = (
+            "import sys;"
+            "box = ('+' + ('-' * 40) + '\\n') * 28;"
+            "sys.stdout.write(box[:1200] + '\\n');"
+            "sys.stdout.write('┌' + ('─' * 20) + '┘ Привет “SOUP” 🚀\\n');"
+            "sys.stdout.flush();"
+        )
+        soup_info = {"command": [sys.executable, "-c", child_code]}
+        err_capture = io.StringIO()
+        with redirect_stderr(err_capture):
+            res = soup_adapter._run_soup_cmd(soup_info, [], timeout=10)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["returncode"], 0)
+        self.assertIn("┘", res["stdout"])
+        self.assertIn("Привет “SOUP” 🚀", res["stdout"])
+        self.assertNotIn("UnicodeDecodeError", err_capture.getvalue())
+class TestUpdateCheckerHardening(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self._env = mock.patch.dict(os.environ, {"SHARD_DATA_DIR": self._tmp.name}, clear=False)
+        self._env.start()
+    def tearDown(self):
+        self._env.stop()
+        self._tmp.cleanup()
+    def test_semver_and_placeholder_validation(self):
+        for good in ("1.8.1", "v1.8.1", "V2.0.0", "1.9.0-rc1", "1.9.0-rc.1+build42", "0.77.2"):
+            self.assertTrue(updater.is_valid_version_str(good), f"Expected valid: {good}")
+        for good_rel in ("1.8.1", "v1.8.2", "2.0.0", "0.77.2"):
+            self.assertTrue(updater.is_valid_release_version(good_rel), f"Expected valid release: {good_rel}")
+        for bad in ("", None, "1.2", "01.2.3", "vv1.8.1", "latest", "9.9.9.9", "1.8.1; rm -rf", "0.0.0", "2.0.0 beta"):
+            self.assertFalse(updater.is_valid_version_str(bad), f"Expected invalid: {bad!r}")
+        for ph in ("9.9.9", "v9.9.9", "0.0.0", "99.99.99", "999.999.999", "123.456.789", "1.8.2-placeholder"):
+            self.assertTrue(updater.is_placeholder_version(ph), f"Expected placeholder: {ph!r}")
+            self.assertFalse(updater.is_valid_release_version(ph), f"Placeholder should not pass release check: {ph!r}")
+    def test_valid_release_tags_and_v_prefix(self):
+        class _Resp:
+            def __init__(self, code, data=None, text=None):
+                self.status_code = code
+                self._data = data
+                self.text = text if text is not None else json.dumps(data)
+            def json(self):
+                return self._data
+        for tag, expected_ver in (("v2.1.0", "2.1.0"), ("2.1.3", "2.1.3"), ("V2.2.0", "2.2.0")):
+            rel_payload = {
+                "tag_name": tag,
+                "prerelease": False,
+                "draft": False,
+                "html_url": f"https://github.com/avelone123123/shard/releases/tag/{tag}",
+                "body": "Notes",
+                "assets": [],
+            }
+            with mock.patch("shard_engine.updater._http_get", return_value=_Resp(200, rel_payload)):
+                chk = updater.check_for_updates(force=True, allow_network=True)
+            self.assertEqual(chk["state"], "UPDATE_AVAILABLE")
+            self.assertEqual(chk["latest_version"], expected_ver)
+            self.assertTrue(chk["update_available"])
+            banner = updater.startup_check_banner()
+            self.assertIn(f"Latest version: {expected_ver}", banner)
+            self.assertIn("Update available!", banner)
+    def test_placeholder_9_9_9_rejected_in_api_and_cache(self):
+        cache_path = Path(paths.update_cache_file())
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        storage.atomic_write_json(cache_path, {
+            "schema_version": 1,
+            "state": "UPDATE_AVAILABLE",
+            "current_version": shard_engine.__version__,
+            "latest_version": "9.9.9",
+            "update_available": True,
+            "checked_at": time.time(),
+        })
+        self.assertIsNone(updater._read_cache())
+        class _Resp:
+            def __init__(self, code, data):
+                self.status_code = code
+                self._data = data
+                self.text = json.dumps(data)
+            def json(self):
+                return self._data
+        def _fake_http(url, timeout=3.0, headers=None, stream=False):
+            if "releases/latest" in url:
+                return _Resp(200, {"tag_name": "v9.9.9", "prerelease": False, "draft": False})
+            if "/tags" in url:
+                return _Resp(200, [{"name": "v9.9.9"}, {"name": "v0.0.0"}])
+            return _Resp(200, {"info": {"version": "9.9.9"}})
+        with mock.patch("shard_engine.updater._http_get", side_effect=_fake_http):
+            chk = updater.check_for_updates(force=True, allow_network=True)
+            banner = updater.startup_check_banner()
+        self.assertIsNone(chk["latest_version"])
+        self.assertFalse(chk["update_available"])
+        self.assertNotEqual(chk["state"], "UPDATE_AVAILABLE")
+        self.assertIn("Latest version: unknown", banner)
+        self.assertNotIn("9.9.9", banner)
+        self.assertNotIn("Update available", banner)
+    def test_missing_releases_errors_ratelimit_malformed_empty(self):
+        class _BadResp:
+            def __init__(self, code, json_val=None, json_exc=None, text="err"):
+                self.status_code = code
+                self._json_val = json_val
+                self._json_exc = json_exc
+                self.text = text
+            def json(self):
+                if self._json_exc:
+                    raise self._json_exc
+                return self._json_val
+        cases = [
+            ("missing_404", lambda *a, **kw: _BadResp(404, {"message": "Not Found"}, text='{"message":"Not Found"}')),
+            ("github_500", lambda *a, **kw: _BadResp(500, {"message": "Server Error"}, text='{"message":"Server Error"}')),
+            ("rate_limit_403", lambda *a, **kw: _BadResp(403, {"message": "API rate limit exceeded"}, text='{"message":"API rate limit exceeded"}')),
+            ("rate_limit_429", lambda *a, **kw: _BadResp(429, {"message": "Too Many Requests"}, text='{"message":"Too Many Requests"}')),
+            ("malformed_json", lambda *a, **kw: _BadResp(200, json_exc=ValueError("bad json"), text="{not valid json")),
+            ("empty_body", lambda *a, **kw: _BadResp(200, json_val=None, text="")),
+            ("invalid_tag_text", lambda *a, **kw: _BadResp(200, {"tag_name": "invalid-release-string", "info": {"version": "not-semver"}})),
+            ("network_exc", mock.Mock(side_effect=ConnectionError("dns failure"))),
+        ]
+        for label, side_eff in cases:
+            with self.subTest(case=label):
+                with mock.patch("shard_engine.updater._http_get", side_effect=side_eff):
+                    with mock.patch.object(updater, "apply_update") as apply_mock:
+                        chk = updater.check_for_updates(force=True, allow_network=True)
+                        banner = updater.startup_check_banner()
+                        buf = io.StringIO()
+                        with redirect_stdout(buf):
+                            cli.main(["update", "--check"])
+                        apply_mock.assert_not_called()
+                self.assertIsNone(chk["latest_version"], f"{label} should return None latest_version")
+                self.assertFalse(chk["update_available"], f"{label} must not claim update")
+                self.assertIn("Latest version: unknown", banner)
+                self.assertNotIn("Update available", banner)
+                self.assertIn("unknown", buf.getvalue())
+                self.assertNotIn("Update available", buf.getvalue())
+if __name__ == "__main__":
+    unittest.main()

@@ -12,6 +12,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
 from . import paths
+from . import proc_io
 from . import storage
 _WIN = os.name == "nt" or sys.platform == "win32"
 _CREATE_NO_WINDOW = 0x08000000 if _WIN else 0
@@ -45,15 +46,14 @@ def is_shard_tunnel_name(name):
     return low.startswith("shard") or low.startswith("wg-shard") or low.startswith("wireguardtunnel$shard")
 def _run_readonly_cmd(args, timeout=3.0):
     try:
-        proc = subprocess.run(
+        proc = proc_io.run_subprocess_safe(
             args,
-            capture_output=True,
             timeout=timeout,
             creationflags=_CREATE_NO_WINDOW,
+            prefer_utf8=True,
+            try_oem=_WIN,
         )
-        stdout = (proc.stdout or b"").decode("utf-8", errors="replace")
-        stderr = (proc.stderr or b"").decode("utf-8", errors="replace")
-        return proc.returncode, stdout, stderr, None
+        return proc.returncode, proc.stdout or "", proc.stderr or "", None
     except FileNotFoundError as exc:
         return -1, "", "", str(exc)
     except PermissionError as exc:
