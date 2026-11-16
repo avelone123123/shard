@@ -220,3 +220,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
                         _emit(line, parts, cb)
                 while len(buf) > line_limit:
                     cut = _utf8_safe_split_index(buf, line_limit)
+                    _emit(bytes(buf[:cut]), parts, cb)
+                    del buf[:cut]
+        finally:
+            try:
+                fh.close()
+            except Exception:
