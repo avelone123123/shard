@@ -397,7 +397,7 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                         "source": "pypi",
                         "latest_version": ver,
                         "tag_name": f"v{ver}",
-                        "release_url": f"https://github.com/{GITHUB_REPO}",
+                        "release_url": f"https://pypi.org/project/{__app_name__}/{ver}/",
                         "release_notes": "",
                         "published_at": None,
                         "asset_url": f"https://github.com/{GITHUB_REPO}/archive/refs/heads/main.zip",
