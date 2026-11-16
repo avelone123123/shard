@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import sys
+from . import proc_io
 _IS_WIN = os.name == "nt"
 _CREATE_NO_WINDOW = 0x08000000 if _IS_WIN else 0
 _RULE_NAME_RE = re.compile(r"^[a-zA-Z0-9_.-]{1,64}$")
