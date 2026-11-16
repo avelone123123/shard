@@ -49,19 +49,32 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         self.assertIn("┘", decoded_bad)
         self.assertIn("Привет 🎉", decoded_bad)
         self.assertIn("\ufffd", decoded_bad)
+        ansi_enc = str(proc_io._win_ansi_encoding() or "").lower()
         raw_only_0x98 = (b"X" * 1237) + b"\x98" + b" tail"
         decoded_only = proc_io.safe_decode_subprocess_output(raw_only_0x98)
         self.assertTrue(decoded_only.startswith("X" * 1237))
-        self.assertIn("\ufffd", decoded_only)
         self.assertTrue(decoded_only.endswith(" tail"))
+        if os.name == "nt" and "1252" in ansi_enc:
+            self.assertEqual(decoded_only, ("X" * 1237) + "\u02dc tail")
+        else:
+            self.assertIn("\ufffd", decoded_only)
+        invalid_byte = b"\x81" if "1252" in ansi_enc else b"\x98"
+        decoded_invalid = proc_io.safe_decode_subprocess_output((b"Y" * 1237) + invalid_byte + b" end")
+        self.assertEqual(decoded_invalid, ("Y" * 1237) + "\ufffd end")
+        with mock.patch.object(proc_io, "_win_ansi_encoding", return_value="cp1251"):
+            decoded_cp1251_0x98 = proc_io.safe_decode_subprocess_output(raw_only_0x98)
+            self.assertEqual(decoded_cp1251_0x98, ("X" * 1237) + "\ufffd tail")
         if os.name == "nt":
             cp1251_bytes = "Ошибка доступа в системе Windows".encode("cp1251")
-            if proc_io._win_ansi_encoding() and "1251" in str(proc_io._win_ansi_encoding()).lower():
+            if "1251" in ansi_enc:
                 self.assertEqual(proc_io.safe_decode_subprocess_output(cp1251_bytes), "Ошибка доступа в системе Windows")
-            oem_enc = proc_io._win_oem_encoding()
+            oem_enc = str(proc_io._win_oem_encoding() or "")
             if oem_enc:
-                oem_bytes = "Служба работает".encode(oem_enc)
-                self.assertEqual(proc_io.safe_decode_subprocess_output(oem_bytes, prefer_utf8=False, try_oem=True), "Служба работает")
+                sample_oem = "Служба работает" if "866" in oem_enc.lower() else "Status \u2514\u2500\u2518"
+                oem_bytes = sample_oem.encode(oem_enc)
+                self.assertEqual(proc_io.safe_decode_subprocess_output(oem_bytes, prefer_utf8=False, try_oem=True), sample_oem)
+            with mock.patch.object(proc_io, "_win_oem_encoding", return_value="cp866"):
+                self.assertEqual(proc_io.safe_decode_subprocess_output("Служба работает".encode("cp866"), prefer_utf8=False, try_oem=True), "Служба работает")
     def test_subprocess_mixed_stdout_stderr_and_nonzero_exit(self):
         child_code = (
             "import sys;"
