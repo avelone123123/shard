@@ -78,7 +78,7 @@ def _run_powershell(script: str, timeout: float = 12.0) -> tuple[bool, str, str]
         return False, "", "powershell executable not found"
     wrapped = "[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);$ErrorActionPreference='SilentlyContinue';" + script
     try:
-        res = subprocess.run(
+        res = proc_io.run_subprocess_safe(
             [exe, "-NoProfile", "-NonInteractive", "-Command", wrapped],
             capture_output=True,
             text=True,
