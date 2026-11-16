@@ -268,3 +268,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
     out_full = "\n".join(out_parts)
     err_full = "\n".join(err_parts)
     if timed_out:
+        raise subprocess.TimeoutExpired(cmd, timeout, output=out_full, stderr=err_full)
+    return {
+        "returncode": rc,
+        "stdout": out_full,
+        "stderr": err_full,
+        "cancelled": cancelled,
