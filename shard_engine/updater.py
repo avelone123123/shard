@@ -447,9 +447,9 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
         return {
             "state": "GITHUB_UNAVAILABLE",
             "current_version": cur_ver,
-            "latest_version": last_lat,
-            "update_available": bool(last_lat and is_valid_version_str(last_lat) and compare_versions(cur_ver, last_lat) > 0),
-            "cached": bool(cached),
+            "latest_version": verified_lat,
+            "update_available": bool(verified_lat and compare_versions(cur_ver, verified_lat) > 0),
+            "cached": bool(verified_lat),
             "install_method": inst,
             "error": "Network update check skipped.",
             "checked_at": cached.get("checked_at") if isinstance(cached, dict) else None,
