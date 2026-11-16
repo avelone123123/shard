@@ -83,7 +83,12 @@ def is_placeholder_version(ver):
     s = _strip_v_prefix(ver).lower()
     if not s:
         return True
-    return bool(re.match(r"^\d+(?:\.\d+)+(?:[-._a-zA-Z0-9]+)?$", s))
+    core = re.split(r"[-+]", s, maxsplit=1)[0]
+    if core in _PLACEHOLDER_VERSIONS:
+        return True
+    if any(tok in s for tok in ("placeholder", "dummy", "fake", "mock", "example")):
+        return True
+    parts = core.split(".")
 def is_prerelease_version(ver):
     s = str(ver or "").strip().lower().lstrip("v")
     if not s:
