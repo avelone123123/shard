@@ -68,7 +68,7 @@ def _strip_v_prefix(ver):
         return s[1:]
     return s
 def is_valid_version_str(ver):
-    if not ver:
+    if not ver or isinstance(ver, bool):
         return False
     s = str(ver).strip()
     if s.startswith("v") or s.startswith("V"):
