@@ -163,7 +163,7 @@ def _write_cache(payload):
     for p in _cache_paths():
         try:
             p.parent.mkdir(parents=True, exist_ok=True)
-            storage.atomic_write_json(p, payload, fsync=True, backup=True)
+            storage.atomic_write_json(p, to_write, fsync=True, backup=True)
         except Exception:
             pass
 def detect_installation_method(probe_git=True):
