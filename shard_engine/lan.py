@@ -1332,7 +1332,7 @@ class LanManager:
         if self._rpc_proc.poll() is not None:
             tail = ""
             try:
-                tail = (self._rpc_proc.stderr.read() or b"").decode("utf-8", "ignore")[-200:]
+                tail = _proc_io.safe_decode_subprocess_output(self._rpc_proc.stderr.read(), prefer_utf8=True, try_oem=(os.name == "nt"))[-200:]
             except Exception:
                 pass
             self._rpc_proc = None
