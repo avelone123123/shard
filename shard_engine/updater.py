@@ -670,7 +670,7 @@ def verify_installation(expected_version=None):
         "ok = p.package_resource_exists('dashboard.html') and p.package_resource_exists('engine_optimizations.json');"
         "print(json.dumps({'version': shard_engine.__version__, 'assets_ok': bool(ok)}))"
     )
-    res = subprocess.run(
+    res = proc_io.run_subprocess_safe(
         [sys.executable, "-c", code],
         capture_output=True,
         text=True,
