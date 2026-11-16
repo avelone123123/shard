@@ -202,3 +202,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
                 buf.extend(chunk)
                 while True:
                     idx_n = buf.find(b"\n")
+                    idx_r = buf.find(b"\r")
+                    if idx_n == -1 and idx_r == -1:
+                        break
+                    if idx_r != -1 and (idx_n == -1 or idx_r < idx_n):
+                        line = bytes(buf[:idx_r])
+                        if idx_r + 1 < len(buf):
