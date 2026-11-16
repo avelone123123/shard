@@ -264,3 +264,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
             ("malformed_json", lambda *a, **kw: _BadResp(200, json_exc=ValueError("bad json"), text="{not valid json")),
             ("empty_body", lambda *a, **kw: _BadResp(200, json_val=None, text="")),
             ("invalid_tag_text", lambda *a, **kw: _BadResp(200, {"tag_name": "invalid-release-string", "info": {"version": "not-semver"}})),
+            ("network_exc", mock.Mock(side_effect=ConnectionError("dns failure"))),
+        ]
+        for label, side_eff in cases:
+            with self.subTest(case=label):
+                with mock.patch("shard_engine.updater._http_get", side_effect=side_eff):
+                    with mock.patch.object(updater, "apply_update") as apply_mock:
+                        chk = updater.check_for_updates(force=True, allow_network=True)
