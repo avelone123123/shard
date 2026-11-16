@@ -1051,7 +1051,6 @@ def launch_train_popen(soup_info, config_path, log_path, resume=None, run_name=N
         stdin=subprocess.DEVNULL,
         stdout=log_fh,
         stderr=subprocess.STDOUT,
-        text=True,
         env=env,
         creationflags=_WIN_NO_WINDOW,
     )
