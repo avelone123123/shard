@@ -194,3 +194,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
                 self.text = text if text is not None else json.dumps(data)
             def json(self):
                 return self._data
+        for tag, expected_ver in (("v2.1.0", "2.1.0"), ("2.1.3", "2.1.3"), ("V2.2.0", "2.2.0")):
+            rel_payload = {
+                "tag_name": tag,
+                "prerelease": False,
+                "draft": False,
+                "html_url": f"https://github.com/avelone123123/shard/releases/tag/{tag}",
+                "body": "Notes",
