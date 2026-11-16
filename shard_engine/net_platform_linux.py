@@ -749,7 +749,7 @@ def check_systemd_units(interfaces=()):
         for iface in target_ifaces:
             unit_name = f"wg-quick@{iface}.service"
             try:
-                res = subprocess.run(
+                res = proc_io.run_subprocess_safe(
                     [systemctl_bin, "show", unit_name, "--property=LoadState,ActiveState,SubState,UnitFileState", "--no-pager"],
                     stdin=subprocess.DEVNULL,
                     capture_output=True,
