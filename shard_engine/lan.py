@@ -398,8 +398,6 @@ def detect_tailscale():
     try:
         r = _proc_io.run_subprocess_safe(
             [exe, "status", "--json"],
-            capture_output=True,
-            text=True,
             timeout=2.5,
             creationflags=_CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
