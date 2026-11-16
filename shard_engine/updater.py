@@ -825,7 +825,7 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                     if co.returncode != 0:
                         co = proc_io.run_subprocess_safe([git_bin, "checkout", validate_git_ref(desired_ver)], cwd=inst["repo_root"], timeout=30, creationflags=_WIN_NO_WINDOW)
                 else:
-                    co = subprocess.run([git_bin, "pull", "--ff-only"], cwd=inst["repo_root"], capture_output=True, text=True, timeout=60, creationflags=_WIN_NO_WINDOW)
+                    co = proc_io.run_subprocess_safe([git_bin, "pull", "--ff-only"], cwd=inst["repo_root"], timeout=60, creationflags=_WIN_NO_WINDOW)
                 if co.returncode != 0:
                     raise RuntimeError(f"git update failed: {(co.stderr or co.stdout)[:300]}")
             else:
