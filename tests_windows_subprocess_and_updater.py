@@ -61,3 +61,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         invalid_byte = b"\x81" if "1252" in ansi_enc else b"\x98"
         decoded_invalid = proc_io.safe_decode_subprocess_output((b"Y" * 1237) + invalid_byte + b" end")
         self.assertEqual(decoded_invalid, ("Y" * 1237) + "\ufffd end")
+        with mock.patch.object(proc_io, "_win_ansi_encoding", return_value="cp1251"):
+            decoded_cp1251_0x98 = proc_io.safe_decode_subprocess_output(raw_only_0x98)
+            self.assertEqual(decoded_cp1251_0x98, ("X" * 1237) + "\ufffd tail")
+        if os.name == "nt":
+            cp1251_bytes = "Ошибка доступа в системе Windows".encode("cp1251")
+            if "1251" in ansi_enc:
+                self.assertEqual(proc_io.safe_decode_subprocess_output(cp1251_bytes), "Ошибка доступа в системе Windows")
