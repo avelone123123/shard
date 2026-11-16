@@ -552,7 +552,7 @@ def _run_install_worker(action, custom_python=None, include_train=True):
                 uv_cmd = [uv_bin, "venv", "--python", "3.12", "--seed", str(venv_dir)]
                 if os.path.isdir(uv_bin):
                     uv_cmd = [sys.executable, "-c", f"import sys; sys.path.insert(0, {uv_bin!r}); from uv.__main__ import main; main()", "venv", "--python", "3.12", "--seed", str(venv_dir)]
-                r_uv = subprocess.run(uv_cmd, capture_output=True, text=True, timeout=600, creationflags=_WIN_NO_WINDOW)
+                r_uv = proc_io.run_subprocess_safe(uv_cmd, timeout=600, creationflags=_WIN_NO_WINDOW)
                 for ln in (r_uv.stdout or "").splitlines() + (r_uv.stderr or "").splitlines():
                     if ln.strip():
                         _set_install_state(line=ln.strip())
