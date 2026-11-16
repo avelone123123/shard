@@ -452,7 +452,7 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
             "cached": bool(verified_lat),
             "install_method": inst,
             "error": "Network update check skipped.",
-            "checked_at": cached.get("checked_at") if isinstance(cached, dict) else None,
+            "checked_at": cached.get("checked_at") if isinstance(cached, dict) and verified_lat else None,
         }
     try:
         remote = fetch_latest_remote_info(timeout=timeout, allow_prerelease=allow_prerelease)
