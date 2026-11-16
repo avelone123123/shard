@@ -94,3 +94,9 @@ def run_subprocess_safe(cmd, *, timeout=None, cwd=None, env=None, stdin=subproce
     out_txt = safe_decode_subprocess_output(getattr(res, "stdout", b""), prefer_utf8=prefer_utf8, try_oem=try_oem)
     err_txt = safe_decode_subprocess_output(getattr(res, "stderr", b""), prefer_utf8=prefer_utf8, try_oem=try_oem)
     return subprocess.CompletedProcess(args=getattr(res, "args", cmd), returncode=res.returncode, stdout=out_txt, stderr=err_txt)
+def _utf8_safe_split_index(buf, limit):
+    if len(buf) <= limit:
+        return len(buf)
+    pos = limit - 1
+    steps = 0
+    while pos >= 0 and steps < 4 and (buf[pos] & 0xC0) == 0x80:
