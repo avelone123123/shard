@@ -88,3 +88,9 @@ def run_subprocess_safe(cmd, *, timeout=None, cwd=None, env=None, stdin=subproce
     try:
         res = subprocess.run(cmd, **kw)
     except subprocess.TimeoutExpired as exc:
+        out_t = safe_decode_subprocess_output(getattr(exc, "stdout", None), prefer_utf8=prefer_utf8, try_oem=try_oem)
+        err_t = safe_decode_subprocess_output(getattr(exc, "stderr", None), prefer_utf8=prefer_utf8, try_oem=try_oem)
+        raise subprocess.TimeoutExpired(exc.cmd, exc.timeout, output=out_t, stderr=err_t) from exc
+    out_txt = safe_decode_subprocess_output(getattr(res, "stdout", b""), prefer_utf8=prefer_utf8, try_oem=try_oem)
+    err_txt = safe_decode_subprocess_output(getattr(res, "stderr", b""), prefer_utf8=prefer_utf8, try_oem=try_oem)
+    return subprocess.CompletedProcess(args=getattr(res, "args", cmd), returncode=res.returncode, stdout=out_txt, stderr=err_txt)
