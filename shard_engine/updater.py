@@ -203,7 +203,7 @@ def detect_installation_method(probe_git=True):
         try:
             st = proc_io.run_subprocess_safe([git_bin, "status", "--porcelain", "--untracked-files=no"], cwd=repo_root, timeout=5, creationflags=_WIN_NO_WINDOW)
             git_dirty = bool((st.stdout or "").strip())
-            br = subprocess.run([git_bin, "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_root, capture_output=True, text=True, timeout=5, creationflags=_WIN_NO_WINDOW)
+            br = proc_io.run_subprocess_safe([git_bin, "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo_root, timeout=5, creationflags=_WIN_NO_WINDOW)
             if br.returncode == 0:
                 git_branch = br.stdout.strip()
             cm = subprocess.run([git_bin, "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True, timeout=5, creationflags=_WIN_NO_WINDOW)
