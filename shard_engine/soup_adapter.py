@@ -480,8 +480,6 @@ def _bootstrap_uv(log_fn):
     log_fn("Bootstrapping isolated uv toolchain for Python 3.12 provisioning...")
     r = proc_io.run_subprocess_safe(
         [sys.executable, "-m", "pip", "install", "--no-input", "--upgrade", "--target", str(tools_uv), "uv"],
-        capture_output=True,
-        text=True,
         timeout=180,
         creationflags=_WIN_NO_WINDOW,
     )
