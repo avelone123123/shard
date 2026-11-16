@@ -158,6 +158,8 @@ def _read_cache():
                     return data
     return None
 def _write_cache(payload):
+    to_write = dict(payload)
+    to_write.setdefault("repo", GITHUB_REPO)
     for p in _cache_paths():
         try:
             p.parent.mkdir(parents=True, exist_ok=True)
