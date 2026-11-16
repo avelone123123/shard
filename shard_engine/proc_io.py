@@ -118,3 +118,9 @@ def _utf8_safe_split_index(buf, limit):
     if pos + exp > limit and pos > 0:
         return pos
     return limit
+def _read_pipe_chunk(fh):
+    try:
+        fd = fh.fileno()
+        if isinstance(fd, int) and fd >= 0:
+            return os.read(fd, 4096)
+    except Exception:
