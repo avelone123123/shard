@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 460" width="1400" height="460">
+  <defs>
+    <marker id="wf-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#39B8A8"/>
+    </marker>
+    <marker id="wf-amb" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#F0B347"/>
+    </marker>
+  </defs>
+
+  <rect width="1400" height="460" rx="16" fill="#16181D"/>
+  <rect x="1" y="1" width="1398" height="458" rx="15" fill="none" stroke="#2E3440" stroke-width="2"/>
+
+  <text x="40" y="48" fill="#EAECEF" font-family="Space Grotesk,Inter,sans-serif" font-size="22" font-weight="700">END-TO-END SHARD WORKFLOW</text>
+  <text x="40" y="70" fill="#8E96A4" font-family="JetBrains Mono,Consolas,monospace" font-size="12">From hardware fit inspection and dual-backend serving to pooled LAN compute and SOUP fine-tuning</text>
+
+  <g transform="translate(40,104)">
+    <rect width="244" height="162" rx="10" fill="#1D2129" stroke="#265E5B" stroke-width="1.5"/>
+    <text x="16" y="28" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="700">01 // HARDWARE FIT</text>
+    <text x="16" y="54" fill="#EAECEF" font-family="Inter,sans-serif" font-size="15" font-weight="700">Pre-Flight Sizing</text>
+    <text x="16" y="76" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">Probe GPU VRAM, system</text>
+    <text x="16" y="93" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">RAM, disk &amp; KV budget</text>
+    <text x="16" y="110" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">before downloading weights.</text>
+    <rect x="16" y="124" width="212" height="24" rx="5" fill="#101318" stroke="#2E3440"/>
+    <text x="24" y="140" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11">$ shard fit &lt;model&gt;</text>
+
+    <line x1="244" y1="81" x2="274" y2="81" stroke="#39B8A8" stroke-width="2" marker-end="url(#wf-arr)"/>
+
+    <rect x="278" y="0" width="244" height="162" rx="10" fill="#1D2129" stroke="#265E5B" stroke-width="1.5"/>
+    <text x="294" y="28" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="700">02 // DUAL ENGINE</text>
+    <text x="294" y="54" fill="#EAECEF" font-family="Inter,sans-serif" font-size="15" font-weight="700">Model Launch</text>
+    <text x="294" y="76" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">Load GGUF (llama.cpp)</text>
+    <text x="294" y="93" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">or PyTorch SafeTensors +</text>
+    <text x="294" y="110" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">C++20 / AVX2 SIMD kernels.</text>
+    <rect x="294" y="124" width="212" height="24" rx="5" fill="#101318" stroke="#2E3440"/>
+    <text x="302" y="140" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11">$ shard run &lt;model&gt;</text>
+
+    <line x1="522" y1="81" x2="552" y2="81" stroke="#39B8A8" stroke-width="2" marker-end="url(#wf-arr)"/>
+
+    <rect x="556" y="0" width="244" height="162" rx="10" fill="#1D2129" stroke="#265E5B" stroke-width="1.5"/>
+    <text x="572" y="28" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="700">03 // LOCAL HOSTING</text>
+    <text x="572" y="54" fill="#EAECEF" font-family="Inter,sans-serif" font-size="15" font-weight="700">Unified Server</text>
+    <text x="572" y="76" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">Model-first FastAPI server</text>
+    <text x="572" y="93" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">with OpenAI/Anthropic SSE</text>
+    <text x="572" y="110" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">&amp; isolated private chats.</text>
+    <rect x="572" y="124" width="212" height="24" rx="5" fill="#101318" stroke="#2E3440"/>
+    <text x="580" y="140" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11">$ shard start --daemon</text>
+
+    <line x1="800" y1="81" x2="830" y2="81" stroke="#39B8A8" stroke-width="2" marker-end="url(#wf-arr)"/>
+
+    <rect x="834" y="0" width="244" height="162" rx="10" fill="#1D2129" stroke="#265E5B" stroke-width="1.5"/>
+    <text x="850" y="28" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="700">04 // LAN POOLING</text>
+    <text x="850" y="54" fill="#EAECEF" font-family="Inter,sans-serif" font-size="15" font-weight="700">Multi-Node VRAM</text>
+    <text x="850" y="76" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">UDP beacons (:8001) pair</text>
+    <text x="850" y="93" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">subnet workers with quotas</text>
+    <text x="850" y="110" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">via ggml-rpc-server.</text>
+    <rect x="850" y="124" width="212" height="24" rx="5" fill="#101318" stroke="#2E3440"/>
+    <text x="858" y="140" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11">$ shard lan join &lt;ip&gt;</text>
+
+    <line x1="1078" y1="81" x2="1108" y2="81" stroke="#F0B347" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#wf-amb)"/>
+
+    <rect x="1112" y="0" width="208" height="162" rx="10" fill="#1A1D24" stroke="#5B4520" stroke-width="1.5" stroke-dasharray="6,4"/>
+    <text x="1128" y="28" fill="#F0B347" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="700">EXP // P2P RELAY</text>
+    <text x="1128" y="54" fill="#EAECEF" font-family="Inter,sans-serif" font-size="15" font-weight="700">Global Tunnel</text>
+    <text x="1128" y="76" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">Ed25519 Node ID, X25519,</text>
+    <text x="1128" y="93" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">ChaCha20-Poly1305 AEAD</text>
+    <text x="1128" y="110" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="12">invitations &amp; blind relays.</text>
+    <rect x="1128" y="124" width="176" height="24" rx="5" fill="#101318" stroke="#5B4520"/>
+    <text x="1136" y="140" fill="#F0B347" font-family="JetBrains Mono,Consolas,monospace" font-size="10.5">$ shard network connect</text>
+  </g>
+
+  <rect x="40" y="294" width="1320" height="132" rx="12" fill="#1A1D24" stroke="#274D5C"/>
+  <text x="60" y="320" fill="#66B8CE" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="700" letter-spacing="0.8">OPTIONAL SINGLE-NODE TRAINING LOOP (SHARD x SOUP)</text>
+
+  <g transform="translate(60,336)">
+    <rect width="236" height="70" rx="8" fill="#16272E" stroke="#274D5C"/>
+    <text x="14" y="26" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">1. Consent Feedback</text>
+    <text x="14" y="48" fill="#8E96A4" font-family="JetBrains Mono,Consolas,monospace" font-size="11">Secret &amp; PII redaction</text>
+
+    <line x1="236" y1="35" x2="262" y2="35" stroke="#39B8A8" stroke-width="2" marker-end="url(#wf-arr)"/>
+
+    <rect x="266" y="0" width="236" height="70" rx="8" fill="#16272E" stroke="#274D5C"/>
+    <text x="280" y="26" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">2. Immutable Datasets</text>
+    <text x="280" y="48" fill="#8E96A4" font-family="JetBrains Mono,Consolas,monospace" font-size="11">SFT (ChatML) / DPO snapshots</text>
+
+    <line x1="502" y1="35" x2="528" y2="35" stroke="#39B8A8" stroke-width="2" marker-end="url(#wf-arr)"/>
+
+    <rect x="532" y="0" width="236" height="70" rx="8" fill="#16272E" stroke="#274D5C"/>
+    <text x="546" y="26" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">3. SOUP Training Job</text>
+    <text x="546" y="48" fill="#8E96A4" font-family="JetBrains Mono,Consolas,monospace" font-size="11">Dry-run, logs, cancel/resume</text>
+
+    <line x1="768" y1="35" x2="794" y2="35" stroke="#39B8A8" stroke-width="2" marker-end="url(#wf-arr)"/>
+
+    <rect x="798" y="0" width="236" height="70" rx="8" fill="#16272E" stroke="#274D5C"/>
+    <text x="812" y="26" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">4. Eval &amp; Merge</text>
+    <text x="812" y="48" fill="#8E96A4" font-family="JetBrains Mono,Consolas,monospace" font-size="11">Baseline vs Candidate · GGUF</text>
+
+    <line x1="1034" y1="35" x2="1060" y2="35" stroke="#39B8A8" stroke-width="2" marker-end="url(#wf-arr)"/>
+
+    <rect x="1064" y="0" width="216" height="70" rx="8" fill="#183233" stroke="#265E5B"/>
+    <text x="1078" y="26" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">5. Deploy / Rollback</text>
+    <text x="1078" y="48" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11">Hot-swap &amp; 1-click rollback</text>
+  </g>
+</svg>

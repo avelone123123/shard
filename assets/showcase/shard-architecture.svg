@@ -1,0 +1,165 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 840" width="1400" height="840">
+  <defs>
+    <pattern id="grid" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1" fill="#EAECEF" opacity="0.06"/>
+    </pattern>
+    <marker id="arr-teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#39B8A8"/>
+    </marker>
+    <marker id="arr-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#8E96A4"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 8 5 L 0 9 z" fill="#F0B347"/>
+    </marker>
+  </defs>
+
+  <rect width="1400" height="840" fill="#16181D" rx="16"/>
+  <rect width="1400" height="840" fill="url(#grid)" rx="16"/>
+  <rect x="1" y="1" width="1398" height="838" fill="none" stroke="#2E3440" stroke-width="2" rx="15"/>
+
+  <g transform="translate(40,34)">
+    <rect width="38" height="38" rx="8" fill="#0F766E"/>
+    <polygon points="19,8 30,14 30,24 19,30 8,24 8,14" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+    <line x1="19" y1="8" x2="19" y2="30" stroke="#FFFFFF" stroke-width="1.6"/>
+    <text x="52" y="18" fill="#EAECEF" font-family="Space Grotesk,Inter,sans-serif" font-size="22" font-weight="700" letter-spacing="0.5">SHARD RUNTIME ARCHITECTURE (v1.8.1)</text>
+    <text x="52" y="37" fill="#8E96A4" font-family="JetBrains Mono,Consolas,monospace" font-size="12">Modular execution topology grounded in shard_engine/ &amp; native/</text>
+  </g>
+
+  <g transform="translate(970,38)" font-family="JetBrains Mono,Consolas,monospace" font-size="11">
+    <rect x="0" y="0" width="120" height="28" rx="6" fill="#183233" stroke="#265E5B"/>
+    <circle cx="14" cy="14" r="4" fill="#52D185"/>
+    <text x="26" y="18" fill="#5EEAD4">CORE RUNTIME</text>
+
+    <rect x="132" y="0" width="120" height="28" rx="6" fill="#16272E" stroke="#274D5C"/>
+    <circle cx="146" cy="14" r="4" fill="#66B8CE"/>
+    <text x="158" y="18" fill="#66B8CE">OPTIONAL</text>
+
+    <rect x="264" y="0" width="126" height="28" rx="6" fill="#2A2215" stroke="#5B4520"/>
+    <circle cx="278" cy="14" r="4" fill="#F0B347"/>
+    <text x="290" y="18" fill="#F0B347">EXPERIMENTAL</text>
+  </g>
+
+  <rect x="40" y="96" width="1320" height="108" rx="12" fill="#1A1D24" stroke="#2E3440"/>
+  <text x="60" y="120" fill="#8E96A4" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="600" letter-spacing="0.8">1 // CLIENTS, CODING AGENTS &amp; INTERFACES</text>
+
+  <g transform="translate(60,134)">
+    <rect width="290" height="54" rx="8" fill="#1D2129" stroke="#3C4352"/>
+    <text x="16" y="24" fill="#EAECEF" font-family="Inter,sans-serif" font-size="14" font-weight="600">AI Coding Tools &amp; Agents</text>
+    <text x="16" y="42" fill="#8E96A4" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">Cursor · Claude Code · Aider · Zed · Continue</text>
+
+    <rect x="320" y="0" width="290" height="54" rx="8" fill="#1D2129" stroke="#3C4352"/>
+    <text x="336" y="24" fill="#EAECEF" font-family="Inter,sans-serif" font-size="14" font-weight="600">OpenAI &amp; Anthropic SDKs</text>
+    <text x="336" y="42" fill="#8E96A4" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">/v1/chat/completions · /v1/messages · SSE</text>
+
+    <rect x="640" y="0" width="290" height="54" rx="8" fill="#1D2129" stroke="#265E5B"/>
+    <text x="656" y="24" fill="#EAECEF" font-family="Inter,sans-serif" font-size="14" font-weight="600">Web Workstation UI</text>
+    <text x="656" y="42" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">dashboard.html · /client · Model Browser</text>
+
+    <rect x="960" y="0" width="320" height="54" rx="8" fill="#1D2129" stroke="#265E5B"/>
+    <text x="976" y="24" fill="#EAECEF" font-family="Inter,sans-serif" font-size="14" font-weight="600">SHARD CLI (cli.py &amp; process.py)</text>
+    <text x="976" y="42" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">shard start · fit · run · lan · training · network</text>
+  </g>
+
+  <line x1="205" y1="204" x2="205" y2="246" stroke="#39B8A8" stroke-width="2" marker-end="url(#arr-teal)"/>
+  <line x1="525" y1="204" x2="525" y2="246" stroke="#39B8A8" stroke-width="2" marker-end="url(#arr-teal)"/>
+  <line x1="845" y1="204" x2="845" y2="246" stroke="#39B8A8" stroke-width="2" marker-end="url(#arr-teal)"/>
+  <line x1="1180" y1="204" x2="1180" y2="246" stroke="#39B8A8" stroke-width="2" marker-end="url(#arr-teal)"/>
+
+  <rect x="40" y="250" width="840" height="316" rx="12" fill="#1A1D24" stroke="#265E5B" stroke-width="1.5"/>
+  <text x="60" y="276" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="600" letter-spacing="0.8">2 // MASTER NODE CONTROL PLANE &amp; EXECUTION ENGINE (FastAPI :8000)</text>
+
+  <g transform="translate(60,292)">
+    <rect width="800" height="62" rx="8" fill="#183233" stroke="#265E5B"/>
+    <text x="18" y="25" fill="#EAECEF" font-family="Inter,sans-serif" font-size="15" font-weight="700">server.py — Unified FastAPI Gateway, Owner Token &amp; Private Session Isolation</text>
+    <text x="18" y="46" fill="#B4BCC8" font-family="JetBrains Mono,Consolas,monospace" font-size="12">session_registry.py (SHA-256 salted tokens) · validators.py · telemetry.py · proc_io.py (UTF-8/OEM binary I/O)</text>
+  </g>
+
+  <g transform="translate(60,372)">
+    <rect width="254" height="84" rx="8" fill="#1D2129" stroke="#3C4352"/>
+    <text x="14" y="24" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">Pre-Flight Fit &amp; Probe</text>
+    <text x="14" y="44" fill="#39B8A8" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">fit.py · hardware.py</text>
+    <text x="14" y="64" fill="#8E96A4" font-family="Inter,sans-serif" font-size="11.5">GPU/RAM/Disk verdict &amp; KV math</text>
+
+    <rect x="273" y="0" width="254" height="84" rx="8" fill="#1D2129" stroke="#3C4352"/>
+    <text x="287" y="24" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">PyTorch &amp; HF Runtime</text>
+    <text x="287" y="44" fill="#39B8A8" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">engine.py · hf_hub.py</text>
+    <text x="287" y="64" fill="#8E96A4" font-family="Inter,sans-serif" font-size="11.5">SafeTensors · LoRA adapters · SSE</text>
+
+    <rect x="546" y="0" width="254" height="84" rx="8" fill="#1D2129" stroke="#3C4352"/>
+    <text x="560" y="24" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">GGUF Managed Server</text>
+    <text x="560" y="44" fill="#39B8A8" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">gguf_backend.py</text>
+    <text x="560" y="64" fill="#8E96A4" font-family="Inter,sans-serif" font-size="11.5">llama-server · -ngl offload · RPC</text>
+  </g>
+
+  <g transform="translate(60,472)">
+    <rect width="390" height="74" rx="8" fill="#1D2129" stroke="#3C4352"/>
+    <text x="16" y="24" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">Native C++20 / MASM x64 AVX2 Kernels</text>
+    <text x="16" y="44" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">shard_bridge.py -&gt; native/shard_core.cpp + shard_asm.asm</text>
+    <text x="16" y="61" fill="#8E96A4" font-family="Inter,sans-serif" font-size="11">RMSNorm, RoPE, Softmax, GELU, SiLU, MatMul (+ fallback)</text>
+
+    <rect x="410" y="0" width="390" height="74" rx="8" fill="#1D2129" stroke="#3C4352"/>
+    <text x="426" y="24" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">Storage, Index, Paths &amp; Self-Updater</text>
+    <text x="426" y="44" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">paths.py · storage.py · cache_index.py · updater.py</text>
+    <text x="426" y="61" fill="#8E96A4" font-family="Inter,sans-serif" font-size="11">OS dirs, atomic JSON lock, GitHub Releases / PyPI SemVer</text>
+  </g>
+
+  <rect x="900" y="250" width="460" height="316" rx="12" fill="#1A1D24" stroke="#274D5C" stroke-width="1.5"/>
+  <text x="920" y="276" fill="#66B8CE" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="600" letter-spacing="0.8">3 // COLLABORATIVE FINE-TUNING (OPTIONAL)</text>
+
+  <g transform="translate(920,292)">
+    <rect width="420" height="72" rx="8" fill="#16272E" stroke="#274D5C"/>
+    <text x="16" y="24" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">Consent Feedback &amp; PII/Secret Redaction</text>
+    <text x="16" y="44" fill="#66B8CE" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">feedback.py · /api/feedback/*</text>
+    <text x="16" y="61" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="11">Opt-in queue, key/PII masking, SFT ChatML &amp; DPO snapshots</text>
+
+    <rect y="88" width="420" height="82" rx="8" fill="#16272E" stroke="#274D5C"/>
+    <text x="16" y="112" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">SOUP Single-Node Training Adapter</text>
+    <text x="16" y="132" fill="#66B8CE" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">soup_adapter.py · training.py · Python 3.11-3.13</text>
+    <text x="16" y="151" fill="#B4BCC8" font-family="Inter,sans-serif" font-size="11">Dry-run preflight, live progress, cancel/resume, VRAM guard</text>
+
+    <rect y="186" width="420" height="68" rx="8" fill="#1D2129" stroke="#3C4352"/>
+    <text x="16" y="210" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">Evaluation, Merge, Deploy &amp; Rollback</text>
+    <text x="16" y="232" fill="#8E96A4" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">Baseline vs Candidate eval -&gt; Approve -&gt; Deploy / Rollback</text>
+  </g>
+
+  <line x1="880" y1="330" x2="916" y2="330" stroke="#8E96A4" stroke-width="1.8" stroke-dasharray="5,4" marker-end="url(#arr-muted)"/>
+  <line x1="916" y1="505" x2="880" y2="505" stroke="#8E96A4" stroke-width="1.8" stroke-dasharray="5,4" marker-end="url(#arr-muted)"/>
+
+  <line x1="340" y1="566" x2="340" y2="606" stroke="#39B8A8" stroke-width="2" marker-end="url(#arr-teal)"/>
+  <line x1="780" y1="566" x2="780" y2="606" stroke="#F0B347" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#arr-amber)"/>
+
+  <rect x="40" y="610" width="640" height="190" rx="12" fill="#1A1D24" stroke="#265E5B" stroke-width="1.5"/>
+  <text x="60" y="636" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="600" letter-spacing="0.8">4 // LAN COMPUTE POOL (SUBNET / WIRED GIGABIT)</text>
+
+  <g transform="translate(60,652)">
+    <rect width="600" height="58" rx="8" fill="#1D2129" stroke="#265E5B"/>
+    <text x="16" y="23" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">lan.py — UDP Beacon Discovery (:8001), Pairing &amp; Worker Quotas</text>
+    <text x="16" y="43" fill="#B4BCC8" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">XXXX-XXXX code or --open mode · 1s heartbeats · VRAM/CPU consent caps</text>
+
+    <rect y="70" width="292" height="56" rx="8" fill="#101318" stroke="#2E3440"/>
+    <text x="14" y="93" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="12" font-weight="600">Worker A: ggml-rpc-server</text>
+    <text x="14" y="112" fill="#8E96A4" font-family="Inter,sans-serif" font-size="11.5">Contributes spare GPU VRAM via TCP RPC</text>
+
+    <rect x="308" y="70" width="292" height="56" rx="8" fill="#101318" stroke="#2E3440"/>
+    <text x="322" y="93" fill="#5EEAD4" font-family="JetBrains Mono,Consolas,monospace" font-size="12" font-weight="600">Worker N: ggml-rpc-server</text>
+    <text x="322" y="112" fill="#8E96A4" font-family="Inter,sans-serif" font-size="11.5">Mixed VRAM + Host RAM layer splitting</text>
+  </g>
+
+  <rect x="700" y="610" width="660" height="190" rx="12" fill="#1A1D24" stroke="#5B4520" stroke-width="1.5" stroke-dasharray="7,5"/>
+  <text x="720" y="636" fill="#F0B347" font-family="JetBrains Mono,Consolas,monospace" font-size="11" font-weight="600" letter-spacing="0.8">5 // SHARD NETWORK P2P &amp; BLIND RELAY (EXPERIMENTAL)</text>
+
+  <g transform="translate(720,652)">
+    <rect width="620" height="58" rx="8" fill="#2A2215" stroke="#5B4520"/>
+    <text x="16" y="23" fill="#EAECEF" font-family="Inter,sans-serif" font-size="13.5" font-weight="700">net_identity.py · net_tunnel.py · net_strategy.py</text>
+    <text x="16" y="43" fill="#F0B347" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5">Ed25519 Node ID (shn_*) · X25519 + ChaCha20-Poly1305 AEAD · Anti-replay</text>
+
+    <rect y="70" width="302" height="56" rx="8" fill="#1D2129" stroke="#3C4352"/>
+    <text x="14" y="93" fill="#EAECEF" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5" font-weight="600">net_discovery.py &amp; STUN UDP</text>
+    <text x="14" y="112" fill="#8E96A4" font-family="Inter,sans-serif" font-size="11">Self-host discovery-serve &amp; relay-serve</text>
+
+    <rect x="318" y="70" width="302" height="56" rx="8" fill="#1D2129" stroke="#3C4352"/>
+    <text x="332" y="93" fill="#EAECEF" font-family="JetBrains Mono,Consolas,monospace" font-size="11.5" font-weight="600">net_platform_* &amp; WireGuard</text>
+    <text x="332" y="112" fill="#8E96A4" font-family="Inter,sans-serif" font-size="11">Firewall checks, wg plans, RPC on LAN</text>
+  </g>
+</svg>
