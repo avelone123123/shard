@@ -384,13 +384,9 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
             pdata, p_err = _safe_resp_json(rp)
             if p_err:
                 last_err = last_err or f"PyPI {p_err}"
-                    "source": "pypi",
-                    "latest_version": ver,
-                    "tag_name": f"v{ver}",
-                    "release_url": f"https://pypi.org/project/{__app_name__}/{ver}/",
-                    "release_notes": "",
-                    "published_at": whl.get("upload_time_iso_8601"),
-                    "asset_url": whl.get("url"),
+            elif isinstance(pdata, dict):
+                info_obj = pdata.get("info") if isinstance(pdata.get("info"), dict) else {}
+                ver = _strip_v_prefix(str(info_obj.get("version") or "").strip())
                     "asset_name": whl.get("filename"),
                     "asset_size": whl.get("size"),
                     "asset_sha256": (whl.get("digests") or {}).get("sha256"),
