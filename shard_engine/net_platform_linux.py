@@ -336,7 +336,7 @@ def _run_ip_json():
     addr_out = None
     link_out = None
     try:
-        r_addr = subprocess.run([ip_bin, "-j", "addr", "show"], stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=2.5)
+        r_addr = proc_io.run_subprocess_safe([ip_bin, "-j", "addr", "show"], stdin=subprocess.DEVNULL, timeout=2.5)
         if r_addr.returncode == 0:
             addr_out = r_addr.stdout
     except Exception:
