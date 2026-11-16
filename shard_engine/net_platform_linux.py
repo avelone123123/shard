@@ -6,6 +6,7 @@ import socket
 import struct
 import subprocess
 import sys
+from . import proc_io
 _VIRTUAL_PREFIXES = (
     "veth",
     "br-",
