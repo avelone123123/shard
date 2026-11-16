@@ -62,6 +62,11 @@ _UPDATE_JOB_STATE = {
     "started_at": None,
     "finished_at": None,
 }
+def _strip_v_prefix(ver):
+    s = str(ver or "").strip()
+    if s[:1] in ("v", "V"):
+        return s[1:]
+    return s
 def is_valid_version_str(ver):
     if not ver:
         return False
