@@ -434,7 +434,8 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
     cached = _read_cache()
     if not force and cached and cached.get("current_version") == cur_ver:
         age = time.time() - float(cached.get("checked_at") or 0)
-        if age < CACHE_TTL_SECONDS and cached.get("state") in ("UP_TO_DATE", "UPDATE_AVAILABLE"):
+        lat_c = cached.get("latest_version")
+        if age < CACHE_TTL_SECONDS and cached.get("state") in ("UP_TO_DATE", "UPDATE_AVAILABLE") and is_valid_release_version(lat_c):
             out = dict(cached)
             out["cached"] = True
             out["install_method"] = inst
