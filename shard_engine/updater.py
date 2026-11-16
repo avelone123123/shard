@@ -339,13 +339,14 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
             if rt.status_code == 200:
                 best_ver = None
                 best_tag = None
-                rt_list = rt.json()
-                for item in (rt_list if isinstance(rt_list, list) else []):
-                    if not isinstance(item, dict):
-                        continue
-                    t = str(item.get("name") or "").strip()
-                    v = t.lstrip("vV")
-                    if not is_valid_version_str(v):
+                rt_list, rt_err = _safe_resp_json(rt)
+                if rt_err:
+                    last_err = last_err or f"GitHub Tags {rt_err}"
+                elif isinstance(rt_list, list):
+                    for item in rt_list:
+                        if not isinstance(item, dict):
+                            continue
+                        t = str(item.get("name") or "").strip()
                         continue
                     if not allow_prerelease and is_prerelease_version(v):
                         continue
