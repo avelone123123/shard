@@ -580,11 +580,9 @@ def _run_install_worker(action, custom_python=None, include_train=True):
             on_stdout=_parse_and_update_pip_progress,
             merge_stderr=True,
             on_proc=_set_proc,
-                break
-            if ch in ("\r", "\n"):
-                if buf:
-                    _parse_and_update_pip_progress("".join(buf))
-                    buf = []
+            env=pip_env,
+            creationflags=_WIN_NO_WINDOW,
+            cancel_check=lambda: _SOUP_CANCEL_REQUESTED,
             else:
                 buf.append(ch)
                 if len(buf) > 512:
