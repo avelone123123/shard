@@ -278,3 +278,9 @@ class TestUpdateCheckerHardening(unittest.TestCase):
                         apply_mock.assert_not_called()
                 self.assertIsNone(chk["latest_version"], f"{label} should return None latest_version")
                 self.assertFalse(chk["update_available"], f"{label} must not claim update")
+                self.assertIn("Latest version: unknown", banner)
+                self.assertNotIn("Update available", banner)
+                self.assertIn("unknown", buf.getvalue())
+                self.assertNotIn("Update available", buf.getvalue())
+if __name__ == "__main__":
+    unittest.main()
