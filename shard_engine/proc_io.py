@@ -244,3 +244,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
             cancelled = True
             if on_cancel:
                 try:
+                    on_cancel(proc)
+                except Exception:
+                    terminate_process_tree(proc)
+            else:
+                terminate_process_tree(proc)
+            break
