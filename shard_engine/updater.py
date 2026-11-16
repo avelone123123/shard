@@ -355,13 +355,14 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                         if best_ver is None or parse_version_tuple(v) > parse_version_tuple(best_ver):
                             best_ver = v
                             best_tag = t
-                    return {
-                        "ok": True,
-                        "source": "github_tags",
-                        "latest_version": best_ver,
-                        "tag_name": best_tag,
-                        "release_url": f"https://github.com/{GITHUB_REPO}/releases/tag/{best_tag}",
-                        "release_notes": "",
+                    if best_ver:
+                        return {
+                            "ok": True,
+                            "source": "github_tags",
+                            "latest_version": best_ver,
+                            "tag_name": best_tag,
+                            "release_url": f"https://github.com/{GITHUB_REPO}/releases/tag/{best_tag}",
+                            "release_notes": "",
                         "published_at": None,
                         "asset_url": f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{best_tag}.zip",
                         "asset_name": f"{best_tag}.zip",
