@@ -83,8 +83,8 @@ class TestPhaseIProductHardening(unittest.TestCase):
             "tag_name": "v2.0.0",
             "source": "github_release",
             "release_notes": "Bug fixes",
-            "asset_url": "https://api.github.com/repos/avelone123123/shard/zipball/v9.9.9",
-            "asset_name": "shard-9.9.9.zip",
+            "asset_url": "https://api.github.com/repos/avelone123123/shard/zipball/v2.0.0",
+            "asset_name": "shard-2.0.0.zip",
             "asset_sha256": upd_sha,
             "error": None,
         }
