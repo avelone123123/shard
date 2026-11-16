@@ -1048,6 +1048,7 @@ def launch_train_popen(soup_info, config_path, log_path, resume=None, run_name=N
         env.update({str(k): str(v) for k, v in env_extra.items()})
     proc = subprocess.Popen(
         cmd_base + args,
+        stdin=subprocess.DEVNULL,
         stdout=log_fh,
         stderr=subprocess.STDOUT,
         text=True,
