@@ -238,3 +238,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
         threads.append(t_err)
     cancelled = False
     timed_out = False
+    deadline = (time.monotonic() + float(timeout)) if timeout is not None else None
+    while proc.poll() is None:
+        if cancel_check and cancel_check():
+            cancelled = True
+            if on_cancel:
+                try:
