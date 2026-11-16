@@ -173,3 +173,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self._env = mock.patch.dict(os.environ, {"SHARD_DATA_DIR": self._tmp.name}, clear=False)
         self._env.start()
+    def tearDown(self):
+        self._env.stop()
+        self._tmp.cleanup()
+    def test_semver_and_placeholder_validation(self):
+        for good in ("1.8.1", "v1.8.1", "V2.0.0", "1.9.0-rc1", "1.9.0-rc.1+build42", "0.77.2"):
+            self.assertTrue(updater.is_valid_version_str(good), f"Expected valid: {good}")
+        for good_rel in ("1.8.1", "v1.8.2", "2.0.0", "0.77.2"):
