@@ -89,6 +89,13 @@ def is_placeholder_version(ver):
     if any(tok in s for tok in ("placeholder", "dummy", "fake", "mock", "example")):
         return True
     parts = core.split(".")
+    if len(parts) == 3 and all(p.isdigit() for p in parts):
+        maj, mn, pat = int(parts[0]), int(parts[1]), int(parts[2])
+        if maj >= 99 or (maj >= 9 and maj == mn == pat):
+            return True
+    return False
+def is_valid_release_version(ver):
+    return is_valid_version_str(ver) and not is_placeholder_version(ver)
 def is_prerelease_version(ver):
     s = str(ver or "").strip().lower().lstrip("v")
     if not s:
