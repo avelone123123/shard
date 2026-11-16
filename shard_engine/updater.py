@@ -347,13 +347,14 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                         if not isinstance(item, dict):
                             continue
                         t = str(item.get("name") or "").strip()
-                        continue
-                    if not allow_prerelease and is_prerelease_version(v):
-                        continue
-                    if best_ver is None or parse_version_tuple(v) > parse_version_tuple(best_ver):
-                        best_ver = v
-                        best_tag = t
-                if best_ver:
+                        v = _strip_v_prefix(t)
+                        if not is_valid_release_version(v):
+                            continue
+                        if not allow_prerelease and is_prerelease_version(v):
+                            continue
+                        if best_ver is None or parse_version_tuple(v) > parse_version_tuple(best_ver):
+                            best_ver = v
+                            best_tag = t
                     return {
                         "ok": True,
                         "source": "github_tags",
