@@ -3,7 +3,7 @@ import re
 import shutil
 import subprocess
 import time
-from . import paths
+from . import paths, proc_io
 _gpu_cache = {"ts": 0.0, "gpu_name": "CPU Only", "vram_total_mb": 0, "vram_used_mb": 0, "probed": False}
 def _existing_ancestor(path):
     cur = path
