@@ -222,3 +222,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
             "update_available": True,
             "checked_at": time.time(),
         })
+        self.assertIsNone(updater._read_cache())
+        class _Resp:
+            def __init__(self, code, data):
+                self.status_code = code
+                self._data = data
+                self.text = json.dumps(data)
+            def json(self):
