@@ -131,3 +131,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
             "    sys.stdout.buffer.write(msg)\n"
             "    sys.stdout.buffer.flush()\n"
             "    time.sleep(0.05)\n"
+        )
+        seen = []
+        cancel_flag = {"stop": False}
+        def _on_line(line):
+            seen.append(line)
+            if len(seen) >= 3:
+                cancel_flag["stop"] = True
