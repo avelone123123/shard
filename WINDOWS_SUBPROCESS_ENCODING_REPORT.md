@@ -89,3 +89,4 @@ Note: CI caught a locale assumption in the first commit (`d9b923b`) of `tests_wi
 - `native/build_native.py` was left outside runtime `shard_engine/` scope (developer build helper only).
 - External third-party tools that emit bytes in a non-UTF-8 encoding distinct from both Windows ANSI (`cp1251`/`cp1252`) and OEM (`cp866`/`cp437`) will substitute unmappable bytes with `\ufffd` rather than crashing `_readerthread`.
 - On hosts with a real `D:\shard-models\hub\models--Qwen--Qwen2.5-Coder-1.5B-Instruct` snapshot directory, `tests_phase_i_product_hardening.py:test_06` picks up the real local snapshot path instead of the synthetic Repo ID string unless `D:\shard-models` is absent or mocked.
+
