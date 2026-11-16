@@ -781,6 +781,8 @@ def apply_update(target_version=None, force=False, allow_prerelease=False, pip_r
                 raise RuntimeError(f"Insufficient disk space for safe update ({round(usage.free / (1024 * 1024), 1)} MB free, need at least 150 MB).")
             if target_version:
                 target_version = validate_git_ref(target_version).lstrip("vV")
+                if not is_valid_release_version(target_version):
+                    raise ValueError("Target release version is invalid or a placeholder.")
                 if not allow_prerelease and is_prerelease_version(target_version):
                     raise ValueError("Prerelease builds are not installed unless explicitly allowed.")
             chk = check_for_updates(force=True, timeout=4.0, allow_network=True, allow_prerelease=allow_prerelease)
