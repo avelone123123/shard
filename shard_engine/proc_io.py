@@ -214,3 +214,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
                             del buf[:idx_r + 1]
                             skip_lf = True
                         _emit(line, parts, cb)
+                    else:
+                        line = bytes(buf[:idx_n])
+                        del buf[:idx_n + 1]
+                        _emit(line, parts, cb)
+                while len(buf) > line_limit:
+                    cut = _utf8_safe_split_index(buf, line_limit)
