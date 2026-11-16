@@ -14,6 +14,7 @@ import threading
 import time
 from . import hardware as _hardware
 from . import paths as _paths
+from . import proc_io as _proc_io
 from . import storage as _storage
 from .fit import RAM_RESERVE_MB, VRAM_RESERVE_MB
 _CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
