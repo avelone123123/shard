@@ -1005,7 +1005,7 @@ def _run_soup_cmd(soup_info, args, timeout=120, env_extra=None):
         return {
             "ok": False,
             "returncode": -2,
-            "stdout": (e.stdout or "") if isinstance(e.stdout, str) else "",
+            "stdout": proc_io.safe_decode_subprocess_output(getattr(e, "stdout", None)),
             "stderr": f"Command timed out after {timeout}s",
         }
     except Exception as e:
