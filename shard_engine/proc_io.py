@@ -208,3 +208,9 @@ def stream_subprocess_safe(cmd, *, on_stdout=None, on_stderr=None, merge_stderr=
                     if idx_r != -1 and (idx_n == -1 or idx_r < idx_n):
                         line = bytes(buf[:idx_r])
                         if idx_r + 1 < len(buf):
+                            step = 2 if buf[idx_r + 1] == 10 else 1
+                            del buf[:idx_r + step]
+                        else:
+                            del buf[:idx_r + 1]
+                            skip_lf = True
+                        _emit(line, parts, cb)
