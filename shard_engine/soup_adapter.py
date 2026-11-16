@@ -578,12 +578,8 @@ def _run_install_worker(action, custom_python=None, include_train=True):
         stream_res = proc_io.stream_subprocess_safe(
             pip_cmd,
             on_stdout=_parse_and_update_pip_progress,
-                    pass
-                break
-            ch = proc.stdout.read(1)
-            if not ch:
-                if buf:
-                    _parse_and_update_pip_progress("".join(buf))
+            merge_stderr=True,
+            on_proc=_set_proc,
                 break
             if ch in ("\r", "\n"):
                 if buf:
