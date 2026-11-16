@@ -363,13 +363,14 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                             "tag_name": best_tag,
                             "release_url": f"https://github.com/{GITHUB_REPO}/releases/tag/{best_tag}",
                             "release_notes": "",
-                        "published_at": None,
-                        "asset_url": f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{best_tag}.zip",
-                        "asset_name": f"{best_tag}.zip",
-                        "asset_size": None,
-                        "asset_sha256": None,
-                        "prerelease": False,
-                    }
+                            "published_at": None,
+                            "asset_url": f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{best_tag}.zip",
+                            "asset_name": f"{best_tag}.zip",
+                            "asset_size": None,
+                            "asset_sha256": None,
+                            "prerelease": False,
+                        }
+                    last_err = last_err or "No valid release tags found on GitHub"
             elif rt.status_code in (403, 429):
                 rate_limited = True
                 last_err = f"GitHub Tags rate limit (HTTP {rt.status_code})"
