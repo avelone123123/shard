@@ -46,7 +46,7 @@ def is_shard_tunnel_name(name):
     return low.startswith("shard") or low.startswith("wg-shard") or low.startswith("wireguardtunnel$shard")
 def _run_readonly_cmd(args, timeout=3.0):
     try:
-        proc = subprocess.run(
+        proc = proc_io.run_subprocess_safe(
             args,
             capture_output=True,
             timeout=timeout,
