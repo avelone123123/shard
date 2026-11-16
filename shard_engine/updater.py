@@ -441,7 +441,9 @@ def check_for_updates(force=False, timeout=2.5, allow_network=True, allow_prerel
             out["install_method"] = inst
             return out
     if not allow_network:
-        last_lat = cached.get("latest_version") if isinstance(cached, dict) else None
+        lat_c = cached.get("latest_version") if isinstance(cached, dict) else None
+        age_ok = bool(cached and (time.time() - float(cached.get("checked_at") or 0)) < CACHE_TTL_SECONDS)
+        verified_lat = lat_c if (age_ok and is_valid_release_version(lat_c)) else None
         return {
             "state": "GITHUB_UNAVAILABLE",
             "current_version": cur_ver,
