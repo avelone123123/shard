@@ -145,3 +145,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
             merge_stderr=True,
             cancel_check=lambda: cancel_flag["stop"],
             timeout=15,
+        )
+        elapsed = time.monotonic() - t0
+        self.assertTrue(sres["cancelled"])
+        self.assertGreaterEqual(len(seen), 3)
+        self.assertLess(elapsed, 8.0)
+        self.assertIn("Обучение ┌──┘ “OK”", "\n".join(seen))
+    def test_soup_run_cmd_no_readerthread_crash_on_0x98_box_drawing(self):
