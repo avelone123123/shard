@@ -82,3 +82,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
             "sys.stdout.buffer.write('Русский текст stdout 🚀 “умные кавычки”\\n'.encode('utf-8'));"
             "sys.stdout.buffer.write((b'B' * 1235) + b'\\xe2\\x94\\x98\\n');"
             "sys.stderr.buffer.write('Ошибка stderr ┘ '.encode('utf-8') + b'\\x98\\n');"
+            "sys.stdout.buffer.flush();sys.stderr.buffer.flush();"
+            "sys.exit(7)"
+        )
+        res = proc_io.run_subprocess_safe([sys.executable, "-c", child_code], timeout=10)
+        self.assertEqual(res.returncode, 7)
+        self.assertIn("ASCII line", res.stdout)
+        self.assertIn("Русский текст stdout 🚀 “умные кавычки”", res.stdout)
