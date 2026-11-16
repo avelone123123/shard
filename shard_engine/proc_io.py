@@ -82,3 +82,9 @@ def run_subprocess_safe(cmd, *, timeout=None, cwd=None, env=None, stdin=subproce
     if cwd is not None:
         kw["cwd"] = cwd
     if env is not None:
+        kw["env"] = env
+    if creationflags is not None:
+        kw["creationflags"] = creationflags
+    try:
+        res = subprocess.run(cmd, **kw)
+    except subprocess.TimeoutExpired as exc:
