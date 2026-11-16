@@ -531,7 +531,7 @@ def startup_check_banner():
             return f"SHARD {cur} (up to date)"
         return f"SHARD {cur} | Latest version: unknown (update check unavailable)"
     except Exception:
-        return None
+        return f"SHARD {__version__} | Latest version: unknown (update check unavailable)"
 def verify_archive_artifact(archive_path, expected_sha256=None, expect_wheel=False):
     ap = Path(archive_path)
     if not ap.is_file() or ap.stat().st_size == 0:
