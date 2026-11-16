@@ -13,6 +13,7 @@ import time
 import zipfile
 from pathlib import Path
 from . import paths
+from . import proc_io
 from . import settings
 _CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 _RUNTIME_DIR = paths.runtime_dir()
