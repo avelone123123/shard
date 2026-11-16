@@ -736,10 +736,6 @@ def _query_service_state(service_name: str) -> dict:
     try:
         res = proc_io.run_subprocess_safe(
             [sc_exe, "query", service_name],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=4.0,
             creationflags=_CREATE_NO_WINDOW,
         )
