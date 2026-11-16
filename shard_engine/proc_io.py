@@ -16,3 +16,9 @@ def _win_ansi_encoding():
     if low and low not in ("utf-8", "utf8", "utf_8", "ascii"):
         return enc
     if os.name == "nt":
+        try:
+            acp = ctypes.windll.kernel32.GetACP()
+            if acp and int(acp) != 65001:
+                return f"cp{int(acp)}"
+        except Exception:
+            pass
