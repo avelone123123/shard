@@ -757,10 +757,6 @@ def _is_process_running_win(image_name: str) -> bool:
     try:
         res = proc_io.run_subprocess_safe(
             [tasklist_exe, "/FI", f"IMAGENAME eq {image_name}", "/FO", "CSV", "/NH"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=4.0,
             creationflags=_CREATE_NO_WINDOW,
         )
