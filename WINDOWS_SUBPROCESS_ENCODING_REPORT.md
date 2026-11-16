@@ -61,3 +61,10 @@ All local checks below ran **after the final code edits**:
    - All 13 modified/created Python files (`proc_io.py`, `soup_adapter.py`, `updater.py`, `cli.py`, `hardware.py`, `lan.py`, `gguf_backend.py`, `net_platform_win.py`, `net_platform_linux.py`, `net_wireguard.py`, `tests_cli_pkg.py`, `tests_phase_i_product_hardening.py`, `tests_windows_subprocess_and_updater.py`) parsed with `ast=OK`, `comments=0`, and `empty=[]`.
    - Zero `text=True` or `universal_newlines=True` subprocess calls remain in `shard_engine/`.
 2. **Real Live Windows Execution (`shard start` + API + SOUP dry-run + streaming)**:
+   - `shard start --host 127.0.0.1 --port 18888 --no-browser` startup banner printed `SHARD 1.8.1 (up to date)` and started cleanly (`Has UnicodeDecodeError: False`, `Has _readerthread: False`, `Has 9.9.9: False`).
+   - HTTP `200` on `/api/system/hardware`, `/api/system/update` (`UP_TO_DATE 1.8.1 github_release`), `/api/lan/status`, `/api/lan/diagnose`, `/api/net/status`, `/api/training/soup`, `/api/training/datasets`.
+   - Real `soup_adapter.dry_run_train()` on local `job-20261116-005732-eb82d3\soup.yaml`: `ok=True`, `returncode=0`, `stdout len=1027`, contains Unicode box corner `┘`, zero exceptions.
+   - Real `proc_io.stream_subprocess_safe()` streaming mixed ASCII, UTF-8 Cyrillic/box-drawing/emoji, CP1251 Cyrillic, and raw `0x98`: `returncode=0`, `cancelled=False`, `lines=4`, decoded as `['line1 ascii', 'Привет └─┘ 🚀', 'Ошибка', 'bad:\ufffdend']`.
+   - Live `shard update --check`: `Installed version: shard-engine 1.8.1`, `Update status: UP_TO_DATE`, `Latest version: 1.8.1 (source: github_release)`.
+3. **Automated Test Suites**:
+   - `python -m unittest tests_windows_subprocess_and_updater.py -v`: **Ran 10 tests in 0.956s — OK**.
