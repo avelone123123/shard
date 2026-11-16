@@ -159,3 +159,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
             "sys.stdout.write('┌' + ('─' * 20) + '┘ Привет “SOUP” 🚀\\n');"
             "sys.stdout.flush();"
         )
+        soup_info = {"command": [sys.executable, "-c", child_code]}
+        err_capture = io.StringIO()
+        with redirect_stderr(err_capture):
+            res = soup_adapter._run_soup_cmd(soup_info, [], timeout=10)
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["returncode"], 0)
+        self.assertIn("┘", res["stdout"])
