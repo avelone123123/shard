@@ -58,3 +58,9 @@ def _decode_segment(raw, prefer_utf8=True, try_oem=False):
             try:
                 return raw.decode(enc, errors="strict")
             except UnicodeDecodeError:
+                pass
+            except LookupError:
+                pass
+    return raw.decode("utf-8", errors="replace")
+def safe_decode_subprocess_output(data, prefer_utf8=True, try_oem=False):
+    if data is None:
