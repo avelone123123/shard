@@ -293,12 +293,14 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                         if aname.lower() in ("sha256sums", "sha256sums.txt", f"{aname}.sha256") or aname.lower().endswith(".sha256"):
                             checksum_asset = a
                     asset_url = None
-                    elif checksum_asset and checksum_asset.get("browser_download_url"):
-                        try:
-                            cr = _http_get(checksum_asset["browser_download_url"], timeout=timeout)
-                            if cr.status_code == 200:
-                                asset_sha256 = _parse_sha256_text(cr.text, whl_asset.get("name", ""))
-                        except Exception:
+                    asset_size = None
+                    asset_sha256 = None
+                    if whl_asset:
+                        asset_url = whl_asset.get("browser_download_url")
+                        asset_size = whl_asset.get("size")
+                        dig = str(whl_asset.get("digest") or "")
+                        if dig.startswith("sha256:"):
+                            asset_sha256 = dig.split(":", 1)[1].strip().lower()
                             pass
                 if not asset_url:
                     asset_url = data.get("zipball_url") or f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{tag}.zip"
