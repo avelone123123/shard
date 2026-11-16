@@ -271,3 +271,10 @@ class TestUpdateCheckerHardening(unittest.TestCase):
                 with mock.patch("shard_engine.updater._http_get", side_effect=side_eff):
                     with mock.patch.object(updater, "apply_update") as apply_mock:
                         chk = updater.check_for_updates(force=True, allow_network=True)
+                        banner = updater.startup_check_banner()
+                        buf = io.StringIO()
+                        with redirect_stdout(buf):
+                            cli.main(["update", "--check"])
+                        apply_mock.assert_not_called()
+                self.assertIsNone(chk["latest_version"], f"{label} should return None latest_version")
+                self.assertFalse(chk["update_available"], f"{label} must not claim update")
