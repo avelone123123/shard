@@ -309,11 +309,13 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                             except Exception:
                                 pass
                     if not asset_url:
-                    "latest_version": ver,
-                    "tag_name": tag,
-                    "release_url": data.get("html_url") or f"https://github.com/{GITHUB_REPO}/releases/tag/{tag}",
-                    "release_notes": (data.get("body") or "").strip(),
-                    "published_at": data.get("published_at"),
+                        asset_url = data.get("zipball_url") or f"https://github.com/{GITHUB_REPO}/archive/refs/tags/{tag}.zip"
+                    return {
+                        "ok": True,
+                        "source": "github_release",
+                        "latest_version": ver,
+                        "tag_name": tag,
+                        "release_url": data.get("html_url") or f"https://github.com/{GITHUB_REPO}/releases/tag/{tag}",
                     "asset_url": asset_url,
                     "asset_name": whl_asset.get("name") if whl_asset else f"shard-{ver}.zip",
                     "asset_size": asset_size,
