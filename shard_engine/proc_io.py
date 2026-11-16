@@ -52,3 +52,9 @@ def _decode_segment(raw, prefer_utf8=True, try_oem=False):
             if ansi and ansi not in cands:
                 cands.append(ansi)
         elif prefer_utf8:
+            if ansi:
+                cands.append(ansi)
+        for enc in cands:
+            try:
+                return raw.decode(enc, errors="strict")
+            except UnicodeDecodeError:
