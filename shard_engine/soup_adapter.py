@@ -459,7 +459,7 @@ def verify_soup_environment(py_exe, soup_cmd=None, check_train_deps=True):
     ver = None
     if cmd:
         try:
-            vr = subprocess.run(cmd + ["--version"], capture_output=True, text=True, timeout=12, creationflags=_WIN_NO_WINDOW)
+            vr = proc_io.run_subprocess_safe(cmd + ["--version"], timeout=12, creationflags=_WIN_NO_WINDOW)
             txt = (vr.stdout or vr.stderr or "").strip()
             m = re.search(r"(\d+\.\d+\.\d+(?:[a-zA-Z0-9._-]*)?)", txt)
             if vr.returncode == 0 and m:
