@@ -299,7 +299,7 @@ def find_compatible_python(custom_python=None):
         if py_launcher:
             for tag in ("-3.12", "-3.13", "-3.11"):
                 try:
-                    r = subprocess.run(
+                    r = proc_io.run_subprocess_safe(
                         [py_launcher, tag, "-c", "import sys; print(sys.executable)"],
                         capture_output=True,
                         text=True,
