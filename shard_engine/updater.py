@@ -278,12 +278,14 @@ def fetch_latest_remote_info(timeout=3.0, allow_prerelease=False):
                         last_err = f"GitHub release tag rejected as invalid or placeholder: {tag!r}"
                     else:
                         last_err = "GitHub release response missing tag_name"
-                    if aname.lower() in ("sha256sums", "sha256sums.txt", f"{aname}.sha256") or aname.lower().endswith(".sha256"):
-                        checksum_asset = a
-                asset_url = None
-                asset_size = None
-                asset_sha256 = None
-                if whl_asset:
+                elif allow_prerelease or (not data.get("prerelease") and not is_prerelease_version(ver)):
+                    assets = data.get("assets") or []
+                    if not isinstance(assets, list):
+                        assets = []
+                    whl_asset = None
+                    checksum_asset = None
+                    for a in assets:
+                        if not isinstance(a, dict):
                     asset_url = whl_asset.get("browser_download_url")
                     asset_size = whl_asset.get("size")
                     dig = str(whl_asset.get("digest") or "")
