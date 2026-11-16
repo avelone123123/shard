@@ -152,3 +152,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
         self.assertLess(elapsed, 8.0)
         self.assertIn("Обучение ┌──┘ “OK”", "\n".join(seen))
     def test_soup_run_cmd_no_readerthread_crash_on_0x98_box_drawing(self):
+        child_code = (
+            "import sys;"
+            "box = ('+' + ('-' * 40) + '\\n') * 28;"
+            "sys.stdout.write(box[:1200] + '\\n');"
+            "sys.stdout.write('┌' + ('─' * 20) + '┘ Привет “SOUP” 🚀\\n');"
+            "sys.stdout.flush();"
+        )
