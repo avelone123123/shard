@@ -80,10 +80,6 @@ def _run_powershell(script: str, timeout: float = 12.0) -> tuple[bool, str, str]
     try:
         res = proc_io.run_subprocess_safe(
             [exe, "-NoProfile", "-NonInteractive", "-Command", wrapped],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
             timeout=timeout,
             creationflags=_CREATE_NO_WINDOW,
         )
