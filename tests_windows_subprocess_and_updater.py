@@ -117,3 +117,10 @@ class TestWindowsSubprocessEncodingAndStreaming(unittest.TestCase):
             [sys.executable, "-c", child_code],
             on_stdout=out_cb.append,
             on_stderr=err_cb.append,
+            timeout=15,
+        )
+        self.assertEqual(sres["returncode"], 0)
+        self.assertFalse(sres["cancelled"])
+        self.assertEqual(len(out_cb), 600)
+        self.assertEqual(len(err_cb), 600)
+    def test_streaming_cancellation_while_emitting_unicode_and_0x98(self):
