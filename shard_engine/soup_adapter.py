@@ -420,10 +420,6 @@ def cancel_soup_install():
     _SOUP_CANCEL_REQUESTED = True
     proc = _CURRENT_SOUP_PROC
     if proc is not None and proc.poll() is None:
-        try:
-            if os.name == "nt":
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, creationflags=_WIN_NO_WINDOW)
-            else:
                 proc.terminate()
         except Exception:
             pass
