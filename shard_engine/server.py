@@ -1467,6 +1467,24 @@ async def api_cluster_deploy(req: Request):
     denied = _deny_non_owner(req)
     if denied:
         return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        st = await asyncio.to_thread(CLUSTER.deploy_cluster, verify=bool(data.get("verify", True)))
+        return {"status": "ok", "cluster": st}
+    except Exception as e:
+        return JSONResponse(status_code=409, content={"status": "error", "message": str(e)})
+@app.post("/api/cluster/rebalance")
+async def api_cluster_rebalance(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    plan = CLUSTER.recompute_plan()
+    if not plan.get("feasible"):
+        return JSONResponse(status_code=409, content={"status": "error", "message": plan.get("reason"), "plan": plan})
+    try:
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
