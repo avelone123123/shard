@@ -877,6 +877,8 @@ def windows_diagnostics(port: int = 8000, extra_ports: tuple[int, ...] = (8001,)
         plans[str(p)] = firewall_rule_plan(p, protocol=proto, profiles="Private,Public", program_path=program_exe)
     docker = docker_status()
     wg = wireguard_status(adapters=adapters)
+    from . import radmin_mgr
+    radmin = radmin_mgr.get_radmin_status()
     active_profiles = sorted({
         str(a.get("network_category"))
         for a in adapters
