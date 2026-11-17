@@ -491,7 +491,7 @@ class DiscoveryStore:
                     continue
                 if online_only and str((rec.get("listing") or {}).get("status") or "online").strip().lower() == "offline":
                     continue
-                if _listing_matches(rec, q=q, model=model, region=region, access=access):
+                if _listing_matches(rec, q=q, model=model, region=region, access=access, min_vram=min_vram, status=status, accepts_workers=accepts_workers):
                     matched.append(self._public_view(rec, now))
             matched.sort(key=lambda r: _sort_key_for_server(r, sort))
             return matched[:lim]
