@@ -82,3 +82,15 @@ The integrated network diagnostic engine performs end-to-end verification across
        |
        +---> Is Target Local? ---------> [ Yes ] ---> Bind Loopback (same_machine)
        |
+       +---> Is Target on LAN? --------> [ Yes ] ---> Direct Socket (direct_lan)
+       |
+       +---> Is Target on Mesh/Radmin? -> [ Yes ] ---> Direct Virtual IP (mesh_vpn)
+       |
+       +---> Is STUN Hole-Punchable? --> [ Yes ] ---> Direct UDP/TCP (direct_p2p)
+       |
+       +---> Fallback -----------------> [ Always Available ] ---> Blind Relay (relay)
+```
+
+## Security & Privacy Architecture
+
+- **End-to-End Encryption (E2EE)**: Tensor buffers, pipeline activations, and token embeddings are encrypted before leaving worker memory.
