@@ -22,3 +22,15 @@ This report documents the verification of the SHARD Global Network, Server Catal
 | **Test C** | `test_c_one_click_worker_join_prejoin_and_consent` | Pre-join hardware audit (`/api/catalog/prejoin`), compatibility recommendations, explicit consent enforcement (HTTP 403) | **PASSED** | 0.69s |
 | **Test D** | `test_d_real_distributed_inference_pipeline_parallelism` | 2-stage distributed pipeline parallelism (coordinator + worker over socket), safetensors shard loading, streaming tensor forwarding | **PASSED** | 1.15s |
 | **Test E** | `test_e_multi_user_concurrent_streaming_and_scheduling` | Multi-user concurrent request scheduling (`RequestScheduler`), slot acquisition, streaming isolation | **PASSED** | 0.45s |
+| **Test F** | `test_f_worker_disconnect_detection_and_degradation` | Worker heartbeat timeout, automatic disconnect detection, cluster state degradation (`READY` -> `DEGRADED`) | **PASSED** | 0.88s |
+| **Test G** | `test_g_network_transport_and_relay_fallback` | Network manager diagnostics, STUN/LAN/WireGuard status probing, catalog management endpoints | **PASSED** | 3.65s |
+
+**Total Suite Result**: **7 Passed, 0 Failed, 0 Errors (100% Pass Rate)**
+
+## 4. Test Case Details
+
+### Test A: Automatic Network Registration
+- **Procedure**: Initialized two distinct cryptographic identities (Node Alpha and Node Beta). Registered both nodes with the discovery hub with cluster status and capacity descriptors.
+- **Verification**: Node Beta successfully queried the catalog and retrieved Node Alpha's public listing with verified Ed25519 signature.
+
+### Test B: Global Server Discovery & Catalog Filtering
