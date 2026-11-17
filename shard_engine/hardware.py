@@ -34,6 +34,24 @@ def _detect_cpu_model():
             with open("/proc/cpuinfo", "r", encoding="utf-8", errors="ignore") as f:
                 for line in f:
                     if line.lower().startswith("model name"):
+                        name = line.split(":", 1)[1].strip()
+                        break
+        except Exception:
+            pass
+    if not name:
+        name = str(platform.processor() or platform.machine() or "Unknown CPU").strip()
+    _cpu_model_cache = re.sub(r"\s+", " ", name)
+    return _cpu_model_cache
+def _probe_backends():
+    now = time.time()
+    if _backend_cache["data"] is not None and (now - _backend_cache["ts"]) < 30.0:
+        return dict(_backend_cache["data"])
+    has_torch = False
+    has_cuda = False
+    has_mps = False
+    has_transformers = False
+    has_safetensors = False
+    try:
 def get_hardware_profile(force_refresh=False):
     import psutil
     now = time.time()
