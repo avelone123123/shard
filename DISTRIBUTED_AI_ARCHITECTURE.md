@@ -158,3 +158,13 @@ Given model metadata (`config.json` or GGUF probe) and cluster node inventories:
   - Request timeout enforcement and immediate client-disconnect cancellation (`req.is_disconnected()`).
 - **Unified Endpoints**:
   - OpenAI compatible: `GET /v1/models`, `POST /v1/chat/completions` (streaming SSE & sync).
+  - Anthropic compatible: `POST /v1/messages` (streaming SSE & sync), `POST /v1/messages/count_tokens`.
+  - Cluster control plane: `/api/cluster/*` (create, preview, join, consent/limits, leave, kick, status, plan, rebalance, telemetry, probe).
+
+---
+
+## 8. Observability & Honest Metrics
+
+All metrics are measured directly from execution:
+- **TTFT (ms)**: Time from request dispatch to first generated token.
+- **Tokens/sec**: Measured post-prefill and end-to-end generation rate.
