@@ -52,6 +52,10 @@ _STUN_MAGIC = 0x2112A442
 _PUNCH_PREFIX = b"SHARD_PUNCH_v1:"
 _PUNCH_ACK_PREFIX = b"SHARD_PUNCH_ACK_v1:"
 def default_network_config():
+    disc_env = [u.strip() for u in os.environ.get("SHARD_DISCOVERY_URL", "").split(",") if u.strip()]
+    relay_env = [u.strip() for u in os.environ.get("SHARD_RELAY_URL", "").split(",") if u.strip()]
+    disc_list = disc_env if disc_env else list(DEFAULT_PUBLIC_DISCOVERY_URLS)
+    relay_list = relay_env if relay_env else list(DEFAULT_PUBLIC_RELAY_URLS)
     return {
         "version": 1,
         "discovery_urls": [],
