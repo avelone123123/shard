@@ -4646,6 +4646,7 @@ async function srvDeleteCurrentChat() {
             showToast('Диалог удалён', srvCurrentChatId);
             srvCurrentChatId = '';
             await srvLoadPrivateChats();
+        await clsRefresh();
         }
     } catch(e) {
         showToast('Ошибка', e.message);
