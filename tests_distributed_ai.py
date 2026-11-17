@@ -376,3 +376,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
                 parallel_slots=2,
                 open_net=True,
                 coordinator_contributes=False,
+                auto_deploy=False,
+                fetch_model_meta=False,
+            )
+            hw_w = {"vram_total_mb": 0, "vram_free_mb": 0, "ram_total_mb": 8192, "ram_avail_mb": 6144, "cpu_cores": 4}
+            CLUSTER.register_worker(worker_id="cw1", name="CW-1", hw=hw_w, quota={"max_ram_gb": 3, "max_threads": 2}, consented=True, rpc_port=p1, rpc_host="127.0.0.1")
+            CLUSTER.register_worker(worker_id="cw2", name="CW-2", hw=hw_w, quota={"max_ram_gb": 3, "max_threads": 2}, consented=True, rpc_port=p2, rpc_host="127.0.0.1")
+            CLUSTER.deploy_cluster(verify=True)
+            remote_bad = TestClient(server.app, client=("192.168.1.50", 51000), headers={"Authorization": "Bearer sk-invalid-key"})
+            r_unauth = remote_bad.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}]})
+            self.assertEqual(r_unauth.status_code, 401)
+            api_key = server.load_keys()[0]
+            results = []
+            def _run_stream(idx):
+                c = TestClient(server.app, client=(f"192.168.1.{60 + idx}", 52000 + idx), headers={"Authorization": f"Bearer {api_key}"})
+                with c.stream("POST", "/v1/chat/completions", json={"messages": [{"role": "user", "content": f"Hello {idx}"}], "max_tokens": 6, "stream": True}) as resp:
+                    body = "".join(resp.iter_text())
+                    results.append((resp.status_code, body))
+            threads = [threading.Thread(target=_run_stream, args=(i,)) for i in range(4)]
