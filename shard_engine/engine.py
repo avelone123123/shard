@@ -1323,7 +1323,7 @@ class ShardEngine:
             parts.append(f"<|im_start|>{role}\n{c}<|im_end|>")
         parts.append("<|im_start|>assistant\n")
         return "\n".join(parts)
-    def generate_stream(self, messages, max_tokens=512, temperature=0.7):
+    def generate_stream(self, messages, max_tokens=512, temperature=0.7, cancel_check=None):
         t0 = time.time()
         self._cancel_gen = False
         gguf_ready = self.gguf is not None and self.gguf.is_running()
