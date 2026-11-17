@@ -46,3 +46,15 @@ Each server registered in the catalog presents a verified passport structure:
 - Returns the complete public listing, cryptographic verification status, host information, cluster strategy, and connectivity options.
 
 ### 3. Server Publication (`POST /api/catalog/publish`)
+- Verifies that the model is loaded and inference-ready before publication.
+- Publishes signed listing to the discovery directory with configurable access mode (`open`, `approval`, `invite_only`).
+
+### 4. Server Unpublication (`POST /api/catalog/unpublish`)
+- Broadcasts signed unregistration envelope, purging the entry from all discovery nodes.
+
+### 5. Cluster Management (`GET /api/cluster/my-servers`, `GET /api/cluster/my-workers`)
+- Returns active clusters hosted by this node and remote clusters joined as a worker node.
+
+## 4. Integrity, Anti-Spam & TTL Expiration
+
+1. **Cryptographic Envelope Verification**:
