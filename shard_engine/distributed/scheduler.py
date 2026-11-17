@@ -34,3 +34,21 @@ class RequestScheduler:
             if max_concurrent is not None:
                 self.max_concurrent = max(1, int(max_concurrent))
             if max_queue_size is not None:
+                self.max_queue_size = max(1, int(max_queue_size))
+            if default_rpm is not None:
+                self.default_rpm = max(0, int(default_rpm))
+            if default_timeout_s is not None:
+                self.default_timeout_s = max(5.0, float(default_timeout_s))
+            self._cond.notify_all()
+    def _check_rate_limit(self, client_key, rpm_override=None):
+        limit = self.default_rpm if rpm_override is None else int(rpm_override)
+        if limit <= 0:
+            return
+        now = time.monotonic()
+        k = str(client_key or "anonymous")
+        with self._lock:
+            if k not in self._rate_windows and len(self._rate_windows) >= 4096:
+                oldest = next(iter(self._rate_windows))
+                self._rate_windows.pop(oldest, None)
+            win = self._rate_windows.setdefault(k, deque())
+            cutoff = now - 60.0
