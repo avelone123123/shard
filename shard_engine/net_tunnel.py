@@ -2045,6 +2045,14 @@ class ClientTunnelAgent:
             self._last_error = str(exc)
         finally:
             self._fail_pending_streams()
+            for t in list(self._wrk_tasks):
+                t.cancel()
+            for w in list(self._wrk_writers.values()):
+                try:
+                    w.close()
+                except Exception:
+                    pass
+            self._wrk_writers.clear()
             if self._channel is ch:
                 self._bytes_tx_acc += ch.bytes_tx
                 self._bytes_rx_acc += ch.bytes_rx
