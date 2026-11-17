@@ -10,3 +10,15 @@ The One-Click Cluster Join architecture allows any computer on the network to pa
 +--------------------------------------------------------------------------+
   User clicks "Join" in Catalog
             |
+            v
+  +----------------------+
+  | Modal Choice Dialog  |
+  +----------+-----------+
+             |
+             +---> Option A: [Use AI as Client]
+             |        |
+             |        v
+             |     Instant tunnel connection established;
+             |     Ready to stream prompts via OpenAI API / UI.
+             |
+             +---> Option B: [Contribute Computing Resources]
