@@ -826,3 +826,8 @@ class ClusterManager:
                 "workers": workers_out,
                 "plan": copy.deepcopy(self.plan),
                 "model_spec": {k: v for k, v in (self.model_spec or {}).items() if k not in ("weight_map", "config")} if self.model_spec else None,
+                "telemetry": _sched.SCHEDULER.telemetry(),
+                "gguf_slots": slots,
+                "local_worker": lw,
+            }
+CLUSTER = ClusterManager()
