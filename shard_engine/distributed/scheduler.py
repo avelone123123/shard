@@ -106,3 +106,21 @@ class RequestScheduler:
             if rec is not None:
                 rec["tokens"] += int(count)
     def finish_slot(self, req_id, ok=True, cancelled=False, ttft_ms=None, tps=None, transfer_ms=None, error=None):
+        with self._cond:
+            self._active.pop(req_id, None)
+            if cancelled:
+                self._cancelled_requests += 1
+            elif ok:
+                self._completed_requests += 1
+            else:
+                self._failed_requests += 1
+            if error:
+                self._recent_errors.append({"ts": time.time(), "request_id": req_id, "error": str(error)[:160]})
+            if ttft_ms is not None and ttft_ms >= 0:
+                self._ttft_samples.append(float(ttft_ms))
+            if tps is not None and tps >= 0:
+                self._tps_samples.append(float(tps))
+            if transfer_ms is not None and transfer_ms >= 0:
+                self._xfer_samples.append(float(transfer_ms))
+            self._cond.notify_all()
+    def cancel_request(self, req_id):
