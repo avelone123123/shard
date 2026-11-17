@@ -128,3 +128,13 @@ Given model metadata (`config.json` or GGUF probe) and cluster node inventories:
    - Distributed KV cache per layer: `2 * num_kv_heads * head_dim * ctx_tokens * parallel_slots * dtype_bytes`
    - Runtime compute/scratch buffer per stage: `max(128 MB, 0.08 * stage_weight_mb)`
 3. **Communication-Aware Placement**:
+   - Estimates per-token activation size: `hidden_size * dtype_bytes` (e.g., 4096 * 2B = 8 KB/token in FP16 for 7B/8B; 16 KB/token for 70B).
+   - Estimates per-token transfer overhead across `S` stages: `(S - 1) * (2 * rtt_ms + (act_bytes / link_bps) * 1000)`.
+   - Compares single-node fit (if coordinator can hold the model alone in VRAM) vs multi-node split, warning when high WAN RTT (`> 30 ms`) makes splitting slower than single-GPU execution, while maximizing fit when the model exceeds any single machine's memory.
+
+---
+
+## 6. Networking, NAT Traversal & Security
+
+### 6.1 Supported Topologies
+1. **Local Area Network (LAN)**: UDP beacon discovery (`8001`) + direct TCP.
