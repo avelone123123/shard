@@ -4627,6 +4627,7 @@ async function srvNewChat() {
             const d = await res.json();
             if (d.chat_id) srvCurrentChatId = d.chat_id;
             await srvLoadPrivateChats();
+        await clsRefresh();
             return;
         }
     } catch(e) {}
