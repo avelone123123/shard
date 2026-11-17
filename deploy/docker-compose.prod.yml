@@ -1,0 +1,15 @@
+version: "3.8"
+services:
+  shard-discovery:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.discovery
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SHARD_ALLOW_INSECURE_LOCAL=0
+    volumes:
+      - discovery_data:/data/discovery
+    networks:
+      - shard_internal
+    expose:
