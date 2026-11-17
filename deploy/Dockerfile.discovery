@@ -1,0 +1,12 @@
+FROM python:3.11-slim
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+RUN apt-get update && apt-get install -y --no-install-recommends curl gcc libffi-dev && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt .
+RUN pip install --no-cache-dir fastapi uvicorn cryptography requests pydantic
+COPY shard_engine /app/shard_engine
+RUN mkdir -p /data/discovery
+EXPOSE 8080
+HEALTHCHECK --interval=15s --timeout=5s --start-period=5s --retries=3 CMD curl -f http://localhost:8080/v1/discovery/health || exit 1
+ENTRYPOINT ["python", "-m", "shard_engine.cli", "network", "discovery-serve", "--host", "0.0.0.0", "--port", "8080", "--data-dir", "/data/discovery"]
