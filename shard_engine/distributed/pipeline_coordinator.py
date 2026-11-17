@@ -286,3 +286,21 @@ class PipelineCoordinator:
             mask = (cum - sorted_probs) > float(top_p)
             sorted_probs[mask] = 0.0
             s_sum = sorted_probs.sum()
+            if s_sum > 0:
+                sorted_probs = sorted_probs / s_sum
+                choice = torch.multinomial(sorted_probs, num_samples=1)
+                return int(sorted_idx[choice].item())
+        return int(torch.multinomial(probs, num_samples=1).item())
+    def generate_stream(self, messages, max_tokens=256, temperature=0.7, cancel_check=None):
+        if not self.is_running():
+            raise RuntimeError("PipelineCoordinator is not running")
+        t_start = time.perf_counter()
+        prompt = self._build_prompt(messages)
+        enc = self.tokenizer(prompt, return_tensors="pt")
+        input_ids = enc["input_ids"]
+        if input_ids.shape[-1] == 0:
+            plain = " ".join(str(m.get("content", "")) for m in messages).strip()
+            if plain:
+                input_ids = self.tokenizer(plain, return_tensors="pt")["input_ids"]
+            if input_ids.shape[-1] == 0:
+                fallback_id = self.tokenizer.bos_token_id or self.tokenizer.eos_token_id or 0
