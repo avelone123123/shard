@@ -1003,7 +1003,7 @@ class DiscoveryClient:
             "updated_at": entry.get("updated_at") or env.get("ts") or now,
             "expires_at": exp_at,
         }
-    def fetch_servers(self, q="", model="", region="", access="", sort="activity", limit=100, online_only=True):
+    def fetch_servers(self, q="", model="", region="", access="", sort="activity", limit=100, online_only=True, min_vram=0, status="", accepts_workers=None):
         if self.offline_only:
             return {"status": "offline", "servers": [], "count": 0, "dropped": 0, "endpoints": [], "rejected_urls": list(self.rejected_urls)}
         if not self.urls:
