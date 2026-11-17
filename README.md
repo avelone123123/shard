@@ -463,6 +463,40 @@ for chunk in stream:
 
 ---
 
+## Distributed AI Cluster Mode
+
+SHARD supports collaborative model-parallel execution across independent machines (LAN, Radmin VPN, Tailscale, WireGuard, or NAT-traversed encrypted tunnels). A coordinator can schedule a large model across multiple consented worker nodes and expose one unified OpenAI/Anthropic endpoint (`/v1/chat/completions`, `/v1/messages`).
+
+### Quick Start (Coordinator + Workers)
+
+1. **Coordinator (Server Owner):**
+   ```bash
+   shard start --daemon
+   shard cluster create Qwen/Qwen2.5-Coder-7B-Instruct --name MyCluster --strategy auto --slots 4
+   shard cluster status
+   ```
+
+2. **Worker Node (Explicit Consent & Quotas):**
+   ```bash
+   shard start --daemon
+   shard cluster join http://<COORDINATOR_IP>:8000 <PAIRING_CODE> --consent --vram-pct 70 --max-ram-gb 8 --max-threads 4
+   ```
+   For workers behind CGNAT/NAT connected via `shard network connect`, add `--via-tunnel` so the worker binds strictly to `127.0.0.1` and receives coordinator RPC/tensor traffic over the ChaCha20-Poly1305 tunnel.
+
+3. **Deploy & Monitor:**
+   ```bash
+   shard cluster plan
+   shard cluster deploy
+   shard cluster status
+   ```
+
+### Supported Execution Backends & Documentation
+- **GGUF Distributed RPC (`gguf_rpc_layer_split`)**: Splits model layers and KV cache across `ggml-rpc-server` workers and local offload devices via `llama-server --rpc`, with continuous batching (`--parallel`, `--cont-batching`).
+- **PyTorch Pipeline Parallelism (`torch_pipeline_parallel`)**: Directly loads only assigned safetensors layer shards per worker (`llama`, `qwen2`, `qwen3`, `mistral`, `gemma`, `gemma2`, `phi3`, `gpt2`), maintains per-worker distributed KV caches, and streams binary tensor activations over authenticated `SHPT` TCP sockets.
+- **Technical Specs**: [`DISTRIBUTED_AI_ARCHITECTURE.md`](DISTRIBUTED_AI_ARCHITECTURE.md) | [`DISTRIBUTED_AI_IMPLEMENTATION_REPORT.md`](DISTRIBUTED_AI_IMPLEMENTATION_REPORT.md) | [`DISTRIBUTED_AI_TEST_REPORT.md`](DISTRIBUTED_AI_TEST_REPORT.md)
+
+---
+
 ## Project Status & Community
 
 ### Technology Stack

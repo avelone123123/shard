@@ -85,6 +85,10 @@ def cmd_help():
     print("  lan diagnose       Inspect NICs, Tailscale/Radmin VPN, UPnP IGD, and NAT status (--public)")
     print("  lan model <id>     Set target model for the LAN pool")
     print("  lan off            Leave LAN network or stop hosting")
+    print("\nDistributed AI Cluster:")
+    print("  cluster create <model> [--name N] [--strategy auto|gguf|torch] [--open]")
+    print("  cluster join <url> [code] --consent [--vram-pct N] [--max-threads N]")
+    print("  cluster status | plan | deploy | leave | stop")
     print("\nCollaborative Training (SOUP):")
     print("  training status    Show SOUP adapter status, feedback counts, jobs, and versions")
     print("  training doctor    Inspect SOUP installation, Python version, GPU, and train deps")
@@ -1751,6 +1755,99 @@ def cmd_network(args):
             print(f"NAT Profile:         {nat_prof.get('nat_type')} (symmetric: {nat_prof.get('symmetric_nat')})")
         wg = diag.get("wireguard") or {}
         print(f"WireGuard Ready:     {wg.get('installed')}")
+def cmd_cluster(args):
+    import requests
+    action = getattr(args, "cluster_action", "status") or "status"
+    base = _base_url()
+    hdrs = _owner_headers()
+    if action == "status":
+        r = requests.get(f"{base}/api/cluster/status", headers=hdrs, timeout=5)
+        if r.status_code != 200:
+            print(f"[ERROR] {r.status_code}: {r.text[:200]}")
+            sys.exit(1)
+        data = r.json()
+        if getattr(args, "as_json", False):
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+            return
+        ov = data.get("cluster_overview") or {}
+        tel = data.get("telemetry") or {}
+        print(f"Cluster Role:   {data.get('role')} | State: {data.get('state')}")
+        print(f"Cluster Name:   {data.get('name')} | Model: {data.get('target_model')}")
+        print(f"Workers Alive:  {ov.get('worker_count', 0)} | Usable VRAM: {ov.get('aggregate_usable_vram_mb', 0)} MB | Usable RAM: {ov.get('aggregate_usable_ram_mb', 0)} MB")
+        print(f"Inference:      active={tel.get('active_requests', 0)} queue={tel.get('queue_length', 0)} avg_ttft={tel.get('avg_ttft_ms', 0)}ms tok/s={tel.get('avg_tokens_per_sec', 0)}")
+        return
+    if action == "plan":
+        r = requests.get(f"{base}/api/cluster/plan", headers=hdrs, timeout=10)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        return
+    if action == "create":
+        model_id = getattr(args, "model", None) or (args.extra[0] if getattr(args, "extra", None) else None)
+        if not model_id:
+            print("[ERROR] Model ID required: shard cluster create <model_id>")
+            sys.exit(1)
+        payload = {
+            "model_id": model_id,
+            "name": getattr(args, "name", None),
+            "strategy": getattr(args, "strategy", "auto"),
+            "ctx_tokens": getattr(args, "ctx", 4096),
+            "parallel_slots": getattr(args, "slots", 4),
+            "open": bool(getattr(args, "open", False)),
+            "coordinator_contributes": not bool(getattr(args, "no_contribute", False)),
+        }
+        r = requests.post(f"{base}/api/cluster/create", json=payload, headers=hdrs, timeout=30)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        if r.status_code != 200:
+            sys.exit(1)
+        return
+    if action == "deploy":
+        r = requests.post(f"{base}/api/cluster/deploy", json={}, headers=hdrs, timeout=120)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        if r.status_code != 200:
+            sys.exit(1)
+        return
+    if action == "join":
+        if not getattr(args, "consent", False):
+            print("[ERROR] Explicit --consent is required before donating compute resources.")
+            sys.exit(1)
+        extra = list(getattr(args, "extra", None) or [])
+        target_url = getattr(args, "target", None) or (extra[0] if extra else "")
+        code = getattr(args, "code", None) or (extra[1] if len(extra) > 1 else "")
+        if not target_url:
+            print("[ERROR] Coordinator URL required: shard cluster join <url> [code] --consent")
+            sys.exit(1)
+        quota = {}
+        if getattr(args, "vram_pct", None) is not None:
+            quota["vram_pct"] = args.vram_pct
+        if getattr(args, "max_vram_gb", None) is not None:
+            quota["max_vram_gb"] = args.max_vram_gb
+        if getattr(args, "max_ram_gb", None) is not None:
+            quota["max_ram_gb"] = args.max_ram_gb
+        if getattr(args, "max_threads", None) is not None:
+            quota["max_threads"] = args.max_threads
+        r = requests.post(
+            f"{base}/api/cluster/worker/join",
+            json={
+                "coordinator_url": target_url,
+                "auth_code": code,
+                "quota": quota,
+                "consented": True,
+                "via_tunnel": bool(getattr(args, "via_tunnel", False)),
+            },
+            headers=hdrs,
+            timeout=15,
+        )
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        if r.status_code != 200:
+            sys.exit(1)
+        return
+    if action == "leave":
+        r = requests.post(f"{base}/api/cluster/worker/leave", json={}, headers=hdrs, timeout=5)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        return
+    if action == "stop":
+        r = requests.post(f"{base}/api/cluster/stop", json={}, headers=hdrs, timeout=10)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        return
 def _build_parser():
     parser = argparse.ArgumentParser(prog="shard", description="SHARD CLI Engine", add_help=False)
     parser.add_argument("-V", "--version", action="store_true")
@@ -1930,6 +2027,25 @@ def _build_parser():
     p_ndoc.add_argument("--nat", action="store_true")
     p_ndoc.add_argument("--port", type=int, default=None)
     p_ndoc.add_argument("--json", action="store_true", dest="as_json")
+    p_cls = sub.add_parser("cluster", add_help=False)
+    p_cls.add_argument("cluster_action", nargs="?", default="status", choices=["status", "create", "join", "plan", "deploy", "leave", "stop"])
+    p_cls.add_argument("extra", nargs="*")
+    p_cls.add_argument("--model", default=None)
+    p_cls.add_argument("--name", default=None)
+    p_cls.add_argument("--strategy", default="auto")
+    p_cls.add_argument("--ctx", type=int, default=4096)
+    p_cls.add_argument("--slots", type=int, default=4)
+    p_cls.add_argument("--open", action="store_true")
+    p_cls.add_argument("--no-contribute", action="store_true")
+    p_cls.add_argument("--target", default=None)
+    p_cls.add_argument("--code", default=None)
+    p_cls.add_argument("--consent", action="store_true")
+    p_cls.add_argument("--vram-pct", type=float, default=None)
+    p_cls.add_argument("--max-vram-gb", type=float, default=None)
+    p_cls.add_argument("--max-ram-gb", type=float, default=None)
+    p_cls.add_argument("--max-threads", type=int, default=None)
+    p_cls.add_argument("--via-tunnel", action="store_true")
+    p_cls.add_argument("--json", action="store_true", dest="as_json")
     sub.add_parser("help", add_help=False)
     return parser
 def main(argv=None):
@@ -1990,6 +2106,8 @@ def main(argv=None):
         cmd_training(args)
     elif args.command == "network":
         cmd_network(args)
+    elif args.command == "cluster":
+        cmd_cluster(args)
     else:
         cmd_help()
 if __name__ == "__main__":

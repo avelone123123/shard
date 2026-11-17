@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import ipaddress
 import json
@@ -30,6 +31,8 @@ from . import soup_adapter
 from . import storage
 from . import training
 from . import updater
+from .distributed import CLUSTER, SCHEDULER
+from .distributed.scheduler import QueueFullError, RateLimitError
 from .engine import engine_instance
 from .fit import fit_report
 from .hardware import evaluate_compatibility, get_hardware_profile
@@ -178,6 +181,14 @@ async def lifespan(_app):
         except Exception:
             pass
         try:
+            CLUSTER.stop_local_worker()
+        except Exception:
+            pass
+        try:
+            CLUSTER.stop_cluster()
+        except Exception:
+            pass
+        try:
             engine_instance.unload_model()
         except Exception:
             pass
@@ -320,7 +331,8 @@ API_KEYS = load_keys()
 def api_client_bootstrap(req: Request):
     is_owner = _is_owner_request(req)
     st = LAN.status(include_secrets=False)
-    is_loaded = engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
+    cls_ready = CLUSTER.is_ready()
+    is_loaded = cls_ready or engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
     upd = None
     if is_owner:
         try:
@@ -334,10 +346,12 @@ def api_client_bootstrap(req: Request):
         "node_id": _safe_node_id(),
         "lan_mode": st.get("mode"),
         "lan_open": bool(st.get("open")),
-        "server_name": st.get("name"),
-        "active_model": engine_instance.active_model_id,
-        "engine_status": engine_instance.status,
+        "server_name": CLUSTER.name if CLUSTER.role == "coordinator" else st.get("name"),
+        "active_model": CLUSTER.target_model if cls_ready else engine_instance.active_model_id,
+        "engine_status": "ready" if cls_ready else engine_instance.status,
         "is_loaded": is_loaded,
+        "cluster_state": CLUSTER.state,
+        "cluster_role": CLUSTER.role,
         "update": upd,
     }
 @app.get("/api/system/hardware")
@@ -857,10 +871,24 @@ async def api_apply_integration(req: Request):
         return JSONResponse(status_code=400, content={"status": "error", "message": f"Неизвестная интеграция: {tool}"})
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+def _client_rate_key(req):
+    tpeer = net_tunnel.tunnel_peer_id(req)
+    if tpeer:
+        return f"peer:{tpeer}"
+    tok = _extract_bearer(req)
+    if tok:
+        return f"tok:{hashlib.sha256(tok.encode('utf-8')).hexdigest()[:12]}"
+    ip = req.client.host if req.client else "unknown"
+    return f"ip:{ip}"
+def _inference_stream_factory(messages, max_tokens, temperature):
+    if CLUSTER.is_ready():
+        return lambda cancel_ev: CLUSTER.generate_stream(messages, max_tokens, temperature, cancel_check=cancel_ev.is_set)
+    return lambda cancel_ev: engine_instance.generate_stream(messages, max_tokens, temperature, cancel_check=cancel_ev.is_set)
 @app.get("/v1/models")
 def list_models():
     st = engine_instance.get_status()
-    current = st.get("active_model") or "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+    cls_model = CLUSTER.target_model if CLUSTER.role == "coordinator" and CLUSTER.target_model else None
+    current = cls_model or st.get("active_model") or "Qwen/Qwen2.5-Coder-1.5B-Instruct"
     cached_list = sorted(list(get_local_cached_ids()))
     popular = [
         current,
@@ -878,18 +906,26 @@ def list_models():
     for m in popular:
         if m and m.lower() not in seen:
             seen.add(m.lower())
-            model_list.append({"id": m, "object": "model", "created": int(time.time()), "owned_by": "shard-local"})
+            model_list.append({
+                "id": m,
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": "shard-cluster" if (cls_model and m == cls_model) else "shard-local",
+            })
     return {"object": "list", "data": model_list}
 @app.get("/v1/ping")
 def api_ping():
-    is_loaded = engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
+    cls_ready = CLUSTER.is_ready()
+    is_loaded = cls_ready or engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
     return {
         "status": "ok",
         "version": __version__,
         "latency_ms": 0.3,
-        "engine": "shard-local-engine",
-        "active_model": engine_instance.active_model_id,
+        "engine": "shard-distributed-cluster" if cls_ready else "shard-local-engine",
+        "active_model": CLUSTER.target_model if cls_ready else engine_instance.active_model_id,
         "is_loaded": is_loaded,
+        "cluster_state": CLUSTER.state,
+        "cluster_ready": cls_ready,
         "node_id": _safe_node_id(),
     }
 @app.post("/v1/chat/completions")
@@ -899,44 +935,72 @@ async def chat_completions(req: Request):
     stream = data.get("stream", False)
     max_tokens = data.get("max_tokens", 512)
     temperature = data.get("temperature", 0.7)
-    model = data.get("model") or engine_instance.active_model_id or "shard-local-model"
+    default_model = CLUSTER.target_model if CLUSTER.is_ready() else (engine_instance.active_model_id or "shard-local-model")
+    model = data.get("model") or default_model
     cid = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     created = int(time.time())
+    client_key = _client_rate_key(req)
+    factory = _inference_stream_factory(messages, max_tokens, temperature)
     if stream:
-        def event_generator():
-            for item in engine_instance.generate_stream(messages, max_tokens, temperature):
-                if item.get("type") == "thought":
-                    delta_payload = {
-                        "id": cid,
-                        "object": "chat.completion.chunk",
-                        "created": created,
-                        "model": model,
-                        "choices": [{"index": 0, "delta": {"reasoning_content": item["token"]}, "finish_reason": None}]
-                    }
-                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                elif item.get("type") == "content":
-                    delta_payload = {
-                        "id": cid,
-                        "object": "chat.completion.chunk",
-                        "created": created,
-                        "model": model,
-                        "choices": [{"index": 0, "delta": {"content": item["token"]}, "finish_reason": None}]
-                    }
-                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                elif item.get("type") == "done":
-                    final_payload = {
-                        "id": cid,
-                        "object": "chat.completion.chunk",
-                        "created": created,
-                        "model": model,
-                        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-                        "telemetry": item.get("telemetry", {}),
-                        "usage": item.get("usage", {})
-                    }
-                    yield f"data: {json.dumps(final_payload, ensure_ascii=False)}\n\n"
-                    yield "data: [DONE]\n\n"
+        async def event_generator():
+            try:
+                async for item in SCHEDULER.stream_async(
+                    factory,
+                    client_key=client_key,
+                    model_id=model,
+                    is_disconnected=req.is_disconnected,
+                ):
+                    if item.get("type") == "thought":
+                        delta_payload = {
+                            "id": cid,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": model,
+                            "choices": [{"index": 0, "delta": {"reasoning_content": item["token"]}, "finish_reason": None}]
+                        }
+                        yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                    elif item.get("type") == "content":
+                        delta_payload = {
+                            "id": cid,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": model,
+                            "choices": [{"index": 0, "delta": {"content": item["token"]}, "finish_reason": None}]
+                        }
+                        yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                    elif item.get("type") == "error":
+                        err_payload = {"error": {"message": item.get("error") or "Inference error", "type": "server_error"}}
+                        yield f"data: {json.dumps(err_payload, ensure_ascii=False)}\n\n"
+                    elif item.get("type") == "done":
+                        final_payload = {
+                            "id": cid,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": model,
+                            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                            "telemetry": item.get("telemetry", {}),
+                            "usage": item.get("usage", {})
+                        }
+                        yield f"data: {json.dumps(final_payload, ensure_ascii=False)}\n\n"
+                        yield "data: [DONE]\n\n"
+            except RateLimitError as e:
+                yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'rate_limit_error'}})}\n\n"
+            except QueueFullError as e:
+                yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'server_busy'}})}\n\n"
         return StreamingResponse(event_generator(), media_type="text/event-stream")
-    result = engine_instance.generate_sync(messages, max_tokens, temperature)
+    try:
+        result = await SCHEDULER.run_sync_async(
+            factory,
+            client_key=client_key,
+            model_id=model,
+            is_disconnected=req.is_disconnected,
+        )
+    except RateLimitError as e:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(e.retry_after)}, content={"error": {"message": str(e), "type": "rate_limit_error"}})
+    except QueueFullError as e:
+        return JSONResponse(status_code=503, content={"error": {"message": str(e), "type": "server_busy"}})
+    except TimeoutError as e:
+        return JSONResponse(status_code=504, content={"error": {"message": str(e), "type": "timeout_error"}})
     return {
         "id": cid,
         "object": "chat.completion",
@@ -961,7 +1025,8 @@ async def anthropic_messages(req: Request):
     data = await req.json()
     raw_messages = data.get("messages", [])
     sys_prompt = data.get("system", "")
-    model = data.get("model") or engine_instance.active_model_id or "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+    default_model = CLUSTER.target_model if CLUSTER.is_ready() else (engine_instance.active_model_id or "Qwen/Qwen2.5-Coder-1.5B-Instruct")
+    model = data.get("model") or default_model
     max_tokens = data.get("max_tokens", 1024)
     temperature = data.get("temperature", 0.7)
     stream = data.get("stream", False)
@@ -980,25 +1045,48 @@ async def anthropic_messages(req: Request):
             content = " ".join(parts)
         normalized.append({"role": m.get("role", "user"), "content": content})
     msg_id = f"msg_{uuid.uuid4().hex[:16]}"
+    client_key = _client_rate_key(req)
+    factory = _inference_stream_factory(normalized, max_tokens, temperature)
     if stream:
-        def anthropic_sse():
+        async def anthropic_sse():
             start_ev = {"type": "message_start", "message": {"id": msg_id, "type": "message", "role": "assistant", "content": [], "model": model, "stop_reason": None, "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 0}}}
             yield f"event: message_start\ndata: {json.dumps(start_ev, ensure_ascii=False)}\n\n"
             blk_start = {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}
             yield f"event: content_block_start\ndata: {json.dumps(blk_start, ensure_ascii=False)}\n\n"
             out_toks = 0
-            for item in engine_instance.generate_stream(normalized, max_tokens, temperature):
-                if item.get("type") in ("content", "thought") and item.get("token"):
-                    delta_ev = {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": item["token"]}}
-                    yield f"event: content_block_delta\ndata: {json.dumps(delta_ev, ensure_ascii=False)}\n\n"
-                elif item.get("type") == "done":
-                    out_toks = item.get("usage", {}).get("completion_tokens", 0)
+            try:
+                async for item in SCHEDULER.stream_async(
+                    factory,
+                    client_key=client_key,
+                    model_id=model,
+                    is_disconnected=req.is_disconnected,
+                ):
+                    if item.get("type") in ("content", "thought") and item.get("token"):
+                        delta_ev = {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": item["token"]}}
+                        yield f"event: content_block_delta\ndata: {json.dumps(delta_ev, ensure_ascii=False)}\n\n"
+                    elif item.get("type") == "done":
+                        out_toks = item.get("usage", {}).get("completion_tokens", 0)
+            except (RateLimitError, QueueFullError) as e:
+                err_ev = {"type": "error", "error": {"type": "overloaded_error", "message": str(e)}}
+                yield f"event: error\ndata: {json.dumps(err_ev, ensure_ascii=False)}\n\n"
             yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
             msg_delta = {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": out_toks}}
             yield f"event: message_delta\ndata: {json.dumps(msg_delta)}\n\n"
             yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
         return StreamingResponse(anthropic_sse(), media_type="text/event-stream")
-    result = engine_instance.generate_sync(normalized, max_tokens, temperature)
+    try:
+        result = await SCHEDULER.run_sync_async(
+            factory,
+            client_key=client_key,
+            model_id=model,
+            is_disconnected=req.is_disconnected,
+        )
+    except RateLimitError as e:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(e.retry_after)}, content={"error": {"message": str(e), "type": "rate_limit_error"}})
+    except QueueFullError as e:
+        return JSONResponse(status_code=503, content={"error": {"message": str(e), "type": "overloaded_error"}})
+    except TimeoutError as e:
+        return JSONResponse(status_code=504, content={"error": {"message": str(e), "type": "timeout_error"}})
     return {
         "id": msg_id,
         "type": "message",
@@ -1325,6 +1413,216 @@ async def api_lan_member_unblock(req: Request):
     if not target:
         return JSONResponse(status_code=400, content={"status": "error", "message": "target required"})
     return LAN.unblock_member(target)
+def _is_cluster_authorized(req):
+    if _is_owner_request(req):
+        return True, True
+    if net_tunnel.is_tunnel_request(req):
+        return True, False
+    tok = _extract_bearer(req)
+    if tok:
+        if _token_in_pool(tok, LAN.tokens() | set(load_keys())):
+            return True, False
+        worker_toks = {w.get("worker_token") for w in CLUSTER.workers.values() if w.get("worker_token")}
+        if _token_in_pool(tok, worker_toks):
+            return True, False
+    return False, False
+@app.post("/api/cluster/create")
+async def api_cluster_create(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    model_id = str(data.get("model") or data.get("model_id") or engine_instance.active_model_id or "").strip()
+    if not model_id:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "model_id is required"})
+    try:
+        st = await asyncio.to_thread(
+            CLUSTER.create_cluster,
+            name=data.get("name"),
+            model_id=model_id,
+            strategy=data.get("strategy", "auto"),
+            ctx_tokens=int(data.get("ctx_tokens") or 4096),
+            parallel_slots=int(data.get("parallel_slots") or 4),
+            access_mode=data.get("access_mode") or "invite_only",
+            open_net=bool(data.get("open", False)),
+            coordinator_contributes=bool(data.get("coordinator_contributes", True)),
+            coordinator_quota=data.get("coordinator_quota"),
+            auto_deploy=bool(data.get("auto_deploy", True)),
+            fetch_model_meta=bool(data.get("fetch_model_meta", True)),
+        )
+        return {"status": "ok", "cluster": st}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/cluster/stop")
+def api_cluster_stop(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return CLUSTER.stop_cluster()
+@app.post("/api/cluster/deploy")
+async def api_cluster_deploy(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        st = await asyncio.to_thread(CLUSTER.deploy_cluster, verify=bool(data.get("verify", True)))
+        return {"status": "ok", "cluster": st}
+    except Exception as e:
+        return JSONResponse(status_code=409, content={"status": "error", "message": str(e)})
+@app.post("/api/cluster/rebalance")
+async def api_cluster_rebalance(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    plan = CLUSTER.recompute_plan()
+    if not plan.get("feasible"):
+        return JSONResponse(status_code=409, content={"status": "error", "message": plan.get("reason"), "plan": plan})
+    try:
+        st = await asyncio.to_thread(CLUSTER.deploy_cluster, verify=True)
+        return {"status": "ok", "cluster": st}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e), "plan": plan})
+@app.get("/api/cluster/preview")
+def api_cluster_preview():
+    return CLUSTER.preview_cluster()
+@app.get("/api/cluster/status")
+def api_cluster_status(req: Request):
+    ok, is_owner = _is_cluster_authorized(req)
+    if not ok:
+        return JSONResponse(status_code=403, content={"status": "error", "message": "Authorization required"})
+    return CLUSTER.status(include_secrets=is_owner)
+@app.get("/api/cluster/plan")
+def api_cluster_plan(req: Request):
+    ok, _ = _is_cluster_authorized(req)
+    if not ok:
+        return JSONResponse(status_code=403, content={"status": "error", "message": "Authorization required"})
+    return {"status": "ok", "plan": CLUSTER.recompute_plan()}
+@app.get("/api/cluster/telemetry")
+def api_cluster_telemetry(req: Request):
+    ok, _ = _is_cluster_authorized(req)
+    if not ok:
+        return JSONResponse(status_code=403, content={"status": "error", "message": "Authorization required"})
+    return {"status": "ok", "telemetry": SCHEDULER.telemetry(), "cluster_state": CLUSTER.state}
+@app.post("/api/cluster/workers/register")
+async def api_cluster_worker_register(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    ok_tot, retry_tot = _PAIR_TOTAL_LIMITER.check(ip)
+    if not ok_tot:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_tot)}, content={"status": "error", "message": "Too many registration attempts"})
+    ok_fail, retry_fail = _PAIR_FAIL_LIMITER.check(ip, record=False)
+    if not ok_fail:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_fail)}, content={"status": "error", "message": "Registration temporarily rate-limited"})
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    tpeer = net_tunnel.tunnel_peer_id(req)
+    try:
+        res = CLUSTER.register_worker(
+            worker_id=data.get("worker_id"),
+            name=data.get("name"),
+            hw=data.get("hw"),
+            backends=data.get("backends"),
+            quota=data.get("quota"),
+            consented=bool(data.get("consented", False)),
+            auth_code=data.get("auth_code") or data.get("code") or "",
+            rpc_port=data.get("rpc_port"),
+            pipeline_port=data.get("pipeline_port"),
+            rpc_host=data.get("rpc_host"),
+            pipeline_host=data.get("pipeline_host"),
+            transport=data.get("transport") or ("tunnel" if tpeer else "lan"),
+            tunnel_peer=tpeer,
+            remote_ip=ip,
+        )
+        return {"status": "ok", **res}
+    except PermissionError as e:
+        _PAIR_FAIL_LIMITER.record(ip)
+        return JSONResponse(status_code=403, content={"status": "error", "message": str(e)})
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/cluster/workers/heartbeat")
+async def api_cluster_worker_heartbeat(req: Request):
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    ok, res = CLUSTER.heartbeat_worker(
+        worker_id=data.get("worker_id"),
+        worker_token=data.get("worker_token") or _extract_bearer(req),
+        hw=data.get("hw"),
+        quota=data.get("quota"),
+        workload=data.get("workload"),
+        rtt_ms=data.get("rtt_ms"),
+        bandwidth_mbps=data.get("bandwidth_mbps"),
+    )
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": str(res)})
+    return {"status": "ok", **res}
+@app.post("/api/cluster/workers/leave")
+async def api_cluster_worker_leave(req: Request):
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    ok = CLUSTER.leave_worker(
+        worker_id=data.get("worker_id"),
+        worker_token=data.get("worker_token") or _extract_bearer(req),
+    )
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Invalid worker credentials"})
+    return {"status": "ok", "left": True}
+@app.post("/api/cluster/workers/{worker_id}/kick")
+async def api_cluster_worker_kick(worker_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    return CLUSTER.kick_worker(worker_id, block=bool(data.get("block", False)))
+@app.post("/api/cluster/worker/join")
+async def api_cluster_local_worker_join(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    coord_url = str(data.get("coordinator_url") or "").strip()
+    if not coord_url:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "coordinator_url required"})
+    try:
+        res = await asyncio.to_thread(
+            CLUSTER.join_cluster_as_worker,
+            coordinator_url=coord_url,
+            auth_code=data.get("auth_code") or data.get("code") or "",
+            name=data.get("name"),
+            quota=data.get("quota"),
+            consented=bool(data.get("consented", False)),
+            start_rpc=bool(data.get("start_rpc", True)),
+            start_pipeline=bool(data.get("start_pipeline", True)),
+            via_tunnel=bool(data.get("via_tunnel", False)),
+        )
+        return res
+    except PermissionError as e:
+        return JSONResponse(status_code=403, content={"status": "error", "message": str(e)})
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/cluster/worker/leave")
+def api_cluster_local_worker_leave(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return CLUSTER.stop_local_worker()
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
@@ -2301,8 +2599,9 @@ def api_server_workspace(req: Request):
         "participant_role": role,
         "participant_name": actor_name,
         "participant_id": pid,
-        "server_active": bool(LAN.is_server() or host_st.get("published")),
+        "server_active": bool(LAN.is_server() or host_st.get("published") or CLUSTER.role == "coordinator"),
         "lan": lan_st,
+        "cluster": CLUSTER.status(include_secrets=is_owner) if CLUSTER.role != "idle" else None,
         "network_host": host_st if is_owner else {
             "published": bool(host_st.get("published")),
             "display_name": host_st.get("display_name"),
@@ -2404,10 +2703,19 @@ async def api_server_chat_send(req: Request):
         })
         history_msgs = [{"role": m["role"], "content": m["content"]} for m in target_chat["messages"][-12:] if m.get("role") in ("user", "assistant")]
         _save_participant_chats(pid, chats)
-    if not engine_instance.is_loaded():
+    cls_ready = CLUSTER.is_ready()
+    if not cls_ready and not engine_instance.is_loaded():
         return JSONResponse(status_code=503, content={"status": "error", "message": "Модель не загружена на сервере"})
     try:
-        res = engine_instance.generate_sync(history_msgs, max_tokens=max_tokens, temperature=temperature)
+        if cls_ready:
+            res = await SCHEDULER.run_sync_async(
+                lambda cancel_ev: CLUSTER.generate_stream(history_msgs, max_tokens=max_tokens, temperature=temperature, cancel_check=cancel_ev.is_set),
+                client_key=f"chat:{pid}",
+                model_id=CLUSTER.target_model,
+                is_disconnected=req.is_disconnected,
+            )
+        else:
+            res = await asyncio.to_thread(engine_instance.generate_sync, history_msgs, max_tokens=max_tokens, temperature=temperature)
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": f"Ошибка генерации модели: {str(e)}"})
     reply_text = str(res.get("content") or "").strip()

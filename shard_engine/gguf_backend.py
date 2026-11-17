@@ -627,11 +627,14 @@ class LlamaBackend:
         self.started_at = 0.0
         self.ctx_tokens = 4096
         self.ngl = 0
+        self.parallel_slots = 1
+        self.rpc_servers = None
+        self.tensor_split = None
     def is_running(self):
         return self.proc is not None and self.proc.poll() is None
     def start(self, gguf_path, ctx_tokens, ngl, threads, model_id, server_path=None,
               wait_timeout=180.0, on_wait=None, rpc_servers=None,
-              tensor_split=None):
+              tensor_split=None, parallel_slots=1, split_mode="layer"):
         self.stop()
         server_path = server_path or find_llama_server()
         if not server_path:
@@ -640,6 +643,9 @@ class LlamaBackend:
         self.model_id = model_id
         self.ctx_tokens = int(ctx_tokens)
         self.ngl = int(ngl)
+        self.parallel_slots = max(1, int(parallel_slots))
+        self.rpc_servers = rpc_servers
+        self.tensor_split = tensor_split
         self.port = _free_port()
         cmd = [
             server_path,
@@ -649,10 +655,15 @@ class LlamaBackend:
             "-c", str(self.ctx_tokens),
             "-ngl", str(self.ngl),
             "-t", str(threads),
-            "--parallel", "1",
+            "--parallel", str(self.parallel_slots),
+            "--slots",
         ]
+        if self.parallel_slots > 1:
+            cmd += ["--cont-batching"]
         if rpc_servers:
             cmd += ["--rpc", str(rpc_servers)]
+            if split_mode in ("none", "layer", "row", "tensor"):
+                cmd += ["-sm", split_mode]
         if tensor_split:
             cmd += ["-ts", str(tensor_split)]
         kw = {}
@@ -681,6 +692,18 @@ class LlamaBackend:
             time.sleep(0.5)
         self.stop()
         raise RuntimeError("llama-server не ответил /health вовремя")
+    def slots_status(self):
+        if not self.is_running() or self.port is None:
+            return []
+        try:
+            import requests
+            r = requests.get(f"http://127.0.0.1:{self.port}/slots", timeout=1.5)
+            if r.status_code == 200:
+                data = r.json()
+                return data if isinstance(data, list) else []
+        except Exception:
+            pass
+        return []
     def _health_ok(self):
         if self.port is None:
             return False
@@ -705,10 +728,18 @@ class LlamaBackend:
                     self.proc.kill()
                 except Exception:
                     pass
+            try:
+                if self.proc.stderr is not None:
+                    self.proc.stderr.close()
+            except Exception:
+                pass
             self.proc = None
         self.port = None
         self.gguf_path = None
         self.model_id = None
+        self.rpc_servers = None
+        self.tensor_split = None
+        self.parallel_slots = 1
     def chat_stream(self, messages, max_tokens=512, temperature=0.7, cancel_check=None):
         if not self.is_running():
             raise RuntimeError("GGUF backend не запущен")
@@ -766,5 +797,8 @@ class LlamaBackend:
             "port": self.port,
             "ngl": self.ngl,
             "ctx_tokens": self.ctx_tokens,
+            "parallel_slots": self.parallel_slots,
+            "rpc_servers": self.rpc_servers,
+            "tensor_split": self.tensor_split,
             "running": self.is_running(),
         }

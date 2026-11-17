@@ -37,6 +37,13 @@ ALLOWED_TUNNEL_PATHS = frozenset({
     "/api/lan/pair",
     "/api/lan/heartbeat",
     "/api/lan/leave",
+    "/api/cluster/preview",
+    "/api/cluster/status",
+    "/api/cluster/plan",
+    "/api/cluster/telemetry",
+    "/api/cluster/workers/register",
+    "/api/cluster/workers/heartbeat",
+    "/api/cluster/workers/leave",
     "/api/feedback/policy",
     "/api/feedback/submit",
     "/api/feedback/my",
@@ -1226,6 +1233,10 @@ class HostTunnelAgent:
         self._relay_connected: dict[str, bool] = {}
         self._http_client: httpx.AsyncClient | None = None
         self._last_error: str | None = None
+        self._wrk_stream_lock = asyncio.Lock()
+        self._next_wrk_stream_id = 2
+        self._wrk_writers: dict[int, asyncio.StreamWriter] = {}
+        self._worker_proxies: dict[tuple[str, int], tuple[asyncio.AbstractServer, int]] = {}
     @property
     def active_peer_count(self) -> int:
         return len(self._active_channels)
@@ -1262,6 +1273,7 @@ class HostTunnelAgent:
             await ch.send_close("host_shutdown")
             await ch.close()
         self._active_channels.clear()
+        await self.close_worker_proxies()
         for t in list(self._relay_tasks):
             t.cancel()
         for t in list(self._peer_tasks):
@@ -1450,6 +1462,26 @@ class HostTunnelAgent:
                             await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
                         except Exception:
                             pass
+                elif msg_type == net_identity.MSG_WRK_DATA:
+                    writer = self._wrk_writers.get(stream_id)
+                    if writer is not None:
+                        try:
+                            writer.write(payload)
+                            await writer.drain()
+                        except Exception:
+                            self._wrk_writers.pop(stream_id, None)
+                            try:
+                                writer.close()
+                            except Exception:
+                                pass
+                elif msg_type == net_identity.MSG_WRK_CLOSE:
+                    writer = self._wrk_writers.pop(stream_id, None)
+                    if writer is not None:
+                        try:
+                            writer.close()
+                            await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
+                        except Exception:
+                            pass
         except asyncio.CancelledError:
             pass
         except Exception as exc:
@@ -1508,6 +1540,63 @@ class HostTunnelAgent:
         t = asyncio.create_task(_pump())
         rpc_tasks.add(t)
         t.add_done_callback(rpc_tasks.discard)
+    async def open_worker_proxy(self, peer_node_id: str, remote_port: int) -> int:
+        key = (str(peer_node_id), int(remote_port))
+        existing = self._worker_proxies.get(key)
+        if existing is not None:
+            return existing[1]
+        def _find_channel():
+            for ch in list(self._active_channels):
+                if ch.is_established and ch.peer_node_id == peer_node_id:
+                    return ch
+            return None
+        if _find_channel() is None:
+            raise TunnelClosedError(f"Worker peer {peer_node_id} is not connected via tunnel")
+        async def _handle_local(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+            ch = _find_channel()
+            if ch is None:
+                writer.close()
+                return
+            async with self._wrk_stream_lock:
+                sid = self._next_wrk_stream_id
+                self._next_wrk_stream_id += 2
+            self._wrk_writers[sid] = writer
+            try:
+                open_payload = net_identity.canonical_json({"port": int(remote_port)})
+                await ch.send_frame(net_identity.MSG_WRK_OPEN, payload=open_payload, stream_id=sid, flags=0)
+                while ch.is_established and not self._stop:
+                    chunk = await reader.read(MAX_CHUNK_BYTES)
+                    if not chunk:
+                        break
+                    await ch.send_frame(net_identity.MSG_WRK_DATA, payload=chunk, stream_id=sid, flags=0)
+            except Exception:
+                pass
+            finally:
+                self._wrk_writers.pop(sid, None)
+                try:
+                    if ch.is_established:
+                        await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=sid, flags=net_identity.FLAG_FIN)
+                except Exception:
+                    pass
+                try:
+                    writer.close()
+                    await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
+                except Exception:
+                    pass
+        srv = await asyncio.start_server(_handle_local, "127.0.0.1", 0)
+        local_port = srv.sockets[0].getsockname()[1]
+        self._worker_proxies[key] = (srv, local_port)
+        return local_port
+    async def close_worker_proxies(self, peer_node_id: str | None = None) -> None:
+        for key in list(self._worker_proxies.keys()):
+            if peer_node_id is not None and key[0] != peer_node_id:
+                continue
+            srv, _ = self._worker_proxies.pop(key)
+            srv.close()
+            try:
+                await asyncio.wait_for(srv.wait_closed(), timeout=1.0)
+            except Exception:
+                pass
     async def _send_http_error(self, channel: EncryptedChannel, stream_id: int, status: int, message: str) -> None:
         if not channel.is_established:
             return
@@ -1680,6 +1769,7 @@ class ClientTunnelAgent:
         bridge_host: str = "127.0.0.1",
         bridge_port: int = 0,
         verify_ping: bool = True,
+        worker_allowed_ports=(),
     ):
         if not isinstance(target_host_id, str) or not net_identity.NODE_ID_RE.match(target_host_id):
             raise ValueError("Invalid target_host_id")
@@ -1698,6 +1788,9 @@ class ClientTunnelAgent:
         self.bridge_host = str(bridge_host or "127.0.0.1")
         self.bridge_port = int(bridge_port)
         self.verify_ping = bool(verify_ping)
+        self.worker_allowed_ports = {int(p) for p in (worker_allowed_ports or ()) if 1 <= int(p) <= 65535}
+        self._wrk_writers: dict[int, asyncio.StreamWriter] = {}
+        self._wrk_tasks: set[asyncio.Task] = set()
         self._state = TunnelState.READY
         self._active_mode: str | None = None
         self._active_relay_url: str | None = None
@@ -1911,6 +2004,31 @@ class ClientTunnelAgent:
                     break
                 if msg_type == net_identity.MSG_CLOSE:
                     break
+                if msg_type == net_identity.MSG_WRK_OPEN:
+                    await self._handle_wrk_open(ch, stream_id, payload)
+                    continue
+                if msg_type == net_identity.MSG_WRK_DATA:
+                    w = self._wrk_writers.get(stream_id)
+                    if w is not None:
+                        try:
+                            w.write(payload)
+                            await w.drain()
+                        except Exception:
+                            self._wrk_writers.pop(stream_id, None)
+                            try:
+                                w.close()
+                            except Exception:
+                                pass
+                    continue
+                if msg_type == net_identity.MSG_WRK_CLOSE:
+                    w = self._wrk_writers.pop(stream_id, None)
+                    if w is not None:
+                        try:
+                            w.close()
+                            await asyncio.wait_for(w.wait_closed(), timeout=0.5)
+                        except Exception:
+                            pass
+                    continue
                 q = self._pending_streams.get(stream_id)
                 if q is not None:
                     try:
@@ -1927,6 +2045,14 @@ class ClientTunnelAgent:
             self._last_error = str(exc)
         finally:
             self._fail_pending_streams()
+            for t in list(self._wrk_tasks):
+                t.cancel()
+            for w in list(self._wrk_writers.values()):
+                try:
+                    w.close()
+                except Exception:
+                    pass
+            self._wrk_writers.clear()
             if self._channel is ch:
                 self._bytes_tx_acc += ch.bytes_tx
                 self._bytes_rx_acc += ch.bytes_rx
@@ -1934,6 +2060,48 @@ class ClientTunnelAgent:
                 await ch.close()
                 if not self._stop:
                     self._state = TunnelState.RECONNECTING if self.reconnect_enabled else TunnelState.DISCONNECTED
+    def set_worker_allowed_ports(self, ports) -> None:
+        self.worker_allowed_ports = {int(p) for p in (ports or ()) if 1 <= int(p) <= 65535}
+    async def _handle_wrk_open(self, ch: EncryptedChannel, stream_id: int, payload: bytes) -> None:
+        try:
+            info = json.loads(payload.decode("utf-8"))
+            port = info.get("port")
+        except Exception:
+            await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+            return
+        if isinstance(port, bool) or not isinstance(port, int) or port not in self.worker_allowed_ports:
+            await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+            return
+        try:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection("127.0.0.1", port), timeout=5.0)
+        except Exception:
+            await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+            return
+        self._wrk_writers[stream_id] = writer
+        async def _pump():
+            try:
+                while ch.is_established and not self._stop:
+                    chunk = await reader.read(MAX_CHUNK_BYTES)
+                    if not chunk:
+                        break
+                    await ch.send_frame(net_identity.MSG_WRK_DATA, payload=chunk, stream_id=stream_id, flags=0)
+            except Exception:
+                pass
+            finally:
+                self._wrk_writers.pop(stream_id, None)
+                try:
+                    writer.close()
+                    await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
+                except Exception:
+                    pass
+                try:
+                    if ch.is_established:
+                        await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+                except Exception:
+                    pass
+        t = asyncio.create_task(_pump())
+        self._wrk_tasks.add(t)
+        t.add_done_callback(self._wrk_tasks.discard)
     async def _alloc_stream(self) -> tuple[int, asyncio.Queue]:
         async with self._stream_lock:
             sid = self._next_stream_id

@@ -1291,6 +1291,7 @@ macOS
 <div id="srvDiscoveryWarn" class="v-alert-warn" style="display:none;margin-bottom:12px;"></div>
 <div class="trn-subtabs" style="margin-bottom:16px;">
 <button class="trn-subbtn active" onclick="srvSubTab('overview', this)">Обзор и Создание</button>
+<button class="trn-subbtn" onclick="srvSubTab('cluster', this)">Кластер и Распределение</button>
 <button class="trn-subbtn" onclick="srvSubTab('shared-chat', this)">Мои AI-диалоги</button>
 <button class="trn-subbtn" onclick="srvSubTab('members', this)">Участники и Вычисления</button>
 <button class="trn-subbtn" onclick="srvSubTab('community', this)">Чат сообщества</button>
@@ -1320,6 +1321,60 @@ macOS
 <input type="checkbox" id="srvCreateOpen"> Открытый вход в LAN без ввода кода (open mode)
 </label>
 <button id="srvCreateSubmitBtn" class="btn-action active" onclick="srvCreateUnified()">Запустить / Обновить сервер</button>
+</div>
+</div>
+<div id="srv-panel-cluster" class="trn-panel">
+<div class="trn-grid" id="clsOverviewCards" style="margin-bottom:14px;"></div>
+<div class="v-grid-2" style="margin-bottom:14px;">
+<div class="trn-row">
+<div class="v-section-title" style="display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>Создать Распределённый ИИ-Кластер (Coordinator)</div>
+<div class="v-grid-2" style="margin-bottom:8px;">
+<div><label class="v-field-label" for="clsModelInput">Модель (HF / GGUF / путь)</label><input id="clsModelInput" class="trn-input" placeholder="Qwen/Qwen2.5-Coder-7B-Instruct"></div>
+<div><label class="v-field-label" for="clsNameInput">Имя кластера</label><input id="clsNameInput" class="trn-input" placeholder="SHARD-Cluster"></div>
+<div><label class="v-field-label" for="clsStrategySelect">Стратегия</label><select id="clsStrategySelect" class="trn-input"><option value="auto">Auto (GGUF RPC / PyTorch Pipeline)</option><option value="gguf_rpc_layer_split">GGUF Distributed RPC (llama.cpp)</option><option value="torch_pipeline_parallel">PyTorch Pipeline Parallel</option></select></div>
+<div><label class="v-field-label" for="clsSlotsInput">Конкурентные слоты (--parallel)</label><input id="clsSlotsInput" class="trn-input" type="number" min="1" max="32" value="4"></div>
+</div>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12px;">
+<label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="clsOpenNet"> Открытый кластер (без кода)</label>
+<label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="clsCoordContrib" checked> Координатор выделяет свои ресурсы</label>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<button class="btn-action active" onclick="clsCreate()">Создать кластер</button>
+<button class="btn-action" onclick="clsDeploy()">Запустить / Пересобрать слои</button>
+<button class="btn-action" onclick="clsStop()" style="color:var(--danger);">Остановить кластер</button>
+</div>
+</div>
+<div class="trn-row">
+<div class="v-section-title" style="display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>Присоединиться как Worker (Согласие на ресурсы)</div>
+<div class="v-grid-2" style="margin-bottom:8px;">
+<div><label class="v-field-label" for="clsJoinUrl">URL координатора</label><input id="clsJoinUrl" class="trn-input" placeholder="http://26.x.x.x:8000"></div>
+<div><label class="v-field-label" for="clsJoinCode">Код кластера</label><input id="clsJoinCode" class="trn-input" placeholder="XXXX-XXXX"></div>
+<div><label class="v-field-label" for="clsJoinVramPct">Лимит VRAM (%)</label><input id="clsJoinVramPct" class="trn-input" type="number" min="10" max="95" value="70"></div>
+<div><label class="v-field-label" for="clsJoinRamGb">Лимит RAM (ГБ)</label><input id="clsJoinRamGb" class="trn-input" type="number" min="1" max="512" value="8"></div>
+<div><label class="v-field-label" for="clsJoinThreads">Потоки CPU</label><input id="clsJoinThreads" class="trn-input" type="number" min="1" max="128" value="4"></div>
+<div style="display:flex;align-items:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" id="clsJoinTunnel"> Через защищённый туннель</label></div>
+</div>
+<div style="margin-bottom:10px;font-size:12px;">
+<label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--accent-soft-text);"><input type="checkbox" id="clsJoinConsent"> Я явно разрешаю SHARD использовать указанные лимиты GPU/RAM/CPU</label>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<button class="btn-action active" onclick="clsJoinWorker()">Подключиться как Worker</button>
+<button class="btn-action" onclick="clsLeaveWorker()">Отключиться</button>
+</div>
+</div>
+</div>
+<div class="trn-row" style="margin-bottom:14px;">
+<div class="v-section-title">Распределение слоёв модели по узлам (Model Distribution)</div>
+<div id="clsPlanBox" style="font-size:12px;color:var(--text-muted);">Кластер не активен</div>
+</div>
+<div class="v-grid-2">
+<div class="trn-row">
+<div class="v-section-title">Узлы кластера (Workers & Coordinator)</div>
+<div id="clsWorkersBox" style="font-size:12px;color:var(--text-muted);">Нет подключённых узлов</div>
+</div>
+<div class="trn-row">
+<div class="v-section-title">Мониторинг инференса (Real Metrics)</div>
+<div id="clsTelemetryBox" style="font-size:12px;color:var(--text-muted);">Ожидание запросов...</div>
 </div>
 </div>
 </div>
@@ -4240,6 +4295,7 @@ async function srvRefresh() {
             }
         }
         await srvLoadPrivateChats();
+        await clsRefresh();
         const memBox = document.getElementById('srvMembersBox');
         if (memBox) {
             const peersObj = w.peers || {};
@@ -4286,6 +4342,136 @@ async function srvRefresh() {
                 '</div>'
             ).join('') || '<div class="trn-row" style="color:var(--text-muted);">Проблем пока не зарегистрировано</div>';
         }
+    } catch(e) {}
+}
+async function clsRefresh() {
+    try {
+        const res = await fetch('/api/cluster/status', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const c = await res.json();
+        const ov = c.cluster_overview || {};
+        const tel = c.telemetry || {};
+        const cards = document.getElementById('clsOverviewCards');
+        if (cards) {
+            const stColor = c.state === 'READY' ? 'var(--success)' : (c.state === 'DEGRADED' ? 'var(--danger)' : 'var(--warning)');
+            cards.innerHTML =
+                '<div class="trn-stat"><div class="trn-stat-label">Статус кластера</div><div class="trn-stat-val" style="color:' + stColor + ';">' + escHtml(c.state || 'IDLE') + '</div><div class="trn-stat-sub">Роль: ' + escHtml(c.role || 'idle') + (c.pairing_code ? (' | Код: ' + escHtml(c.pairing_code)) : '') + '</div></div>' +
+                '<div class="trn-stat"><div class="trn-stat-label">Агрег. GPU VRAM (Доступно / Всего)</div><div class="trn-stat-val">' + (ov.aggregate_usable_vram_mb || 0) + ' / ' + (ov.aggregate_raw_vram_mb || 0) + ' MB</div><div class="trn-stat-sub">С учётом резервов и квот узлов</div></div>' +
+                '<div class="trn-stat"><div class="trn-stat-label">Агрег. RAM (Доступно / Всего)</div><div class="trn-stat-val">' + Math.round((ov.aggregate_usable_ram_mb || 0) / 1024 * 10) / 10 + ' / ' + Math.round((ov.aggregate_raw_ram_mb || 0) / 1024 * 10) / 10 + ' GB</div><div class="trn-stat-sub">Потоки CPU: ' + (ov.aggregate_usable_threads || 0) + ' | Воркеры: ' + (ov.worker_count || 0) + '</div></div>' +
+                '<div class="trn-stat"><div class="trn-stat-label">Производительность</div><div class="trn-stat-val">' + (tel.avg_tokens_per_sec || 0) + ' ток/с</div><div class="trn-stat-sub">TTFT: ' + (tel.avg_ttft_ms || 0) + ' ms | RTT: ' + (ov.avg_worker_rtt_ms || 0) + ' ms</div></div>';
+        }
+        const pBox = document.getElementById('clsPlanBox');
+        if (pBox) {
+            const plan = c.plan || {};
+            const stages = plan.stages || [];
+            if (stages.length > 0) {
+                let html = '<div style="margin-bottom:8px;">Стратегия: <b>' + escHtml(plan.strategy) + '</b> | Слоёв: <b>' + plan.total_layers + '</b> | Требуется: <b>' + plan.total_required_mb + ' MB</b> / Кластер: <b>' + plan.total_usable_cluster_mb + ' MB</b> | Межузловая задержка: ~' + (plan.estimated_comm_overhead_ms_per_tok || 0) + ' ms/ток</div>';
+                if (plan.communication_warning) html += '<div class="v-alert-warn" style="margin-bottom:8px;">' + escHtml(plan.communication_warning) + '</div>';
+                html += stages.map(s => {
+                    const pct = Math.max(8, Math.round((s.layer_count / Math.max(1, plan.total_layers)) * 100));
+                    return '<div style="margin-bottom:6px;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-sunken);">' +
+                        '<div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span><b>Stage ' + s.stage_index + '</b>: ' + escHtml(s.node_name) + ' [' + escHtml(s.device_type) + ']</span><span>Слои ' + s.layer_start + '..' + (s.layer_end - 1) + ' (' + s.layer_count + ') | ' + s.total_alloc_mb + ' MB (KV: ' + s.kv_cache_mb + ' MB)</span></div>' +
+                        '<div style="height:6px;background:var(--surface);border-radius:3px;overflow:hidden;"><div style="width:' + pct + '%;height:100%;background:var(--accent-text);"></div></div></div>';
+                }).join('');
+                pBox.innerHTML = html;
+            } else {
+                pBox.innerText = plan.reason || c.last_error || 'Нет активного плана распределения';
+            }
+        }
+        const wBox = document.getElementById('clsWorkersBox');
+        if (wBox) {
+            const nodes = [];
+            if (c.coordinator) nodes.push(c.coordinator);
+            for (const wk of (c.workers || [])) nodes.push(wk);
+            wBox.innerHTML = nodes.map(n => {
+                const hw = n.hw || {};
+                const eff = n.effective || {};
+                const wid = n.worker_id || n.node_id || '';
+                const kickBtn = (n.role === 'worker' && wid) ? ('<button class="fb-btn" style="color:var(--danger);" data-wid="' + escHtml(wid) + '" onclick="clsKickWorker(this.dataset.wid)">Удалить</button>') : '';
+                return '<div style="padding:7px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+                    '<div><b>' + escHtml(n.name || wid) + '</b> <span class="compat-pill ' + (n.alive ? 'compat-ok' : 'compat-warn') + '">' + escHtml(n.role) + '</span><br>' +
+                    '<span style="color:var(--text-muted);font-size:11px;">GPU: ' + escHtml(hw.gpu_name || 'CPU') + ' | Usable VRAM: ' + (eff.usable_vram_mb || 0) + ' MB | Usable RAM: ' + (eff.usable_ram_mb || 0) + ' MB | CPU: ' + (hw.cpu_util_pct || 0) + '% | RTT: ' + (n.rtt_ms || 0) + ' ms</span></div>' +
+                    kickBtn + '</div>';
+            }).join('') || 'Нет узлов';
+        }
+        const tBox = document.getElementById('clsTelemetryBox');
+        if (tBox) {
+            tBox.innerHTML =
+                '<div>Активных запросов: <b>' + (tel.active_requests || 0) + '</b> / ' + (tel.max_concurrent || 4) + ' | В очереди: <b>' + (tel.queue_length || 0) + '</b></div>' +
+                '<div>Всего запросов: <b>' + (tel.total_requests || 0) + '</b> (Успешно: ' + (tel.completed_requests || 0) + ', Ошибок: ' + (tel.failed_requests || 0) + ', Отменено: ' + (tel.cancelled_requests || 0) + ')</div>' +
+                '<div>Сгенерировано токенов: <b>' + (tel.total_tokens_generated || 0) + '</b> | Передача между узлами: <b>' + (tel.avg_inter_worker_transfer_ms || 0) + ' ms</b></div>';
+        }
+    } catch(e) {}
+}
+async function clsCreate() {
+    const model = ((document.getElementById('clsModelInput') || {}).value || '').trim();
+    const name = ((document.getElementById('clsNameInput') || {}).value || '').trim();
+    const strategy = ((document.getElementById('clsStrategySelect') || {}).value || 'auto');
+    const slots = parseInt((document.getElementById('clsSlotsInput') || {}).value || '4', 10);
+    const openNet = Boolean((document.getElementById('clsOpenNet') || {}).checked);
+    const contrib = Boolean((document.getElementById('clsCoordContrib') || {}).checked);
+    if (!model) { showToast('Укажите модель', 'Введите Hugging Face ID или путь к модели'); return; }
+    try {
+        const res = await fetch('/api/cluster/create', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({model_id: model, name: name || undefined, strategy: strategy, parallel_slots: slots, open: openNet, coordinator_contributes: contrib, auto_deploy: true})
+        });
+        const d = await res.json();
+        if (!res.ok) { showToast('Ошибка кластера', d.message || 'Не удалось создать кластер'); return; }
+        showToast('Кластер создан', 'Состояние: ' + ((d.cluster && d.cluster.state) || 'FORMING'));
+        clsRefresh();
+    } catch(e) { showToast('Ошибка', e.message); }
+}
+async function clsDeploy() {
+    try {
+        const res = await fetch('/api/cluster/deploy', {method: 'POST', headers: getAuthHeaders({'Content-Type': 'application/json'}), body: JSON.stringify({verify: true})});
+        const d = await res.json();
+        if (!res.ok) { showToast('Ожидание ресурсов', d.message || 'Недостаточно узлов'); return; }
+        showToast('Кластер READY', 'Модель распределена и прошла проверку инференса');
+        clsRefresh();
+    } catch(e) { showToast('Ошибка', e.message); }
+}
+async function clsStop() {
+    try {
+        await fetch('/api/cluster/stop', {method: 'POST', headers: getAuthHeaders()});
+        showToast('Кластер остановлен', 'Все распределённые процессы освобождены');
+        clsRefresh();
+    } catch(e) {}
+}
+async function clsJoinWorker() {
+    const consented = Boolean((document.getElementById('clsJoinConsent') || {}).checked);
+    if (!consented) { showToast('Требуется согласие', 'Отметьте явное разрешение на выделение ресурсов'); return; }
+    const url = ((document.getElementById('clsJoinUrl') || {}).value || '').trim();
+    const code = ((document.getElementById('clsJoinCode') || {}).value || '').trim();
+    const vramPct = parseFloat((document.getElementById('clsJoinVramPct') || {}).value || '70');
+    const ramGb = parseFloat((document.getElementById('clsJoinRamGb') || {}).value || '8');
+    const threads = parseInt((document.getElementById('clsJoinThreads') || {}).value || '4', 10);
+    const viaTunnel = Boolean((document.getElementById('clsJoinTunnel') || {}).checked);
+    if (!url) { showToast('Укажите URL', 'Введите URL координатора'); return; }
+    try {
+        const res = await fetch('/api/cluster/worker/join', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({coordinator_url: url, auth_code: code, consented: true, via_tunnel: viaTunnel, quota: {vram_pct: vramPct, max_ram_gb: ramGb, max_threads: threads}})
+        });
+        const d = await res.json();
+        if (!res.ok) { showToast('Ошибка подключения', d.message || 'Отклонено координатором'); return; }
+        showToast('Worker подключён', 'ID: ' + d.worker_id);
+        clsRefresh();
+    } catch(e) { showToast('Ошибка', e.message); }
+}
+async function clsLeaveWorker() {
+    try {
+        await fetch('/api/cluster/worker/leave', {method: 'POST', headers: getAuthHeaders()});
+        showToast('Worker остановлен', 'Вычислительные ресурсы освобождены');
+        clsRefresh();
+    } catch(e) {}
+}
+async function clsKickWorker(wid) {
+    try {
+        await fetch('/api/cluster/workers/' + encodeURIComponent(wid) + '/kick', {method: 'POST', headers: getAuthHeaders({'Content-Type': 'application/json'}), body: JSON.stringify({block: false})});
+        clsRefresh();
     } catch(e) {}
 }
 async function srvCreateUnified() {
@@ -4441,6 +4627,7 @@ async function srvNewChat() {
             const d = await res.json();
             if (d.chat_id) srvCurrentChatId = d.chat_id;
             await srvLoadPrivateChats();
+        await clsRefresh();
             return;
         }
     } catch(e) {}
@@ -4459,6 +4646,7 @@ async function srvDeleteCurrentChat() {
             showToast('Диалог удалён', srvCurrentChatId);
             srvCurrentChatId = '';
             await srvLoadPrivateChats();
+        await clsRefresh();
         }
     } catch(e) {
         showToast('Ошибка', e.message);
@@ -4496,6 +4684,7 @@ async function srvSendSharedChat() {
             localStorage.removeItem('shard_server_session_token');
             showToast('Требуется авторизация', 'Требуется подключение к серверу или ввод кода сопряжения.');
             await srvLoadPrivateChats();
+        await clsRefresh();
             return;
         }
         const d = await res.json();
@@ -4504,6 +4693,7 @@ async function srvSendSharedChat() {
         } else {
             if (d.chat_id) srvCurrentChatId = d.chat_id;
             await srvLoadPrivateChats();
+        await clsRefresh();
         }
     } catch(e) {
         showToast('Ошибка', 'Не удалось отправить запрос: ' + e.message);

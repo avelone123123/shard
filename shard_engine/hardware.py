@@ -1,10 +1,13 @@
 import os
+import platform
 import re
 import shutil
 import subprocess
 import time
 from . import paths, proc_io
-_gpu_cache = {"ts": 0.0, "gpu_name": "CPU Only", "vram_total_mb": 0, "vram_used_mb": 0, "probed": False}
+_gpu_cache = {"ts": 0.0, "gpu_name": "CPU Only", "vram_total_mb": 0, "vram_used_mb": 0, "gpu_util_pct": 0.0, "gpus": [], "probed": False}
+_cpu_model_cache = None
+_backend_cache = {"ts": 0.0, "data": None}
 def _existing_ancestor(path):
     cur = path
     while cur and not os.path.exists(cur):
@@ -13,6 +16,74 @@ def _existing_ancestor(path):
             return os.path.expanduser("~")
         cur = parent
     return cur or os.path.expanduser("~")
+def _detect_cpu_model():
+    global _cpu_model_cache
+    if _cpu_model_cache is not None:
+        return _cpu_model_cache
+    name = ""
+    if os.name == "nt":
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0") as key:
+                val, _ = winreg.QueryValueEx(key, "ProcessorNameString")
+                name = str(val or "").strip()
+        except Exception:
+            pass
+    elif os.path.isfile("/proc/cpuinfo"):
+        try:
+            with open("/proc/cpuinfo", "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    if line.lower().startswith("model name"):
+                        name = line.split(":", 1)[1].strip()
+                        break
+        except Exception:
+            pass
+    if not name:
+        name = str(platform.processor() or platform.machine() or "Unknown CPU").strip()
+    _cpu_model_cache = re.sub(r"\s+", " ", name)
+    return _cpu_model_cache
+def _probe_backends():
+    now = time.time()
+    if _backend_cache["data"] is not None and (now - _backend_cache["ts"]) < 30.0:
+        return dict(_backend_cache["data"])
+    has_torch = False
+    has_cuda = False
+    has_mps = False
+    has_transformers = False
+    has_safetensors = False
+    try:
+        import importlib.util
+        has_torch = importlib.util.find_spec("torch") is not None
+        has_transformers = importlib.util.find_spec("transformers") is not None
+        has_safetensors = importlib.util.find_spec("safetensors") is not None
+    except Exception:
+        pass
+    if has_torch:
+        try:
+            import torch
+            has_cuda = bool(torch.cuda.is_available())
+            has_mps = bool(getattr(torch.backends, "mps", None) and torch.backends.mps.is_available())
+        except Exception:
+            pass
+    has_llama_server = False
+    has_gguf_rpc = False
+    try:
+        from . import gguf_backend, lan
+        has_llama_server = bool(gguf_backend.find_llama_server())
+        has_gguf_rpc = bool(lan.find_rpc_server())
+    except Exception:
+        pass
+    res = {
+        "gguf_rpc": has_gguf_rpc,
+        "llama_server": has_llama_server,
+        "torch_pipeline": bool(has_torch and has_transformers and has_safetensors),
+        "torch": has_torch,
+        "cuda": has_cuda or bool(_gpu_cache.get("vram_total_mb", 0) > 0),
+        "mps": has_mps,
+    }
+    _backend_cache["ts"] = now
+    _backend_cache["data"] = res
+    return dict(res)
 def get_hardware_profile(force_refresh=False):
     import psutil
     now = time.time()
@@ -20,15 +91,38 @@ def get_hardware_profile(force_refresh=False):
         _gpu_cache["ts"] = now
         _gpu_cache["probed"] = True
         try:
-            cmd = ["nvidia-smi", "--query-gpu=name,memory.total,memory.used", "--format=csv,noheader,nounits"]
+            cmd = ["nvidia-smi", "--query-gpu=index,name,memory.total,memory.used,utilization.gpu", "--format=csv,noheader,nounits"]
             kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
             res = proc_io.run_subprocess_safe(cmd, stdin=subprocess.DEVNULL, timeout=3, **kw)
             if res.returncode == 0 and res.stdout.strip():
-                parts = res.stdout.strip().split("\n")[0].split(",")
-                if len(parts) >= 3:
-                    _gpu_cache["gpu_name"] = parts[0].strip()
-                    _gpu_cache["vram_total_mb"] = int(float(parts[1].strip()))
-                    _gpu_cache["vram_used_mb"] = int(float(parts[2].strip()))
+                gpus = []
+                for raw_line in res.stdout.strip().splitlines():
+                    parts = [p.strip() for p in raw_line.split(",")]
+                    if len(parts) >= 4:
+                        try:
+                            idx = int(float(parts[0]))
+                        except Exception:
+                            idx = len(gpus)
+                        tot_mb = int(float(parts[2]))
+                        used_mb = int(float(parts[3]))
+                        try:
+                            util = float(parts[4]) if len(parts) >= 5 else 0.0
+                        except Exception:
+                            util = 0.0
+                        gpus.append({
+                            "index": idx,
+                            "name": parts[1],
+                            "vram_total_mb": tot_mb,
+                            "vram_used_mb": used_mb,
+                            "vram_free_mb": max(0, tot_mb - used_mb),
+                            "util_pct": round(util, 1),
+                        })
+                if gpus:
+                    _gpu_cache["gpus"] = gpus
+                    _gpu_cache["gpu_name"] = gpus[0]["name"]
+                    _gpu_cache["vram_total_mb"] = sum(g["vram_total_mb"] for g in gpus)
+                    _gpu_cache["vram_used_mb"] = sum(g["vram_used_mb"] for g in gpus)
+                    _gpu_cache["gpu_util_pct"] = round(sum(g["util_pct"] for g in gpus) / len(gpus), 1)
         except Exception:
             pass
     gpu_name = _gpu_cache["gpu_name"]
@@ -43,18 +137,94 @@ def get_hardware_profile(force_refresh=False):
     target_disk = _existing_ancestor(os.environ.get("HF_HOME") or paths.default_models_dir())
     disk = shutil.disk_usage(target_disk)
     disk_free_gb = round(disk.free / (1024 ** 3), 1)
+    try:
+        cpu_util = round(float(psutil.cpu_percent(interval=None)), 1)
+    except Exception:
+        cpu_util = 0.0
+    backends = _probe_backends()
+    backends["cuda"] = bool(backends.get("cuda") or vram_total_mb > 0)
     return {
         "gpu_name": gpu_name,
+        "gpus": list(_gpu_cache["gpus"]),
+        "gpu_count": len(_gpu_cache["gpus"]),
         "vram_total_mb": vram_total_mb,
         "vram_used_mb": vram_used_mb,
         "vram_free_mb": max(0, vram_total_mb - vram_used_mb),
+        "gpu_util_pct": _gpu_cache["gpu_util_pct"],
         "ram_total_mb": ram_total_mb,
         "ram_avail_mb": ram_avail_mb,
         "ram_used_mb": ram_used_mb,
         "ram_total_gb": ram_total_gb,
         "ram_used_gb": ram_used_gb,
         "disk_free_gb": disk_free_gb,
-        "cpu_cores": psutil.cpu_count(logical=True)
+        "cpu_cores": psutil.cpu_count(logical=True) or 1,
+        "cpu_physical_cores": psutil.cpu_count(logical=False) or psutil.cpu_count(logical=True) or 1,
+        "cpu_model": _detect_cpu_model(),
+        "cpu_util_pct": cpu_util,
+        "os": platform.system(),
+        "os_release": platform.release(),
+        "arch": platform.machine(),
+        "backends": backends,
+    }
+def effective_usable_resources(hw, quota=None, vram_reserve_mb=400, ram_reserve_mb=2048):
+    hw = hw or {}
+    quota = quota if isinstance(quota, dict) else {}
+    raw_vram_free = max(0, int(hw.get("vram_free_mb") or 0))
+    raw_vram_total = max(raw_vram_free, int(hw.get("vram_total_mb") or 0))
+    raw_ram_avail = max(0, int(hw.get("ram_avail_mb") or 0))
+    raw_ram_total = max(raw_ram_avail, int(hw.get("ram_total_mb") or 0))
+    raw_threads = max(1, int(hw.get("cpu_cores") or 1))
+    unreserved_vram = max(0, raw_vram_free - int(vram_reserve_mb))
+    unreserved_ram = max(0, raw_ram_avail - int(ram_reserve_mb))
+    vram_cap = unreserved_vram
+    if quota.get("vram_pct") is not None:
+        try:
+            pct = max(0.0, min(100.0, float(quota["vram_pct"]))) / 100.0
+            vram_cap = min(vram_cap, int(raw_vram_total * pct))
+        except Exception:
+            pass
+    if quota.get("max_vram_mb") is not None:
+        try:
+            vram_cap = min(vram_cap, max(0, int(float(quota["max_vram_mb"]))))
+        except Exception:
+            pass
+    elif quota.get("max_vram_gb") is not None:
+        try:
+            vram_cap = min(vram_cap, max(0, int(float(quota["max_vram_gb"]) * 1024)))
+        except Exception:
+            pass
+    ram_cap = unreserved_ram
+    if quota.get("ram_pct") is not None:
+        try:
+            pct = max(0.0, min(100.0, float(quota["ram_pct"]))) / 100.0
+            ram_cap = min(ram_cap, int(raw_ram_total * pct))
+        except Exception:
+            pass
+    if quota.get("max_ram_mb") is not None:
+        try:
+            ram_cap = min(ram_cap, max(0, int(float(quota["max_ram_mb"]))))
+        except Exception:
+            pass
+    elif quota.get("max_ram_gb") is not None:
+        try:
+            ram_cap = min(ram_cap, max(0, int(float(quota["max_ram_gb"]) * 1024)))
+        except Exception:
+            pass
+    threads_cap = raw_threads
+    if quota.get("max_threads") is not None:
+        try:
+            threads_cap = max(1, min(raw_threads, int(quota["max_threads"])))
+        except Exception:
+            pass
+    return {
+        "usable_vram_mb": max(0, int(vram_cap)),
+        "usable_ram_mb": max(0, int(ram_cap)),
+        "usable_threads": int(threads_cap),
+        "raw_vram_total_mb": raw_vram_total,
+        "raw_vram_free_mb": raw_vram_free,
+        "raw_ram_total_mb": raw_ram_total,
+        "raw_ram_avail_mb": raw_ram_avail,
+        "raw_threads": raw_threads,
     }
 def estimate_model_params(model_id):
     mid = model_id.lower()

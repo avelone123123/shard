@@ -1323,7 +1323,7 @@ class ShardEngine:
             parts.append(f"<|im_start|>{role}\n{c}<|im_end|>")
         parts.append("<|im_start|>assistant\n")
         return "\n".join(parts)
-    def generate_stream(self, messages, max_tokens=512, temperature=0.7):
+    def generate_stream(self, messages, max_tokens=512, temperature=0.7, cancel_check=None):
         t0 = time.time()
         self._cancel_gen = False
         gguf_ready = self.gguf is not None and self.gguf.is_running()
@@ -1344,7 +1344,7 @@ class ShardEngine:
             yield {"type": "done", "token": "", "done": True, "telemetry": {"thinking_seconds": 0.0, "total_seconds": 0.05, "tokens_per_sec": 0.0}, "usage": {"prompt_tokens": 1, "completion_tokens": len(ans.split()), "total_tokens": len(ans.split()) + 1}}
             return
         if self.gguf is not None and self.gguf.is_running():
-            yield from self._generate_gguf(messages, max_tokens, temperature)
+            yield from self._generate_gguf(messages, max_tokens, temperature, cancel_check=cancel_check)
             return
         if not (self.gguf is not None and self.gguf.is_running()) and (self.model is None or self.tokenizer is None):
             ans = "Модель еще не запущена в память. Откройте вкладку «Каталог Hugging Face» или «Подбор под Железо» и нажмите кнопку «Запустить» на выбранной модели."
@@ -1395,7 +1395,8 @@ class ShardEngine:
             gen_thread = threading.Thread(target=_runner, daemon=True)
             gen_thread.start()
             for chunk in streamer:
-                if self._cancel_gen:
+                if self._cancel_gen or (cancel_check and cancel_check()):
+                    self._cancel_gen = True
                     break
                 if not chunk:
                     continue
@@ -1435,7 +1436,7 @@ class ShardEngine:
                 "total_tokens": prompt_tokens + token_count
             }
         }
-    def _generate_gguf(self, messages, max_tokens=512, temperature=0.7):
+    def _generate_gguf(self, messages, max_tokens=512, temperature=0.7, cancel_check=None):
         t0 = time.time()
         self.status = "generating"
         self._cancel_gen = False
@@ -1446,7 +1447,7 @@ class ShardEngine:
         try:
             for kind, payload in self.gguf.chat_stream(
                 messages, int(max_tokens), float(temperature),
-                cancel_check=lambda: self._cancel_gen
+                cancel_check=lambda: self._cancel_gen or bool(cancel_check and cancel_check())
             ):
                 chunk = payload or ""
                 if kind == "delta":

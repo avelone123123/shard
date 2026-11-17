@@ -2130,6 +2130,28 @@ class NetworkManager:
             include_platform=include_platform,
             include_wireguard=include_wireguard,
         )
+    def set_worker_allowed_ports(self, ports):
+        ag = self._client_agent
+        if ag is not None and hasattr(ag, "set_worker_allowed_ports"):
+            ag.set_worker_allowed_ports(ports)
+            return True
+        return False
+    def open_worker_proxy(self, peer_node_id, remote_port):
+        ha = self._host_agent
+        if ha is None:
+            return None
+        try:
+            return int(self._runner.run_coro(ha.open_worker_proxy(peer_node_id, int(remote_port)), timeout=5.0))
+        except Exception:
+            return None
+    def close_worker_proxies(self, peer_node_id=None):
+        ha = self._host_agent
+        if ha is None:
+            return
+        try:
+            self._runner.run_coro(ha.close_worker_proxies(peer_node_id), timeout=5.0)
+        except Exception:
+            pass
     def shutdown(self):
         try:
             self.disconnect()
