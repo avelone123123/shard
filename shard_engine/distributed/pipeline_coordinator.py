@@ -142,3 +142,21 @@ class _LocalStageRunner:
         return {
             "status": "ready",
             "layer_start": self.stage_info["layer_start"],
+            "layer_end": self.stage_info["layer_end"],
+            "tensors_loaded": n_loaded,
+            "param_mb": round(param_bytes / (1024 * 1024), 2),
+            "device": str(self.device),
+        }
+    def forward(self, request_id, tensor, use_cache=True, return_logits=True):
+        with self.lock:
+            if self.stage is None:
+                raise RuntimeError("Local stage not loaded")
+            cache = None
+            if use_cache:
+                cache = self.caches.get(request_id)
+                if cache is None:
+                    cache = self.stage.new_cache()
+                    self.caches[request_id] = cache
+            t0 = time.perf_counter()
+            with torch.inference_mode():
+                out = self.stage.forward_stage(tensor, cache=cache, use_cache=use_cache, return_logits=return_logits)
