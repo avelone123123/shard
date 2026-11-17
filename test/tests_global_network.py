@@ -222,3 +222,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
                     yield {"type": "content", "token": w}
                 yield {"type": "done", "token": "", "done": True}
             return _gen
+        async def _client(uid):
+            items = []
+            async for ch in SCHEDULER.stream_async(_factory(f"u{uid}"), client_key=f"user-{uid}"):
+                items.append(ch)
+            return items
+        async def _run_concurrent():
+            t1 = asyncio.create_task(_client(1))
+            t2 = asyncio.create_task(_client(2))
+            t3 = asyncio.create_task(_client(3))
+            return await asyncio.gather(t1, t2, t3)
+        res = asyncio.run(_run_concurrent())
+        self.assertEqual(len(res), 3)
+        for r in res:
+            self.assertGreaterEqual(len(r), 2)
