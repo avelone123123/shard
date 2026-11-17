@@ -596,6 +596,22 @@ main{padding:14px !important;}
 <div>
 <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">ПОТОКИ CPU</label>
 <input type="number" id="joinMaxThreads" min="1" max="128" value="4" class="trn-input">
+</div>
+<div>
+<label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">КОД АВТОРИЗАЦИИ (ЕСЛИ НУЖЕН)</label>
+<input type="text" id="joinAuthCode" placeholder="ABCD-EFGH" class="trn-input">
+</div>
+</div>
+<label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);margin-bottom:12px;cursor:pointer;">
+<input type="checkbox" id="joinConsentCheck" style="margin-top:2px;">
+<span>Я подтверждаю явное согласие на выделение выбранных аппаратных ресурсов (GPU/VRAM/RAM) для участия в распределенных вычислениях кластера.</span>
+</label>
+<button id="joinAsWorkerBtn" class="btn-action active" style="width:100%;justify-content:center;" onclick="submitJoinAsWorker()">
+Присоединиться к кластеру как воркер
+</button>
+</div>
+</div>
+</div>
 <div class="brand">
 <div class="brand-logo-icon">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
