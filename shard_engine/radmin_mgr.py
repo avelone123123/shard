@@ -94,3 +94,19 @@ def get_radmin_status() -> dict:
 def verify_installer(installer_path: str) -> tuple[bool, str, dict]:
     if not os.path.isfile(installer_path):
         return False, "File does not exist", {}
+    size = os.path.getsize(installer_path)
+    if size < 30 * 1024 * 1024 or size > 150 * 1024 * 1024:
+        return False, f"Invalid file size ({size} bytes)", {"size": size}
+    hasher = hashlib.sha256()
+    with open(installer_path, "rb") as f:
+        while chunk := f.read(65536):
+            hasher.update(chunk)
+    sha256 = hasher.hexdigest()
+    details = {"size": size, "sha256": sha256, "authenticode_valid": False, "signer": None}
+    if not _IS_WIN:
+        return True, "Checksum sanity verified", details
+    ps_cmd = f"(Get-AuthenticodeSignature -FilePath '{installer_path}') | Select-Object Status, StatusMessage, @{{Name='Signer'; Expression={{$_.SignerCertificate.Subject}}}} | ConvertTo-Json -Compress"
+    try:
+        raw = subprocess.check_output(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd], timeout=15, text=True, errors="ignore").strip()
+        data = json.loads(raw)
+        status = str(data.get("Status") or "")
