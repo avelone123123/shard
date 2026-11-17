@@ -2199,6 +2199,22 @@ async function submitJoinAsClient() {
         const res = await fetch('/api/catalog/join', {
             method: 'POST',
             headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({target: nid, mode: 'client', preferred_mode: 'auto'})
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'ok') {
+            closeClusterJoinModal();
+            showToast('Успешно', 'Подключено к модели. Переход в чат...');
+            netRefresh(true);
+            setTimeout(() => { showTab('chat', document.getElementById('navChatBtn')); }, 500);
+        } else {
+            showToast('Не удалось', data.message || data.error || 'Ошибка подключения');
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function submitJoinAsWorker() {
     }
 }
 async function netConnectTargetServer(nodeId) {
