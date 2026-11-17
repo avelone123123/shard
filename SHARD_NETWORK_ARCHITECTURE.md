@@ -10,3 +10,15 @@ SHARD Network is an autonomous, decentralized networking and discovery fabric en
                       |   (Signed Ed25519 Directory)|
                       +--------------+--------------+
                                      ^
+         Publish Server / Sync       |  Fetch / Filter / Prejoin
+                     +---------------+---------------+
+                     |                               |
+       +-------------+-------------+   +-------------+-------------+
+       |   Coordinator / Host      |   |   Worker / Contributor    |
+       |  - Node ID: shn_coord...  |   |  - Node ID: shn_work...   |
+       |  - Ed25519 Identity       |   |  - Explicit Consent & Quota|
+       |  - Cluster State: READY   |   |  - Partition: Layers 16-32|
+       +-------------+-------------+   +-------------+-------------+
+                     |                               |
+                     +------- P2P Direct Socket -----+
+                     |    (ChaCha20-Poly1305 / TLS)  |
