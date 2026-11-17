@@ -95,11 +95,34 @@ def get_hardware_profile(force_refresh=False):
             kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
             res = proc_io.run_subprocess_safe(cmd, stdin=subprocess.DEVNULL, timeout=3, **kw)
             if res.returncode == 0 and res.stdout.strip():
-                parts = res.stdout.strip().split("\n")[0].split(",")
-                if len(parts) >= 3:
-                    _gpu_cache["gpu_name"] = parts[0].strip()
-                    _gpu_cache["vram_total_mb"] = int(float(parts[1].strip()))
-                    _gpu_cache["vram_used_mb"] = int(float(parts[2].strip()))
+                gpus = []
+                for raw_line in res.stdout.strip().splitlines():
+                    parts = [p.strip() for p in raw_line.split(",")]
+                    if len(parts) >= 4:
+                        try:
+                            idx = int(float(parts[0]))
+                        except Exception:
+                            idx = len(gpus)
+                        tot_mb = int(float(parts[2]))
+                        used_mb = int(float(parts[3]))
+                        try:
+                            util = float(parts[4]) if len(parts) >= 5 else 0.0
+                        except Exception:
+                            util = 0.0
+                        gpus.append({
+                            "index": idx,
+                            "name": parts[1],
+                            "vram_total_mb": tot_mb,
+                            "vram_used_mb": used_mb,
+                            "vram_free_mb": max(0, tot_mb - used_mb),
+                            "util_pct": round(util, 1),
+                        })
+                if gpus:
+                    _gpu_cache["gpus"] = gpus
+                    _gpu_cache["gpu_name"] = gpus[0]["name"]
+                    _gpu_cache["vram_total_mb"] = sum(g["vram_total_mb"] for g in gpus)
+                    _gpu_cache["vram_used_mb"] = sum(g["vram_used_mb"] for g in gpus)
+                    _gpu_cache["gpu_util_pct"] = round(sum(g["util_pct"] for g in gpus) / len(gpus), 1)
         except Exception:
             pass
     gpu_name = _gpu_cache["gpu_name"]
