@@ -2106,6 +2106,8 @@ def main(argv=None):
         cmd_training(args)
     elif args.command == "network":
         cmd_network(args)
+    elif args.command == "cluster":
+        cmd_cluster(args)
     else:
         cmd_help()
 if __name__ == "__main__":
