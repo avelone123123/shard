@@ -8,3 +8,13 @@
 - **Important Honesty & Scope Disclosure**:
   All distributed integration tests below were executed across **separate independent OS worker processes** (`subprocess.Popen` + loopback TCP / encrypted tunnel) on **one physical Windows machine**. They genuinely exercise multi-process model partitioning, selective weight loading, binary tensor transmission, RPC layer offloading, and encrypted reverse-proxy tunneling without mocks, **but they do not constitute multi-machine physical network performance verification** across separate physical computers over LAN/WAN.
 
+---
+
+## 2. Distributed AI Test Suite (`tests_distributed_ai.py`)
+
+Command executed:
+```bash
+python -m unittest tests_distributed_ai -v
+```
+
+Observed result:
