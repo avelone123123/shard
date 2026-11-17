@@ -160,3 +160,21 @@ class _LocalStageRunner:
             t0 = time.perf_counter()
             with torch.inference_mode():
                 out = self.stage.forward_stage(tensor, cache=cache, use_cache=use_cache, return_logits=return_logits)
+            compute_ms = (time.perf_counter() - t0) * 1000.0
+        return out, compute_ms, 0.0, 0
+    def release_kv(self, request_id):
+        with self.lock:
+            self.caches.pop(request_id, None)
+    def close(self):
+        with self.lock:
+            self.caches.clear()
+            self.stage = None
+class PipelineCoordinator:
+    def __init__(self, model_path_or_repo, plan, worker_tokens=None, cluster_id="", dtype="float32"):
+        self.model_path_or_repo = str(model_path_or_repo)
+        self.plan = dict(plan)
+        self.worker_tokens = dict(worker_tokens or {})
+        self.cluster_id = str(cluster_id or "")
+        self.dtype = dtype
+        self.tokenizer = None
+        self.config = None
