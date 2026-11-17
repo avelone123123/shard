@@ -4398,6 +4398,24 @@ async function clsRefresh() {
         if (tBox) {
             tBox.innerHTML =
                 '<div>Активных запросов: <b>' + (tel.active_requests || 0) + '</b> / ' + (tel.max_concurrent || 4) + ' | В очереди: <b>' + (tel.queue_length || 0) + '</b></div>' +
+                '<div>Всего запросов: <b>' + (tel.total_requests || 0) + '</b> (Успешно: ' + (tel.completed_requests || 0) + ', Ошибок: ' + (tel.failed_requests || 0) + ', Отменено: ' + (tel.cancelled_requests || 0) + ')</div>' +
+                '<div>Сгенерировано токенов: <b>' + (tel.total_tokens_generated || 0) + '</b> | Передача между узлами: <b>' + (tel.avg_inter_worker_transfer_ms || 0) + ' ms</b></div>';
+        }
+    } catch(e) {}
+}
+async function clsCreate() {
+    const model = ((document.getElementById('clsModelInput') || {}).value || '').trim();
+    const name = ((document.getElementById('clsNameInput') || {}).value || '').trim();
+    const strategy = ((document.getElementById('clsStrategySelect') || {}).value || 'auto');
+    const slots = parseInt((document.getElementById('clsSlotsInput') || {}).value || '4', 10);
+    const openNet = Boolean((document.getElementById('clsOpenNet') || {}).checked);
+    const contrib = Boolean((document.getElementById('clsCoordContrib') || {}).checked);
+    if (!model) { showToast('Укажите модель', 'Введите Hugging Face ID или путь к модели'); return; }
+    try {
+        const res = await fetch('/api/cluster/create', {
+            method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({model_id: model, name: name || undefined, strategy: strategy, parallel_slots: slots, open: openNet, coordinator_contributes: contrib, auto_deploy: true})
 async function srvCreateUnified() {
     const name = ((document.getElementById('srvCreateName') || {}).value || '').trim();
     const mode = ((document.getElementById('srvCreateMode') || {}).value || 'lan_and_global');
