@@ -46,3 +46,15 @@ This report documents the deep integration of Radmin VPN into SHARD, covering au
   - Execution is immediately halted if `Status` does not equal `Valid` or if the Subject does not contain `Famatech Corp.`.
 
 ### 2. UAC Elevated Silent Installation
+Installing network drivers (NDIS virtual adapter) and Windows background services requires administrative privileges:
+- SHARD detects current privilege level via Windows API (`shell32.IsUserAnAdmin`).
+- If running unprivileged, SHARD invokes Windows User Account Control (UAC) elevation:
+  ```powershell
+  Start-Process -FilePath '<installer_path>' -ArgumentList '/VERYSILENT /NORESTART' -Verb RunAs -Wait
+  ```
+- After installation completes, SHARD polls for the registration of the `RvControlSvc` service and the creation of the virtual network adapter.
+
+### 3. Service & Network Adapter Detection
+SHARD monitors three independent indicators of Radmin VPN operational readiness:
+1. **Windows Service (`RvControlSvc`)**:
+   - Monitored via WMI / PowerShell `Get-Service RvControlSvc`.
