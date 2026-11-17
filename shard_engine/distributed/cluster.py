@@ -556,3 +556,21 @@ class ClusterManager:
                         lost_assigned = True
                 if lost_assigned and self.state == "READY":
                     self.state = "DEGRADED"
+                    self.last_error = "Assigned worker timed out; cluster degraded"
+            if lost_assigned:
+                self._stop_execution_backends()
+                plan = self.recompute_plan()
+                if plan.get("feasible"):
+                    try:
+                        self.deploy_cluster(verify=True)
+                    except Exception as e:
+                        with self._lock:
+                            self.state = "DEGRADED"
+                            self.last_error = str(e)[:240]
+                else:
+                    with self._lock:
+                        self.state = "DEGRADED"
+                        self.last_error = plan.get("reason")
+    def join_cluster_as_worker(
+        self,
+        coordinator_url,
