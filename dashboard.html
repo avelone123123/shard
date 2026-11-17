@@ -4344,6 +4344,24 @@ async function srvRefresh() {
         }
     } catch(e) {}
 }
+async function clsRefresh() {
+    try {
+        const res = await fetch('/api/cluster/status', {headers: getAuthHeaders()});
+        if (!res.ok) return;
+        const c = await res.json();
+        const ov = c.cluster_overview || {};
+        const tel = c.telemetry || {};
+        const cards = document.getElementById('clsOverviewCards');
+        if (cards) {
+            const stColor = c.state === 'READY' ? 'var(--success)' : (c.state === 'DEGRADED' ? 'var(--danger)' : 'var(--warning)');
+            cards.innerHTML =
+                '<div class="trn-stat"><div class="trn-stat-label">Статус кластера</div><div class="trn-stat-val" style="color:' + stColor + ';">' + escHtml(c.state || 'IDLE') + '</div><div class="trn-stat-sub">Роль: ' + escHtml(c.role || 'idle') + (c.pairing_code ? (' | Код: ' + escHtml(c.pairing_code)) : '') + '</div></div>' +
+                '<div class="trn-stat"><div class="trn-stat-label">Агрег. GPU VRAM (Доступно / Всего)</div><div class="trn-stat-val">' + (ov.aggregate_usable_vram_mb || 0) + ' / ' + (ov.aggregate_raw_vram_mb || 0) + ' MB</div><div class="trn-stat-sub">С учётом резервов и квот узлов</div></div>' +
+                '<div class="trn-stat"><div class="trn-stat-label">Агрег. RAM (Доступно / Всего)</div><div class="trn-stat-val">' + Math.round((ov.aggregate_usable_ram_mb || 0) / 1024 * 10) / 10 + ' / ' + Math.round((ov.aggregate_raw_ram_mb || 0) / 1024 * 10) / 10 + ' GB</div><div class="trn-stat-sub">Потоки CPU: ' + (ov.aggregate_usable_threads || 0) + ' | Воркеры: ' + (ov.worker_count || 0) + '</div></div>' +
+                '<div class="trn-stat"><div class="trn-stat-label">Производительность</div><div class="trn-stat-val">' + (tel.avg_tokens_per_sec || 0) + ' ток/с</div><div class="trn-stat-sub">TTFT: ' + (tel.avg_ttft_ms || 0) + ' ms | RTT: ' + (ov.avg_worker_rtt_ms || 0) + ' ms</div></div>';
+        }
+        const pBox = document.getElementById('clsPlanBox');
+        if (pBox) {
 async function srvCreateUnified() {
     const name = ((document.getElementById('srvCreateName') || {}).value || '').trim();
     const mode = ((document.getElementById('srvCreateMode') || {}).value || 'lan_and_global');
