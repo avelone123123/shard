@@ -1593,6 +1593,24 @@ async def api_cluster_local_worker_join(req: Request):
     denied = _deny_non_owner(req)
     if denied:
         return denied
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    coord_url = str(data.get("coordinator_url") or "").strip()
+    if not coord_url:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "coordinator_url required"})
+    try:
+        res = await asyncio.to_thread(
+            CLUSTER.join_cluster_as_worker,
+            coordinator_url=coord_url,
+            auth_code=data.get("auth_code") or data.get("code") or "",
+            name=data.get("name"),
+            quota=data.get("quota"),
+            consented=bool(data.get("consented", False)),
+            start_rpc=bool(data.get("start_rpc", True)),
+            start_pipeline=bool(data.get("start_pipeline", True)),
+            via_tunnel=bool(data.get("via_tunnel", False)),
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
