@@ -2599,7 +2599,7 @@ def api_server_workspace(req: Request):
         "participant_role": role,
         "participant_name": actor_name,
         "participant_id": pid,
-        "server_active": bool(LAN.is_server() or host_st.get("published")),
+        "server_active": bool(LAN.is_server() or host_st.get("published") or CLUSTER.role == "coordinator"),
         "lan": lan_st,
         "network_host": host_st if is_owner else {
             "published": bool(host_st.get("published")),
