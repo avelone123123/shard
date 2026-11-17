@@ -34,3 +34,15 @@ The One-Click Cluster Join architecture allows any computer on the network to pa
              2. Quota Tuning & Consent Enforcement
                 - VRAM slider (default 70%)
                 - CPU threads allocation slider
+                - [x] Explicit consent checkbox (MANDATORY)
+                      |
+                      v
+             3. Handshake & Layer Partitioning
+                - POST /api/catalog/join (mode=worker, consent=true)
+                - Coordinator assigns layer stages (e.g. Layers 16..32)
+                - Worker downloads or maps safetensors/GGUF shards
+                      |
+                      v
+             4. Active Distributed Execution
+                - Enters Cluster State: READY
+                - Bidirectional heartbeats every 10 seconds
