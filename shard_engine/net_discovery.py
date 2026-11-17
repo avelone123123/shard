@@ -480,7 +480,7 @@ class DiscoveryStore:
             self._seq_watermarks[node_id] = (seq, now + self.nonce_ttl_s)
             self._records.pop(node_id, None)
             return 200, {"status": "ok", "node_id": node_id, "removed": True}
-    def list_servers(self, q="", model="", region="", access="", online_only=True, sort="activity", limit=100):
+    def list_servers(self, q="", model="", region="", access="", online_only=True, sort="activity", limit=100, min_vram=0, status="", accepts_workers=None):
         with self._lock:
             now = self._now()
             self._prune_locked(now)
