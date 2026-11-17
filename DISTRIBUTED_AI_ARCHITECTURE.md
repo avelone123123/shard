@@ -38,3 +38,13 @@ Inspection of the existing codebase (`shard_engine/`), runtime binaries (`llama-
 
 ## 3. Target Role Architecture
 
+```
++-----------------------------------------------------------------------------+
+|                           CLIENTS / AI APPLICATIONS                         |
+|  Cursor | Claude Code | OpenCode | Web Chat | Custom OpenAI/Anthropic SDK   |
++--------------------------------------+--------------------------------------+
+                                       | HTTP/SSE (/v1/chat/completions,
+                                       |           /v1/messages, /v1/models)
++--------------------------------------v--------------------------------------+
+|                        CLUSTER COORDINATOR (Owner)                          |
+|  +------------------+  +-------------------+  +--------------------------+  |
