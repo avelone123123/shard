@@ -682,3 +682,21 @@ class ClusterManager:
                 break
             try:
                 hw = _hardware.get_hardware_profile()
+                pipe_stats = lw["pipeline_srv"].stats() if lw.get("pipeline_srv") else {}
+                requests.post(
+                    f"{lw['coordinator_url']}/api/cluster/workers/heartbeat",
+                    json={
+                        "worker_id": lw["worker_id"],
+                        "worker_token": lw["worker_token"],
+                        "hw": hw,
+                        "quota": lw["quota"],
+                        "workload": {
+                            "active_tasks": pipe_stats.get("active_kv_sessions", 0),
+                            "requests_handled": pipe_stats.get("requests_handled", 0),
+                            "last_compute_ms": pipe_stats.get("last_compute_ms", 0.0),
+                        },
+                    },
+                    timeout=3.0,
+                )
+            except Exception:
+                pass
