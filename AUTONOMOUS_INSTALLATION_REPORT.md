@@ -94,3 +94,15 @@ export SHARD_DISCOVERY_URL="https://discovery.internal.mycluster:8080"
 export SHARD_RELAY_URL="wss://relay.internal.mycluster:8765"
 export SHARD_NO_RADMIN=1
 export SHARD_PORT=8000
+shard start --headless
+```
+
+---
+
+## Verification via CLI Diagnostics
+
+Users and administrators can verify their setup at any time by executing:
+```bash
+shard network doctor
+```
+Output confirms identity, ports, local interfaces, external reachability, discovery status, and mesh adapters in one unified report.
