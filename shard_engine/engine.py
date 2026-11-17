@@ -1344,7 +1344,7 @@ class ShardEngine:
             yield {"type": "done", "token": "", "done": True, "telemetry": {"thinking_seconds": 0.0, "total_seconds": 0.05, "tokens_per_sec": 0.0}, "usage": {"prompt_tokens": 1, "completion_tokens": len(ans.split()), "total_tokens": len(ans.split()) + 1}}
             return
         if self.gguf is not None and self.gguf.is_running():
-            yield from self._generate_gguf(messages, max_tokens, temperature)
+            yield from self._generate_gguf(messages, max_tokens, temperature, cancel_check=cancel_check)
             return
         if not (self.gguf is not None and self.gguf.is_running()) and (self.model is None or self.tokenizer is None):
             ans = "Модель еще не запущена в память. Откройте вкладку «Каталог Hugging Face» или «Подбор под Железо» и нажмите кнопку «Запустить» на выбранной модели."
