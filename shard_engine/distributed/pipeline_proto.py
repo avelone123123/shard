@@ -54,3 +54,17 @@ def send_frame(sock, msg_type, payload=b"", flags=0):
     sock.sendall(hdr + data)
 def recv_frame(sock):
     hdr = recv_exact(sock, _HDR_STRUCT.size)
+    magic, ver, msg_type, flags, length = _HDR_STRUCT.unpack(hdr)
+    if magic != MAGIC or ver != PROTO_VER:
+        raise ProtocolError("Invalid SHPT frame header")
+    if length > MAX_FRAME_BYTES:
+        raise ProtocolError(f"Frame length {length} exceeds limit")
+    payload = recv_exact(sock, length) if length > 0 else b""
+    return msg_type, flags, payload
+def send_json_frame(sock, msg_type, obj, flags=0):
+    raw = json.dumps(obj, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    send_frame(sock, msg_type, raw, flags=flags)
+def recv_json_frame(sock):
+    msg_type, flags, payload = recv_frame(sock)
+    obj = json.loads(payload.decode("utf-8")) if payload else {}
+    return msg_type, flags, obj
