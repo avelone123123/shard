@@ -88,3 +88,21 @@ def inspect_model_architecture(model_id, ctx_tokens=4096, fetch=True, quant=None
     raw_mid = str(model_id or "").strip()
     local_dir = _resolve_local_hf_dir(raw_mid)
     local_gguf = _gguf.find_local_gguf(raw_mid, wanted_quant=quant)
+    cfg = None
+    if local_dir:
+        cfg = _read_json(os.path.join(local_dir, "config.json"))
+    if cfg is None and fetch and not (os.path.isfile(raw_mid) and raw_mid.lower().endswith(".gguf")):
+        cfg = _fit.fetch_config(raw_mid)
+    params_b = None
+    source = "name-regex"
+    if isinstance(cfg, dict):
+        try:
+            params_b, source = _fit.params_from_config(cfg)
+        except Exception:
+            cfg = None
+    if params_b is None:
+        if local_gguf:
+            sz_gb = local_gguf["size_bytes"] / (1024 ** 3)
+            q_name = local_gguf.get("quant") or quant or "Q4_K_M"
+            bpw = _gguf.QUANT_BPW.get(q_name, 4.85)
+            params_b = round(max(0.1, (local_gguf["size_bytes"] * 8.0) / (bpw * 1e9)), 2)
