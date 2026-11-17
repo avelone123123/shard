@@ -1557,6 +1557,24 @@ async def api_cluster_worker_heartbeat(req: Request):
         worker_id=data.get("worker_id"),
         worker_token=data.get("worker_token") or _extract_bearer(req),
         hw=data.get("hw"),
+        quota=data.get("quota"),
+        workload=data.get("workload"),
+        rtt_ms=data.get("rtt_ms"),
+        bandwidth_mbps=data.get("bandwidth_mbps"),
+    )
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": str(res)})
+    return {"status": "ok", **res}
+@app.post("/api/cluster/workers/leave")
+async def api_cluster_worker_leave(req: Request):
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    ok = CLUSTER.leave_worker(
+        worker_id=data.get("worker_id"),
+        worker_token=data.get("worker_token") or _extract_bearer(req),
+    )
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
