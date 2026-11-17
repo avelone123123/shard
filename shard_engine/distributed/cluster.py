@@ -250,3 +250,21 @@ class ClusterManager:
         ttl_seconds=604800.0,
     ):
         if not consented:
+            raise PermissionError("Explicit user consent is required before contributing worker resources")
+        with self._lock:
+            if self.role != "coordinator":
+                raise RuntimeError("This node is not an active cluster coordinator")
+            wid = str(worker_id or tunnel_peer or f"wrk-{uuid.uuid4().hex[:10]}").strip()[:64]
+            if wid in self.blocked_ids or (remote_ip and remote_ip in self.blocked_ids) or (tunnel_peer and tunnel_peer in self.blocked_ids):
+                raise PermissionError("Worker is blocked from this cluster")
+            if not self.open_net:
+                norm = _lan.normalize_code(auth_code)
+                if not norm or not self.pairing_code or not secrets.compare_digest(norm, self.pairing_code):
+                    raise PermissionError("Invalid cluster pairing code")
+            now = time.time()
+            eff_quota = dict(quota or {})
+            eff = _hardware.effective_usable_resources(hw or {}, quota=eff_quota)
+            eff_rpc_ep = None
+            eff_pipe_ep = None
+            rtt_ms = None
+            if tunnel_peer:
