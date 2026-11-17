@@ -70,3 +70,15 @@ The integrated network diagnostic engine performs end-to-end verification across
 4. **STUN Resolution**: Public IP discovery and NAT mapping behavior classification.
 5. **Discovery Connectivity**: Latency and HTTP/TLS handshake check against primary and secondary discovery services.
 6. **Relay Connectivity**: WebSocket handshake and round-trip ping verification against relay endpoints.
+7. **Mesh / Radmin Status**: Detection of Radmin VPN service (`RvControlSvc`), adapter IP (`26.x.x.x`), and GUI process state (`RvRvpnGui.exe`).
+
+## Autonomous Failover Sequence
+
+```
+[ Worker Connects ]
+       |
+       v
+[ Check Endpoint Path ]
+       |
+       +---> Is Target Local? ---------> [ Yes ] ---> Bind Loopback (same_machine)
+       |
