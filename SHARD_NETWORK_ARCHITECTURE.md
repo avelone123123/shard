@@ -58,3 +58,15 @@ SHARD Network implements an adaptive multi-tier transport architecture:
 | 2. P2P Direct (STUN / Hole-punch)| Direct UDP/TCP socket over WAN        |
 | 3. Mesh VPN (WireGuard / Tailscale)| Kernel-level encrypted tunnel       |
 | 4. Blind WebSocket Relay Hub   | Zero-knowledge ciphertext relay         |
++--------------------------------------------------------------------------+
+```
+
+### Direct P2P & STUN Traversal
+- Nodes query public STUN endpoints (RFC 5389 / RFC 8489) on startup to determine their WAN reflexive transport address and NAT topology (Full-Cone, Restricted-Cone, Port-Restricted, or Symmetric).
+- For non-symmetric NAT topologies, SHARD coordinates UDP/TCP hole-punching for direct zero-broker tensor transmission.
+
+### Blind WebSocket Relay Fallback
+- For nodes behind restrictive corporate CGNAT or symmetric firewalls where direct hole punching fails, traffic seamlessly routes through a Blind Relay Hub.
+- **Zero-Knowledge Guarantee**: The relay server acts solely as a blind ciphertext forwarder. Payloads are encrypted end-to-end between the coordinator and worker using ephemeral X25519 Diffie-Hellman key exchange and ChaCha20-Poly1305 AEAD. The relay operator cannot inspect weights, prompt tokens, or activations.
+
+## 4. Automatic Startup Lifecycle (`shard start`)
