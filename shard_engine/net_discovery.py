@@ -606,7 +606,7 @@ def create_discovery_app(store=None, auth_token=None, rate_limit=120):
         rl = _enforce_rate_limit(request)
         if rl is not None:
             return rl
-        servers = directory.list_servers(q=q, model=model, region=region, access=access, online_only=online_only, sort=sort, limit=limit)
+        servers = directory.list_servers(q=q, model=model, region=region, access=access, online_only=online_only, sort=sort, limit=limit, min_vram=min_vram, status=status, accepts_workers=accepts_workers)
         return {"status": "ok", "servers": servers, "count": len(servers), "server_time": directory._now()}
     @app.get("/v1/discovery/lookup/{node_id}")
     def lookup_route(request: Request, node_id: str):
