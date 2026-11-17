@@ -124,3 +124,21 @@ def inspect_model_architecture(model_id, ctx_tokens=4096, fetch=True, quant=None
         elif "gpt2" in low:
             model_type = "gpt2"
         elif "gemma2" in low:
+            model_type = "gemma2"
+        elif "gemma" in low:
+            model_type = "gemma"
+        elif "phi" in low:
+            model_type = "phi3"
+    num_layers = _fit._cfg_int(cfg, "num_hidden_layers", "n_layer") or _fit._layers_from_params(params_b)
+    hidden_size = _fit._cfg_int(cfg, "hidden_size", "d_model", "n_embd") or 2048
+    heads = _fit._cfg_int(cfg, "num_attention_heads", "n_head") or max(4, hidden_size // 128)
+    kv_heads = _fit._cfg_int(cfg, "num_key_value_heads") or heads
+    head_dim = _fit._cfg_int(cfg, "head_dim") or max(32, hidden_size // max(1, heads))
+    vocab_size = _fit._cfg_int(cfg, "vocab_size") or 32000
+    tied = bool(cfg.get("tie_word_embeddings", False))
+    weight_map = _read_safetensors_index(local_dir)
+    if local_gguf:
+        eff_quant = local_gguf.get("quant") or quant or "Q4_K_M"
+        bpw = _gguf.QUANT_BPW.get(eff_quant, 4.85)
+        gguf_bytes = int(local_gguf["size_bytes"])
+    else:
