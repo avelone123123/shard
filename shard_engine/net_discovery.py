@@ -168,7 +168,7 @@ def _listing_search_blob(rec):
                 else:
                     parts.append(str(item or ""))
     return " ".join(parts).lower()
-def _listing_matches(rec, q="", model="", region="", access=""):
+def _listing_matches(rec, q="", model="", region="", access="", min_vram=0, status="", accepts_workers=None):
     listing = rec.get("listing") or {}
     q_s = str(q or "").strip().lower()
     if q_s and q_s not in _listing_search_blob(rec):
