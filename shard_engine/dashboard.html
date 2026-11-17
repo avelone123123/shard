@@ -2167,6 +2167,22 @@ async function openClusterJoinModal(nodeId, serverData) {
         document.getElementById('joinBackend').innerText = (hw.backends && hw.backends.torch_pipeline) ? 'PyTorch Pipeline' : ((hw.backends && hw.backends.gguf_rpc) ? 'GGUF RPC' : 'Fallback');
         const rec = data.recommendations || {};
         if (rec.vram_pct !== undefined) {
+            document.getElementById('joinVramRange').value = rec.vram_pct;
+            document.getElementById('joinVramPctVal').innerText = rec.vram_pct + '%';
+        }
+        if (rec.max_threads !== undefined) {
+            document.getElementById('joinMaxThreads').value = rec.max_threads;
+        }
+        const compatBadge = document.getElementById('joinWorkerCompatBadge');
+        if (data.compatible) {
+            compatBadge.innerText = 'Аппаратная часть совместима';
+            compatBadge.className = 'compat-pill compat-ideal';
+        } else {
+            compatBadge.innerText = (data.warnings && data.warnings[0]) || 'Ограниченная совместимость';
+            compatBadge.className = 'compat-pill compat-warning';
+        }
+    } catch(e) {
+        document.getElementById('joinWorkerCompatBadge').innerText = 'Данные о сервере получены по P2P';
     }
 }
 async function netConnectTargetServer(nodeId) {
