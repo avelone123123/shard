@@ -1576,6 +1576,24 @@ class HostTunnelAgent:
                 try:
                     if ch.is_established:
                         await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=sid, flags=net_identity.FLAG_FIN)
+                except Exception:
+                    pass
+                try:
+                    writer.close()
+                    await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
+                except Exception:
+                    pass
+        srv = await asyncio.start_server(_handle_local, "127.0.0.1", 0)
+        local_port = srv.sockets[0].getsockname()[1]
+        self._worker_proxies[key] = (srv, local_port)
+        return local_port
+    async def close_worker_proxies(self, peer_node_id: str | None = None) -> None:
+        for key in list(self._worker_proxies.keys()):
+            if peer_node_id is not None and key[0] != peer_node_id:
+                continue
+            srv, _ = self._worker_proxies.pop(key)
+            srv.close()
+            try:
     async def _send_http_error(self, channel: EncryptedChannel, stream_id: int, status: int, message: str) -> None:
         if not channel.is_established:
             return
