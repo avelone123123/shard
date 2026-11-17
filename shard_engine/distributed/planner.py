@@ -322,3 +322,21 @@ def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, 
             w_mb += weight_mb * head_share
         kv_mb = cnt * kv_per_layer_mb
         buf_mb = max(32.0, min(256.0, w_mb * 0.08))
+        tot_alloc = round(w_mb + kv_mb + buf_mb, 2)
+        shard_files = _shard_files_for_stage(weight_map, model_type, l_start, l_end, has_embed, has_head) if is_torch else []
+        stages.append({
+            "stage_index": s_idx,
+            "node_id": b["node_id"],
+            "node_name": b["name"],
+            "role": b["role"],
+            "endpoint": b["pipeline_endpoint"] if is_torch else b["rpc_endpoint"],
+            "layer_start": l_start,
+            "layer_end": l_end,
+            "layer_count": cnt,
+            "has_embed": has_embed,
+            "has_lm_head": has_head,
+            "weight_mb": round(w_mb, 2),
+            "kv_cache_mb": round(kv_mb, 2),
+            "buffer_mb": round(buf_mb, 2),
+            "total_alloc_mb": tot_alloc,
+            "capacity_mb": round(b["alloc_cap_mb"], 2),
