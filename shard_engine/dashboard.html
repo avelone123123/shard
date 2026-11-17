@@ -1323,6 +1323,24 @@ macOS
 <button id="srvCreateSubmitBtn" class="btn-action active" onclick="srvCreateUnified()">Запустить / Обновить сервер</button>
 </div>
 </div>
+<div id="srv-panel-cluster" class="trn-panel">
+<div class="trn-grid" id="clsOverviewCards" style="margin-bottom:14px;"></div>
+<div class="v-grid-2" style="margin-bottom:14px;">
+<div class="trn-row">
+<div class="v-section-title" style="display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>Создать Распределённый ИИ-Кластер (Coordinator)</div>
+<div class="v-grid-2" style="margin-bottom:8px;">
+<div><label class="v-field-label" for="clsModelInput">Модель (HF / GGUF / путь)</label><input id="clsModelInput" class="trn-input" placeholder="Qwen/Qwen2.5-Coder-7B-Instruct"></div>
+<div><label class="v-field-label" for="clsNameInput">Имя кластера</label><input id="clsNameInput" class="trn-input" placeholder="SHARD-Cluster"></div>
+<div><label class="v-field-label" for="clsStrategySelect">Стратегия</label><select id="clsStrategySelect" class="trn-input"><option value="auto">Auto (GGUF RPC / PyTorch Pipeline)</option><option value="gguf_rpc_layer_split">GGUF Distributed RPC (llama.cpp)</option><option value="torch_pipeline_parallel">PyTorch Pipeline Parallel</option></select></div>
+<div><label class="v-field-label" for="clsSlotsInput">Конкурентные слоты (--parallel)</label><input id="clsSlotsInput" class="trn-input" type="number" min="1" max="32" value="4"></div>
+</div>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:12px;">
+<label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="clsOpenNet"> Открытый кластер (без кода)</label>
+<label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="clsCoordContrib" checked> Координатор выделяет свои ресурсы</label>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+</div>
+</div>
 </div>
 <div id="srv-panel-shared-chat" class="trn-panel">
 <div class="trn-row" style="margin-bottom:12px;">
