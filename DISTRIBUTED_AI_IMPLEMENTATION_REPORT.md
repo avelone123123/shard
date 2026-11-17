@@ -58,3 +58,13 @@ This implementation advances SHARD on branch `feat/distributed-ai-platform` from
 | Worker Consent & Resource Quotas (`vram_pct`, `max_ram_gb`, `max_threads`) | Implemented, Unit tested, Integration tested | Strictly rejects unconsented join (`HTTP 403`) |
 | Model Architecture Inspection & Explicit Support Check (`planner.py`) | Implemented, Unit tested | Flags unsupported architectures honestly |
 | Weak-Coordinator Partition Planning & Comm Cost Estimation | Implemented, Unit tested, Integration tested | Separates usable vs raw memory; accounts for KV + buffers + RTT |
+| GGUF Distributed RPC Execution (`llama-server --rpc -sm layer -ts`) | Implemented, Integration tested (multi-process) | Verified across 2-3 `ggml-rpc-server` processes with `gpt2-medium.i1-Q6_K.gguf` |
+| PyTorch Pipeline Parallelism (`SHPT`, selective safetensors loading, distributed KV cache) | Implemented, Integration tested (multi-process) | Verified exact logits equivalence (`atol=1e-4`) and streaming generation across 2 OS worker processes |
+| Reverse Encrypted Tunnel Worker Proxy (`MSG_WRK_*`) | Implemented, Integration tested | Verified ChaCha20-Poly1305 encrypted tunnel loopback proxy to worker |
+| Multi-User Async Scheduler, Queue, Rate Limiter & Cancellation | Implemented, Unit tested, Integration tested | Verified concurrent streaming requests and API key auth (`401`/`200`) |
+| Worker Disconnect / Degraded & Rebalance Recovery | Implemented, Integration tested | Verified `READY -> DEGRADED -> replan -> READY` across 3->2 workers |
+| Unified API (`/v1/chat/completions`, `/v1/messages`, `/v1/models`) | Implemented, Integration tested | OpenAI & Anthropic streaming/sync verified against distributed cluster |
+| Cluster CLI (`shard cluster ...`) & Dashboard (`tab-server`) | Implemented | Added subcommands and Modern Slate cluster UI with SVG icons |
+| Multi-Machine Physical Cluster Execution | Not tested on multiple physical machines | Verified via multi-process localhost tests on 1 Windows machine; cross-machine physical tests remain on roadmap |
+| Tensor Parallelism (intra-layer AllReduce split) | Not implemented (deferred) | Documented as intentionally deferred over commodity WAN/LAN links due to per-layer AllReduce latency |
+| Data-Parallel Replica Auto-Scaling | Not implemented (roadmap) | Single-model model-parallelism prioritized first |
