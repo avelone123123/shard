@@ -463,6 +463,24 @@ for chunk in stream:
 
 ---
 
+## Distributed AI Cluster Mode
+
+SHARD supports collaborative model-parallel execution across independent machines (LAN, Radmin VPN, Tailscale, WireGuard, or NAT-traversed encrypted tunnels). A coordinator can schedule a large model across multiple consented worker nodes and expose one unified OpenAI/Anthropic endpoint (`/v1/chat/completions`, `/v1/messages`).
+
+### Quick Start (Coordinator + Workers)
+
+1. **Coordinator (Server Owner):**
+   ```bash
+   shard start --daemon
+   shard cluster create Qwen/Qwen2.5-Coder-7B-Instruct --name MyCluster --strategy auto --slots 4
+   shard cluster status
+   ```
+
+2. **Worker Node (Explicit Consent & Quotas):**
+   ```bash
+   shard start --daemon
+   shard cluster join http://<COORDINATOR_IP>:8000 <PAIRING_CODE> --consent --vram-pct 70 --max-ram-gb 8 --max-threads 4
+   ```
 ## Project Status & Community
 
 ### Technology Stack
