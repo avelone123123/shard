@@ -34,3 +34,15 @@ All automated regression test suites executed with a **100% pass rate (119/119 t
 ### TEST-02: Transport Classification & Priority Hierarchy
 - **Objective**: Ensure the transport classification engine routes traffic through the highest-performing available tier.
 - **Verification Code**:
+  ```python
+  self.assertEqual(net_strategy.classify_endpoint_path("127.0.0.1:8000"), "same_machine")
+  self.assertEqual(net_strategy.classify_endpoint_path("192.168.1.100:8000"), "direct_lan")
+  self.assertEqual(net_strategy.classify_endpoint_path("26.84.23.251:8000"), "mesh_vpn")
+  self.assertEqual(net_strategy.classify_endpoint_path("100.64.0.15:8000"), "mesh_vpn")
+  self.assertEqual(net_strategy.classify_endpoint_path("203.0.113.45:8000"), "direct_p2p")
+  self.assertEqual(net_strategy.classify_endpoint_path("wss://relay.shard.network"), "relay")
+  ```
+- **Result**: PASS. All address ranges mapped accurately.
+
+### TEST-03: Production Infrastructure Defaults & Failover
+- **Objective**: Validate that nodes default to official public infrastructure when environment variables are omitted, and fail over seamlessly when primary URLs are unreachable.
