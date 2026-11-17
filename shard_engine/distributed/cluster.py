@@ -214,3 +214,21 @@ class ClusterManager:
             })
         return nodes
     def recompute_plan(self):
+        with self._lock:
+            if self.role != "coordinator" or not self.model_spec:
+                return {"feasible": False, "reason": "No active cluster", "stages": []}
+            nodes = self._build_planner_nodes()
+            plan = _planner.plan_cluster_partition(
+                self.model_spec,
+                nodes,
+                strategy=self.strategy,
+                ctx_tokens=self.ctx_tokens,
+                parallel_slots=self.parallel_slots,
+            )
+            self.plan = plan
+            assigned = {s["node_id"]: s for s in (plan.get("stages") or [])}
+            for wid, w in self.workers.items():
+                st = assigned.get(wid)
+                w["assigned_stage"] = st
+            return copy.deepcopy(plan)
+    def register_worker(
