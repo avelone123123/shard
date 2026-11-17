@@ -2391,6 +2391,22 @@ async function netLoadClusterDetails() {
                     const border = isCoord ? 'var(--accent-border)' : 'var(--border-strong)';
                     return '<div style="flex:1;min-width:140px;background:' + bg + ';border:1px solid ' + border + ';border-radius:var(--radius-md);padding:10px;text-align:center;">' +
                         '<div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px;">Этап ' + (stg.stage_idx !== undefined ? stg.stage_idx : i) + '</div>' +
+                        '<div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px;">Слои ' + stg.layer_start + ' &ndash; ' + stg.layer_end + '</div>' +
+                        '<div style="font-size:11px;color:var(--accent-text);font-family:var(--font-mono);">' + escHtml(stg.worker_id || stg.name || 'node') + '</div>' +
+                        '</div>';
+                }).join('<div style="font-size:16px;color:var(--text-muted);">&rarr;</div>') +
+                '</div>';
+        }
+        const wrks = st.workers || [];
+        if (wrks.length === 0) {
+            wt.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:12px;background:var(--surface-sunken);border-radius:var(--radius-md);">Внешние воркеры еще не подключены.</div>';
+        } else {
+            wt.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' +
+                wrks.map(w => {
+                    return '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;">' +
+                        '<div><b>' + escHtml(w.name || w.worker_id) + '</b> <span style="color:var(--text-muted);">(' + escHtml(w.transport || 'lan') + ')</span></div>' +
+                        '<div style="color:var(--accent-text);">VRAM: ' + (w.hw ? w.hw.usable_vram_mb : 0) + ' MB &bull; RAM: ' + (w.hw ? w.hw.usable_ram_mb : 0) + ' MB</div>' +
+                        '</div>';
     }
 }
 async function netConnectTargetServer(nodeId) {
