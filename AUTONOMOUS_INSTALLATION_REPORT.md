@@ -70,3 +70,15 @@ On POSIX platforms (Ubuntu, Debian, Fedora, Arch, macOS):
 
 All node configuration is stored in the user profile directory under `~/.shard/`:
 
+| File | Purpose | Sample Contents |
+| :--- | :--- | :--- |
+| `~/.shard/identity.json` | Ed25519 / X25519 node keys | `{"node_id": "...", "public_key": "...", "private_key": "..."}` |
+| `~/.shard/network_config.json` | Network preferences | `{"discovery_urls": [...], "relay_urls": [...], "p2p_enabled": true}` |
+| `~/.shard/radmin_state.json` | Windows Radmin preferences | `{"consent": true, "declined": false, "installed_at": 1731889200}` |
+
+---
+
+## Non-Interactive & Headless Environment Flags
+
+For CI/CD pipelines, Docker containers, and automated server deployments:
+
