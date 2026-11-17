@@ -160,3 +160,21 @@ class ClusterManager:
                     self.last_error = str(e)[:240]
                     self.state = "FORMING"
         return self.status(include_secrets=True)
+    def stop_cluster(self):
+        self._stop_monitor()
+        self._stop_execution_backends()
+        try:
+            from .. import net_strategy
+            mgr = getattr(net_strategy, "_DEFAULT_MANAGER", None)
+            if mgr is not None:
+                mgr.close_worker_proxies()
+        except Exception:
+            pass
+        with self._lock:
+            self.role = "idle"
+            self.state = "IDLE"
+            self.cluster_id = None
+            self.pairing_code = None
+            self.plan = None
+            self.model_spec = None
+            self.last_error = None
