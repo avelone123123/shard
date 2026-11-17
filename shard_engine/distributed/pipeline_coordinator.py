@@ -304,3 +304,21 @@ class PipelineCoordinator:
                 input_ids = self.tokenizer(plain, return_tensors="pt")["input_ids"]
             if input_ids.shape[-1] == 0:
                 fallback_id = self.tokenizer.bos_token_id or self.tokenizer.eos_token_id or 0
+                input_ids = torch.tensor([[int(fallback_id)]], dtype=torch.long)
+        prompt_tokens = int(input_ids.shape[-1])
+        rid = f"pipe-{uuid.uuid4().hex[:10]}"
+        eos_id = self.tokenizer.eos_token_id
+        generated_ids = []
+        prev_text = ""
+        ttft_ms = None
+        total_compute_ms = 0.0
+        total_transfer_ms = 0.0
+        total_bytes = 0
+        max_new = max(1, min(int(max_tokens), 2048))
+        with self._gen_lock:
+            try:
+                cur_ids = input_ids
+                for step in range(max_new):
+                    if cancel_check and cancel_check():
+                        break
+                    logits, hop_stats = self.forward_logits(cur_ids, request_id=rid, use_cache=True)
