@@ -4684,6 +4684,7 @@ async function srvSendSharedChat() {
             localStorage.removeItem('shard_server_session_token');
             showToast('Требуется авторизация', 'Требуется подключение к серверу или ввод кода сопряжения.');
             await srvLoadPrivateChats();
+        await clsRefresh();
             return;
         }
         const d = await res.json();
