@@ -110,3 +110,15 @@ def decode_tensor_payload(payload):
     return meta, t
 def client_auth_handshake(sock, token, cluster_id=""):
     send_json_frame(sock, MSG_AUTH, {"token": str(token or ""), "cluster_id": str(cluster_id or "")})
+    mtype, _, obj = recv_json_frame(sock)
+    if mtype != MSG_AUTH_OK:
+        raise PermissionError(obj.get("error") or "Worker authentication rejected")
+    return obj
+def verify_token_constant_time(presented, expected):
+    if not expected:
+        return True
+    p = str(presented or "")
+    e = str(expected or "")
+    if not p:
+        return False
+    return hmac.compare_digest(p, e)
