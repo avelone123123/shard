@@ -157,7 +157,24 @@ def get_hardware_profile(force_refresh=False):
         "ram_total_gb": ram_total_gb,
         "ram_used_gb": ram_used_gb,
         "disk_free_gb": disk_free_gb,
-        "cpu_cores": psutil.cpu_count(logical=True)
+        "cpu_cores": psutil.cpu_count(logical=True) or 1,
+        "cpu_physical_cores": psutil.cpu_count(logical=False) or psutil.cpu_count(logical=True) or 1,
+        "cpu_model": _detect_cpu_model(),
+        "cpu_util_pct": cpu_util,
+        "os": platform.system(),
+        "os_release": platform.release(),
+        "arch": platform.machine(),
+        "backends": backends,
+    }
+def effective_usable_resources(hw, quota=None, vram_reserve_mb=400, ram_reserve_mb=2048):
+    hw = hw or {}
+    quota = quota if isinstance(quota, dict) else {}
+    raw_vram_free = max(0, int(hw.get("vram_free_mb") or 0))
+    raw_vram_total = max(raw_vram_free, int(hw.get("vram_total_mb") or 0))
+    raw_ram_avail = max(0, int(hw.get("ram_avail_mb") or 0))
+    raw_ram_total = max(raw_ram_avail, int(hw.get("ram_total_mb") or 0))
+    raw_threads = max(1, int(hw.get("cpu_cores") or 1))
+    unreserved_vram = max(0, raw_vram_free - int(vram_reserve_mb))
     }
 def estimate_model_params(model_id):
     mid = model_id.lower()
