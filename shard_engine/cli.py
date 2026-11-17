@@ -1827,6 +1827,24 @@ def cmd_cluster(args):
         r = requests.post(
             f"{base}/api/cluster/worker/join",
             json={
+                "coordinator_url": target_url,
+                "auth_code": code,
+                "quota": quota,
+                "consented": True,
+                "via_tunnel": bool(getattr(args, "via_tunnel", False)),
+            },
+            headers=hdrs,
+            timeout=15,
+        )
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        if r.status_code != 200:
+            sys.exit(1)
+        return
+    if action == "leave":
+        r = requests.post(f"{base}/api/cluster/worker/leave", json={}, headers=hdrs, timeout=5)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        return
+    if action == "stop":
 def _build_parser():
     parser = argparse.ArgumentParser(prog="shard", description="SHARD CLI Engine", add_help=False)
     parser.add_argument("-V", "--version", action="store_true")
