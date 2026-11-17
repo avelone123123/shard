@@ -22,3 +22,15 @@ Each server registered in the catalog presents a verified passport structure:
   "cluster_role": "coordinator",
   "cluster_strategy": "torch_pipeline_parallel",
   "backend": "torch",
+  "visibility": "public",
+  "access_mode": "open",
+  "direct_endpoints": ["203.0.113.45:8000"],
+  "rendezvous_hint": "relay://hub1.shard.network/shn_9df273a0058b76e1",
+  "last_seen": 1731887200
+}
+```
+
+## 3. Catalog API Specifications
+
+### 1. Catalog Search & Filter (`GET /api/catalog/servers`)
+- **Query Parameters**:
