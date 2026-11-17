@@ -50,10 +50,12 @@ _STUN_MAGIC = 0x2112A442
 _PUNCH_PREFIX = b"SHARD_PUNCH_v1:"
 _PUNCH_ACK_PREFIX = b"SHARD_PUNCH_ACK_v1:"
 def default_network_config():
+    disc_env = [u.strip() for u in os.environ.get("SHARD_DISCOVERY_URL", "").split(",") if u.strip()]
+    relay_env = [u.strip() for u in os.environ.get("SHARD_RELAY_URL", "").split(",") if u.strip()]
     return {
         "version": 1,
-        "discovery_urls": [],
-        "relay_urls": [],
+        "discovery_urls": disc_env,
+        "relay_urls": relay_env,
         "discovery_auth_tokens": {},
         "relay_auth_token": "",
         "stun_servers": [f"{h}:{p}" for h, p in DEFAULT_STUN_SERVERS],
@@ -924,6 +926,10 @@ class NetworkManager:
         merged["max_participants"] = mp
         merged["max_peers"] = mp
         merged["published"] = False
+        if not merged.get("discovery_urls") and default.get("discovery_urls"):
+            merged["discovery_urls"] = list(default["discovery_urls"])
+        if not merged.get("relay_urls") and default.get("relay_urls"):
+            merged["relay_urls"] = list(default["relay_urls"])
         return merged
     def _save_config(self):
         with self._lock:
@@ -968,9 +974,11 @@ class NetworkManager:
     def _make_discovery_client(self, extra_urls=None):
         with self._lock:
             cfg = copy.deepcopy(self._config)
-        allow_local = bool(cfg.get("allow_insecure_local"))
+        allow_local = bool(cfg.get("allow_insecure_local") or os.environ.get("SHARD_ALLOW_INSECURE_LOCAL") == "1")
         offline = bool(cfg.get("offline_only"))
         raw_urls = list(cfg.get("discovery_urls") or [])
+        if not raw_urls and os.environ.get("SHARD_DISCOVERY_URL"):
+            raw_urls = [u.strip() for u in os.environ.get("SHARD_DISCOVERY_URL", "").split(",") if u.strip()]
         for u in extra_urls or ():
             if u and u not in raw_urls:
                 raw_urls.append(u)
@@ -1473,6 +1481,27 @@ class NetworkManager:
             listing["model"] = model
         if self._host_models_override:
             listing["models"] = list(self._host_models_override)
+        try:
+            from .distributed import cluster as dist_cluster
+            cm = dist_cluster.get_cluster_manager()
+            st = cm.status(include_secrets=False)
+            if st.get("role") == "coordinator" or st.get("state") in ("PLANNING", "WAITING_WORKERS", "READY", "RUNNING"):
+                listing["cluster_state"] = st.get("state")
+                listing["cluster_role"] = st.get("role")
+                listing["cluster_strategy"] = st.get("strategy")
+                listing["backend"] = "torch_pipeline_parallel" if st.get("strategy") == "torch" else ("gguf_rpc" if st.get("strategy") == "gguf" else "auto")
+                ov = st.get("cluster_overview") or {}
+                listing["worker_count"] = int(ov.get("worker_count", 0))
+                listing["aggregate_vram_mb"] = int(ov.get("aggregate_usable_vram_mb", 0))
+                listing["aggregate_ram_mb"] = int(ov.get("aggregate_usable_ram_mb", 0))
+                listing["vram_gb"] = round(float(ov.get("aggregate_usable_vram_mb", 0)) / 1024.0, 2)
+                listing["ram_gb"] = round(float(ov.get("aggregate_usable_ram_mb", 0)) / 1024.0, 2)
+                listing["accepts_workers"] = bool(st.get("open", True))
+                if st.get("target_model"):
+                    listing["active_model"] = st.get("target_model")
+                    listing["model"] = st.get("target_model")
+        except Exception:
+            pass
         return listing
     def _publish_private_commitments(self, dc):
         with self._lock:
@@ -1794,13 +1823,13 @@ class NetworkManager:
             "last_heartbeat_at": self._host_last_hb_at,
             "last_error": ha_st.get("last_error"),
         }
-    def discover_servers(self, q="", model="", region="", access="", sort="activity", limit=100, online_only=True):
+    def discover_servers(self, q="", model="", region="", access="", sort="activity", limit=100, online_only=True, min_vram=0, status="", accepts_workers=None):
         with self._lock:
             offline = bool(self._config.get("offline_only"))
         if offline:
             return {"status": "offline", "servers": [], "count": 0, "dropped": 0, "endpoints": [], "offline_only": True}
         dc = self._make_discovery_client()
-        return dc.fetch_servers(q=q, model=model, region=region, access=access, sort=sort, limit=limit, online_only=online_only)
+        return dc.fetch_servers(q=q, model=model, region=region, access=access, sort=sort, limit=limit, online_only=online_only, min_vram=min_vram, status=status, accepts_workers=accepts_workers)
     def lookup_server(self, node_id, invite_token=None, discovery_urls=None):
         with self._lock:
             offline = bool(self._config.get("offline_only"))

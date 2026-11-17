@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from . import net_identity
 _MAX_BODY_BYTES = 65536
-_ALLOWED_SORT = {"activity", "participants", "users", "popular", "slots", "capacity", "load", "newest", "recent", "name"}
+_ALLOWED_SORT = {"activity", "participants", "users", "popular", "slots", "capacity", "load", "newest", "recent", "name", "vram", "performance"}
 _VALID_HEX = frozenset("0123456789abcdef")
 _FORBIDDEN_HINT_KEYS = frozenset({"invite_id", "secret", "token", "private_key", "privkey", "password", "listing", "name", "models", "prompt", "messages"})
 def commitment_for_invite(invite_id):
@@ -168,7 +168,7 @@ def _listing_search_blob(rec):
                 else:
                     parts.append(str(item or ""))
     return " ".join(parts).lower()
-def _listing_matches(rec, q="", model="", region="", access=""):
+def _listing_matches(rec, q="", model="", region="", access="", min_vram=0, status="", accepts_workers=None):
     listing = rec.get("listing") or {}
     q_s = str(q or "").strip().lower()
     if q_s and q_s not in _listing_search_blob(rec):
@@ -202,6 +202,19 @@ def _listing_matches(rec, q="", model="", region="", access=""):
                 return False
         elif acc != a_s:
             return False
+    if min_vram and float(min_vram) > 0:
+        eff_vram_gb = float(listing.get("vram_gb") or (float(listing.get("aggregate_vram_mb") or 0) / 1024.0) or 0.0)
+        if eff_vram_gb < float(min_vram):
+            return False
+    st_s = str(status or "").strip().lower()
+    if st_s:
+        c_st = str(listing.get("cluster_state") or listing.get("status") or "").strip().lower()
+        if st_s not in c_st:
+            return False
+    if accepts_workers is not None:
+        aw = bool(listing.get("accepts_workers"))
+        if aw != bool(accepts_workers):
+            return False
     return True
 def _sort_key_for_server(rec, sort_mode):
     listing = rec.get("listing") or {}
@@ -218,6 +231,11 @@ def _sort_key_for_server(rec, sort_mode):
         load = 0.0
     name = str(listing.get("name") or rec.get("node_id") or "").lower()
     nid = str(rec.get("node_id") or "")
+    vram_val = float(listing.get("vram_gb") or (float(listing.get("aggregate_vram_mb") or 0) / 1024.0) or 0.0)
+    if mode == "vram":
+        return (-vram_val, -updated, -slots, nid)
+    if mode == "performance":
+        return (-vram_val, load, -updated, nid)
     if mode in ("participants", "users", "popular"):
         return (-participants, -updated, -slots, load, nid)
     if mode in ("slots", "capacity"):
@@ -462,7 +480,7 @@ class DiscoveryStore:
             self._seq_watermarks[node_id] = (seq, now + self.nonce_ttl_s)
             self._records.pop(node_id, None)
             return 200, {"status": "ok", "node_id": node_id, "removed": True}
-    def list_servers(self, q="", model="", region="", access="", online_only=True, sort="activity", limit=100):
+    def list_servers(self, q="", model="", region="", access="", online_only=True, sort="activity", limit=100, min_vram=0, status="", accepts_workers=None):
         with self._lock:
             now = self._now()
             self._prune_locked(now)
@@ -473,7 +491,7 @@ class DiscoveryStore:
                     continue
                 if online_only and str((rec.get("listing") or {}).get("status") or "online").strip().lower() == "offline":
                     continue
-                if _listing_matches(rec, q=q, model=model, region=region, access=access):
+                if _listing_matches(rec, q=q, model=model, region=region, access=access, min_vram=min_vram, status=status, accepts_workers=accepts_workers):
                     matched.append(self._public_view(rec, now))
             matched.sort(key=lambda r: _sort_key_for_server(r, sort))
             return matched[:lim]
@@ -584,11 +602,11 @@ def create_discovery_app(store=None, auth_token=None, rate_limit=120):
     def healthz():
         return {"status": "ok", "service": "shard-discovery", "active_servers": directory.count(), "auth_required": bool(expected_token)}
     @app.get("/v1/discovery/servers")
-    def list_servers_route(request: Request, q: str = "", model: str = "", region: str = "", access: str = "", online_only: bool = True, sort: str = "activity", limit: int = 100):
+    def list_servers_route(request: Request, q: str = "", model: str = "", region: str = "", access: str = "", online_only: bool = True, sort: str = "activity", limit: int = 100, min_vram: float = 0, status: str = "", accepts_workers: bool = None):
         rl = _enforce_rate_limit(request)
         if rl is not None:
             return rl
-        servers = directory.list_servers(q=q, model=model, region=region, access=access, online_only=online_only, sort=sort, limit=limit)
+        servers = directory.list_servers(q=q, model=model, region=region, access=access, online_only=online_only, sort=sort, limit=limit, min_vram=min_vram, status=status, accepts_workers=accepts_workers)
         return {"status": "ok", "servers": servers, "count": len(servers), "server_time": directory._now()}
     @app.get("/v1/discovery/lookup/{node_id}")
     def lookup_route(request: Request, node_id: str):
@@ -657,10 +675,10 @@ def create_discovery_app(store=None, auth_token=None, rate_limit=120):
             return JSONResponse(status_code=404, content={"error": "commitment_not_found"})
         return {"status": "ok", "commitment": rec["commitment"], "record": rec}
     return app
-def serve_discovery(host="0.0.0.0", port=8090, auth_token=None, rate_limit=120, log_level="warning"):
+def serve_discovery(host="0.0.0.0", port=8090, auth_token=None, rate_limit=120, log_level="warning", store=None):
     import uvicorn
-    store = DiscoveryStore()
-    app = create_discovery_app(store=store, auth_token=auth_token, rate_limit=rate_limit)
+    st = store if store is not None else DiscoveryStore()
+    app = create_discovery_app(store=st, auth_token=auth_token, rate_limit=rate_limit)
     uvicorn.run(app, host=host, port=int(port), log_level=log_level)
 def _identity_node_id(identity):
     if isinstance(identity, dict):
@@ -985,7 +1003,7 @@ class DiscoveryClient:
             "updated_at": entry.get("updated_at") or env.get("ts") or now,
             "expires_at": exp_at,
         }
-    def fetch_servers(self, q="", model="", region="", access="", sort="activity", limit=100, online_only=True):
+    def fetch_servers(self, q="", model="", region="", access="", sort="activity", limit=100, online_only=True, min_vram=0, status="", accepts_workers=None):
         if self.offline_only:
             return {"status": "offline", "servers": [], "count": 0, "dropped": 0, "endpoints": [], "rejected_urls": list(self.rejected_urls)}
         if not self.urls:
@@ -1001,6 +1019,12 @@ class DiscoveryClient:
             "limit": lim,
             "online_only": "true" if online_only else "false",
         }
+        if min_vram and float(min_vram) > 0:
+            params["min_vram"] = float(min_vram)
+        if status:
+            params["status"] = str(status)
+        if accepts_workers is not None:
+            params["accepts_workers"] = "true" if accepts_workers else "false"
         dedup = {}
         endpoints = []
         total_dropped = 0
@@ -1034,7 +1058,7 @@ class DiscoveryClient:
                 endpoints.append({"url": url, "ok": True, "status_code": 200, "server_count": ep_valid, "dropped": ep_dropped, "error": None})
             except Exception as exc:
                 endpoints.append({"url": url, "ok": False, "status_code": None, "server_count": 0, "dropped": 0, "error": f"{type(exc).__name__}:{exc}"})
-        servers = [rec for rec in dedup.values() if _listing_matches(rec, q=q, model=model, region=region, access=access)]
+        servers = [rec for rec in dedup.values() if _listing_matches(rec, q=q, model=model, region=region, access=access, min_vram=min_vram, status=status, accepts_workers=accepts_workers)]
         servers.sort(key=lambda r: _sort_key_for_server(r, sort))
         servers = servers[:lim]
         return {

@@ -1780,6 +1780,25 @@ def cmd_cluster(args):
         r = requests.get(f"{base}/api/cluster/plan", headers=hdrs, timeout=10)
         print(json.dumps(r.json(), indent=2, ensure_ascii=False))
         return
+    if action in ("catalog", "browse"):
+        q = getattr(args, "q", "") or ""
+        m = getattr(args, "model", "") or ""
+        r = requests.get(f"{base}/api/catalog/servers", params={"q": q, "model": m}, headers=hdrs, timeout=10)
+        if r.status_code != 200:
+            print(f"[ERROR] {r.status_code}: {r.text[:200]}")
+            sys.exit(1)
+        data = r.json()
+        if getattr(args, "as_json", False):
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+            return
+        srvs = data.get("servers") or []
+        print(f"Discovered Clusters & Servers ({len(srvs)}):\n")
+        for s in srvs:
+            lst = s.get("listing") or s
+            print(f"- {lst.get('name')} | Node: {s.get('node_id')}")
+            print(f"  Model: {lst.get('active_model') or lst.get('model')} | State: {lst.get('cluster_state') or lst.get('status')}")
+            print(f"  VRAM: {lst.get('aggregate_vram_mb', 0)} MB | Workers: {lst.get('worker_count', 0)} | Access: {lst.get('access_mode')}")
+        return
     if action == "create":
         model_id = getattr(args, "model", None) or (args.extra[0] if getattr(args, "extra", None) else None)
         if not model_id:
@@ -1798,6 +1817,10 @@ def cmd_cluster(args):
         print(json.dumps(r.json(), indent=2, ensure_ascii=False))
         if r.status_code != 200:
             sys.exit(1)
+        if getattr(args, "publish", False):
+            pr = requests.post(f"{base}/api/catalog/publish", json={"visibility": "public", "access_mode": "open" if payload["open"] else "invite_only"}, headers=hdrs, timeout=15)
+            if pr.status_code == 200:
+                print("Cluster published to global Server Catalog.")
         return
     if action == "deploy":
         r = requests.post(f"{base}/api/cluster/deploy", json={}, headers=hdrs, timeout=120)
@@ -1824,18 +1847,18 @@ def cmd_cluster(args):
             quota["max_ram_gb"] = args.max_ram_gb
         if getattr(args, "max_threads", None) is not None:
             quota["max_threads"] = args.max_threads
-        r = requests.post(
-            f"{base}/api/cluster/worker/join",
-            json={
-                "coordinator_url": target_url,
-                "auth_code": code,
-                "quota": quota,
-                "consented": True,
-                "via_tunnel": bool(getattr(args, "via_tunnel", False)),
-            },
-            headers=hdrs,
-            timeout=15,
-        )
+        join_endpoint = f"{base}/api/catalog/join" if (target_url.startswith("shn_") or target_url.startswith("shard://")) else f"{base}/api/cluster/worker/join"
+        join_payload = {
+            "target": target_url,
+            "coordinator_url": target_url,
+            "mode": "worker",
+            "auth_code": code,
+            "quota": quota,
+            "consented": True,
+            "consent": True,
+            "via_tunnel": bool(getattr(args, "via_tunnel", False)),
+        }
+        r = requests.post(join_endpoint, json=join_payload, headers=hdrs, timeout=25)
         print(json.dumps(r.json(), indent=2, ensure_ascii=False))
         if r.status_code != 200:
             sys.exit(1)

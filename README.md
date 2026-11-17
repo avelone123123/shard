@@ -148,6 +148,7 @@ Every feature listed below is verified directly against the [SHARD source tree](
 | **Containerization** | **Docker & NVIDIA GPU Compose Stack** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Production-ready container setup with persistent named volumes (`shard_models_volume`, `shard_data_volume`) and NVIDIA GPU reservation. |
 | **Collaborative Training** | **Optional SOUP Fine-Tuning Ecosystem** | [`soup_adapter.py`](shard_engine/soup_adapter.py), [`feedback.py`](shard_engine/feedback.py), [`training.py`](shard_engine/training.py), [`docs/COLLABORATIVE_TRAINING.md`](docs/COLLABORATIVE_TRAINING.md) | Privacy-first consent feedback, secret/PII redaction, immutable SFT/DPO dataset snapshots, dynamic SOUP training orchestration with cancellation, Baseline vs Candidate eval, model versioning, deployment, and 1-click rollback. |
 | **Unified Hosting & Privacy** | **Model-First Hosting & Private Sessions** | [`server.py`](shard_engine/server.py), [`lan.py`](shard_engine/lan.py) | Enforces loaded model verification before server creation/publishing (HTTP 409 `MODEL_NOT_READY`), guarantees zero-leakage participant-isolated private chats, and enforces compute worker VRAM/CPU quotas. |
+| **Global Network & Discovery** | **Automatic Network & 1-Click Clusters** | [`net_strategy.py`](shard_engine/net_strategy.py), [`net_discovery.py`](shard_engine/net_discovery.py), [`cluster.py`](shard_engine/distributed/cluster.py) | Automatic network initialization on `shard start`, public Server Catalog with search and VRAM filters, STUN/NAT traversal, blind encrypted WebSocket relay, pre-join hardware probing, explicit consent enforcement, and distributed tensor pipelines. |
 
 ### Experimental Features
 - **Multi-Host `llama.cpp` RPC Tensor Distribution (`gguf_backend.py`, `lan.py`):** Distributed layer execution over TCP/RPC across heterogeneous LAN GPUs works best on low-latency wired Gigabit/2.5GbE Ethernet subnets; Wi-Fi links may experience higher inter-token latency.
@@ -469,19 +470,25 @@ SHARD supports collaborative model-parallel execution across independent machine
 
 ### Quick Start (Coordinator + Workers)
 
-1. **Coordinator (Server Owner):**
+1. **Coordinator (Create & Publish Global Server):**
    ```bash
    shard start --daemon
-   shard cluster create Qwen/Qwen2.5-Coder-7B-Instruct --name MyCluster --strategy auto --slots 4
+   shard cluster create Qwen/Qwen2.5-Coder-7B-Instruct --name MyGlobalCluster --strategy auto --publish --slots 4
    shard cluster status
    ```
 
-2. **Worker Node (Explicit Consent & Quotas):**
+2. **Discover Global Servers & 1-Click Join:**
    ```bash
-   shard start --daemon
-   shard cluster join http://<COORDINATOR_IP>:8000 <PAIRING_CODE> --consent --vram-pct 70 --max-ram-gb 8 --max-threads 4
+   # Browse public catalog
+   shard cluster catalog --q deepseek --min-vram 16
+
+   # Join as an AI Consumer (Client):
+   shard cluster join shn_coordinator_node_id --client
+
+   # Join as a Compute Worker (Explicit Consent & Quota):
+   shard cluster join shn_coordinator_node_id --consent --vram-pct 70 --max-ram-gb 8 --max-threads 4
    ```
-   For workers behind CGNAT/NAT connected via `shard network connect`, add `--via-tunnel` so the worker binds strictly to `127.0.0.1` and receives coordinator RPC/tensor traffic over the ChaCha20-Poly1305 tunnel.
+   For workers behind restrictive CGNAT/NAT, SHARD automatically traverses NAT using STUN or establishes an end-to-end ChaCha20-Poly1305 encrypted blind WebSocket relay tunnel with zero configuration.
 
 3. **Deploy & Monitor:**
    ```bash
@@ -493,6 +500,11 @@ SHARD supports collaborative model-parallel execution across independent machine
 ### Supported Execution Backends & Documentation
 - **GGUF Distributed RPC (`gguf_rpc_layer_split`)**: Splits model layers and KV cache across `ggml-rpc-server` workers and local offload devices via `llama-server --rpc`, with continuous batching (`--parallel`, `--cont-batching`).
 - **PyTorch Pipeline Parallelism (`torch_pipeline_parallel`)**: Directly loads only assigned safetensors layer shards per worker (`llama`, `qwen2`, `qwen3`, `mistral`, `gemma`, `gemma2`, `phi3`, `gpt2`), maintains per-worker distributed KV caches, and streams binary tensor activations over authenticated `SHPT` TCP sockets.
+- **Global Network & Discovery Specs**:
+  - Architecture: [`SHARD_NETWORK_ARCHITECTURE.md`](SHARD_NETWORK_ARCHITECTURE.md)
+  - Catalog & Discovery: [`GLOBAL_SERVER_DISCOVERY_REPORT.md`](GLOBAL_SERVER_DISCOVERY_REPORT.md)
+  - 1-Click Worker Onboarding: [`AUTOMATIC_WORKER_JOIN_REPORT.md`](AUTOMATIC_WORKER_JOIN_REPORT.md)
+  - Test Verification Report: [`GLOBAL_NETWORK_TEST_REPORT.md`](GLOBAL_NETWORK_TEST_REPORT.md)
 - **Technical Specs**: [`DISTRIBUTED_AI_ARCHITECTURE.docx`](docs/reports/DISTRIBUTED_AI_ARCHITECTURE.docx) | [`DISTRIBUTED_AI_IMPLEMENTATION_REPORT.docx`](docs/reports/DISTRIBUTED_AI_IMPLEMENTATION_REPORT.docx) | [`DISTRIBUTED_AI_TEST_REPORT.docx`](docs/reports/DISTRIBUTED_AI_TEST_REPORT.docx)
 
 ---

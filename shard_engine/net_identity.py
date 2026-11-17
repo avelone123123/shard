@@ -1039,10 +1039,14 @@ def sanitize_public_listing(raw: dict) -> dict:
         pv = raw.get(port_key)
         if not isinstance(pv, bool) and isinstance(pv, int) and 1 <= pv <= 65535:
             out[port_key] = pv
-    for num_key in ("max_ctx", "ctx", "ram_gb", "vram_gb", "capacity_mb", "pool_capacity_mb", "worker_count", "peers_count", "slots_available", "participant_count", "max_participants", "load"):
+    for num_key in ("max_ctx", "ctx", "ram_gb", "vram_gb", "capacity_mb", "pool_capacity_mb", "worker_count", "peers_count", "slots_available", "participant_count", "max_participants", "load", "aggregate_vram_mb", "aggregate_ram_mb", "required_layers", "assigned_stages"):
         nv = raw.get(num_key)
         if not isinstance(nv, bool) and isinstance(nv, (int, float)) and math.isfinite(float(nv)) and 0 <= float(nv) <= 10000000:
             out[num_key] = nv
+    for str_key in ("cluster_state", "cluster_role", "cluster_strategy", "backend", "quant", "arch"):
+        sv = raw.get(str_key)
+        if isinstance(sv, str) and _SAFE_TAG_RE.match(sv.strip()):
+            out[str_key] = sv.strip()
     for list_key in ("capabilities", "tags"):
         if isinstance(raw.get(list_key), list):
             tags = []
@@ -1062,7 +1066,7 @@ def sanitize_public_listing(raw: dict) -> dict:
         vv = raw.get(ver_key)
         if isinstance(vv, str) and _SAFE_VER_RE.match(vv.strip()):
             out[ver_key] = vv.strip()
-    for bool_key in ("open", "requires_invite"):
+    for bool_key in ("open", "requires_invite", "accepts_workers"):
         if isinstance(raw.get(bool_key), bool):
             out[bool_key] = raw[bool_key]
     vis = raw.get("visibility")

@@ -532,7 +532,87 @@ main{padding:14px !important;}
 </div>
 </div>
 </div>
-<header>
+<div id="clusterJoinModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" onclick="if(event.target===this)closeClusterJoinModal()">
+<div class="modal-card" style="max-width:680px;">
+<div class="modal-header">
+<div>
+<div class="modal-title-row">
+<div id="joinModalTitle" class="modal-title">Подключение к серверу SHARD</div>
+<span id="joinModalStateBadge" class="compat-pill compat-ideal">READY</span>
+</div>
+<div id="joinModalSubtitle" class="modal-author">...</div>
+</div>
+<div class="modal-actions">
+<button class="modal-close-btn" onclick="closeClusterJoinModal()" title="Закрыть">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</button>
+</div>
+</div>
+<div class="modal-body" style="padding:16px 20px;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+<div class="v-subcard" style="display:flex;flex-direction:column;justify-content:space-between;">
+<div>
+<div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+Вариант А: Использовать ИИ
+</div>
+<div style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:10px;">
+Подключиться к модели как клиент для отправки промптов через веб-интерфейс или OpenAI API (http://localhost:8000/v1). Ресурсы вашего ПК не расходуются.
+</div>
+</div>
+<button id="joinAsClientBtn" class="btn-action active" style="width:100%;justify-content:center;" onclick="submitJoinAsClient()">
+Подключиться как клиент
+</button>
+</div>
+<div class="v-subcard" style="display:flex;flex-direction:column;justify-content:space-between;">
+<div>
+<div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+Вариант Б: Стать воркером
+</div>
+<div style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:10px;">
+Выделить часть ресурсов своего ПК (GPU / VRAM / RAM) в общий кластер. Модель будет разделена, ваш ПК выполнит назначенные слои нейросети.
+</div>
+</div>
+<div id="joinWorkerCompatBadge" class="compat-pill compat-neutral" style="margin-bottom:8px;">Проверка...</div>
+</div>
+</div>
+<div id="joinWorkerConfigBox" class="v-card-elevated" style="padding:14px;background:var(--surface-sunken);border:1px solid var(--border);border-radius:var(--radius-md);">
+<div class="v-section-title" style="margin-bottom:8px;">Настройка выделения ресурсов воркера</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;margin-bottom:10px;">
+<div>Обнаружено GPU: <b id="joinHwGpu">Поиск...</b></div>
+<div>Доступно RAM: <b id="joinHwRam">0 GB</b></div>
+<div>Расчетный сегмент: <b id="joinEstShard">~0 MB</b></div>
+<div>Режим бэкенда: <b id="joinBackend">Auto</b></div>
+</div>
+<div style="margin-bottom:10px;">
+<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+<span>Выделение VRAM GPU:</span>
+<span id="joinVramPctVal">70%</span>
+</div>
+<input type="range" id="joinVramRange" min="0" max="100" value="70" class="trn-input" style="width:100%;padding:0;" oninput="document.getElementById('joinVramPctVal').innerText=this.value+'%'">
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+<div>
+<label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">ПОТОКИ CPU</label>
+<input type="number" id="joinMaxThreads" min="1" max="128" value="4" class="trn-input">
+</div>
+<div>
+<label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">КОД АВТОРИЗАЦИИ (ЕСЛИ НУЖЕН)</label>
+<input type="text" id="joinAuthCode" placeholder="ABCD-EFGH" class="trn-input">
+</div>
+</div>
+<label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text);margin-bottom:12px;cursor:pointer;">
+<input type="checkbox" id="joinConsentCheck" style="margin-top:2px;">
+<span>Я подтверждаю явное согласие на выделение выбранных аппаратных ресурсов (GPU/VRAM/RAM) для участия в распределенных вычислениях кластера.</span>
+</label>
+<button id="joinAsWorkerBtn" class="btn-action active" style="width:100%;justify-content:center;" onclick="submitJoinAsWorker()">
+Присоединиться к кластеру как воркер
+</button>
+</div>
+</div>
+</div>
+</div>
 <div class="brand">
 <div class="brand-logo-icon">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -937,25 +1017,92 @@ macOS
 </div>
 <div class="trn-subtabs" style="margin-bottom:16px;">
 <button id="netSubBtn-browser" class="trn-subbtn active" onclick="netSubTab('browser', this)">Каталог серверов</button>
-<button id="netSubBtn-invites" class="trn-subbtn" onclick="netSubTab('invites', this)">Инвайты и Подключение</button>
-<button id="netSubBtn-host" class="trn-subbtn" onclick="netSubTab('host', this)">Хостинг и Участники</button>
+<button id="netSubBtn-myservers" class="trn-subbtn" onclick="netSubTab('myservers', this)">Мои серверы</button>
+<button id="netSubBtn-myworkers" class="trn-subbtn" onclick="netSubTab('myworkers', this)">Мои воркеры</button>
+<button id="netSubBtn-cluster" class="trn-subbtn" onclick="netSubTab('cluster', this)">Детали кластера</button>
+<button id="netSubBtn-host" class="trn-subbtn" onclick="netSubTab('host', this)">Хостинг и Пиры</button>
+<button id="netSubBtn-settings" class="trn-subbtn" onclick="netSubTab('settings', this)">Статус сети и Диагностика</button>
 <button id="netSubBtn-lan" class="trn-subbtn" onclick="netSubTab('lan', this)">Локальный кластер (LAN)</button>
-<button id="netSubBtn-settings" class="trn-subbtn" onclick="netSubTab('settings', this)">Свои серверы и Диагностика</button>
+<button id="netSubBtn-invites" class="trn-subbtn" onclick="netSubTab('invites', this)">Инвайты</button>
 </div>
 <div id="netActiveConnBanner" class="v-alert-ok" style="display:none;margin-bottom:16px;"></div>
 <div id="net-panel-browser" class="trn-panel active">
 <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
 <input id="netSearchQ" placeholder="Поиск по модели или имени..." class="trn-input" style="flex:2;min-width:180px;" onkeydown="if(event.key==='Enter')netLoadServers()">
-<input id="netSearchRegion" placeholder="Регион (e.g. eu, us, kz)" class="trn-input" style="flex:1;min-width:110px;" onkeydown="if(event.key==='Enter')netLoadServers()">
-<select id="netSearchAccess" class="trn-input" style="flex:1;min-width:110px;" onchange="netLoadServers()">
-<option value="">Все типы доступа</option>
-<option value="open">Открытые</option>
-<option value="invite_only">По инвайту</option>
-<option value="owner_confirm">С подтверждением</option>
+<select id="netSearchMinVram" class="trn-input" style="flex:1;min-width:120px;" onchange="netLoadServers()">
+<option value="0">Все объемы VRAM</option>
+<option value="4">От 4 GB VRAM</option>
+<option value="8">От 8 GB VRAM</option>
+<option value="16">От 16 GB VRAM</option>
+<option value="24">От 24 GB VRAM</option>
 </select>
-<button class="btn-action active" onclick="netLoadServers()">Найти</button>
+<select id="netSearchAcceptsWorkers" class="trn-input" style="flex:1;min-width:130px;" onchange="netLoadServers()">
+<option value="">Все серверы</option>
+<option value="true">Принимают воркеров</option>
+<option value="ready">Готовые к работе</option>
+</select>
+<select id="netSearchSort" class="trn-input" style="flex:1;min-width:120px;" onchange="netLoadServers()">
+<option value="activity">По активности</option>
+<option value="vram">По объему VRAM</option>
+<option value="performance">По мощности</option>
+<option value="newest">Новые</option>
+<option value="name">По имени</option>
+</select>
+<button class="btn-action active" onclick="netLoadServers()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+Найти
+</button>
 </div>
-<div id="netServersGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:12px;">Загрузка серверов...</div>
+<div id="netServersGrid" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(290px, 1fr));gap:12px;">Загрузка серверов...</div>
+</div>
+<div id="net-panel-myservers" class="trn-panel">
+<div class="info-card" style="margin-bottom:14px;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+<div>
+<div class="v-section-title" style="margin-bottom:2px;">Мои серверы и кластеры</div>
+<div style="font-size:12px;color:var(--text-muted);">Локально созданные серверы и кластеры, публикация в каталоге и подключенные участники.</div>
+</div>
+<button class="btn-action active" onclick="netLoadMyServers()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+Обновить
+</button>
+</div>
+<div id="netMyServersList">Загрузка серверов...</div>
+</div>
+</div>
+<div id="net-panel-myworkers" class="trn-panel">
+<div class="info-card" style="margin-bottom:14px;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+<div>
+<div class="v-section-title" style="margin-bottom:2px;">Мои вычислительные узлы (Воркер)</div>
+<div style="font-size:12px;color:var(--text-muted);">Кластеры, к которым подключен данный ПК для предоставления видеопамяти и вычислений.</div>
+</div>
+<button class="btn-action active" onclick="netLoadMyWorkers()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+Обновить
+</button>
+</div>
+<div id="netMyWorkersList">Загрузка воркеров...</div>
+</div>
+</div>
+<div id="net-panel-cluster" class="trn-panel">
+<div class="info-card" style="margin-bottom:14px;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+<div>
+<div class="v-section-title" style="margin-bottom:2px;">Детали распределенного кластера</div>
+<div style="font-size:12px;color:var(--text-muted);">Карта разделения слоев модели, распределение памяти по машинам и телеметрия инференса.</div>
+</div>
+<button class="btn-action active" onclick="netLoadClusterDetails()">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+Обновить
+</button>
+</div>
+<div id="netClusterOverviewBox" style="margin-bottom:14px;">Загрузка данных кластера...</div>
+<div class="v-section-title" style="margin-bottom:8px;">Карта сегментов модели (Partition Stages)</div>
+<div id="netClusterStagesMap" style="margin-bottom:14px;">-</div>
+<div class="v-section-title" style="margin-bottom:8px;">Участники вычислений (Воркеры)</div>
+<div id="netClusterWorkersTable">-</div>
+</div>
 </div>
 <div id="net-panel-invites" class="trn-panel">
 <div class="v-grid-2" style="margin-bottom:16px;">
@@ -1844,6 +1991,8 @@ async function lanToggleOpen(open) {
 }
 let currentNetSubTab = 'browser';
 let lastNetStatus = null;
+let currentJoinNodeId = null;
+let currentJoinServerData = null;
 function netSubTab(tab, btn) {
     currentNetSubTab = tab;
     document.querySelectorAll('#tab-network .trn-subbtn').forEach(b => b.classList.remove('active'));
@@ -1852,6 +2001,9 @@ function netSubTab(tab, btn) {
     if (p) p.classList.add('active');
     if (btn) btn.classList.add('active');
     if (tab === 'browser') netLoadServers();
+    else if (tab === 'myservers') netLoadMyServers();
+    else if (tab === 'myworkers') netLoadMyWorkers();
+    else if (tab === 'cluster') netLoadClusterDetails();
     else if (tab === 'invites') netLoadInvites();
     else if (tab === 'host') { netLoadHostConfig(); netLoadPeers(); }
     else if (tab === 'lan') lanRefresh();
@@ -1864,6 +2016,9 @@ async function netRefresh(force) {
         const st = await res.json();
         renderNetStatus(st);
         if (currentNetSubTab === 'browser' || force) netLoadServers();
+        if (currentNetSubTab === 'myservers' || force) netLoadMyServers();
+        if (currentNetSubTab === 'myworkers' || force) netLoadMyWorkers();
+        if (currentNetSubTab === 'cluster' || force) netLoadClusterDetails();
         if (currentNetSubTab === 'invites' || force) netLoadInvites();
         if (currentNetSubTab === 'host' || force) netLoadPeers();
     } catch(e) {}
@@ -1918,18 +2073,21 @@ async function netLoadServers() {
     const grid = document.getElementById('netServersGrid');
     if (!grid) return;
     const q = (document.getElementById('netSearchQ') || {}).value || '';
-    const reg = (document.getElementById('netSearchRegion') || {}).value || '';
-    const acc = (document.getElementById('netSearchAccess') || {}).value || '';
+    const minVram = (document.getElementById('netSearchMinVram') || {}).value || '0';
+    const accWrk = (document.getElementById('netSearchAcceptsWorkers') || {}).value || '';
+    const sort = (document.getElementById('netSearchSort') || {}).value || 'activity';
     try {
-        const u = new URL('/api/net/servers', window.location.origin);
+        const u = new URL('/api/catalog/servers', window.location.origin);
         if (q) u.searchParams.set('q', q);
-        if (reg) u.searchParams.set('region', reg);
-        if (acc) u.searchParams.set('access', acc);
+        if (minVram && minVram !== '0') u.searchParams.set('min_vram', minVram);
+        if (accWrk === 'true') u.searchParams.set('accepts_workers', 'true');
+        else if (accWrk === 'ready') u.searchParams.set('status', 'READY');
+        if (sort) u.searchParams.set('sort', sort);
         const res = await fetch(u.toString(), {headers: getAuthHeaders()});
         const data = await res.json();
         const srvs = data.servers || [];
         if (srvs.length === 0) {
-            grid.innerHTML = '<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);">Серверы не найдены. Опубликуйте свой сервер или подключитесь по инвайту.</div>';
+            grid.innerHTML = '<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);">Серверы не найдены в каталоге. Опубликуйте свой сервер или создайте кластер.</div>';
             return;
         }
         grid.innerHTML = srvs.map(s => {
@@ -1939,27 +2097,313 @@ async function netLoadServers() {
             const nid = escHtml(s.node_id || m.node_id || '');
             const region = escHtml(m.region || 'global');
             const access = escHtml(m.access_policy || m.access_mode || 'open');
-            const direct = (m.direct_endpoints && m.direct_endpoints.length) ? '<span style="color:var(--success);">Direct P2P</span>' : '<span style="color:var(--warning);">Relay</span>';
-            const loadVal = Math.round((m.load || 0) * 100);
-            return '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:12px;display:flex;flex-direction:column;justify-content:space-between;">' +
+            const clusterState = escHtml(m.cluster_state || m.status || 'online');
+            const stateColor = clusterState === 'READY' ? 'var(--success)' : (clusterState === 'WAITING_WORKERS' ? 'var(--warning)' : 'var(--accent-text)');
+            const direct = (m.direct_endpoints && m.direct_endpoints.length) ? '<span style="color:var(--success);">Direct P2P</span>' : '<span style="color:var(--warning);">Relay Tunnel</span>';
+            const wrkCount = m.worker_count !== undefined ? m.worker_count : (m.participant_count || 0);
+            const vramText = m.aggregate_vram_mb ? (m.aggregate_vram_mb + ' MB VRAM') : (m.vram_gb ? (m.vram_gb + ' GB') : '0 MB');
+            const backend = escHtml(m.backend || (m.cluster_strategy === 'torch' ? 'PyTorch Pipeline' : 'GGUF RPC'));
+            const acceptsBadge = m.accepts_workers ? '<span class="compat-pill compat-ideal" style="font-size:10px;">Прием воркеров</span>' : '';
+            return '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:14px;display:flex;flex-direction:column;justify-content:space-between;">' +
                 '<div>' +
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">' +
                 '<div class="v-section-title" style="margin-bottom:2px;">' + name + '</div>' +
+                '<div style="display:flex;gap:4px;align-items:center;">' +
+                acceptsBadge +
                 '<span style="font-size:10px;padding:2px 6px;background:var(--surface-sunken);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);">' + region + '</span>' +
                 '</div>' +
-                '<div style="font-size:12px;color:var(--accent-text);font-weight:500;margin-bottom:6px;">' + model + '</div>' +
+                '</div>' +
+                '<div style="font-size:13px;color:var(--accent-text);font-weight:600;margin-bottom:4px;">' + model + '</div>' +
+                '<div style="font-size:11px;color:' + stateColor + ';font-weight:600;margin-bottom:6px;">Кластер: ' + clusterState + ' &bull; Бэкенд: ' + backend + '</div>' +
                 '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;">' + nid + '</div>' +
-                '<div style="font-size:11px;color:var(--text-muted);display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">' +
+                '<div style="font-size:11px;color:var(--text-muted);display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">' +
                 '<span>Маршрут: ' + direct + '</span>' +
+                '<span>Воркеров: <b>' + wrkCount + '</b></span>' +
+                '<span>Пул: <b>' + vramText + '</b></span>' +
                 '<span>Доступ: ' + access + '</span>' +
-                '<span>Нагрузка: ' + loadVal + '%</span>' +
                 '</div>' +
                 '</div>' +
-                '<button class="btn-action active" style="width:100%;justify-content:center;" data-nid="' + nid + '" onclick="netConnectTargetServer(this.dataset.nid)">Подключиться</button>' +
+                '<button class="btn-action active" style="width:100%;justify-content:center;" data-nid="' + nid + '" onclick="openClusterJoinModal(this.dataset.nid)">Присоединиться к серверу</button>' +
                 '</div>';
         }).join('');
     } catch(e) {
-        grid.innerHTML = '<div style="grid-column:1/-1;padding:16px;color:var(--danger);font-size:13px;">Ошибка связи с Discovery-сервером.</div>';
+        grid.innerHTML = '<div style="grid-column:1/-1;padding:16px;color:var(--danger);font-size:13px;">Ошибка связи с Discovery-сервером: ' + escHtml(e.message) + '</div>';
+    }
+}
+async function openClusterJoinModal(nodeId, serverData) {
+    currentJoinNodeId = nodeId;
+    currentJoinServerData = serverData || null;
+    const bd = document.getElementById('clusterJoinModalBackdrop');
+    if (!bd) return;
+    document.getElementById('joinModalTitle').innerText = 'Подключение к серверу';
+    document.getElementById('joinModalSubtitle').innerText = 'Целевой узел: ' + (nodeId || '');
+    document.getElementById('joinConsentCheck').checked = false;
+    document.getElementById('joinWorkerCompatBadge').innerText = 'Проверка совместимости...';
+    document.getElementById('joinWorkerCompatBadge').className = 'compat-pill compat-neutral';
+    bd.style.display = 'flex';
+    try {
+        const res = await fetch('/api/catalog/prejoin/' + encodeURIComponent(nodeId), {headers: getAuthHeaders()});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        document.getElementById('joinModalTitle').innerText = data.server_name || 'Сервер SHARD';
+        document.getElementById('joinModalSubtitle').innerText = 'Модель: ' + (data.target_model || '—') + ' | ' + (data.cluster_state || 'READY');
+        const stBadge = document.getElementById('joinModalStateBadge');
+        if (stBadge) {
+            stBadge.innerText = data.cluster_state || 'READY';
+            stBadge.className = 'compat-pill ' + (data.cluster_state === 'READY' ? 'compat-ideal' : 'compat-good');
+        }
+        const hw = data.local_hardware || {};
+        document.getElementById('joinHwGpu').innerText = hw.gpu_model || 'CPU';
+        document.getElementById('joinHwRam').innerText = Math.round((hw.ram_total_mb || 0) / 1024) + ' GB';
+        document.getElementById('joinEstShard').innerText = '~' + (data.estimated_partition_mb || 0) + ' MB';
+        document.getElementById('joinBackend').innerText = (hw.backends && hw.backends.torch_pipeline) ? 'PyTorch Pipeline' : ((hw.backends && hw.backends.gguf_rpc) ? 'GGUF RPC' : 'Fallback');
+        const rec = data.recommendations || {};
+        if (rec.vram_pct !== undefined) {
+            document.getElementById('joinVramRange').value = rec.vram_pct;
+            document.getElementById('joinVramPctVal').innerText = rec.vram_pct + '%';
+        }
+        if (rec.max_threads !== undefined) {
+            document.getElementById('joinMaxThreads').value = rec.max_threads;
+        }
+        const compatBadge = document.getElementById('joinWorkerCompatBadge');
+        if (data.compatible) {
+            compatBadge.innerText = 'Аппаратная часть совместима';
+            compatBadge.className = 'compat-pill compat-ideal';
+        } else {
+            compatBadge.innerText = (data.warnings && data.warnings[0]) || 'Ограниченная совместимость';
+            compatBadge.className = 'compat-pill compat-warning';
+        }
+    } catch(e) {
+        document.getElementById('joinWorkerCompatBadge').innerText = 'Данные о сервере получены по P2P';
+    }
+}
+function closeClusterJoinModal() {
+    const bd = document.getElementById('clusterJoinModalBackdrop');
+    if (bd) bd.style.display = 'none';
+    currentJoinNodeId = null;
+    currentJoinServerData = null;
+}
+async function submitJoinAsClient() {
+    if (!currentJoinNodeId) return;
+    const nid = currentJoinNodeId;
+    showToast('Подключение...', 'Установка сессии клиента к ' + nid.substring(0, 16) + '...');
+    try {
+        const res = await fetch('/api/catalog/join', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({target: nid, mode: 'client', preferred_mode: 'auto'})
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'ok') {
+            closeClusterJoinModal();
+            showToast('Успешно', 'Подключено к модели. Переход в чат...');
+            netRefresh(true);
+            setTimeout(() => { showTab('chat', document.getElementById('navChatBtn')); }, 500);
+        } else {
+            showToast('Не удалось', data.message || data.error || 'Ошибка подключения');
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function submitJoinAsWorker() {
+    if (!currentJoinNodeId) return;
+    const consent = document.getElementById('joinConsentCheck').checked;
+    if (!consent) {
+        showToast('Требуется согласие', 'Отметьте чекбокс подтверждения выделения ресурсов');
+        return;
+    }
+    const nid = currentJoinNodeId;
+    const vramPct = parseInt(document.getElementById('joinVramRange').value, 10);
+    const maxThreads = parseInt(document.getElementById('joinMaxThreads').value, 10);
+    const authCode = (document.getElementById('joinAuthCode') || {}).value || '';
+    showToast('Подключение воркера...', 'Регистрация аппаратных ресурсов в кластере...');
+    try {
+        const res = await fetch('/api/catalog/join', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({
+                target: nid,
+                mode: 'worker',
+                auth_code: authCode,
+                quota: {vram_pct: vramPct, max_threads: maxThreads},
+                consent: true
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'ok') {
+            closeClusterJoinModal();
+            showToast('Воркер подключен', 'Узел зарегистрирован в кластере: ID ' + (data.worker_id || ''));
+            netSubTab('myworkers', document.getElementById('netSubBtn-myworkers'));
+            netRefresh(true);
+        } else {
+            showToast('Отклонено', data.message || data.error || 'Ошибка подключения воркера');
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netLoadMyServers() {
+    const el = document.getElementById('netMyServersList');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/cluster/my-servers', {headers: getAuthHeaders()});
+        const data = await res.json();
+        const srvs = data.servers || [];
+        if (srvs.length === 0) {
+            el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface-sunken);border-radius:var(--radius-md);">У вас пока нет активных серверов или кластеров. Создайте сервер во вкладке «Сервер» или выполните shard cluster create &lt;model&gt;.</div>';
+            return;
+        }
+        el.innerHTML = srvs.map(s => {
+            const pubBadge = s.published ? '<span style="color:var(--success);font-weight:600;">В каталоге</span>' : '<span style="color:var(--text-muted);">Не опубликован</span>';
+            const btnText = s.published ? 'Снять с публикации' : 'Опубликовать в каталоге';
+            const btnClass = s.published ? 'v-btn-danger' : 'btn-action active';
+            const tel = s.telemetry || {};
+            const actReq = tel.active_requests !== undefined ? (' &bull; Запросов: ' + tel.active_requests) : '';
+            return '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:14px;margin-bottom:10px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">' +
+                '<div>' +
+                '<div class="v-section-title" style="margin-bottom:2px;">' + escHtml(s.name) + ' (' + s.type + ')</div>' +
+                '<div style="font-size:12px;color:var(--accent-text);font-weight:600;">Модель: ' + escHtml(s.model || 'не указана') + ' &bull; Статус: ' + s.state + actReq + '</div>' +
+                '</div>' +
+                '<span class="compat-pill ' + (s.state === 'READY' ? 'compat-ideal' : 'compat-neutral') + '">' + s.state + '</span>' +
+                '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap;">' +
+                '<span>Воркеров: <b>' + (s.worker_count || 0) + '</b></span>' +
+                '<span>Общая VRAM: <b>' + (s.aggregate_vram_mb || 0) + ' MB</b></span>' +
+                '<span>Публикация: ' + pubBadge + '</span>' +
+                '</div>' +
+                '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+                '<button class="' + btnClass + '" onclick="netTogglePublishServer(' + s.published + ')">' + btnText + '</button>' +
+                '<button class="btn-action" onclick="netSubTab(\'cluster\', document.getElementById(\'netSubBtn-cluster\'))">Детали кластера</button>' +
+                '</div>' +
+                '</div>';
+        }).join('');
+    } catch(e) {
+        el.innerHTML = '<div style="padding:14px;color:var(--danger);font-size:13px;">Ошибка загрузки серверов: ' + escHtml(e.message) + '</div>';
+    }
+}
+async function netTogglePublishServer(isPublished) {
+    const endpoint = isPublished ? '/api/catalog/unpublish' : '/api/catalog/publish';
+    try {
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: isPublished ? '{}' : JSON.stringify({visibility: 'public', access_mode: 'open'})
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Успешно', isPublished ? 'Сервер снят с публикации' : 'Сервер опубликован в каталоге');
+            netLoadMyServers();
+            netRefresh(true);
+        } else {
+            showToast('Ошибка', data.message || 'Сбой публикации');
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netLoadMyWorkers() {
+    const el = document.getElementById('netMyWorkersList');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/cluster/my-workers', {headers: getAuthHeaders()});
+        const data = await res.json();
+        const wrks = data.workers || [];
+        if (wrks.length === 0) {
+            el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface-sunken);border-radius:var(--radius-md);">Данный компьютер пока не участвует в чужих кластерах в роли воркера. Выберите сервер в каталоге и нажмите «Присоединиться как воркер».</div>';
+            return;
+        }
+        el.innerHTML = wrks.map(w => {
+            const q = w.quota || {};
+            const assigned = w.assigned_layers ? ('Слои: ' + w.assigned_layers.join(', ')) : 'Сегмент в распределении';
+            return '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:14px;margin-bottom:10px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">' +
+                '<div>' +
+                '<div class="v-section-title" style="margin-bottom:2px;">Узел ' + escHtml(w.worker_id) + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">Координатор: ' + escHtml(w.coordinator_url) + '</div>' +
+                '</div>' +
+                '<span class="compat-pill compat-ideal">Активный донор GPU/RAM</span>' +
+                '</div>' +
+                '<div style="font-size:12px;color:var(--accent-text);margin-bottom:8px;font-weight:600;">' + assigned + ' &bull; Выделено VRAM: ' + (q.vram_pct || 70) + '% &bull; Потоки: ' + (q.max_threads || 4) + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;">' +
+                '<span>Сессий: <b>' + (w.active_sessions || 0) + '</b></span>' +
+                '<span>Обработано задач: <b>' + (w.requests_handled || 0) + '</b></span>' +
+                '<span>Туннель: <b>' + (w.via_tunnel ? 'Да (Relay)' : 'Direct') + '</b></span>' +
+                '</div>' +
+                '<button class="v-btn-danger" onclick="netLeaveCluster()">Покинуть кластер и освободить память</button>' +
+                '</div>';
+        }).join('');
+    } catch(e) {
+        el.innerHTML = '<div style="padding:14px;color:var(--danger);font-size:13px;">Ошибка загрузки воркеров: ' + escHtml(e.message) + '</div>';
+    }
+}
+async function netLeaveCluster() {
+    showToast('Отключение...', 'Выход из кластера...');
+    try {
+        const res = await fetch('/api/cluster/worker/leave', {method: 'POST', headers: getAuthHeaders()});
+        const data = await res.json();
+        showToast('Отключено', 'Память освобождена');
+        netLoadMyWorkers();
+        netRefresh(true);
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netLoadClusterDetails() {
+    const ob = document.getElementById('netClusterOverviewBox');
+    const sm = document.getElementById('netClusterStagesMap');
+    const wt = document.getElementById('netClusterWorkersTable');
+    if (!ob) return;
+    try {
+        const [stRes, planRes] = await Promise.all([
+            fetch('/api/cluster/status', {headers: getAuthHeaders()}),
+            fetch('/api/cluster/plan', {headers: getAuthHeaders()})
+        ]);
+        const st = await stRes.json();
+        const plan = await planRes.json();
+        const ov = st.cluster_overview || {};
+        const tel = st.telemetry || {};
+        ob.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;">' +
+            '<div class="trn-stat"><div class="trn-stat-label">Роль узла</div><div class="trn-stat-val" style="font-size:14px;">' + (st.role || '—') + '</div></div>' +
+            '<div class="trn-stat"><div class="trn-stat-label">Состояние</div><div class="trn-stat-val" style="font-size:14px;color:var(--success);">' + (st.state || '—') + '</div></div>' +
+            '<div class="trn-stat"><div class="trn-stat-label">Модель</div><div class="trn-stat-val" style="font-size:13px;word-break:break-all;">' + escHtml(st.target_model || '—') + '</div></div>' +
+            '<div class="trn-stat"><div class="trn-stat-label">Воркеры</div><div class="trn-stat-val">' + (ov.worker_count || 0) + '</div></div>' +
+            '<div class="trn-stat"><div class="trn-stat-label">Пул VRAM</div><div class="trn-stat-val">' + (ov.aggregate_usable_vram_mb || 0) + ' MB</div></div>' +
+            '<div class="trn-stat"><div class="trn-stat-label">Скорость</div><div class="trn-stat-val">' + (tel.avg_tokens_per_sec || 0) + ' t/s</div></div>' +
+            '</div>';
+        const stages = plan.stages || [];
+        if (stages.length === 0) {
+            sm.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:12px;background:var(--surface-sunken);border-radius:var(--radius-md);">План распределения не сформирован (требуется создать кластер и подключить воркеры).</div>';
+        } else {
+            sm.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">' +
+                stages.map((stg, i) => {
+                    const isCoord = stg.worker_id === 'coordinator' || stg.role === 'coordinator';
+                    const bg = isCoord ? 'var(--accent-soft)' : 'var(--surface-elevated)';
+                    const border = isCoord ? 'var(--accent-border)' : 'var(--border-strong)';
+                    return '<div style="flex:1;min-width:140px;background:' + bg + ';border:1px solid ' + border + ';border-radius:var(--radius-md);padding:10px;text-align:center;">' +
+                        '<div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px;">Этап ' + (stg.stage_idx !== undefined ? stg.stage_idx : i) + '</div>' +
+                        '<div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px;">Слои ' + stg.layer_start + ' &ndash; ' + stg.layer_end + '</div>' +
+                        '<div style="font-size:11px;color:var(--accent-text);font-family:var(--font-mono);">' + escHtml(stg.worker_id || stg.name || 'node') + '</div>' +
+                        '</div>';
+                }).join('<div style="font-size:16px;color:var(--text-muted);">&rarr;</div>') +
+                '</div>';
+        }
+        const wrks = st.workers || [];
+        if (wrks.length === 0) {
+            wt.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:12px;background:var(--surface-sunken);border-radius:var(--radius-md);">Внешние воркеры еще не подключены.</div>';
+        } else {
+            wt.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' +
+                wrks.map(w => {
+                    return '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface-elevated);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;">' +
+                        '<div><b>' + escHtml(w.name || w.worker_id) + '</b> <span style="color:var(--text-muted);">(' + escHtml(w.transport || 'lan') + ')</span></div>' +
+                        '<div style="color:var(--accent-text);">VRAM: ' + (w.hw ? w.hw.usable_vram_mb : 0) + ' MB &bull; RAM: ' + (w.hw ? w.hw.usable_ram_mb : 0) + ' MB</div>' +
+                        '</div>';
+                }).join('') +
+                '</div>';
+        }
+    } catch(e) {
+        ob.innerHTML = '<div style="color:var(--danger);font-size:12px;">Ошибка загрузки кластера: ' + escHtml(e.message) + '</div>';
     }
 }
 async function netConnectTargetServer(nodeId) {
@@ -5167,13 +5611,14 @@ window.onload = function() {
 };
 document.addEventListener('keydown', function(ev) {
 if (ev.key === 'Escape') {
-['modelModalBackdrop', 'dirModalBackdrop', 'updateModalBackdrop', 'browserModalBackdrop'].forEach(function(id) {
+['modelModalBackdrop', 'dirModalBackdrop', 'updateModalBackdrop', 'browserModalBackdrop', 'clusterJoinModalBackdrop'].forEach(function(id) {
 const el = document.getElementById(id);
 if (el && getComputedStyle(el).display !== 'none') {
 if (id === 'modelModalBackdrop' && typeof closeModelCard === 'function') closeModelCard();
 else if (id === 'dirModalBackdrop' && typeof closeDirPicker === 'function') closeDirPicker();
 else if (id === 'updateModalBackdrop' && typeof closeUpdateModal === 'function') closeUpdateModal();
 else if (id === 'browserModalBackdrop' && typeof closeModelBrowser === 'function') closeModelBrowser();
+else if (id === 'clusterJoinModalBackdrop' && typeof closeClusterJoinModal === 'function') closeClusterJoinModal();
 }
 });
 }

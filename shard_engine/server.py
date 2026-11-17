@@ -1223,6 +1223,16 @@ def installer_script(req: Request, tool: str = "claude", os: str = "linux", key:
                  'echo "[OK] Shard: OPENAI_API_BASE and OPENAI_API_KEY exported for ' + tool_clean + '."\n'
     return PlainTextResponse(script, media_type="text/plain; charset=utf-8")
 def _verify_server_model_ready(model_id=None):
+    try:
+        from .distributed import cluster as dist_cluster
+        cm = dist_cluster.get_cluster_manager()
+        c_st = cm.status(include_secrets=False)
+        if c_st.get("role") == "coordinator" and c_st.get("state") in ("PLANNING", "WAITING_WORKERS", "READY", "RUNNING"):
+            t = (model_id or "").strip()
+            if not t or t == c_st.get("target_model"):
+                return True, ""
+    except Exception:
+        pass
     if not engine_instance.is_loaded():
         return False, "No model is loaded in memory. Load and verify a model before hosting or publishing."
     target = (model_id or "").strip() or engine_instance.active_model_id or engine_instance.current_loaded_id
@@ -2187,11 +2197,207 @@ async def api_net_config_post(req: Request):
     except Exception as e:
         return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
 @app.get("/api/net/servers")
-def api_net_servers(req: Request, q: str = "", model: str = "", region: str = "", access: str = "", online_only: bool = True, sort: str = "activity", limit: int = 100):
+def api_net_servers(req: Request, q: str = "", model: str = "", region: str = "", access: str = "", online_only: bool = True, sort: str = "activity", limit: int = 100, min_vram: float = 0, status: str = "", accepts_workers: bool = None):
     denied = _deny_non_owner(req)
     if denied:
         return denied
-    return _net_mgr().discover_servers(q=q, model=model, region=region, access=access, online_only=online_only, sort=sort, limit=limit)
+    return _net_mgr().discover_servers(q=q, model=model, region=region, access=access, online_only=online_only, sort=sort, limit=limit, min_vram=min_vram, status=status, accepts_workers=accepts_workers)
+@app.get("/api/catalog/servers")
+def api_catalog_servers(req: Request, q: str = "", model: str = "", region: str = "", access: str = "", online_only: bool = True, sort: str = "activity", limit: int = 100, min_vram: float = 0, status: str = "", accepts_workers: bool = None):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return _net_mgr().discover_servers(q=q, model=model, region=region, access=access, online_only=online_only, sort=sort, limit=limit, min_vram=min_vram, status=status, accepts_workers=accepts_workers)
+@app.get("/api/catalog/servers/{node_id}")
+def api_catalog_server_details(req: Request, node_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    res = _net_mgr().lookup_server(node_id)
+    if not res:
+        return JSONResponse(status_code=404, content={"status": "error", "message": "Server not found"})
+    return res
+@app.get("/api/catalog/prejoin/{node_id}")
+def api_catalog_prejoin(req: Request, node_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    from .distributed import capabilities as _cap
+    caps = _cap.probe_node_capabilities(force_refresh=True)
+    hw = caps.get("hw") or {}
+    res = _net_mgr().lookup_server(node_id)
+    listing = {}
+    if res and isinstance(res, dict):
+        pub = res.get("public") or {}
+        listing = pub.get("listing") or {}
+    model_name = listing.get("active_model") or listing.get("model") or "unknown"
+    est_size_gb = float(listing.get("size_gb") or 4.0)
+    total_vram_mb = int(hw.get("gpu_vram_mb") or 0)
+    total_ram_mb = int(hw.get("ram_total_mb") or 8192)
+    rec_vram_pct = 70 if total_vram_mb >= 2048 else 0
+    backends = caps.get("backends") or {}
+    has_torch = bool(backends.get("torch_pipeline"))
+    has_gguf = bool(backends.get("gguf_rpc"))
+    compatible = bool(has_torch or has_gguf or total_ram_mb >= 4096)
+    return {
+        "status": "ok",
+        "node_id": node_id,
+        "server_name": listing.get("name") or node_id,
+        "target_model": model_name,
+        "cluster_state": listing.get("cluster_state") or "READY",
+        "estimated_partition_mb": int(est_size_gb * 1024 / max(1, (int(listing.get("worker_count") or 0) + 2))),
+        "local_hardware": {
+            "gpu_model": hw.get("gpu_model") or "CPU",
+            "gpu_vram_mb": total_vram_mb,
+            "ram_total_mb": total_ram_mb,
+            "cpu_threads": int(hw.get("cpu_threads") or 4),
+            "backends": backends,
+        },
+        "recommendations": {
+            "vram_pct": rec_vram_pct,
+            "max_threads": max(1, int(hw.get("cpu_threads") or 4) - 1),
+            "allow_cuda": total_vram_mb >= 1024,
+        },
+        "compatible": compatible,
+        "warnings": [] if compatible else ["Не обнаружена подходящая среда выполнения для видеокарты"],
+    }
+@app.post("/api/catalog/publish")
+async def api_catalog_publish(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    c_model = CLUSTER.target_model if getattr(CLUSTER, "target_model", None) else None
+    model = (data.get("models") or [None])[0] if data.get("models") else (engine_instance.active_model_id or engine_instance.current_loaded_id or c_model)
+    ok, reason = _verify_server_model_ready(model)
+    if not ok:
+        return JSONResponse(status_code=409, content={"status": "error", "code": "MODEL_NOT_READY", "message": f"Model must be loaded and pass inference verification before hosting or publishing a server: {reason}"})
+    try:
+        res = _net_mgr().publish_server(
+            name=data.get("name"),
+            visibility=data.get("visibility") or "public",
+            access_mode=data.get("access_mode") or data.get("access_policy") or "open",
+            region=data.get("region"),
+            direct_p2p_port=data.get("direct_p2p_port") or data.get("direct_port"),
+            models=data.get("models") or ([model] if model else None),
+            max_participants=data.get("max_participants") or data.get("max_peers"),
+            bandwidth_kbps=data.get("bandwidth_kbps"),
+            asgi_app=app,
+        )
+        return {"status": "ok", "host": res, "discovery_ok": res.get("discovery_ok", True), "warning": res.get("discovery_warning")}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/catalog/unpublish")
+def api_catalog_unpublish(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    res = _net_mgr().unpublish_server()
+    return {"status": "ok", "host": res}
+@app.post("/api/catalog/join")
+async def api_catalog_join(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON"})
+    target = str(data.get("target") or data.get("node_id") or "").strip()
+    mode = str(data.get("mode") or "client").strip().lower()
+    auth_code = str(data.get("auth_code") or data.get("code") or "").strip()
+    if not target:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "target node_id or URL required"})
+    if mode == "client":
+        conn = _net_mgr().connect(target, invite_token=auth_code, mode=data.get("preferred_mode") or "auto")
+        return {"status": "ok", "mode": "client", "connection": conn}
+    if mode == "worker":
+        if not data.get("consent"):
+            return JSONResponse(status_code=403, content={"status": "error", "code": "CONSENT_REQUIRED", "message": "Explicit worker resource donation consent is required"})
+        via_tunnel = False
+        coord_url = target
+        if not target.startswith("http://") and not target.startswith("https://"):
+            conn = _net_mgr().connect(target, invite_token=auth_code, mode="auto")
+            if conn.get("state") not in ("connected", "relay_connected"):
+                return JSONResponse(status_code=502, content={"status": "error", "message": f"Could not establish connection to coordinator: {conn.get('last_error') or conn.get('state')}"})
+            if conn.get("mode") == "relay":
+                via_tunnel = True
+                coord_url = f"http://127.0.0.1:{lan.active_http_port()}"
+            else:
+                coord_url = f"http://{conn.get('endpoint') or target}"
+        res = await asyncio.to_thread(
+            CLUSTER.join_cluster_as_worker,
+            coordinator_url=coord_url,
+            auth_code=auth_code,
+            quota=data.get("quota") or {},
+            consented=True,
+            via_tunnel=via_tunnel,
+        )
+        return {"status": "ok", "mode": "worker", **res}
+    return JSONResponse(status_code=400, content={"status": "error", "message": f"Unknown mode: {mode}"})
+@app.get("/api/cluster/my-servers")
+def api_cluster_my_servers(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    servers = []
+    c_st = CLUSTER.status(include_secrets=False)
+    h_st = _net_mgr().host_status()
+    if c_st.get("role") == "coordinator" or c_st.get("state") != "OFFLINE":
+        servers.append({
+            "type": "cluster",
+            "name": c_st.get("name") or "Local AI Cluster",
+            "model": c_st.get("target_model"),
+            "state": c_st.get("state"),
+            "strategy": c_st.get("strategy"),
+            "published": bool(h_st.get("published")),
+            "visibility": h_st.get("visibility"),
+            "worker_count": (c_st.get("cluster_overview") or {}).get("worker_count", 0),
+            "aggregate_vram_mb": (c_st.get("cluster_overview") or {}).get("aggregate_usable_vram_mb", 0),
+            "telemetry": c_st.get("telemetry") or {},
+            "node_id": _safe_node_id(),
+        })
+    if engine_instance.is_loaded() and not any(s["model"] == engine_instance.current_loaded_id for s in servers):
+        servers.append({
+            "type": "standalone",
+            "name": "Local Engine Instance",
+            "model": engine_instance.current_loaded_id or engine_instance.active_model_id,
+            "state": "READY",
+            "strategy": "local",
+            "published": bool(h_st.get("published")),
+            "visibility": h_st.get("visibility"),
+            "worker_count": 0,
+            "aggregate_vram_mb": 0,
+            "node_id": _safe_node_id(),
+        })
+    return {"status": "ok", "servers": servers}
+@app.get("/api/cluster/my-workers")
+def api_cluster_my_workers(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    lw = getattr(CLUSTER, "_local_worker", {}) or {}
+    active = bool(lw.get("active"))
+    pipe_stats = lw["pipeline_srv"].stats() if lw.get("pipeline_srv") else {}
+    workers = []
+    if active:
+        workers.append({
+            "worker_id": lw.get("worker_id"),
+            "coordinator_url": lw.get("coordinator_url"),
+            "status": "contributing",
+            "via_tunnel": bool(lw.get("via_tunnel")),
+            "quota": lw.get("quota") or {},
+            "rpc_port": lw.get("rpc_port"),
+            "pipeline_port": lw.get("pipeline_port"),
+            "active_sessions": pipe_stats.get("active_kv_sessions", 0),
+            "requests_handled": pipe_stats.get("requests_handled", 0),
+            "assigned_layers": pipe_stats.get("assigned_layers"),
+            "last_compute_ms": pipe_stats.get("last_compute_ms", 0.0),
+        })
+    return {"status": "ok", "workers": workers, "active": active}
 @app.get("/api/net/lookup/{node_id}")
 def api_net_lookup(req: Request, node_id: str):
     denied = _deny_non_owner(req)
@@ -2210,7 +2416,8 @@ async def api_net_publish(req: Request):
         data = await req.json()
     except Exception:
         data = {}
-    model = (data.get("models") or [None])[0] if data.get("models") else (engine_instance.active_model_id or engine_instance.current_loaded_id)
+    c_model = CLUSTER.target_model if getattr(CLUSTER, "target_model", None) else None
+    model = (data.get("models") or [None])[0] if data.get("models") else (engine_instance.active_model_id or engine_instance.current_loaded_id or c_model)
     ok, reason = _verify_server_model_ready(model)
     if not ok:
         return JSONResponse(status_code=409, content={"status": "error", "code": "MODEL_NOT_READY", "message": f"Model must be loaded and pass inference verification before hosting or publishing a server: {reason}"})

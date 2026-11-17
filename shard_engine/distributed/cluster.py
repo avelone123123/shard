@@ -324,7 +324,7 @@ class ClusterManager:
             self.workers[wid] = rec
             self._rebalance_needed.set()
         self.recompute_plan()
-        return {"worker_id": wid, "worker_token": tok, "cluster_id": self.cluster_id, "plan": self.plan}
+        return {"status": "ok", "worker_id": wid, "worker_token": tok, "cluster_id": self.cluster_id, "plan": self.plan}
     def heartbeat_worker(self, worker_id, worker_token, hw=None, quota=None, workload=None, rtt_ms=None, bandwidth_mbps=None):
         now = time.time()
         with self._lock:

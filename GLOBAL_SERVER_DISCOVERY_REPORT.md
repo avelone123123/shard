@@ -1,0 +1,70 @@
+# Global Server Discovery & Public Catalog Report
+
+## 1. Overview & Objectives
+
+The SHARD Global Server Catalog provides a decentralized directory where cluster coordinators publish available AI servers and workers discover compatible clusters worldwide. It provides search, multi-attribute filtering, sorting, and passport inspection without requiring manual room keys or VPN exchanges.
+
+## 2. Server Passport Schema
+
+Each server registered in the catalog presents a verified passport structure:
+
+```json
+{
+  "node_id": "shn_9df273a0058b76e1",
+  "name": "Alpha-DeepSeek-Cluster",
+  "active_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+  "vram_gb": 24.0,
+  "aggregate_vram_mb": 24576,
+  "aggregate_ram_mb": 65536,
+  "worker_count": 3,
+  "accepts_workers": true,
+  "cluster_state": "READY",
+  "cluster_role": "coordinator",
+  "cluster_strategy": "torch_pipeline_parallel",
+  "backend": "torch",
+  "visibility": "public",
+  "access_mode": "open",
+  "direct_endpoints": ["203.0.113.45:8000"],
+  "rendezvous_hint": "relay://hub1.shard.network/shn_9df273a0058b76e1",
+  "last_seen": 1731887200
+}
+```
+
+## 3. Catalog API Specifications
+
+### 1. Catalog Search & Filter (`GET /api/catalog/servers`)
+- **Query Parameters**:
+  - `q`: Text search over server name, model ID, or node ID.
+  - `model`: Exact or partial model filter (e.g. `deepseek`, `qwen`).
+  - `min_vram`: Minimum required aggregate cluster VRAM in GB (e.g. `16`).
+  - `status`: Filter by cluster state (`READY`, `WAITING_WORKERS`, `FORMING`).
+  - `accepts_workers`: Boolean filter (`true` to show clusters accepting new worker nodes).
+  - `sort`: Sorting criteria (`activity`, `vram`, `performance`, `newest`, `name`).
+  - `limit`: Page limit (default `100`, max `500`).
+
+### 2. Server Passport Details (`GET /api/catalog/servers/{node_id}`)
+- Returns the complete public listing, cryptographic verification status, host information, cluster strategy, and connectivity options.
+
+### 3. Server Publication (`POST /api/catalog/publish`)
+- Verifies that the model is loaded and inference-ready before publication.
+- Publishes signed listing to the discovery directory with configurable access mode (`open`, `approval`, `invite_only`).
+
+### 4. Server Unpublication (`POST /api/catalog/unpublish`)
+- Broadcasts signed unregistration envelope, purging the entry from all discovery nodes.
+
+### 5. Cluster Management (`GET /api/cluster/my-servers`, `GET /api/cluster/my-workers`)
+- Returns active clusters hosted by this node and remote clusters joined as a worker node.
+
+## 4. Integrity, Anti-Spam & TTL Expiration
+
+1. **Cryptographic Envelope Verification**:
+   - Every registration and heartbeat requires a valid Ed25519 signature over the listing payload.
+   - Nodes cannot forge listings under another node's `node_id`.
+
+2. **TTL Auto-Pruning**:
+   - Each registered server has a time-to-live (TTL) between 30 and 120 seconds.
+   - If a coordinator goes offline or fails to send heartbeats, the server automatically disappears from the catalog after TTL expiration.
+
+3. **Rate Limiting & Abuse Prevention**:
+   - The discovery service enforces per-IP mutation rate limits (maximum 60 mutations/minute).
+   - Insecure HTTP endpoints from external public IPs are blocked; HTTPS or secure WSS endpoints are mandated outside local test environments.
