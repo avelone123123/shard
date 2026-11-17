@@ -22,3 +22,15 @@ SHARD Network is an autonomous, decentralized networking and discovery fabric en
                      |                               |
                      +------- P2P Direct Socket -----+
                      |    (ChaCha20-Poly1305 / TLS)  |
+                     |                               |
+                     +--- Blind WebSocket Relay -----+
+                          (Zero-Knowledge Fallback)
+```
+
+## 2. Cryptographic Node Identity & TOFU Security
+
+Every SHARD node possesses a sovereign cryptographic identity generated locally at first boot:
+
+1. **Key Generation**: 
+   - A cryptographic Ed25519 signing keypair is generated and stored with strict filesystem permissions (`0600`) at `~/.shard/identity.json`.
+   - The public key is encoded into a deterministic, human-identifiable Node ID with the `shn_` prefix (e.g. `shn_a1b2c3d4...`).
