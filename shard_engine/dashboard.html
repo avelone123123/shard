@@ -2231,6 +2231,22 @@ async function submitJoinAsWorker() {
             method: 'POST',
             headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
             body: JSON.stringify({
+                target: nid,
+                mode: 'worker',
+                auth_code: authCode,
+                quota: {vram_pct: vramPct, max_threads: maxThreads},
+                consent: true
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'ok') {
+            closeClusterJoinModal();
+            showToast('Воркер подключен', 'Узел зарегистрирован в кластере: ID ' + (data.worker_id || ''));
+            netSubTab('myworkers', document.getElementById('netSubBtn-myworkers'));
+            netRefresh(true);
+        } else {
+            showToast('Отклонено', data.message || data.error || 'Ошибка подключения воркера');
+        }
     }
 }
 async function netConnectTargetServer(nodeId) {
