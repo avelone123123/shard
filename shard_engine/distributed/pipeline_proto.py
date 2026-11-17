@@ -96,3 +96,17 @@ def decode_tensor_payload(payload):
     shape = tuple(struct.unpack(f">{ndim}I", payload[pos:pos + shape_len])) if ndim > 0 else ()
     pos += shape_len
     meta = json.loads(payload[pos:pos + meta_len].decode("utf-8")) if meta_len > 0 else {}
+    pos += meta_len
+    raw = payload[pos:]
+    dtype = c2d.get(dtype_code)
+    if dtype is None:
+        raise ProtocolError(f"Unsupported dtype code {dtype_code}")
+    if len(raw) == 0:
+        t = torch.empty(shape, dtype=dtype)
+    elif dtype == torch.bfloat16:
+        t = torch.frombuffer(bytearray(raw), dtype=torch.uint16).view(torch.bfloat16).reshape(shape).clone()
+    else:
+        t = torch.frombuffer(bytearray(raw), dtype=dtype).reshape(shape).clone()
+    return meta, t
+def client_auth_handshake(sock, token, cluster_id=""):
+    send_json_frame(sock, MSG_AUTH, {"token": str(token or ""), "cluster_id": str(cluster_id or "")})
