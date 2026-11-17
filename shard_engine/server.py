@@ -906,7 +906,12 @@ def list_models():
     for m in popular:
         if m and m.lower() not in seen:
             seen.add(m.lower())
-            model_list.append({"id": m, "object": "model", "created": int(time.time()), "owned_by": "shard-local"})
+            model_list.append({
+                "id": m,
+                "object": "model",
+                "created": int(time.time()),
+                "owned_by": "shard-cluster" if (cls_model and m == cls_model) else "shard-local",
+            })
     return {"object": "list", "data": model_list}
 @app.get("/v1/ping")
 def api_ping():
