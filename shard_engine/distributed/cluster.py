@@ -106,3 +106,21 @@ class ClusterManager:
                 if w.get("token_expires_at") and now > w["token_expires_at"]:
                     continue
                 alive = (now - float(w.get("last_heartbeat") or 0)) <= HEARTBEAT_TIMEOUT_S
+                w["alive"] = alive
+                if alive:
+                    out.append(copy.deepcopy(w))
+        return out
+    def create_cluster(
+        self,
+        name=None,
+        model_id=None,
+        strategy="auto",
+        ctx_tokens=4096,
+        parallel_slots=4,
+        access_mode="invite_only",
+        open_net=False,
+        coordinator_contributes=True,
+        coordinator_quota=None,
+        auto_deploy=True,
+        fetch_model_meta=True,
+    ):
