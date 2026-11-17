@@ -484,3 +484,9 @@ class TestRealDistributedIntegration(unittest.TestCase):
             self.assertEqual(r_chat.status_code, 200)
             self.assertGreater(r_chat.json()["usage"]["completion_tokens"], 0)
             self.assertGreater(r_chat.json()["telemetry"]["transferred_bytes"], 0)
+        finally:
+            CLUSTER.stop_cluster()
+            s1.stop()
+            s2.stop()
+if __name__ == "__main__":
+    unittest.main()
