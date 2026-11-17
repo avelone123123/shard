@@ -1043,6 +1043,10 @@ def sanitize_public_listing(raw: dict) -> dict:
         nv = raw.get(num_key)
         if not isinstance(nv, bool) and isinstance(nv, (int, float)) and math.isfinite(float(nv)) and 0 <= float(nv) <= 10000000:
             out[num_key] = nv
+    for str_key in ("cluster_state", "cluster_role", "cluster_strategy", "backend", "quant", "arch"):
+        sv = raw.get(str_key)
+        if isinstance(sv, str) and _SAFE_TAG_RE.match(sv.strip()):
+            out[str_key] = sv.strip()
     for list_key in ("capabilities", "tags"):
         if isinstance(raw.get(list_key), list):
             tags = []
