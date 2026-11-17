@@ -124,3 +124,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
         res_b = dc_b.register_server(self.ident_b, listing_b, ttl_s=30)
         self.assertEqual(res_b.get("status"), "ok")
         fetched = dc_b.fetch_servers()
+        self.assertEqual(fetched.get("status"), "ok")
+        self.assertGreaterEqual(fetched.get("count"), 2)
+        node_ids = [s["node_id"] for s in fetched["servers"]]
+        self.assertIn(self.ident_a.node_id, node_ids)
+        self.assertIn(self.ident_b.node_id, node_ids)
+    def test_b_global_server_discovery_and_catalog_filtering(self):
+        dc = net_discovery.DiscoveryClient(urls=[self.disc_url])
+        listing = {
+            "node_id": self.ident_a.node_id,
+            "pubkey": self.ident_a.pubkey_b64,
+            "name": "Alpha-DeepSeek-Cluster",
+            "role": "server",
+            "visibility": "public",
+            "access_mode": "open",
