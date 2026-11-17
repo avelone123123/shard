@@ -214,3 +214,21 @@ def _node_budget(node):
         "speed_score": b["speed_score"],
         "backends": backends,
         "local_offload_devices": offload_devs,
+        "raw_vram_total_mb": b["raw_vram_total_mb"],
+        "raw_ram_total_mb": b["raw_ram_total_mb"],
+    }
+def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, parallel_slots=4):
+    if not nodes:
+        return {
+            "feasible": False,
+            "reason": "No cluster nodes available",
+            "strategy": strategy,
+            "stages": [],
+        }
+    eff_strategy = _choose_strategy(model_spec, nodes, strategy)
+    is_torch = eff_strategy == "torch_pipeline_parallel"
+    if is_torch and not model_spec.get("supported_for_torch_pipeline"):
+        return {
+            "feasible": False,
+            "reason": model_spec.get("torch_pipeline_reason") or "Unsupported model architecture for torch pipeline",
+            "strategy": eff_strategy,
