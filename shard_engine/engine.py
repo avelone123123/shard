@@ -1447,7 +1447,7 @@ class ShardEngine:
         try:
             for kind, payload in self.gguf.chat_stream(
                 messages, int(max_tokens), float(temperature),
-                cancel_check=lambda: self._cancel_gen
+                cancel_check=lambda: self._cancel_gen or bool(cancel_check and cancel_check())
             ):
                 chunk = payload or ""
                 if kind == "delta":
