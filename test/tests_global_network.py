@@ -110,3 +110,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
         listing_b = {
             "node_id": self.ident_b.node_id,
             "pubkey": self.ident_b.pubkey_b64,
+            "name": "Node-Beta",
+            "role": "server",
+            "visibility": "public",
+            "access_mode": "open",
+            "active_model": "Qwen/Test-Model",
+            "vram_gb": 8.0,
+            "aggregate_vram_mb": 8192,
+            "accepts_workers": True,
+            "cluster_state": "WAITING_WORKERS",
+            "direct_endpoints": ["127.0.0.1:8002"],
+        }
+        res_b = dc_b.register_server(self.ident_b, listing_b, ttl_s=30)
+        self.assertEqual(res_b.get("status"), "ok")
+        fetched = dc_b.fetch_servers()
