@@ -677,8 +677,8 @@ def create_discovery_app(store=None, auth_token=None, rate_limit=120):
     return app
 def serve_discovery(host="0.0.0.0", port=8090, auth_token=None, rate_limit=120, log_level="warning", store=None):
     import uvicorn
-    store = DiscoveryStore()
-    app = create_discovery_app(store=store, auth_token=auth_token, rate_limit=rate_limit)
+    st = store if store is not None else DiscoveryStore()
+    app = create_discovery_app(store=st, auth_token=auth_token, rate_limit=rate_limit)
     uvicorn.run(app, host=host, port=int(port), log_level=log_level)
 def _identity_node_id(identity):
     if isinstance(identity, dict):
