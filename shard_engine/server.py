@@ -887,7 +887,8 @@ def _inference_stream_factory(messages, max_tokens, temperature):
 @app.get("/v1/models")
 def list_models():
     st = engine_instance.get_status()
-    current = st.get("active_model") or "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+    cls_model = CLUSTER.target_model if CLUSTER.role == "coordinator" and CLUSTER.target_model else None
+    current = cls_model or st.get("active_model") or "Qwen/Qwen2.5-Coder-1.5B-Instruct"
     cached_list = sorted(list(get_local_cached_ids()))
     popular = [
         current,
