@@ -4470,6 +4470,10 @@ async function clsLeaveWorker() {
 }
 async function clsKickWorker(wid) {
     try {
+        await fetch('/api/cluster/workers/' + encodeURIComponent(wid) + '/kick', {method: 'POST', headers: getAuthHeaders({'Content-Type': 'application/json'}), body: JSON.stringify({block: false})});
+        clsRefresh();
+    } catch(e) {}
+}
 async function srvCreateUnified() {
     const name = ((document.getElementById('srvCreateName') || {}).value || '').trim();
     const mode = ((document.getElementById('srvCreateMode') || {}).value || 'lan_and_global');
