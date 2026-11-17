@@ -58,3 +58,13 @@ Prior to implementation, a direct probe of `llama-server.exe --rpc 127.0.0.1:P1,
 All existing SHARD test modules were executed alongside `tests_distributed_ai.py` in three clean batches:
 
 1. **Batch 1**: `python -m unittest tests_shard tests_phase_i_product_hardening -v` -> **89 / 89 PASSED** (`13.532s`)
+2. **Batch 2**: `python -m unittest tests_model_lifecycle_progress tests_phase_iii_unified_hosting tests_phase_iii_chat_security tests_distributed_ai -v` -> **45 / 45 PASSED** (`33.052s`)
+3. **Batch 3**: `python -m unittest tests_cache_index tests_cli_pkg tests_constants tests_formatters tests_network_persistence_security tests_phase4_network_integration tests_shard_network tests_telemetry tests_training_ecosystem tests_validators tests_windows_subprocess_and_updater -v` -> **76 / 76 PASSED** (`25.084s`)
+
+**Combined Verified Total**: **210 / 210 tests passed** across all suites.
+
+*(Note: Running `python -m unittest discover -s . -p "tests_*.py"` in a single interpreter hits 2 pre-existing cross-file environment interactions: `tests_shard.py` mutates `os.environ["SHARD_DATA_DIR"]` at module import time without restoring it, which affects `tests_phase_i_product_hardening.test_06`, and `tests_model_lifecycle_progress.test_find_gguf_repo_rejects_safetensors_and_prefers_gguf_variant` makes an unmocked `_repo_exists` HTTP probe to Hugging Face when `_repo_cache` is cleared.)*
+
+---
+
+## 5. Known Limitations
