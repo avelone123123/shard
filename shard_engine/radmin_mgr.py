@@ -78,3 +78,19 @@ def get_radmin_status() -> dict:
         out["installed"] = bool(data.get("installed") or out["installed"])
         out["version"] = data.get("version") or out["version"] or OFFICIAL_RADMIN_VERSION
         out["service_installed"] = bool(data.get("svc_installed"))
+        out["service_state"] = str(data.get("svc_state") or "NotInstalled")
+        out["service_running"] = out["service_state"].lower() == "running"
+        out["processes"]["RvControlSvc.exe"] = bool(data.get("proc_svc"))
+        out["processes"]["RvRvpnGui.exe"] = bool(data.get("proc_gui"))
+        out["adapter_detected"] = bool(data.get("adapter"))
+        out["adapter_name"] = data.get("adapter_name") or None
+        out["adapter_status"] = data.get("adapter_status") or None
+        out["ipv4"] = data.get("ipv4") or None
+        out["ipv6"] = data.get("ipv6") or None
+        out["ready"] = bool(out["installed"] and out["service_running"] and out["adapter_detected"] and out["ipv4"])
+    except Exception as exc:
+        out["last_error"] = str(exc)[:200]
+    return out
+def verify_installer(installer_path: str) -> tuple[bool, str, dict]:
+    if not os.path.isfile(installer_path):
+        return False, "File does not exist", {}
