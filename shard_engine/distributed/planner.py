@@ -34,3 +34,21 @@ def _resolve_local_hf_dir(model_id):
         if os.path.isdir(snap_root):
             try:
                 for sub in sorted(os.listdir(snap_root)):
+                    cand = os.path.join(snap_root, sub)
+                    if os.path.isfile(os.path.join(cand, "config.json")):
+                        return cand
+            except Exception:
+                pass
+    return None
+def _read_safetensors_index(local_dir):
+    if not local_dir:
+        return None
+    idx_path = os.path.join(local_dir, "model.safetensors.index.json")
+    if os.path.isfile(idx_path):
+        data = _read_json(idx_path)
+        if isinstance(data, dict) and isinstance(data.get("weight_map"), dict):
+            return data["weight_map"]
+    single = os.path.join(local_dir, "model.safetensors")
+    if os.path.isfile(single):
+        try:
+            from safetensors import safe_open
