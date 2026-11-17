@@ -58,3 +58,13 @@ Inspection of the existing codebase (`shard_engine/`), runtime binaries (`llama-
 |  |  - Path B: PyTorch Pipeline Parallelism (safetensors layer sharding)  |  |
 |  +--------+----------------------------------------------+---------------+  |
 +-----------|----------------------------------------------|------------------+
+            | Authenticated LAN / VPN / Encrypted Tunnel   |
+     +------v-------------------+               +----------v--------------+
+     | WORKER NODE 1 (Consented)|               | WORKER NODE N (Consented)|
+     | Quota: 70% VRAM, 4 Thr   |               | Quota: 8 GB RAM, 6 Thr  |
+     | - ggml-rpc-server        |   Tensor      | - ggml-rpc-server       |
+     | - PipelineWorkerServer   | ------------> | - PipelineWorkerServer  |
+     |   (Layers 0..15 + KV)    |  Activations  |   (Layers 16..31 + KV)  |
+     +--------------------------+               +-------------------------+
+```
+
