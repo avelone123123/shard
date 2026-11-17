@@ -250,3 +250,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
             transport="lan",
         )
         self.assertEqual(w_res.get("status"), "ok")
+        self.assertIn("wrk-failover-1", CLUSTER.workers)
+        CLUSTER.workers["wrk-failover-1"]["last_heartbeat"] = time.time() - 30.0
+        CLUSTER.workers["wrk-failover-1"]["assigned_stage"] = 1
+        CLUSTER.state = "READY"
+        CLUSTER._rebalance_needed.set()
+        time.sleep(0.3)
+        self.assertEqual(CLUSTER.state, "DEGRADED")
+    def test_g_network_transport_and_relay_fallback(self):
+        nm = net_strategy.get_network_manager()
+        diag = nm.diagnostics(probe_public=False)
+        self.assertIn("lan", diag)
+        self.assertIn("wireguard", diag)
+        status = nm.status()
+        self.assertIn("node_id", status)
