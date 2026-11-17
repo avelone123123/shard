@@ -286,3 +286,21 @@ class PipelineWorkerServer:
         self._bytes_tx = 0
         self._last_compute_ms = 0.0
     def start(self):
+        if self._sock is not None:
+            return self.bound_port
+        if self.max_threads:
+            try:
+                torch.set_num_threads(max(1, self.max_threads))
+            except Exception:
+                pass
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind((self.host, self.requested_port))
+        s.listen(32)
+        s.settimeout(0.5)
+        self._sock = s
+        self.bound_port = s.getsockname()[1]
+        self._stop_ev.clear()
+        self._accept_thread = threading.Thread(target=self._accept_loop, daemon=True)
+        self._accept_thread.start()
+        return self.bound_port
