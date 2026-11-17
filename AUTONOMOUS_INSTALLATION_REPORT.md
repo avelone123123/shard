@@ -46,3 +46,15 @@ On Windows 10/11:
 3. **User Choice**:
    - If missing, the user is offered the option to install Radmin VPN to enable direct mesh networking across difficult firewalls.
    - User consent can be granted via the CLI (`shard network radmin install`) or the Web Dashboard Settings card.
+   - If the user declines (`shard network radmin decline` or `--no-radmin`), SHARD remembers this preference in `radmin_state.json` and never prompts again.
+4. **Authenticode Verification**:
+   When approved, the official installer (`Radmin_VPN_2.1.4952.2.exe`) is downloaded from Famatech Corp., verified against its DigiCert signature (`CN=Famatech Corp.`), and executed silently with UAC elevation.
+5. **Immediate Activation**:
+   Once installed, the adapter IPv4 (`26.x.x.x`) is bound and announced as a viable transport.
+
+### 2. Linux & macOS Zero-Configuration Workflow
+On POSIX platforms (Ubuntu, Debian, Fedora, Arch, macOS):
+1. **Zero External Dependencies**:
+   Radmin VPN is neither supported nor required on Linux/macOS. SHARD automatically skips Windows-specific adapters.
+2. **Native Transports**:
+   - **LAN Discovery**: Multicast and subnet scanning for local cluster nodes.
