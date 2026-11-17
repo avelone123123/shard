@@ -1845,6 +1845,9 @@ def cmd_cluster(args):
         print(json.dumps(r.json(), indent=2, ensure_ascii=False))
         return
     if action == "stop":
+        r = requests.post(f"{base}/api/cluster/stop", json={}, headers=hdrs, timeout=10)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        return
 def _build_parser():
     parser = argparse.ArgumentParser(prog="shard", description="SHARD CLI Engine", add_help=False)
     parser.add_argument("-V", "--version", action="store_true")
