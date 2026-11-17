@@ -68,3 +68,13 @@ This implementation advances SHARD on branch `feat/distributed-ai-platform` from
 | Multi-Machine Physical Cluster Execution | Not tested on multiple physical machines | Verified via multi-process localhost tests on 1 Windows machine; cross-machine physical tests remain on roadmap |
 | Tensor Parallelism (intra-layer AllReduce split) | Not implemented (deferred) | Documented as intentionally deferred over commodity WAN/LAN links due to per-layer AllReduce latency |
 | Data-Parallel Replica Auto-Scaling | Not implemented (roadmap) | Single-model model-parallelism prioritized first |
+
+---
+
+## 4. Roadmap for Remaining Capabilities
+
+1. **Physical Multi-Machine Validation**: Run cross-machine GGUF RPC and PyTorch pipeline benchmarks over Gigabit LAN, Radmin VPN, Tailscale, and Relay tunnels across Windows/Linux machines with heterogeneous GPUs (4 GB + 8 GB + 12 GB VRAM).
+2. **Micro-Batch Pipeline Scheduling (GPipe / 1F1B)**: Upgrade `PipelineCoordinator` from serialized per-request pipeline stepping to interleaved micro-batching across stages so workers stay pipelined under heavy multi-user concurrency.
+3. **Resilient Worker Checkpointing & Live KV Migration**: Support mid-generation retry/checkpoint replay if a worker disconnects during an active token stream.
+4. **Optional Tensor Parallelism for NVLink / Multi-GPU Single Host**: Support intra-layer row/column sharding within multi-GPU nodes paired with inter-node pipeline parallelism.
+5. **Distributed Weights P2P Prefetch**: Allow workers to fetch safetensors shards directly from peer workers or local LAN mirrors when Hugging Face access is throttled.
