@@ -585,7 +585,16 @@ def worker_cmd(port, exe=None, host="0.0.0.0", threads=None, cache=False):
             "установите llama.cpp runtime (или запустите модель с GGUF) "
             "либо подключитесь как обычный участник без --share")
     bind_host = str(host or "0.0.0.0").strip() or "0.0.0.0"
-    return [exe, "--host", bind_host, "--port", str(int(port))]
+    cmd = [exe, "--host", bind_host, "--port", str(int(port))]
+    if threads is not None:
+        try:
+            t = max(1, min(128, int(threads)))
+            cmd += ["-t", str(t)]
+        except Exception:
+            pass
+    if cache:
+        cmd += ["-c"]
+    return cmd
 class LanManager:
     def __init__(self, state_path=None, start_background=False):
         self._state_path = state_path
