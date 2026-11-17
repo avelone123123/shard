@@ -1459,6 +1459,7 @@ def cmd_network(args):
         print("  discovery-serve    Run a self-hosted SHARD Discovery server")
         print("  relay-serve        Run a self-hosted SHARD Blind Relay server")
         print("  wg                 Show WireGuard status and configuration plans")
+        print("  radmin             Show, install, or repair Radmin VPN (Windows fallback)")
         print("  doctor             Run SHARD Network platform, NAT, and firewall audit")
         return
     as_json = bool(getattr(args, "as_json", False))
