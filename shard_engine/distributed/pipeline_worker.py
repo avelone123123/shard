@@ -394,3 +394,21 @@ class PipelineWorkerServer:
                     self._unload_stage()
                     proto.send_json_frame(conn, proto.MSG_PONG, {"unloaded": True})
         except (ConnectionError, EOFError, OSError):
+            pass
+        except Exception as e:
+            try:
+                proto.send_json_frame(conn, proto.MSG_ERROR, {"error": str(e)[:240]})
+            except Exception:
+                pass
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    def _select_device_and_dtype(self, requested_dtype):
+        use_cuda = self.allow_cuda and torch.cuda.is_available()
+        if use_cuda and self.max_vram_mb is not None and self.max_vram_mb < 256:
+            use_cuda = False
+        dev = torch.device("cuda" if use_cuda else "cpu")
+        if requested_dtype == "float16" and (use_cuda or hasattr(torch, "float16")):
+            dt = torch.float16 if use_cuda else torch.float32
