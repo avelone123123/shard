@@ -1611,6 +1611,18 @@ async def api_cluster_local_worker_join(req: Request):
             start_rpc=bool(data.get("start_rpc", True)),
             start_pipeline=bool(data.get("start_pipeline", True)),
             via_tunnel=bool(data.get("via_tunnel", False)),
+        )
+        return res
+    except PermissionError as e:
+        return JSONResponse(status_code=403, content={"status": "error", "message": str(e)})
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/cluster/worker/leave")
+def api_cluster_local_worker_leave(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return CLUSTER.stop_local_worker()
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
