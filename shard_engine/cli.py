@@ -1782,6 +1782,22 @@ def cmd_network(args):
             print(f"Supported Platform:  {'YES' if st.get('supported') else 'NO'}")
             print(f"Installed:           {'YES' if st.get('installed') else 'NO'}")
             print(f"Version:             {st.get('version') or 'none'}")
+            print(f"Install Path:        {st.get('path') or 'none'}")
+            print(f"Service Installed:   {'YES' if st.get('service_installed') else 'NO'}")
+            print(f"Service State:       {st.get('service_state')}")
+            print(f"Adapter Detected:    {'YES' if st.get('adapter_detected') else 'NO'}")
+            print(f"Adapter IP:          {st.get('ipv4') or 'not assigned'}")
+            print(f"Transport Ready:     {'YES' if st.get('ready') else 'NO'}")
+            if st.get("last_error"):
+                print(f"Last Error:          {st.get('last_error')}")
+        elif subact == "install":
+            confirm = bool(getattr(args, "confirm", False))
+            silent = bool(getattr(args, "silent", True))
+            if not confirm and not as_json:
+                print("Radmin VPN is an optional third-party fallback mesh VPN by Famatech Corp.")
+                print("It provides direct P2P connectivity between Windows PCs behind CGNAT/firewalls.")
+                ans = input("Do you approve downloading and installing Radmin VPN via Windows UAC? (y/N): ").strip().lower()
+                if ans not in ("y", "yes"):
 def cmd_cluster(args):
     import requests
     action = getattr(args, "cluster_action", "status") or "status"
