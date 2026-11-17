@@ -250,3 +250,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
             proc2.terminate()
             proc1.wait(timeout=5)
             proc2.wait(timeout=5)
+            for p in (proc1, proc2):
+                for strm in (p.stdout, p.stderr):
+                    if strm is not None:
+                        try:
+                            strm.close()
+                        except Exception:
+                            pass
+    def test_real_multiprocess_gguf_rpc_cluster_and_api(self):
+        rpc_exe = None
+        from shard_engine import lan
+        rpc_exe = lan.find_rpc_server()
+        srv_exe = gguf_backend.find_llama_server()
+        loc_gguf = gguf_backend.find_local_gguf("mradermacher/gpt2-medium-i1-GGUF")
+        if not (rpc_exe and srv_exe and loc_gguf):
+            self.skipTest("llama-server / ggml-rpc-server / cached gpt2-medium GGUF not present")
+        p1 = _free_port()
+        p2 = _free_port()
+        w1 = subprocess.Popen([rpc_exe, "-H", "127.0.0.1", "-p", str(p1), "-t", "2"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
