@@ -5,7 +5,9 @@ import shutil
 import subprocess
 import time
 from . import paths, proc_io
-_gpu_cache = {"ts": 0.0, "gpu_name": "CPU Only", "vram_total_mb": 0, "vram_used_mb": 0, "probed": False}
+_gpu_cache = {"ts": 0.0, "gpu_name": "CPU Only", "vram_total_mb": 0, "vram_used_mb": 0, "gpu_util_pct": 0.0, "gpus": [], "probed": False}
+_cpu_model_cache = None
+_backend_cache = {"ts": 0.0, "data": None}
 def _existing_ancestor(path):
     cur = path
     while cur and not os.path.exists(cur):
