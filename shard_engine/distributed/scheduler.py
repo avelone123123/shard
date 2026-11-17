@@ -268,3 +268,21 @@ class RequestScheduler:
                 for r in self._active.values()
             ]
             return {
+                "active_requests": len(self._active),
+                "queue_length": len(self._waiting),
+                "max_concurrent": self.max_concurrent,
+                "max_queue_size": self.max_queue_size,
+                "total_requests": self._total_requests,
+                "completed_requests": self._completed_requests,
+                "failed_requests": self._failed_requests,
+                "cancelled_requests": self._cancelled_requests,
+                "total_tokens_generated": self._total_tokens,
+                "avg_ttft_ms": avg_ttft,
+                "last_ttft_ms": round(self._ttft_samples[-1], 2) if self._ttft_samples else 0.0,
+                "avg_tokens_per_sec": avg_tps,
+                "last_tokens_per_sec": round(self._tps_samples[-1], 2) if self._tps_samples else 0.0,
+                "avg_inter_worker_transfer_ms": avg_xfer,
+                "last_inter_worker_transfer_ms": round(self._xfer_samples[-1], 2) if self._xfer_samples else 0.0,
+                "active_list": active_list,
+                "recent_errors": list(self._recent_errors),
+            }
