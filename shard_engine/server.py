@@ -2182,6 +2182,22 @@ def api_net_doctor(req: Request, probe_public: bool = False):
 def api_net_radmin_status(req: Request):
     denied = _deny_non_owner(req)
     if denied:
+        return denied
+    from . import radmin_mgr
+    return radmin_mgr.get_radmin_status()
+@app.post("/api/net/radmin/install")
+async def api_net_radmin_install(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    from . import radmin_mgr
+    return radmin_mgr.install_radmin(consent=bool(data.get("consent", True)), unattended=bool(data.get("unattended", False)), silent=bool(data.get("silent", True)))
+@app.post("/api/net/radmin/decline")
+def api_net_radmin_decline(req: Request):
 @app.get("/api/net/identity")
 def api_net_identity(req: Request):
     denied = _deny_non_owner(req)
