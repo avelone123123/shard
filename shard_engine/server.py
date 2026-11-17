@@ -2707,7 +2707,15 @@ async def api_server_chat_send(req: Request):
     if not cls_ready and not engine_instance.is_loaded():
         return JSONResponse(status_code=503, content={"status": "error", "message": "Модель не загружена на сервере"})
     try:
-        res = engine_instance.generate_sync(history_msgs, max_tokens=max_tokens, temperature=temperature)
+        if cls_ready:
+            res = await SCHEDULER.run_sync_async(
+                lambda cancel_ev: CLUSTER.generate_stream(history_msgs, max_tokens=max_tokens, temperature=temperature, cancel_check=cancel_ev.is_set),
+                client_key=f"chat:{pid}",
+                model_id=CLUSTER.target_model,
+                is_disconnected=req.is_disconnected,
+            )
+        else:
+            res = await asyncio.to_thread(engine_instance.generate_sync, history_msgs, max_tokens=max_tokens, temperature=temperature)
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": f"Ошибка генерации модели: {str(e)}"})
     reply_text = str(res.get("content") or "").strip()
