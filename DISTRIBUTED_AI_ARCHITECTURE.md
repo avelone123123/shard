@@ -48,3 +48,13 @@ Inspection of the existing codebase (`shard_engine/`), runtime binaries (`llama-
 +--------------------------------------v--------------------------------------+
 |                        CLUSTER COORDINATOR (Owner)                          |
 |  +------------------+  +-------------------+  +--------------------------+  |
+|  | Cluster Lifecycle|  | Partition Planner |  | Multi-User Scheduler     |  |
+|  | (cluster.py)     |  | (planner.py)      |  | (scheduler.py)           |  |
+|  +--------+---------+  +---------+---------+  +------------+-------------+  |
+|           |                      |                         |                |
+|  +--------v----------------------v-------------------------v-------------+  |
+|  | Unified Distributed Execution Router                                  |  |
+|  |  - Path A: GGUF Distributed RPC (llama-server --rpc + -sm layer -ts)  |  |
+|  |  - Path B: PyTorch Pipeline Parallelism (safetensors layer sharding)  |  |
+|  +--------+----------------------------------------------+---------------+  |
++-----------|----------------------------------------------|------------------+
