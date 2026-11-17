@@ -48,3 +48,13 @@ OK
 
 Prior to implementation, a direct probe of `llama-server.exe --rpc 127.0.0.1:P1,127.0.0.1:P2 -sm layer -ts 1,1` (`b12110`) with `gpt2-medium.i1-Q6_K.gguf` confirmed real memory allocation across both RPC workers:
 - `RPC0 (127.0.0.1:50374)`: `186 MiB` (`128` model + `26` KV + `32` compute)
+- `RPC1 (127.0.0.1:50375)`: `203 MiB` (`149` model + `22` KV + `32` compute)
+- Prompt eval: `375.77 tok/s` (`82-85 ms` for ~30 tokens), token eval: `58.5-62.8 tok/s` across 2 local RPC processes.
+
+---
+
+## 4. Regression Verification Across Full Repository Suite
+
+All existing SHARD test modules were executed alongside `tests_distributed_ai.py` in three clean batches:
+
+1. **Batch 1**: `python -m unittest tests_shard tests_phase_i_product_hardening -v` -> **89 / 89 PASSED** (`13.532s`)
