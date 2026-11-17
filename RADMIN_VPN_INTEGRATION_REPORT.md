@@ -70,3 +70,15 @@ SHARD monitors three independent indicators of Radmin VPN operational readiness:
      - `C:\Program Files\Radmin VPN\RvRvpnGui.exe`
 
 ### 4. Vendor Limitations & Cluster Network Workflow
+
+#### The Vendor CLI Limitation
+Famatech Corp. does not provide a public command-line interface (CLI) or programmatic C/C++ API for Radmin VPN to create, join, or leave virtual networks programmatically.
+The client GUI (`RvRvpnGui.exe`) relies on an internal proprietary IPC protocol with `RvControlSvc`.
+
+#### SHARD's Deterministic Provisioning Solution
+To provide a zero-configuration user experience despite this vendor limitation, SHARD implements **deterministic cluster network provisioning**:
+1. When a coordinator creates a cluster (e.g., `cluster-9876543210`), SHARD deterministically computes an isolated, collision-resistant network credential pair:
+   - **Network Name**: `SHARD-<sha256(cluster_id)[:8]>` (e.g., `SHARD-4a7b21f9`)
+   - **Network Password**: `ShardNet_<sha256(seed + cluster_id)[:10]>`
+2. When a worker joins the cluster:
+   - SHARD queries `/api/net/radmin/cluster-network/{cluster_id}`.
