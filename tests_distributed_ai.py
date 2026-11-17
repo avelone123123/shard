@@ -268,3 +268,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
         p1 = _free_port()
         p2 = _free_port()
         w1 = subprocess.Popen([rpc_exe, "-H", "127.0.0.1", "-p", str(p1), "-t", "2"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        w2 = subprocess.Popen([rpc_exe, "-H", "127.0.0.1", "-p", str(p2), "-t", "2"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            time.sleep(0.6)
+            st = CLUSTER.create_cluster(
+                name="RealGGUFCluster",
+                model_id=loc_gguf["path"],
+                strategy="gguf_rpc_layer_split",
+                ctx_tokens=512,
+                parallel_slots=2,
+                open_net=False,
+                coordinator_contributes=False,
+                auto_deploy=False,
+                fetch_model_meta=False,
+            )
+            code = st["pairing_code"]
+            hw_w = {"vram_total_mb": 0, "vram_free_mb": 0, "ram_total_mb": 8192, "ram_avail_mb": 6144, "cpu_cores": 4}
+            CLUSTER.register_worker(worker_id="rpc-w1", name="RPC-1", hw=hw_w, quota={"max_ram_gb": 3, "max_threads": 2}, consented=True, auth_code=code, rpc_port=p1, rpc_host="127.0.0.1")
+            CLUSTER.register_worker(worker_id="rpc-w2", name="RPC-2", hw=hw_w, quota={"max_ram_gb": 3, "max_threads": 2}, consented=True, auth_code=code, rpc_port=p2, rpc_host="127.0.0.1")
