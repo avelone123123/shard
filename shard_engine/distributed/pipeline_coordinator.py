@@ -197,7 +197,7 @@ class PipelineCoordinator:
         runners = []
         for s in stages:
             if s.get("endpoint"):
-                tok = self.worker_tokens.get(s["node_id"]) or self.worker_tokens.get("*") or ""
+                tok = self.worker_tokens.get(s.get("node_id") or s.get("worker_id") or "") or self.worker_tokens.get("*") or ""
                 runners.append(_RemoteStageClient(s, auth_token=tok, cluster_id=self.cluster_id))
             else:
                 runners.append(_LocalStageRunner(s, self.model_path_or_repo, self.config, dtype=self.dtype))
