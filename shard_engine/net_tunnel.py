@@ -1462,6 +1462,26 @@ class HostTunnelAgent:
                             await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
                         except Exception:
                             pass
+                elif msg_type == net_identity.MSG_WRK_DATA:
+                    writer = self._wrk_writers.get(stream_id)
+                    if writer is not None:
+                        try:
+                            writer.write(payload)
+                            await writer.drain()
+                        except Exception:
+                            self._wrk_writers.pop(stream_id, None)
+                            try:
+                                writer.close()
+                            except Exception:
+                                pass
+                elif msg_type == net_identity.MSG_WRK_CLOSE:
+                    writer = self._wrk_writers.pop(stream_id, None)
+                    if writer is not None:
+                        try:
+                            writer.close()
+                            await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
+                        except Exception:
+                            pass
         except asyncio.CancelledError:
             pass
         except Exception as exc:
