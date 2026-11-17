@@ -46,3 +46,19 @@ def get_radmin_status() -> dict:
         r"C:\Program Files\Radmin VPN\RvControlSvc.exe",
         os.path.join(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"), "Radmin VPN", "RvControlSvc.exe"),
         os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "Radmin VPN", "RvControlSvc.exe"),
+    ]
+    svc_exe = None
+    for c in candidates:
+        if os.path.isfile(c):
+            svc_exe = c
+            break
+    if svc_exe:
+        out["installed"] = True
+        out["path"] = os.path.dirname(svc_exe)
+    ps_cmd = (
+        "$res = @{ installed=$false; version=''; svc_installed=$false; svc_state='NotInstalled'; "
+        "proc_svc=$false; proc_gui=$false; adapter=$false; adapter_name=''; adapter_status=''; "
+        "ipv4=''; ipv6='' }; "
+        "$svc = Get-Service -Name 'RvControlSvc' -ErrorAction SilentlyContinue; "
+        "if ($svc) { $res.svc_installed = $true; $res.svc_state = $svc.Status.ToString() }; "
+        "if (Get-Process -Name 'RvControlSvc' -ErrorAction SilentlyContinue) { $res.proc_svc = $true }; "
