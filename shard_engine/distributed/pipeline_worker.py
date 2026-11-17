@@ -52,3 +52,21 @@ def _remap_tensor_key(key, model_type, layer_start, layer_end, has_embed, has_lm
                 return "wte.weight"
             if key == "transformer.wpe.weight" or key == "wpe.weight":
                 return "wpe.weight"
+        if has_lm_head:
+            if key in ("transformer.ln_f.weight", "ln_f.weight"):
+                return "ln_f.weight"
+            if key in ("transformer.ln_f.bias", "ln_f.bias"):
+                return "ln_f.bias"
+            if key == "lm_head.weight":
+                return "lm_head.weight"
+            if tie_word_embeddings and key in ("transformer.wte.weight", "wte.weight"):
+                return "lm_head.weight"
+        for pfx in ("transformer.h.", "h."):
+            if key.startswith(pfx):
+                rest = key[len(pfx):]
+                dot = rest.find(".")
+                if dot > 0:
+                    g_idx = int(rest[:dot])
+                    if layer_start <= g_idx < layer_end:
+                        return f"layers.{g_idx - layer_start}.{rest[dot + 1:]}"
+        return None
