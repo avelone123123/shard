@@ -4295,6 +4295,7 @@ async function srvRefresh() {
             }
         }
         await srvLoadPrivateChats();
+        await clsRefresh();
         const memBox = document.getElementById('srvMembersBox');
         if (memBox) {
             const peersObj = w.peers || {};
