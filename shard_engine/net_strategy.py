@@ -1833,7 +1833,7 @@ class NetworkManager:
             "last_heartbeat_at": self._host_last_hb_at,
             "last_error": ha_st.get("last_error"),
         }
-    def discover_servers(self, q="", model="", region="", access="", sort="activity", limit=100, online_only=True):
+    def discover_servers(self, q="", model="", region="", access="", sort="activity", limit=100, online_only=True, min_vram=0, status="", accepts_workers=None):
         with self._lock:
             offline = bool(self._config.get("offline_only"))
         if offline:
