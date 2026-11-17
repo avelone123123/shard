@@ -322,3 +322,21 @@ class PipelineCoordinator:
                     if cancel_check and cancel_check():
                         break
                     logits, hop_stats = self.forward_logits(cur_ids, request_id=rid, use_cache=True)
+                    total_compute_ms += hop_stats["compute_ms"]
+                    total_transfer_ms += hop_stats["transfer_ms"]
+                    total_bytes += hop_stats["transferred_bytes"]
+                    next_id = self._sample_next(logits[0, -1, :], temperature=temperature)
+                    if ttft_ms is None:
+                        ttft_ms = round((time.perf_counter() - t_start) * 1000.0, 2)
+                    if eos_id is not None and next_id == eos_id:
+                        break
+                    generated_ids.append(next_id)
+                    full_txt = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
+                    delta = full_txt[len(prev_text):]
+                    prev_text = full_txt
+                    if delta:
+                        yield {"type": "content", "token": delta, "done": False}
+                    cur_ids = torch.tensor([[next_id]], dtype=torch.long)
+            finally:
+                self.release_request(rid)
+        total_s = max(0.001, time.perf_counter() - t_start)
