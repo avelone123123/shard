@@ -675,7 +675,7 @@ def create_discovery_app(store=None, auth_token=None, rate_limit=120):
             return JSONResponse(status_code=404, content={"error": "commitment_not_found"})
         return {"status": "ok", "commitment": rec["commitment"], "record": rec}
     return app
-def serve_discovery(host="0.0.0.0", port=8090, auth_token=None, rate_limit=120, log_level="warning"):
+def serve_discovery(host="0.0.0.0", port=8090, auth_token=None, rate_limit=120, log_level="warning", store=None):
     import uvicorn
     store = DiscoveryStore()
     app = create_discovery_app(store=store, auth_token=auth_token, rate_limit=rate_limit)
