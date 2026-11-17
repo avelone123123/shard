@@ -1766,6 +1766,22 @@ def cmd_network(args):
             print(f"NAT Profile:         {nat_prof.get('nat_type')} (symmetric: {nat_prof.get('symmetric_nat')})")
         wg = diag.get("wireguard") or {}
         print(f"WireGuard Ready:     {wg.get('installed')}")
+        rad = diag.get("radmin") or {}
+        if rad.get("supported"):
+            print(f"Radmin VPN Ready:    {rad.get('ready')} (installed: {rad.get('installed')}, service: {rad.get('service_state')}, ip: {rad.get('ipv4') or 'none'})")
+    elif action == "radmin":
+        from . import radmin_mgr
+        subact = getattr(args, "radmin_action", "status") or "status"
+        if subact == "status":
+            st = _call_api("get", "/api/net/radmin/status") or radmin_mgr.get_radmin_status()
+            if as_json:
+                print(json.dumps(st, indent=2, ensure_ascii=False))
+                return
+            print_banner()
+            print("Radmin VPN Status (Windows Fallback Transport)\n")
+            print(f"Supported Platform:  {'YES' if st.get('supported') else 'NO'}")
+            print(f"Installed:           {'YES' if st.get('installed') else 'NO'}")
+            print(f"Version:             {st.get('version') or 'none'}")
 def cmd_cluster(args):
     import requests
     action = getattr(args, "cluster_action", "status") or "status"
