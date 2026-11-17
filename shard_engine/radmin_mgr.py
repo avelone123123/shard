@@ -222,3 +222,19 @@ def repair_radmin() -> dict:
     if not _IS_WIN:
         return {"status": "unsupported_platform", "message": "Only available on Windows"}
     ps_cmd = "Restart-Service RvControlSvc -Force -ErrorAction SilentlyContinue; Start-Service RvControlSvc -ErrorAction SilentlyContinue"
+    try:
+        subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], timeout=15)
+        time.sleep(2.0)
+        st = get_radmin_status()
+        return {"status": "ok", "status_info": st}
+    except Exception as exc:
+        return {"status": "error", "message": str(exc)}
+def cluster_network_credentials(cluster_id: str) -> dict:
+    cid = str(cluster_id or "default").strip()
+    slug = hashlib.sha256(cid.encode("utf-8")).hexdigest()[:8]
+    h = hashlib.sha256(f"radmin-cluster-seed:{cid}".encode("utf-8")).hexdigest()
+    net_name = f"SHARD-{slug}"
+    net_pass = f"ShardNet_{h[:10]}"
+    return {"network_name": net_name, "network_password": net_pass, "cluster_id": cid}
+def launch_radmin_gui() -> bool:
+    if not _IS_WIN:
