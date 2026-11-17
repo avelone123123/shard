@@ -10,3 +10,15 @@ This report documents the end-to-end installation workflow, operating system spe
 
 ## The Zero-Configuration User Experience
 
+```
+[ Download / Install SHARD ]
+             |
+             v
+[ First Run: `shard start` ]
+             |
+             +---> Windows: Check Radmin VPN Status
+             |              - If Installed: Detect 26.x.x.x
+             |              - If Absent: Prompt Optional 1-Click Install
+             |              - If Declined: Save Preference, Use P2P/Relay
+             |
+             +---> Linux / macOS: Initialize P2P / WireGuard / Blind Relay
