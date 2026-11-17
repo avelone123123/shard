@@ -322,3 +322,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
             @dummy_app.get("/v1/ping")
             def _p():
                 return {"status": "ok"}
+            ha = net_tunnel.HostTunnelAgent(identity=id_host, asgi_app=dummy_app, p2p_host="127.0.0.1", p2p_port=0, allow_insecure_local=True)
+            await ha.start()
+            ca = net_tunnel.ClientTunnelAgent(
+                identity=id_wrk,
+                target_host_id=id_host.node_id,
+                mode="direct",
+                direct_endpoints=[f"127.0.0.1:{ha.bound_p2p_port}"],
+                allow_insecure_local=True,
+                worker_allowed_ports=[w_port],
+            )
+            ok = await ca.connect()
+            self.assertTrue(ok)
+            try:
+                proxy_port = await ha.open_worker_proxy(id_wrk.node_id, w_port)
+                self.assertGreater(proxy_port, 0)
+                def _probe_via_proxy():
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(5.0)
