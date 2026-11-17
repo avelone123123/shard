@@ -88,3 +88,13 @@ Inspection of the existing codebase (`shard_engine/`), runtime binaries (`llama-
 
 ## 4. Genuine Distributed Model Execution Strategies
 
+SHARD explicitly distinguishes **Model Parallelism** (partitioning one model across machines) from **Data Parallelism** (replicating whole models) and supports two real model-parallel execution engines:
+
+### 4.1 Strategy A: GGUF Distributed Layer/Tensor Splitting (`gguf_rpc_layer_split`)
+- **Backend**: `llama.cpp` (`llama-server` coordinator + `ggml-rpc-server` workers).
+- **Mechanism**:
+  - Coordinator inspects local offload devices (`llama-server --list-devices`) and active RPC workers.
+  - Planner computes per-device usable memory (respecting worker quotas + `VRAM_RESERVE_MB` / `RAM_RESERVE_MB` + KV cache + compute buffer overhead) and network cost.
+  - Coordinator launches `llama-server` with `--rpc <endpoints>`, `-sm layer` (pipeline layer split across RPC devices & local GPUs), exact `--tensor-split` matching the true device order `[RPC0..RPCk, local_GPUs...]`, `--parallel <slots>`, `--cont-batching`, and `--slots`.
+  - KV cache for each layer lives directly on the device holding that layer.
+- **Supported Models**: Any GGUF model supported by `llama.cpp` (Llama, Qwen2/2.5/3, DeepSeek-R1/V2/V3, Mistral, Gemma, Phi, GPT-2, etc.).
