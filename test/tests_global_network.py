@@ -40,3 +40,17 @@ def _build_test_model(target_dir):
         if k.startswith("model.embed_tokens") or k.startswith("model.layers.0.") or k.startswith("model.layers.1."):
             shard1[k] = v
             weight_map[k] = "model-00001-of-00002.safetensors"
+        else:
+            shard2[k] = v
+            weight_map[k] = "model-00002-of-00002.safetensors"
+    save_file(shard1, os.path.join(target_dir, "model-00001-of-00002.safetensors"))
+    save_file(shard2, os.path.join(target_dir, "model-00002-of-00002.safetensors"))
+    with open(os.path.join(target_dir, "model.safetensors.index.json"), "w", encoding="utf-8") as f:
+        json.dump({"metadata": {"total_size": sum(t.numel() * t.element_size() for t in sd.values())}, "weight_map": weight_map}, f)
+class TestGlobalNetworkSuite(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import uvicorn
+        os.environ["SHARD_ALLOW_INSECURE_LOCAL"] = "1"
+        cls.tmp_root = tempfile.mkdtemp(prefix="shard_global_net_")
+        cls.disc_port = _free_port()
