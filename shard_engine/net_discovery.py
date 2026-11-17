@@ -602,7 +602,7 @@ def create_discovery_app(store=None, auth_token=None, rate_limit=120):
     def healthz():
         return {"status": "ok", "service": "shard-discovery", "active_servers": directory.count(), "auth_required": bool(expected_token)}
     @app.get("/v1/discovery/servers")
-    def list_servers_route(request: Request, q: str = "", model: str = "", region: str = "", access: str = "", online_only: bool = True, sort: str = "activity", limit: int = 100):
+    def list_servers_route(request: Request, q: str = "", model: str = "", region: str = "", access: str = "", online_only: bool = True, sort: str = "activity", limit: int = 100, min_vram: float = 0, status: str = "", accepts_workers: bool = None):
         rl = _enforce_rate_limit(request)
         if rl is not None:
             return rl
