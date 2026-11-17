@@ -52,3 +52,21 @@ class _RemoteStageClient:
         payload = {
             "model_path_or_repo": model_path_or_repo,
             "layer_start": int(self.stage_info["layer_start"]),
+            "layer_end": int(self.stage_info["layer_end"]),
+            "has_embed": bool(self.stage_info["has_embed"]),
+            "has_lm_head": bool(self.stage_info["has_lm_head"]),
+            "shard_files": list(self.stage_info.get("shard_files") or []),
+            "dtype": dtype,
+            "config_dict": config_dict,
+        }
+        with self.lock:
+            proto.send_json_frame(self.sock, proto.MSG_LOAD_STAGE, payload)
+            mtype, _, obj = proto.recv_json_frame(self.sock)
+        if mtype == proto.MSG_ERROR:
+            raise RuntimeError(obj.get("error") or "Worker failed to load stage")
+        if mtype != proto.MSG_STAGE_READY:
+            raise RuntimeError(f"Unexpected worker response type {mtype}")
+        return obj
+    def forward(self, request_id, tensor, use_cache=True, return_logits=True):
+        self.connect()
+        meta = {
