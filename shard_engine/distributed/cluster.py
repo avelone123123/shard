@@ -34,3 +34,21 @@ class ClusterManager:
         self.target_model = None
         self.strategy = "auto"
         self.ctx_tokens = 4096
+        self.parallel_slots = 4
+        self.coordinator_contributes = True
+        self.coordinator_quota = {}
+        self.model_spec = None
+        self.plan = None
+        self.last_error = None
+        self.created_at = None
+        self.ready_at = None
+        self.workers = {}
+        self.blocked_ids = set()
+        self._pipeline_coord = None
+        self._gguf_backend = None
+        self._monitor_stop = threading.Event()
+        self._monitor_thread = None
+        self._rebalance_needed = threading.Event()
+        self._local_worker = {
+            "active": False,
+            "coordinator_url": None,
