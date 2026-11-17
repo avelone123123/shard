@@ -346,9 +346,9 @@ def api_client_bootstrap(req: Request):
         "node_id": _safe_node_id(),
         "lan_mode": st.get("mode"),
         "lan_open": bool(st.get("open")),
-        "server_name": st.get("name"),
-        "active_model": engine_instance.active_model_id,
-        "engine_status": engine_instance.status,
+        "server_name": CLUSTER.name if CLUSTER.role == "coordinator" else st.get("name"),
+        "active_model": CLUSTER.target_model if cls_ready else engine_instance.active_model_id,
+        "engine_status": "ready" if cls_ready else engine_instance.status,
         "is_loaded": is_loaded,
         "update": upd,
     }
