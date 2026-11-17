@@ -264,3 +264,12 @@ class TestGlobalNetworkSuite(unittest.TestCase):
         self.assertIn("wireguard", diag)
         status = nm.status()
         self.assertIn("node_id", status)
+        self.assertIn("state", status)
+        my_srvs = self.client.get("/api/cluster/my-servers", headers=self.owner_hdr)
+        self.assertEqual(my_srvs.status_code, 200)
+        self.assertIn("servers", my_srvs.json())
+        my_wrks = self.client.get("/api/cluster/my-workers", headers=self.owner_hdr)
+        self.assertEqual(my_wrks.status_code, 200)
+        self.assertIn("workers", my_wrks.json())
+if __name__ == "__main__":
+    unittest.main()
