@@ -286,3 +286,4 @@ class RequestScheduler:
                 "active_list": active_list,
                 "recent_errors": list(self._recent_errors),
             }
+SCHEDULER = RequestScheduler()
