@@ -1809,6 +1809,24 @@ def cmd_cluster(args):
         if not getattr(args, "consent", False):
             print("[ERROR] Explicit --consent is required before donating compute resources.")
             sys.exit(1)
+        extra = list(getattr(args, "extra", None) or [])
+        target_url = getattr(args, "target", None) or (extra[0] if extra else "")
+        code = getattr(args, "code", None) or (extra[1] if len(extra) > 1 else "")
+        if not target_url:
+            print("[ERROR] Coordinator URL required: shard cluster join <url> [code] --consent")
+            sys.exit(1)
+        quota = {}
+        if getattr(args, "vram_pct", None) is not None:
+            quota["vram_pct"] = args.vram_pct
+        if getattr(args, "max_vram_gb", None) is not None:
+            quota["max_vram_gb"] = args.max_vram_gb
+        if getattr(args, "max_ram_gb", None) is not None:
+            quota["max_ram_gb"] = args.max_ram_gb
+        if getattr(args, "max_threads", None) is not None:
+            quota["max_threads"] = args.max_threads
+        r = requests.post(
+            f"{base}/api/cluster/worker/join",
+            json={
 def _build_parser():
     parser = argparse.ArgumentParser(prog="shard", description="SHARD CLI Engine", add_help=False)
     parser.add_argument("-V", "--version", action="store_true")
