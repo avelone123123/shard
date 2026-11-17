@@ -2004,6 +2004,24 @@ class ClientTunnelAgent:
                     break
                 if msg_type == net_identity.MSG_CLOSE:
                     break
+                if msg_type == net_identity.MSG_WRK_OPEN:
+                    await self._handle_wrk_open(ch, stream_id, payload)
+                    continue
+                if msg_type == net_identity.MSG_WRK_DATA:
+                    w = self._wrk_writers.get(stream_id)
+                    if w is not None:
+                        try:
+                            w.write(payload)
+                            await w.drain()
+                        except Exception:
+                            self._wrk_writers.pop(stream_id, None)
+                            try:
+                                w.close()
+                            except Exception:
+                                pass
+                    continue
+                if msg_type == net_identity.MSG_WRK_CLOSE:
+                    w = self._wrk_writers.pop(stream_id, None)
                 q = self._pending_streams.get(stream_id)
                 if q is not None:
                     try:
