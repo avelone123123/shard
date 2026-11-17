@@ -126,3 +126,19 @@ def download_official_installer(target_dir: str | None = None) -> tuple[bool, st
     target_path = os.path.join(dest_dir, f"Radmin_VPN_{OFFICIAL_RADMIN_VERSION}.exe")
     if os.path.isfile(target_path):
         ok, reason, _ = verify_installer(target_path)
+        if ok:
+            return True, "Installer already downloaded and verified", target_path
+        try:
+            os.remove(target_path)
+        except Exception:
+            pass
+    req = urllib.request.Request(OFFICIAL_RADMIN_URL, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SHARD/1.9.0"})
+    tmp_path = target_path + ".part"
+    try:
+        with urllib.request.urlopen(req, timeout=45) as resp, open(tmp_path, "wb") as f:
+            while chunk := resp.read(65536):
+                f.write(chunk)
+        if os.path.exists(target_path):
+            os.remove(target_path)
+        os.rename(tmp_path, target_path)
+        ok, reason, details = verify_installer(target_path)
