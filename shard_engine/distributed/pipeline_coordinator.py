@@ -106,3 +106,21 @@ class _RemoteStageClient:
     def ping(self):
         self.connect()
         with self.lock:
+            t0 = time.perf_counter()
+            proto.send_json_frame(self.sock, proto.MSG_PING, {})
+            mtype, _, obj = proto.recv_json_frame(self.sock)
+            rtt = round((time.perf_counter() - t0) * 1000.0, 2)
+        return {"rtt_ms": rtt, "stats": obj}
+class _LocalStageRunner:
+    def __init__(self, stage_info, model_path_or_repo, config, dtype="float32"):
+        self.stage_info = dict(stage_info)
+        self.model_path_or_repo = model_path_or_repo
+        self.config = config
+        self.dtype = torch.float16 if (dtype == "float16" and torch.cuda.is_available()) else torch.float32
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.stage = None
+        self.caches = {}
+        self.lock = threading.Lock()
+    def load(self):
+        base_dir, weight_files = pw._download_or_locate_files(self.model_path_or_repo, self.stage_info.get("shard_files") or [])
+        cfg = AutoConfig.from_pretrained(base_dir) if os.path.isfile(os.path.join(base_dir, "config.json")) else self.config
