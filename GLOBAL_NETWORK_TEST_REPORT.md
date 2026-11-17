@@ -46,3 +46,15 @@ This report documents the verification of the SHARD Global Network, Server Catal
 - **Verification**: Coordinator streamed activation tensors to the worker over TCP sockets. Intermediate tokens were generated and streamed back. Both stages reported handled requests and computed tokens.
 
 ### Test E: Multi-User Concurrent Streaming & Scheduling
+- **Procedure**: Dispatched 3 simultaneous client generation tasks to `RequestScheduler` using `asyncio.gather`.
+- **Verification**: All 3 tasks executed concurrently without starvation or race conditions. All client streams yielded valid tokens and completed cleanly.
+
+### Test F: Worker Disconnect Detection & Degradation
+- **Procedure**: Formed a cluster requiring worker participation (`coordinator_contributes=False`). Registered an active worker, assigned Stage 1, and simulated network disruption by setting heartbeat timestamp to 30 seconds in the past.
+- **Verification**: The coordinator monitor loop identified the dead worker within the timeout window, marked the worker as inactive, and transitioned cluster state to `DEGRADED`.
+
+### Test G: Network Transport & Relay Diagnostics
+- **Procedure**: Queried `NetworkManager.diagnostics()` and `NetworkManager.status()`. Tested `/api/cluster/my-servers` and `/api/cluster/my-workers` endpoints.
+- **Verification**: Diagnostics returned comprehensive interface inspection (LAN, Wi-Fi, WireGuard, Docker). Management endpoints returned valid cluster tracking lists.
+
+## 5. Regression Test Results
