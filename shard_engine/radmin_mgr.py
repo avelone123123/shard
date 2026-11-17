@@ -238,3 +238,16 @@ def cluster_network_credentials(cluster_id: str) -> dict:
     return {"network_name": net_name, "network_password": net_pass, "cluster_id": cid}
 def launch_radmin_gui() -> bool:
     if not _IS_WIN:
+        return False
+    gui_paths = [
+        r"C:\Program Files (x86)\Radmin VPN\RvRvpnGui.exe",
+        r"C:\Program Files\Radmin VPN\RvRvpnGui.exe",
+    ]
+    for gp in gui_paths:
+        if os.path.isfile(gp):
+            try:
+                subprocess.Popen([gp], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                return True
+            except Exception:
+                pass
+    return False
