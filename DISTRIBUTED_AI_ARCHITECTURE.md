@@ -68,3 +68,13 @@ Inspection of the existing codebase (`shard_engine/`), runtime binaries (`llama-
      +--------------------------+               +-------------------------+
 ```
 
+### 3.1 Coordinator (AI Server Owner)
+- Creates cluster targeting a specific model (`target_model`), backend strategy (`auto`, `gguf_rpc`, `torch_pipeline`), and context/batch parameters.
+- Does **not** have to hold the entire model in local memory; can operate as a lightweight coordinator (0 offload layers or minimal embedding/head stages) while workers contribute compute.
+- Publishes server metadata (model, requirements, worker count, aggregate capacity, access policy) to LAN UDP (`8001`) and optional Global Discovery.
+- Runs continuous health checks, RTT/bandwidth probes, request queueing, and automatic rebalance/degraded handling.
+
+### 3.2 Worker Nodes (Explicitly Consented Compute Contributors)
+- Discover or inspect a server (`preview`), review model requirements and owner identity, and explicitly opt in (`Join as Worker` / `consent=True`).
+- Enforce local resource limits (`vram_pct`, `max_vram_mb`, `ram_pct`, `max_ram_mb`, `max_threads`) before admitting workload.
+- Run authenticated local execution workers (`ggml-rpc-server` for GGUF RPC and/or `PipelineWorkerServer` for PyTorch pipeline stages) bound safely to loopback (when tunneled) or verified mesh/LAN interface.
