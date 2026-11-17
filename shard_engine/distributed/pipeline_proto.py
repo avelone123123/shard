@@ -26,3 +26,17 @@ MSG_BW_ACK = 14
 _HDR_STRUCT = struct.Struct(">4sBBHI")
 _TENSOR_META_STRUCT = struct.Struct(">BBHI")
 def _dtype_maps():
+    if torch is None:
+        raise RuntimeError("PyTorch is required for tensor serialization")
+    d2c = {
+        torch.float32: 1,
+        torch.float16: 2,
+        torch.bfloat16: 3,
+        torch.int64: 4,
+    }
+    c2d = {v: k for k, v in d2c.items()}
+    return d2c, c2d
+class ProtocolError(RuntimeError):
+    pass
+def recv_exact(sock, n):
+    buf = bytearray()
