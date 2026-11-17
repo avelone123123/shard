@@ -174,3 +174,19 @@ def install_radmin(consent: bool = False, unattended: bool = False, installer_pa
         if not ok or not downloaded:
             pref["last_error"] = msg
             _save_radmin_pref(pref)
+            return {"status": "download_failed", "message": msg}
+        exe_path = downloaded
+    ok, verify_msg, _ = verify_installer(exe_path)
+    if not ok:
+        pref["last_error"] = verify_msg
+        _save_radmin_pref(pref)
+        return {"status": "verification_failed", "message": verify_msg}
+    switch = "/VERYSILENT /NORESTART" if silent else "/SILENT /NORESTART"
+    ps_elevate = f"Start-Process -FilePath '{exe_path}' -ArgumentList '{switch}' -Verb RunAs -Wait"
+    try:
+        proc = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_elevate], timeout=240, capture_output=True, text=True)
+        if proc.returncode != 0 and "canceled by the user" in (proc.stderr or "").lower():
+            pref["last_error"] = "UAC elevation cancelled by user"
+            _save_radmin_pref(pref)
+            return {"status": "uac_cancelled", "message": "Installation requires administrator privileges (UAC prompt declined)"}
+    except subprocess.TimeoutExpired:
