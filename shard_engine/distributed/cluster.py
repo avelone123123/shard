@@ -610,3 +610,21 @@ class ClusterManager:
                 max_threads=eff["usable_threads"],
                 allow_cuda=eff["usable_vram_mb"] >= 256,
                 max_vram_mb=eff["usable_vram_mb"],
+            )
+            pipe_port = pipe_srv.start()
+        if via_tunnel:
+            try:
+                from .. import net_strategy
+                ports = [p for p in (rpc_port, pipe_port) if p]
+                net_strategy.get_network_manager().set_worker_allowed_ports(ports)
+            except Exception:
+                pass
+        payload = {
+            "worker_id": worker_id,
+            "name": name or _lan.LAN.name() or socket.gethostname(),
+            "hw": hw,
+            "backends": caps["backends"],
+            "quota": q,
+            "consented": True,
+            "auth_code": auth_code,
+            "rpc_port": rpc_port,
