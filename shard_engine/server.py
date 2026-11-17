@@ -2601,6 +2601,7 @@ def api_server_workspace(req: Request):
         "participant_id": pid,
         "server_active": bool(LAN.is_server() or host_st.get("published") or CLUSTER.role == "coordinator"),
         "lan": lan_st,
+        "cluster": CLUSTER.status(include_secrets=is_owner) if CLUSTER.role != "idle" else None,
         "network_host": host_st if is_owner else {
             "published": bool(host_st.get("published")),
             "display_name": host_st.get("display_name"),
