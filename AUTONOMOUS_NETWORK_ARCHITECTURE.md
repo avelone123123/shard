@@ -46,3 +46,15 @@ Connections between distributed nodes automatically negotiate the optimal path b
 - **Official Public Infrastructure**:
   - Primary Discovery: `https://discovery.shard.network`
   - Backup Discovery: `https://discovery-backup.shard.network`
+- **Dynamic Failover**: Nodes automatically query the primary discovery endpoint. If DNS resolution or HTTP transport fails, the client seamlessly fails over to the backup discovery endpoint.
+- **Heartbeat & TTL**: Node leases expire automatically after 60 seconds if heartbeat signals cease. Disconnected workers are marked degraded in < 3 seconds and removed from the active catalog upon lease expiration.
+
+### 4. Blind Encrypted WebSocket Relay
+- **Official Public Relays**:
+  - Primary Relay: `wss://relay.shard.network`
+  - Backup Relay: `wss://relay-backup.shard.network`
+- **Zero-Knowledge Architecture**: The relay server forwards opaque encrypted envelopes without inspecting payload headers, model tensors, or prompt data. Only the sender and receiver hold the cryptographic session keys.
+- **Multiplexing**: A single persistent WebSocket connection handles multiple virtual inference channels and tensor streams.
+
+### 5. Automated Radmin VPN Integration (Windows Fallback)
+When nodes reside behind dual carrier-grade NATs (CGNAT) or symmetric enterprise firewalls where direct STUN hole-punching is mathematically impossible:
