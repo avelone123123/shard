@@ -142,3 +142,21 @@ class PipelineStageModule(_NN_BASE):
             self.stage_config.layer_types = list(config.layer_types[self.layer_start:self.layer_end])
         if hasattr(self.stage_config, "_attn_implementation") and not getattr(self.stage_config, "_attn_implementation", None):
             self.stage_config._attn_implementation = "sdpa"
+        if not getattr(config, "_attn_implementation", None):
+            config._attn_implementation = "sdpa"
+        layer_cls, rope_cls, norm_cls = _resolve_arch_classes(self.model_type)
+        if self.model_type == "gpt2":
+            if self.has_embed:
+                self.wte = nn.Embedding(config.vocab_size, config.hidden_size)
+                self.wpe = nn.Embedding(config.max_position_embeddings, config.hidden_size)
+            self.layers = nn.ModuleList([layer_cls(config, layer_idx=i) for i in range(self.local_count)])
+            if self.has_lm_head:
+                self.ln_f = nn.LayerNorm(config.hidden_size, eps=getattr(config, "layer_norm_epsilon", 1e-5))
+                self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        else:
+            if self.has_embed:
+                self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, getattr(config, "pad_token_id", None))
+            self.rotary_emb = rope_cls(config=config) if rope_cls is not None else None
+            self.layers = nn.ModuleList([layer_cls(config, layer_idx=i) for i in range(self.local_count)])
+            if self.has_lm_head:
+                eps = getattr(config, "rms_norm_eps", 1e-6)
