@@ -16,6 +16,24 @@ def _existing_ancestor(path):
             return os.path.expanduser("~")
         cur = parent
     return cur or os.path.expanduser("~")
+def _detect_cpu_model():
+    global _cpu_model_cache
+    if _cpu_model_cache is not None:
+        return _cpu_model_cache
+    name = ""
+    if os.name == "nt":
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0") as key:
+                val, _ = winreg.QueryValueEx(key, "ProcessorNameString")
+                name = str(val or "").strip()
+        except Exception:
+            pass
+    elif os.path.isfile("/proc/cpuinfo"):
+        try:
+            with open("/proc/cpuinfo", "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    if line.lower().startswith("model name"):
 def get_hardware_profile(force_refresh=False):
     import psutil
     now = time.time()
