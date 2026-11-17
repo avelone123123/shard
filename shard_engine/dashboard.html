@@ -2343,6 +2343,22 @@ async function netLoadMyWorkers() {
                 '</div>';
         }).join('');
     } catch(e) {
+        el.innerHTML = '<div style="padding:14px;color:var(--danger);font-size:13px;">Ошибка загрузки воркеров: ' + escHtml(e.message) + '</div>';
+    }
+}
+async function netLeaveCluster() {
+    showToast('Отключение...', 'Выход из кластера...');
+    try {
+        const res = await fetch('/api/cluster/worker/leave', {method: 'POST', headers: getAuthHeaders()});
+        const data = await res.json();
+        showToast('Отключено', 'Память освобождена');
+        netLoadMyWorkers();
+        netRefresh(true);
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netLoadClusterDetails() {
     }
 }
 async function netConnectTargetServer(nodeId) {
