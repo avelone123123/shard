@@ -2009,6 +2009,9 @@ function netSubTab(tab, btn) {
     if (p) p.classList.add('active');
     if (btn) btn.classList.add('active');
     if (tab === 'browser') netLoadServers();
+    else if (tab === 'myservers') netLoadMyServers();
+    else if (tab === 'myworkers') netLoadMyWorkers();
+    else if (tab === 'cluster') netLoadClusterDetails();
     else if (tab === 'invites') netLoadInvites();
     else if (tab === 'host') { netLoadHostConfig(); netLoadPeers(); }
     else if (tab === 'lan') lanRefresh();
