@@ -376,3 +376,21 @@ class ClusterManager:
         wid = str(worker_id or "").strip()
         with self._lock:
             w = self.workers.pop(wid, None)
+            if block:
+                self.blocked_ids.add(wid)
+                if w and w.get("remote_ip"):
+                    self.blocked_ids.add(w["remote_ip"])
+                if w and w.get("tunnel_peer"):
+                    self.blocked_ids.add(w["tunnel_peer"])
+            tpeer = w.get("tunnel_peer") if w else None
+            was_assigned = bool(w and w.get("assigned_stage"))
+            if was_assigned and self.state == "READY":
+                self.state = "DEGRADED"
+                self._rebalance_needed.set()
+        if tpeer:
+            try:
+                from .. import net_strategy
+                net_strategy.get_network_manager().close_worker_proxies(tpeer)
+            except Exception:
+                pass
+        self.recompute_plan()
