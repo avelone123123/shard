@@ -138,3 +138,13 @@ Given model metadata (`config.json` or GGUF probe) and cluster node inventories:
 
 ### 6.1 Supported Topologies
 1. **Local Area Network (LAN)**: UDP beacon discovery (`8001`) + direct TCP.
+2. **Mesh VPNs (Radmin VPN `26.0.0.0/8`, Tailscale `100.64.0.0/10`, WireGuard, ZeroTier)**: Automatic interface detection and priority routing over mesh IP; direct TCP with worker auth token.
+3. **NAT / CGNAT Encrypted Relay & Direct P2P (`net_tunnel.py`)**:
+   - Ed25519 node identity (`shn_...`), X25519 ephemeral key exchange, ChaCha20-Poly1305 AEAD framing with replay protection.
+   - **Reverse Worker Tunnel (`MSG_WRK_RPC_*`)**: Allows a worker behind NAT to connect outbound to the coordinator via `ClientTunnelAgent`, advertise its local loopback worker port, and receive authenticated tunneled connections from the coordinator's local loopback proxy (`127.0.0.1:proxy_port`) without opening inbound firewall ports.
+
+### 6.2 Trust & Security Model
+- **Zero Implicit IP/VPN Trust**: Sharing a Radmin/Tailscale/LAN subnet never grants worker or owner privileges. Every worker requires pairing/invite validation and receives a cryptographic worker token (`sk-shard-wrk-...`) plus node identity binding.
+- **Session Expiration & Revocation**: Worker tokens and client sessions support TTL expiration and immediate revocation (`kick` / `block` / `opt_out`).
+- **Safe Model Artifact Handling**: Path traversal rejection, GGUF magic/size verification, safetensors header validation (`safe_open`), no pickle/arbitrary `torch.load(..., weights_only=False)` execution on untrusted remote weights, and `SHARD_TRUST_REMOTE_CODE` disabled by default.
+
