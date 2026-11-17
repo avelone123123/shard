@@ -448,3 +448,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
             for wp in (w1, w2, w3):
                 wp.terminate()
                 wp.wait(timeout=5)
+    def test_cluster_pytorch_pipeline_via_unified_api(self):
+        import importlib.util
+        if any(importlib.util.find_spec(m) is None for m in ("torch", "transformers", "safetensors")):
+            self.skipTest("torch/transformers/safetensors not installed")
+        model_dir = os.path.join(self.tmp_dir, "tiny_qwen2_api")
+        _build_sharded_qwen2_model(model_dir)
+        s1 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, auth_token="", max_threads=2, allow_cuda=False)
+        s2 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, auth_token="", max_threads=2, allow_cuda=False)
+        p1, p2 = s1.start(), s2.start()
+        try:
+            st = CLUSTER.create_cluster(
+                name="PipeAPICluster",
+                model_id=model_dir,
+                strategy="torch_pipeline_parallel",
+                ctx_tokens=128,
+                parallel_slots=1,
+                open_net=True,
+                coordinator_contributes=False,
