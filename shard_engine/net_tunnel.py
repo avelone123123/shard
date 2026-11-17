@@ -1540,6 +1540,24 @@ class HostTunnelAgent:
         t = asyncio.create_task(_pump())
         rpc_tasks.add(t)
         t.add_done_callback(rpc_tasks.discard)
+    async def open_worker_proxy(self, peer_node_id: str, remote_port: int) -> int:
+        key = (str(peer_node_id), int(remote_port))
+        existing = self._worker_proxies.get(key)
+        if existing is not None:
+            return existing[1]
+        def _find_channel():
+            for ch in list(self._active_channels):
+                if ch.is_established and ch.peer_node_id == peer_node_id:
+                    return ch
+            return None
+        if _find_channel() is None:
+            raise TunnelClosedError(f"Worker peer {peer_node_id} is not connected via tunnel")
+        async def _handle_local(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+            ch = _find_channel()
+            if ch is None:
+                writer.close()
+                return
+            async with self._wrk_stream_lock:
     async def _send_http_error(self, channel: EncryptedChannel, stream_id: int, status: int, message: str) -> None:
         if not channel.is_established:
             return
