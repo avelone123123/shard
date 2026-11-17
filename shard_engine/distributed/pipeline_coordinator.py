@@ -250,3 +250,21 @@ class PipelineCoordinator:
         for r in runners:
             cur, c_ms, t_ms, n_bytes = r.forward(rid, cur, use_cache=use_cache, return_logits=True)
             total_compute_ms += c_ms
+            total_transfer_ms += t_ms
+            total_bytes += n_bytes
+        return cur, {
+            "compute_ms": round(total_compute_ms, 2),
+            "transfer_ms": round(total_transfer_ms, 2),
+            "transferred_bytes": total_bytes,
+        }
+    def release_request(self, request_id):
+        with self._lock:
+            runners = list(self.runners)
+        for r in runners:
+            r.release_kv(request_id)
+    def _build_prompt(self, messages):
+        if self.tokenizer is not None and hasattr(self.tokenizer, "apply_chat_template") and getattr(self.tokenizer, "chat_template", None):
+            try:
+                return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            except Exception:
+                pass
