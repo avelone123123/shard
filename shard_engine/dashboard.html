@@ -2778,6 +2778,16 @@ async function netRepairRadmin() {
         showToast('Ошибка', e.message);
     }
 }
+async function netOpenRadminGui() {
+    try {
+        const res = await fetch('/api/net/radmin/gui', {method: 'POST', headers: getAuthHeaders()});
+        const data = await res.json();
+        if (data.launched) showToast('Radmin VPN', 'Интерфейс запущен');
+        else showToast('Внимание', 'Не удалось запустить RvRvpnGui.exe');
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
 async function lanJoinQuick(ip, port) {
     const res = await fetch('/api/lan/join', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
