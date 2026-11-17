@@ -250,3 +250,21 @@ def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, 
     if is_torch:
         exec_nodes = [b for b in budgets if b.get("pipeline_endpoint") or b["role"] == "coordinator"]
         for b in exec_nodes:
+            b["alloc_cap_mb"] = b["usable_vram_mb"] if b["device_type"] == "cuda" else b["usable_ram_mb"]
+    else:
+        rpc_nodes = [b for b in budgets if b.get("rpc_endpoint")]
+        coord_nodes = [b for b in budgets if b["role"] == "coordinator" and b.get("local_offload_devices")]
+        exec_nodes = rpc_nodes + coord_nodes
+        if not exec_nodes:
+            exec_nodes = [b for b in budgets if b["role"] == "coordinator"]
+        for b in exec_nodes:
+            if b["role"] == "worker":
+                b["alloc_cap_mb"] = b["usable_vram_mb"] if (b["device_type"] == "cuda" and b["usable_vram_mb"] >= 256) else b["usable_ram_mb"]
+            else:
+                b["alloc_cap_mb"] = b["usable_vram_mb"] if b["usable_vram_mb"] >= 256 else b["usable_ram_mb"]
+    exec_nodes = [b for b in exec_nodes if b["alloc_cap_mb"] > 64]
+    if not exec_nodes:
+        return {
+            "feasible": False,
+            "reason": "No nodes with sufficient usable memory above system reserve",
+            "strategy": eff_strategy,
