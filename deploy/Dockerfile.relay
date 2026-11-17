@@ -1,0 +1,11 @@
+FROM python:3.11-slim
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+RUN apt-get update && apt-get install -y --no-install-recommends curl gcc libffi-dev && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt .
+RUN pip install --no-cache-dir fastapi uvicorn cryptography requests websockets pydantic
+COPY shard_engine /app/shard_engine
+EXPOSE 8081
+HEALTHCHECK --interval=15s --timeout=5s --start-period=5s --retries=3 CMD curl -f http://localhost:8081/health || exit 1
+ENTRYPOINT ["python", "-m", "shard_engine.cli", "network", "relay-serve", "--host", "0.0.0.0", "--port", "8081"]
