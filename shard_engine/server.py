@@ -1503,6 +1503,24 @@ def api_cluster_plan(req: Request):
     ok, _ = _is_cluster_authorized(req)
     if not ok:
         return JSONResponse(status_code=403, content={"status": "error", "message": "Authorization required"})
+    return {"status": "ok", "plan": CLUSTER.recompute_plan()}
+@app.get("/api/cluster/telemetry")
+def api_cluster_telemetry(req: Request):
+    ok, _ = _is_cluster_authorized(req)
+    if not ok:
+        return JSONResponse(status_code=403, content={"status": "error", "message": "Authorization required"})
+    return {"status": "ok", "telemetry": SCHEDULER.telemetry(), "cluster_state": CLUSTER.state}
+@app.post("/api/cluster/workers/register")
+async def api_cluster_worker_register(req: Request):
+    ip = req.client.host if req.client else "unknown"
+    ok_tot, retry_tot = _PAIR_TOTAL_LIMITER.check(ip)
+    if not ok_tot:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_tot)}, content={"status": "error", "message": "Too many registration attempts"})
+    ok_fail, retry_fail = _PAIR_FAIL_LIMITER.check(ip, record=False)
+    if not ok_fail:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(retry_fail)}, content={"status": "error", "message": "Registration temporarily rate-limited"})
+    try:
+        data = await req.json()
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
