@@ -394,3 +394,8 @@ def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, 
         "estimated_comm_overhead_ms_per_tok": round(comm_ms, 2),
         "prefer_single_node": prefer_single,
         "communication_warning": comm_warning,
+        "rpc_arg": rpc_arg,
+        "tensor_split_arg": ts_arg,
+        "ngl": 999 if (rpc_stages or (coord_budget and coord_budget["device_type"] == "cuda")) else 0,
+        "stages": stages,
+    }
