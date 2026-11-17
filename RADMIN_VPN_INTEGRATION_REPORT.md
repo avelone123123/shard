@@ -58,3 +58,15 @@ Installing network drivers (NDIS virtual adapter) and Windows background service
 SHARD monitors three independent indicators of Radmin VPN operational readiness:
 1. **Windows Service (`RvControlSvc`)**:
    - Monitored via WMI / PowerShell `Get-Service RvControlSvc`.
+   - Verified state: `Running`, start type: `Automatic`.
+2. **Virtual Network Interface**:
+   - Interface name pattern: `*Radmin VPN*`.
+   - IP address allocation: Assigned an IPv4 in `26.0.0.0/8` (e.g., `26.84.23.251`).
+   - Interface status: `Up` / `Operational`.
+3. **GUI Management Process**:
+   - Process name: `RvRvpnGui.exe`.
+   - File locations checked:
+     - `C:\Program Files (x86)\Radmin VPN\RvRvpnGui.exe`
+     - `C:\Program Files\Radmin VPN\RvRvpnGui.exe`
+
+### 4. Vendor Limitations & Cluster Network Workflow
