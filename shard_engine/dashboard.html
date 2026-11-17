@@ -2359,6 +2359,22 @@ async function netLeaveCluster() {
     }
 }
 async function netLoadClusterDetails() {
+    const ob = document.getElementById('netClusterOverviewBox');
+    const sm = document.getElementById('netClusterStagesMap');
+    const wt = document.getElementById('netClusterWorkersTable');
+    if (!ob) return;
+    try {
+        const [stRes, planRes] = await Promise.all([
+            fetch('/api/cluster/status', {headers: getAuthHeaders()}),
+            fetch('/api/cluster/plan', {headers: getAuthHeaders()})
+        ]);
+        const st = await stRes.json();
+        const plan = await planRes.json();
+        const ov = st.cluster_overview || {};
+        const tel = st.telemetry || {};
+        ob.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;">' +
+            '<div class="trn-stat"><div class="trn-stat-label">Роль узла</div><div class="trn-stat-val" style="font-size:14px;">' + (st.role || '—') + '</div></div>' +
+            '<div class="trn-stat"><div class="trn-stat-label">Состояние</div><div class="trn-stat-val" style="font-size:14px;color:var(--success);">' + (st.state || '—') + '</div></div>' +
     }
 }
 async function netConnectTargetServer(nodeId) {
