@@ -1575,6 +1575,24 @@ async def api_cluster_worker_leave(req: Request):
         worker_id=data.get("worker_id"),
         worker_token=data.get("worker_token") or _extract_bearer(req),
     )
+    if not ok:
+        return JSONResponse(status_code=401, content={"status": "error", "message": "Invalid worker credentials"})
+    return {"status": "ok", "left": True}
+@app.post("/api/cluster/workers/{worker_id}/kick")
+async def api_cluster_worker_kick(worker_id: str, req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    return CLUSTER.kick_worker(worker_id, block=bool(data.get("block", False)))
+@app.post("/api/cluster/worker/join")
+async def api_cluster_local_worker_join(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
