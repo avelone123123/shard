@@ -196,3 +196,21 @@ class PipelineStageModule(_NN_BASE):
             loaded_keys.add("lm_head.weight")
         self.to(device=self.device, dtype=self.dtype)
         self.eval()
+        return len(loaded_keys)
+    def _assign_param(self, state_map, buf_map, target, tensor):
+        if target in state_map:
+            p = state_map[target]
+            with torch.no_grad():
+                p.copy_(tensor.to(dtype=p.dtype, device=p.device))
+        elif target in buf_map:
+            b = buf_map[target]
+            with torch.no_grad():
+                b.copy_(tensor.to(dtype=b.dtype, device=b.device))
+    def new_cache(self):
+        return DynamicCache(config=self.stage_config)
+    def forward_stage(self, tensor_in, cache, use_cache=True, return_logits=True):
+        if self.has_embed:
+            input_ids = tensor_in.to(device=self.device, dtype=torch.long)
+            seq_len = input_ids.shape[1]
+            past_seen = cache.get_seq_length() if (use_cache and cache is not None) else 0
+            position_ids = torch.arange(seq_len, device=self.device, dtype=torch.long).unsqueeze(0) + past_seen
