@@ -124,3 +124,21 @@ class ClusterManager:
         auto_deploy=True,
         fetch_model_meta=True,
     ):
+        target_m = str(model_id or "").strip()
+        if not target_m:
+            raise ValueError("model_id is required to create a distributed AI cluster")
+        self.stop_cluster()
+        spec = _planner.inspect_model_architecture(target_m, ctx_tokens=int(ctx_tokens), fetch=bool(fetch_model_meta))
+        with self._lock:
+            self.role = "coordinator"
+            self.state = "FORMING"
+            self.cluster_id = f"cls-{uuid.uuid4().hex[:12]}"
+            self.name = (str(name or socket.gethostname() or "shard-cluster").strip())[:64]
+            self.pairing_code = _lan.gen_pairing_code()
+            self.open_net = bool(open_net)
+            self.access_mode = "open" if self.open_net else str(access_mode or "invite_only")
+            self.target_model = target_m
+            self.strategy = str(strategy or "auto")
+            self.ctx_tokens = max(256, int(ctx_tokens))
+            self.parallel_slots = max(1, min(32, int(parallel_slots)))
+            self.coordinator_contributes = bool(coordinator_contributes)
