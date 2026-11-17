@@ -96,3 +96,17 @@ class TestAutonomousNetworkSuite(unittest.TestCase):
         doc_data = resp_doc.json()
         self.assertIn("lan", doc_data)
         self.assertIn("radmin", doc_data)
+    def test_zero_configuration_startup_and_fallback(self):
+        mgr = net_strategy.get_network_manager()
+        st = mgr.status()
+        self.assertIn("node_id", st)
+        self.assertIn("state", st)
+        diag = mgr.diagnostics(probe_public=False)
+        self.assertIn("port", diag)
+        self.assertIn("lan", diag)
+        self.assertIn("radmin", diag)
+        disc_res = mgr.discover_servers()
+        self.assertIn("status", disc_res)
+        self.assertIn("servers", disc_res)
+if __name__ == "__main__":
+    unittest.main()
