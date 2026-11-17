@@ -772,3 +772,21 @@ class ClusterManager:
             for wid, w in self.workers.items():
                 alive = (now - float(w.get("last_heartbeat") or 0)) <= HEARTBEAT_TIMEOUT_S
                 w["alive"] = alive
+                rec = copy.deepcopy(w)
+                rec.pop("worker_token", None)
+                rec["heartbeat_age_s"] = round(max(0.0, now - float(w.get("last_heartbeat") or now)), 1)
+                workers_out.append(rec)
+            alive_workers = [w for w in workers_out if w["alive"] and not w.get("revoked")]
+            all_nodes = ([coord] if self.coordinator_contributes or self.role == "coordinator" else []) + alive_workers
+            agg_raw_vram = sum(int((n.get("hw") or {}).get("vram_total_mb") or 0) for n in all_nodes)
+            agg_usable_vram = sum(int((n.get("effective") or {}).get("usable_vram_mb") or 0) for n in all_nodes)
+            agg_raw_ram = sum(int((n.get("hw") or {}).get("ram_total_mb") or 0) for n in all_nodes)
+            agg_usable_ram = sum(int((n.get("effective") or {}).get("usable_ram_mb") or 0) for n in all_nodes)
+            agg_threads = sum(int((n.get("effective") or {}).get("usable_threads") or 0) for n in all_nodes)
+            rtts = [float(w["rtt_ms"]) for w in alive_workers if w.get("rtt_ms") is not None]
+            avg_rtt = round(sum(rtts) / len(rtts), 2) if rtts else 0.0
+            slots = self._gguf_backend.slots_status() if self._gguf_backend else []
+            lw = {
+                "active": bool(self._local_worker.get("active")),
+                "coordinator_url": self._local_worker.get("coordinator_url"),
+                "worker_id": self._local_worker.get("worker_id"),
