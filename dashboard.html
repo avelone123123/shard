@@ -1339,6 +1339,24 @@ macOS
 <label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="clsCoordContrib" checked> Координатор выделяет свои ресурсы</label>
 </div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;">
+<button class="btn-action active" onclick="clsCreate()">Создать кластер</button>
+<button class="btn-action" onclick="clsDeploy()">Запустить / Пересобрать слои</button>
+<button class="btn-action" onclick="clsStop()" style="color:var(--danger);">Остановить кластер</button>
+</div>
+</div>
+<div class="trn-row">
+<div class="v-section-title" style="display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>Присоединиться как Worker (Согласие на ресурсы)</div>
+<div class="v-grid-2" style="margin-bottom:8px;">
+<div><label class="v-field-label" for="clsJoinUrl">URL координатора</label><input id="clsJoinUrl" class="trn-input" placeholder="http://26.x.x.x:8000"></div>
+<div><label class="v-field-label" for="clsJoinCode">Код кластера</label><input id="clsJoinCode" class="trn-input" placeholder="XXXX-XXXX"></div>
+<div><label class="v-field-label" for="clsJoinVramPct">Лимит VRAM (%)</label><input id="clsJoinVramPct" class="trn-input" type="number" min="10" max="95" value="70"></div>
+<div><label class="v-field-label" for="clsJoinRamGb">Лимит RAM (ГБ)</label><input id="clsJoinRamGb" class="trn-input" type="number" min="1" max="512" value="8"></div>
+<div><label class="v-field-label" for="clsJoinThreads">Потоки CPU</label><input id="clsJoinThreads" class="trn-input" type="number" min="1" max="128" value="4"></div>
+<div style="display:flex;align-items:flex-end;"><label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;"><input type="checkbox" id="clsJoinTunnel"> Через защищённый туннель</label></div>
+</div>
+<div style="margin-bottom:10px;font-size:12px;">
+<label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--accent-soft-text);"><input type="checkbox" id="clsJoinConsent"> Я явно разрешаю SHARD использовать указанные лимиты GPU/RAM/CPU</label>
+</div>
 </div>
 </div>
 </div>
