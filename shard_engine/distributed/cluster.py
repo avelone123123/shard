@@ -700,3 +700,21 @@ class ClusterManager:
                 )
             except Exception:
                 pass
+            if stop_ev.wait(2.5):
+                break
+    def stop_local_worker(self):
+        with self._lock:
+            lw = dict(self._local_worker)
+            if lw.get("hb_stop"):
+                lw["hb_stop"].set()
+            self._local_worker["active"] = False
+            if self.role == "worker":
+                self.role = "idle"
+        th = lw.get("hb_thread")
+        if th is not None and th.is_alive() and th is not threading.current_thread():
+            th.join(timeout=2.0)
+        if lw.get("active") and lw.get("coordinator_url") and lw.get("worker_token"):
+            try:
+                import requests
+                requests.post(
+                    f"{lw['coordinator_url']}/api/cluster/workers/leave",
