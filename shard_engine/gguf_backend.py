@@ -692,6 +692,18 @@ class LlamaBackend:
             time.sleep(0.5)
         self.stop()
         raise RuntimeError("llama-server не ответил /health вовремя")
+    def slots_status(self):
+        if not self.is_running() or self.port is None:
+            return []
+        try:
+            import requests
+            r = requests.get(f"http://127.0.0.1:{self.port}/slots", timeout=1.5)
+            if r.status_code == 200:
+                data = r.json()
+                return data if isinstance(data, list) else []
+        except Exception:
+            pass
+        return []
     def _health_ok(self):
         if self.port is None:
             return False
