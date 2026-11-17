@@ -2166,7 +2166,22 @@ def api_net_status(req: Request):
     denied = _deny_non_owner(req)
     if denied:
         return denied
-    return _net_mgr().status()
+    st = _net_mgr().status()
+    from . import radmin_mgr
+    st["radmin"] = radmin_mgr.get_radmin_status()
+    st["official_discovery_urls"] = list(net_strategy.DEFAULT_PUBLIC_DISCOVERY_URLS)
+    st["official_relay_urls"] = list(net_strategy.DEFAULT_PUBLIC_RELAY_URLS)
+    return st
+@app.get("/api/net/doctor")
+def api_net_doctor(req: Request, probe_public: bool = False):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return _net_mgr().diagnostics(probe_public=bool(probe_public))
+@app.get("/api/net/radmin/status")
+def api_net_radmin_status(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
 @app.get("/api/net/identity")
 def api_net_identity(req: Request):
     denied = _deny_non_owner(req)
