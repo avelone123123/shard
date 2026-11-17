@@ -430,3 +430,21 @@ class PipelineWorkerServer:
             base_dir, weight_files = _download_or_locate_files(model_ref, shard_files)
             cfg = AutoConfig.from_pretrained(base_dir) if os.path.isfile(os.path.join(base_dir, "config.json")) else AutoConfig.for_model(**cfg_dict)
         else:
+            base_dir, weight_files = _download_or_locate_files(model_ref, shard_files)
+            cfg = AutoConfig.from_pretrained(base_dir)
+        model_type = str(getattr(cfg, "model_type", "") or "").lower()
+        self._unload_stage()
+        with self._stage_lock:
+            stage = PipelineStageModule(cfg, model_type, layer_start, layer_end, has_embed, has_lm_head, dt, dev)
+            n_loaded = stage.load_stage_weights(weight_files)
+            self._stage = stage
+            param_bytes = sum(p.numel() * p.element_size() for p in stage.parameters())
+        return {
+            "status": "ready",
+            "layer_start": layer_start,
+            "layer_end": layer_end,
+            "tensors_loaded": n_loaded,
+            "param_mb": round(param_bytes / (1024 * 1024), 2),
+            "device": str(dev),
+            "dtype": str(dt).replace("torch.", ""),
+        }
