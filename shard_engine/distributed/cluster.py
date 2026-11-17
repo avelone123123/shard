@@ -142,3 +142,21 @@ class ClusterManager:
             self.ctx_tokens = max(256, int(ctx_tokens))
             self.parallel_slots = max(1, min(32, int(parallel_slots)))
             self.coordinator_contributes = bool(coordinator_contributes)
+            self.coordinator_quota = dict(coordinator_quota or {})
+            self.model_spec = spec
+            self.plan = None
+            self.last_error = None
+            self.created_at = time.time()
+            self.ready_at = None
+            self.workers.clear()
+            _sched.SCHEDULER.configure(max_concurrent=self.parallel_slots)
+            self._ensure_monitor()
+        plan = self.recompute_plan()
+        if auto_deploy and plan.get("feasible"):
+            try:
+                self.deploy_cluster()
+            except Exception as e:
+                with self._lock:
+                    self.last_error = str(e)[:240]
+                    self.state = "FORMING"
+        return self.status(include_secrets=True)
