@@ -70,3 +70,15 @@ Worker resource donation is strictly opt-in:
 - Joining with `mode="worker"` and `consent=false` is rejected at the API level with HTTP 403 `CONSENT_REQUIRED`.
 - The dashboard UI disables the "Start Contributing" button until the user explicitly checks the confirmation checkbox.
 - A worker node may detach at any time via `shard cluster leave` or by clicking "Disconnect Worker" in the dashboard, immediately terminating tensor socket listeners.
+
+## 4. Multi-User Scheduling & Worker Disconnect Recovery
+
+1. **Concurrent Request Scheduling (`RequestScheduler`)**:
+   - Manages FIFO request queueing with token-bucket rate limiting per client.
+   - Distributes generation slots across active cluster backends.
+
+2. **Fault Detection & Cluster Degradation**:
+   - The coordinator monitor loop tracks worker heartbeats.
+   - If an assigned worker misses heartbeats exceeding the timeout threshold (12 seconds), the coordinator immediately marks the worker as dead.
+   - If the lost worker holds an assigned model stage, the cluster transitions from `READY` to `DEGRADED`.
+   - The scheduler rejects or pauses incoming inference requests until healthy workers rejoin and the cluster is re-balanced.
