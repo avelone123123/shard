@@ -142,3 +142,21 @@ class RequestScheduler:
             lambda: self.acquire_slot(client_key=client_key, model_id=model_id, timeout_s=timeout_s, rpm_override=rpm_override),
         )
         q = asyncio.Queue(maxsize=256)
+        eff_timeout = float(timeout_s or self.default_timeout_s)
+        t_dispatch = time.perf_counter()
+        state = {"ttft_ms": None, "tps": None, "xfer_ms": None, "ok": True, "err": None, "cancelled": False}
+        def _worker():
+            try:
+                for item in stream_factory(cancel_ev):
+                    if cancel_ev.is_set():
+                        state["cancelled"] = True
+                        break
+                    if (time.perf_counter() - t_dispatch) > eff_timeout:
+                        state["ok"] = False
+                        state["err"] = "Inference timeout exceeded"
+                        cancel_ev.set()
+                        break
+                    itype = item.get("type")
+                    if itype in ("content", "thought") and item.get("token"):
+                        if state["ttft_ms"] is None:
+                            state["ttft_ms"] = round((time.perf_counter() - t_dispatch) * 1000.0, 2)
