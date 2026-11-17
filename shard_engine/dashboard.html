@@ -2081,10 +2081,11 @@ async function netLoadServers() {
     const grid = document.getElementById('netServersGrid');
     if (!grid) return;
     const q = (document.getElementById('netSearchQ') || {}).value || '';
-    const reg = (document.getElementById('netSearchRegion') || {}).value || '';
-    const acc = (document.getElementById('netSearchAccess') || {}).value || '';
+    const minVram = (document.getElementById('netSearchMinVram') || {}).value || '0';
+    const accWrk = (document.getElementById('netSearchAcceptsWorkers') || {}).value || '';
+    const sort = (document.getElementById('netSearchSort') || {}).value || 'activity';
     try {
-        const u = new URL('/api/net/servers', window.location.origin);
+        const u = new URL('/api/catalog/servers', window.location.origin);
         if (q) u.searchParams.set('q', q);
         if (reg) u.searchParams.set('region', reg);
         if (acc) u.searchParams.set('access', acc);
