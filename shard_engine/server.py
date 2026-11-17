@@ -2214,6 +2214,17 @@ def api_net_radmin_repair(req: Request):
 def api_net_radmin_gui(req: Request):
     denied = _deny_non_owner(req)
     if denied:
+        return denied
+    from . import radmin_mgr
+    launched = radmin_mgr.launch_radmin_gui()
+    return {"status": "ok", "launched": launched}
+@app.get("/api/net/radmin/cluster-network/{cluster_id}")
+def api_net_radmin_cluster_network(req: Request, cluster_id: str):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    from . import radmin_mgr
+    return radmin_mgr.cluster_network_credentials(cluster_id)
 @app.get("/api/net/identity")
 def api_net_identity(req: Request):
     denied = _deny_non_owner(req)
