@@ -1788,6 +1788,9 @@ class ClientTunnelAgent:
         self.bridge_host = str(bridge_host or "127.0.0.1")
         self.bridge_port = int(bridge_port)
         self.verify_ping = bool(verify_ping)
+        self.worker_allowed_ports = {int(p) for p in (worker_allowed_ports or ()) if 1 <= int(p) <= 65535}
+        self._wrk_writers: dict[int, asyncio.StreamWriter] = {}
+        self._wrk_tasks: set[asyncio.Task] = set()
         self._state = TunnelState.READY
         self._active_mode: str | None = None
         self._active_relay_url: str | None = None
