@@ -2215,6 +2215,22 @@ async function submitJoinAsClient() {
     }
 }
 async function submitJoinAsWorker() {
+    if (!currentJoinNodeId) return;
+    const consent = document.getElementById('joinConsentCheck').checked;
+    if (!consent) {
+        showToast('Требуется согласие', 'Отметьте чекбокс подтверждения выделения ресурсов');
+        return;
+    }
+    const nid = currentJoinNodeId;
+    const vramPct = parseInt(document.getElementById('joinVramRange').value, 10);
+    const maxThreads = parseInt(document.getElementById('joinMaxThreads').value, 10);
+    const authCode = (document.getElementById('joinAuthCode') || {}).value || '';
+    showToast('Подключение воркера...', 'Регистрация аппаратных ресурсов в кластере...');
+    try {
+        const res = await fetch('/api/catalog/join', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({
     }
 }
 async function netConnectTargetServer(nodeId) {
