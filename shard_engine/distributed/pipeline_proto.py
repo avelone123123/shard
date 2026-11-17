@@ -68,3 +68,17 @@ def recv_json_frame(sock):
     msg_type, flags, payload = recv_frame(sock)
     obj = json.loads(payload.decode("utf-8")) if payload else {}
     return msg_type, flags, obj
+def encode_tensor_payload(meta_dict, tensor):
+    d2c, _ = _dtype_maps()
+    meta_bytes = json.dumps(meta_dict, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    t = tensor.detach().contiguous().cpu()
+    if t.dtype not in d2c:
+        t = t.to(torch.float32)
+    dtype_code = d2c[t.dtype]
+    shape = list(t.shape)
+    ndim = len(shape)
+    if t.dtype == torch.bfloat16:
+        raw_tensor = t.view(torch.uint16).numpy().tobytes()
+    else:
+        raw_tensor = t.numpy().tobytes()
+    t_hdr = _TENSOR_META_STRUCT.pack(dtype_code, ndim, 0, len(meta_bytes))
