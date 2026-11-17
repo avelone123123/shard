@@ -1798,6 +1798,22 @@ def cmd_network(args):
                 print("It provides direct P2P connectivity between Windows PCs behind CGNAT/firewalls.")
                 ans = input("Do you approve downloading and installing Radmin VPN via Windows UAC? (y/N): ").strip().lower()
                 if ans not in ("y", "yes"):
+                    radmin_mgr.decline_radmin()
+                    print("Radmin VPN installation cancelled by user.")
+                    return
+                confirm = True
+            print("Installing Radmin VPN (official installer)...")
+            res = _call_api("post", "/api/net/radmin/install", json={"consent": confirm, "silent": silent}) or radmin_mgr.install_radmin(consent=confirm, silent=silent)
+            if as_json:
+                print(json.dumps(res, indent=2, ensure_ascii=False))
+                return
+            print(f"Result: {res.get('status')} - {res.get('message')}")
+        elif subact == "repair":
+            res = _call_api("post", "/api/net/radmin/repair") or radmin_mgr.repair_radmin()
+            if as_json:
+                print(json.dumps(res, indent=2, ensure_ascii=False))
+                return
+            print(f"Result: {res.get('status')} - {res.get('message', 'Service restarted')}")
 def cmd_cluster(args):
     import requests
     action = getattr(args, "cluster_action", "status") or "status"
