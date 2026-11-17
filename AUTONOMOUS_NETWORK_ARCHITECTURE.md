@@ -58,3 +58,15 @@ Connections between distributed nodes automatically negotiate the optimal path b
 
 ### 5. Automated Radmin VPN Integration (Windows Fallback)
 When nodes reside behind dual carrier-grade NATs (CGNAT) or symmetric enterprise firewalls where direct STUN hole-punching is mathematically impossible:
+- On Windows, SHARD integrates with Radmin VPN as an automated fallback transport.
+- Radmin assigns direct virtual IPs in the `26.0.0.0/8` subnet.
+- SHARD detects the virtual adapter, reads the assigned IP, and routes high-bandwidth tensor streams across the virtual mesh layer without user manual IP entry.
+
+### 6. Diagnostics Engine (`shard network doctor`)
+The integrated network diagnostic engine performs end-to-end verification across seven diagnostic dimensions:
+1. **Network Identity**: Ed25519 keypair integrity, fingerprint verification, and certificate validation.
+2. **Local Bindings**: Port availability, IPv4/IPv6 socket binding.
+3. **LAN Interfaces**: Detection of default gateways, subnet masks, and local IP assignments.
+4. **STUN Resolution**: Public IP discovery and NAT mapping behavior classification.
+5. **Discovery Connectivity**: Latency and HTTP/TLS handshake check against primary and secondary discovery services.
+6. **Relay Connectivity**: WebSocket handshake and round-trip ping verification against relay endpoints.
