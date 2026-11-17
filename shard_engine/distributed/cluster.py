@@ -358,3 +358,21 @@ class ClusterManager:
             expected = str(w.get("worker_token") or "")
             if not expected or not secrets.compare_digest(str(worker_token or ""), expected):
                 return False
+            tpeer = w.get("tunnel_peer")
+            was_assigned = bool(w.get("assigned_stage"))
+            self.workers.pop(worker_id, None)
+            if was_assigned and self.state == "READY":
+                self.state = "DEGRADED"
+                self._rebalance_needed.set()
+        if tpeer:
+            try:
+                from .. import net_strategy
+                net_strategy.get_network_manager().close_worker_proxies(tpeer)
+            except Exception:
+                pass
+        self.recompute_plan()
+        return True
+    def kick_worker(self, worker_id, block=False):
+        wid = str(worker_id or "").strip()
+        with self._lock:
+            w = self.workers.pop(wid, None)
