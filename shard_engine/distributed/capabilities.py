@@ -68,3 +68,17 @@ def effective_worker_budget(hw, quota=None, link_rtt_ms=None, bandwidth_mbps=Non
     eff = _hardware.effective_usable_resources(hw, quota=quota)
     vram_mb = eff["usable_vram_mb"]
     ram_mb = eff["usable_ram_mb"]
+    has_gpu = bool((hw or {}).get("vram_total_mb", 0) > 0 and vram_mb > 0)
+    tier = "gpu" if has_gpu else "cpu"
+    primary_mb = vram_mb if has_gpu else ram_mb
+    score = _lan.speed_score(hw) or (0.45 if has_gpu else 0.12)
+    if link_rtt_ms is not None and link_rtt_ms > 0:
+        rtt_penalty = 1.0 / (1.0 + (float(link_rtt_ms) / 40.0))
+        score = round(max(0.02, score * rtt_penalty), 4)
+    return {
+        "usable_vram_mb": vram_mb,
+        "usable_ram_mb": ram_mb,
+        "usable_threads": eff["usable_threads"],
+        "primary_mb": primary_mb,
+        "device_type": tier,
+        "speed_score": score,
