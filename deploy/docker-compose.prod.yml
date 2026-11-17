@@ -43,3 +43,18 @@ services:
       - "80:80"
       - "443:443"
     environment:
+      - ACME_EMAIL=${ACME_EMAIL:-admin@shard.network}
+      - DISCOVERY_DOMAIN=${DISCOVERY_DOMAIN:-discovery.shard.network}
+      - RELAY_DOMAIN=${RELAY_DOMAIN:-relay.shard.network}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - shard_internal
+    depends_on:
+      - shard-discovery
+      - shard-relay
+volumes:
+  discovery_data:
+  caddy_data:
