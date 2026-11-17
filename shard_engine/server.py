@@ -939,6 +939,8 @@ async def chat_completions(req: Request):
     model = data.get("model") or default_model
     cid = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     created = int(time.time())
+    client_key = _client_rate_key(req)
+    factory = _inference_stream_factory(messages, max_tokens, temperature)
     if stream:
         def event_generator():
             for item in engine_instance.generate_stream(messages, max_tokens, temperature):
