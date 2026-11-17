@@ -10,3 +10,15 @@ This report provides the full production deployment specification, containerizat
 
 ---
 
+## Architecture Diagram
+
+```
+                             [ Internet Traffic ]
+                                      |
+                       +--------------+--------------+
+                       |   Caddy Reverse Proxy       |
+                       |   Automatic Let's Encrypt   |
+                       |   Rate Limiting & Gzip      |
+                       +--------------+--------------+
+                                      |
+              +-----------------------+-----------------------+
