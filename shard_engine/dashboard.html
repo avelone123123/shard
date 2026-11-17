@@ -2311,6 +2311,22 @@ async function netTogglePublishServer(isPublished) {
         showToast('Ошибка', e.message);
     }
 }
+async function netLoadMyWorkers() {
+    const el = document.getElementById('netMyWorkersList');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/cluster/my-workers', {headers: getAuthHeaders()});
+        const data = await res.json();
+        const wrks = data.workers || [];
+        if (wrks.length === 0) {
+            el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface-sunken);border-radius:var(--radius-md);">Данный компьютер пока не участвует в чужих кластерах в роли воркера. Выберите сервер в каталоге и нажмите «Присоединиться как воркер».</div>';
+            return;
+        }
+        el.innerHTML = wrks.map(w => {
+            const q = w.quota || {};
+            const assigned = w.assigned_layers ? ('Слои: ' + w.assigned_layers.join(', ')) : 'Сегмент в распределении';
+            return '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:14px;margin-bottom:10px;">' +
+                '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">' +
     }
 }
 async function netConnectTargetServer(nodeId) {
