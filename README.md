@@ -480,8 +480,14 @@ SHARD supports collaborative model-parallel execution across independent machine
 
 2. **Discover Global Servers & 1-Click Join:**
    ```bash
-   shard start --daemon
-   shard cluster join http://<COORDINATOR_IP>:8000 <PAIRING_CODE> --consent --vram-pct 70 --max-ram-gb 8 --max-threads 4
+   # Browse public catalog
+   shard cluster catalog --q deepseek --min-vram 16
+
+   # Join as an AI Consumer (Client):
+   shard cluster join shn_coordinator_node_id --client
+
+   # Join as a Compute Worker (Explicit Consent & Quota):
+   shard cluster join shn_coordinator_node_id --consent --vram-pct 70 --max-ram-gb 8 --max-threads 4
    ```
    For workers behind CGNAT/NAT connected via `shard network connect`, add `--via-tunnel` so the worker binds strictly to `127.0.0.1` and receives coordinator RPC/tensor traffic over the ChaCha20-Poly1305 tunnel.
 
