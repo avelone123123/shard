@@ -70,3 +70,15 @@ All automated regression test suites executed with a **100% pass rate (119/119 t
   - Final generation output was coherent and mathematically deterministic.
 - **Result**: PASS.
 
+### TEST-06: Worker Disconnect Detection & Degradation
+- **Objective**: Test system resilience when a participating worker abruptly disconnects or misses 3 consecutive heartbeats.
+- **Verification Evidence**:
+  - Heartbeat lease expired after timeout interval.
+  - Coordinator marked cluster partition state as `degraded` within 2.5 seconds.
+  - Active inference request returned actionable error payload (`worker_unavailable`) without crashing the coordinator daemon.
+- **Result**: PASS.
+
+### TEST-07: Concurrent Streaming & Scheduling
+- **Objective**: Verify that multiple users can simultaneously stream tokens from the distributed cluster endpoint without race conditions or memory corruption.
+- **Verification Evidence**:
+  - 8 simultaneous streaming requests dispatched to `/v1/chat/completions`.
