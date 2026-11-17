@@ -1058,7 +1058,7 @@ class DiscoveryClient:
                 endpoints.append({"url": url, "ok": True, "status_code": 200, "server_count": ep_valid, "dropped": ep_dropped, "error": None})
             except Exception as exc:
                 endpoints.append({"url": url, "ok": False, "status_code": None, "server_count": 0, "dropped": 0, "error": f"{type(exc).__name__}:{exc}"})
-        servers = [rec for rec in dedup.values() if _listing_matches(rec, q=q, model=model, region=region, access=access)]
+        servers = [rec for rec in dedup.values() if _listing_matches(rec, q=q, model=model, region=region, access=access, min_vram=min_vram, status=status, accepts_workers=accepts_workers)]
         servers.sort(key=lambda r: _sort_key_for_server(r, sort))
         servers = servers[:lim]
         return {
