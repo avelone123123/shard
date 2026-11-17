@@ -194,3 +194,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
         srv = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=p1, auth_token="tok_w1", max_threads=2, allow_cuda=False)
         pipe_port = srv.start()
         plan = {
+            "feasible": True,
+            "valid": True,
+            "model_id": self.model_dir,
+            "total_layers": 4,
+            "strategy": "torch_pipeline_parallel",
+            "stages": [
+                {"stage_idx": 0, "node_id": "coordinator", "worker_id": "coordinator", "role": "coordinator", "layer_start": 0, "layer_end": 2, "has_embed": True, "has_lm_head": False, "shard_files": ["model-00001-of-00002.safetensors"]},
+                {"stage_idx": 1, "node_id": "worker-1", "worker_id": "worker-1", "role": "worker", "endpoint": f"127.0.0.1:{pipe_port}", "layer_start": 2, "layer_end": 4, "has_embed": False, "has_lm_head": True, "shard_files": ["model-00002-of-00002.safetensors"]},
+            ],
+        }
+        coord = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"worker-1": "tok_w1"}, cluster_id="test-pipe")
+        load_res = coord.start()
+        self.assertEqual(load_res.get("status"), "ready")
+        events = list(coord.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=4, temperature=0.0))
