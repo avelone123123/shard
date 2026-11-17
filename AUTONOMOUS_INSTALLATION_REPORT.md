@@ -34,3 +34,15 @@ This report documents the end-to-end installation workflow, operating system spe
 ```
 
 ---
+
+## Operating System Workflows
+
+### 1. Windows Installation & Radmin VPN Integration
+On Windows 10/11:
+1. **Initial Startup**:
+   Running `shard start` automatically runs system diagnostics.
+2. **Radmin VPN Detection**:
+   SHARD checks whether `RvControlSvc` and the Radmin VPN adapter are installed.
+3. **User Choice**:
+   - If missing, the user is offered the option to install Radmin VPN to enable direct mesh networking across difficult firewalls.
+   - User consent can be granted via the CLI (`shard network radmin install`) or the Web Dashboard Settings card.
