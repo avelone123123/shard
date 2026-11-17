@@ -2131,7 +2131,7 @@ async function netLoadServers() {
                 '<span>Доступ: ' + access + '</span>' +
                 '</div>' +
                 '</div>' +
-                '<button class="btn-action active" style="width:100%;justify-content:center;" data-nid="' + nid + '" onclick="netConnectTargetServer(this.dataset.nid)">Подключиться</button>' +
+                '<button class="btn-action active" style="width:100%;justify-content:center;" data-nid="' + nid + '" onclick="openClusterJoinModal(this.dataset.nid)">Присоединиться к серверу</button>' +
                 '</div>';
         }).join('');
     } catch(e) {
