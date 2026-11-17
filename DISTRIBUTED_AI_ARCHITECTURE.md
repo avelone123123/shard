@@ -118,3 +118,13 @@ SHARD explicitly distinguishes **Model Parallelism** (partitioning one model acr
 Given model metadata (`config.json` or GGUF probe) and cluster node inventories:
 
 1. **Usable Resource Calculation**:
+   - Raw VRAM/RAM is never summed naively.
+   - Each node reports raw `vram_total_mb`, `vram_free_mb`, `ram_total_mb`, `ram_avail_mb`, `cpu_cores`, `device_type` (`cuda`/`mps`/`cpu`), and user `quota`.
+   - `usable_vram_mb = max(0, min(vram_free_mb - reserve, quota_vram_mb))`
+   - `usable_ram_mb = max(0, min(ram_avail_mb - reserve, quota_ram_mb))`
+   - Memory tiers carry distinct speed weights (`GPU VRAM` >> `Unified/MPS` > `System RAM` >> `Remote WAN`).
+2. **Memory Overhead Accounting**:
+   - Model weights per layer: `(total_weight_bytes - embed_bytes - head_bytes) / num_layers`
+   - Distributed KV cache per layer: `2 * num_kv_heads * head_dim * ctx_tokens * parallel_slots * dtype_bytes`
+   - Runtime compute/scratch buffer per stage: `max(128 MB, 0.08 * stage_weight_mb)`
+3. **Communication-Aware Placement**:
