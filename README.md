@@ -501,6 +501,14 @@ SHARD supports collaborative model-parallel execution across independent machine
 ### Supported Execution Backends & Documentation
 - **GGUF Distributed RPC (`gguf_rpc_layer_split`)**: Splits model layers and KV cache across `ggml-rpc-server` workers and local offload devices via `llama-server --rpc`, with continuous batching (`--parallel`, `--cont-batching`).
 - **PyTorch Pipeline Parallelism (`torch_pipeline_parallel`)**: Directly loads only assigned safetensors layer shards per worker (`llama`, `qwen2`, `qwen3`, `mistral`, `gemma`, `gemma2`, `phi3`, `gpt2`), maintains per-worker distributed KV caches, and streams binary tensor activations over authenticated `SHPT` TCP sockets.
+- **Autonomous Global Network & Infrastructure Specs**:
+  - Autonomous Architecture: [`AUTONOMOUS_NETWORK_ARCHITECTURE.md`](AUTONOMOUS_NETWORK_ARCHITECTURE.md)
+  - Radmin VPN Integration & Fallback: [`RADMIN_VPN_INTEGRATION_REPORT.md`](RADMIN_VPN_INTEGRATION_REPORT.md)
+  - Production Deployment & Docker: [`SHARD_PRODUCTION_INFRASTRUCTURE_REPORT.md`](SHARD_PRODUCTION_INFRASTRUCTURE_REPORT.md)
+  - Autonomous Installation & OS Workflows: [`AUTONOMOUS_INSTALLATION_REPORT.md`](AUTONOMOUS_INSTALLATION_REPORT.md)
+  - Real-World Test Verification Report: [`REAL_WORLD_NETWORK_TEST_REPORT.md`](REAL_WORLD_NETWORK_TEST_REPORT.md)
+  - Catalog & Discovery: [`GLOBAL_SERVER_DISCOVERY_REPORT.md`](GLOBAL_SERVER_DISCOVERY_REPORT.md)
+  - 1-Click Worker Onboarding: [`AUTOMATIC_WORKER_JOIN_REPORT.md`](AUTOMATIC_WORKER_JOIN_REPORT.md)
 - **Technical Specs**: [`DISTRIBUTED_AI_ARCHITECTURE.docx`](docs/reports/DISTRIBUTED_AI_ARCHITECTURE.docx) | [`DISTRIBUTED_AI_IMPLEMENTATION_REPORT.docx`](docs/reports/DISTRIBUTED_AI_IMPLEMENTATION_REPORT.docx) | [`DISTRIBUTED_AI_TEST_REPORT.docx`](docs/reports/DISTRIBUTED_AI_TEST_REPORT.docx)
 
 ---
