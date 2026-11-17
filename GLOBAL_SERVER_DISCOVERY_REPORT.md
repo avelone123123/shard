@@ -34,3 +34,15 @@ Each server registered in the catalog presents a verified passport structure:
 
 ### 1. Catalog Search & Filter (`GET /api/catalog/servers`)
 - **Query Parameters**:
+  - `q`: Text search over server name, model ID, or node ID.
+  - `model`: Exact or partial model filter (e.g. `deepseek`, `qwen`).
+  - `min_vram`: Minimum required aggregate cluster VRAM in GB (e.g. `16`).
+  - `status`: Filter by cluster state (`READY`, `WAITING_WORKERS`, `FORMING`).
+  - `accepts_workers`: Boolean filter (`true` to show clusters accepting new worker nodes).
+  - `sort`: Sorting criteria (`activity`, `vram`, `performance`, `newest`, `name`).
+  - `limit`: Page limit (default `100`, max `500`).
+
+### 2. Server Passport Details (`GET /api/catalog/servers/{node_id}`)
+- Returns the complete public listing, cryptographic verification status, host information, cluster strategy, and connectivity options.
+
+### 3. Server Publication (`POST /api/catalog/publish`)
