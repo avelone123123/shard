@@ -1485,6 +1485,24 @@ async def api_cluster_rebalance(req: Request):
     if not plan.get("feasible"):
         return JSONResponse(status_code=409, content={"status": "error", "message": plan.get("reason"), "plan": plan})
     try:
+        st = await asyncio.to_thread(CLUSTER.deploy_cluster, verify=True)
+        return {"status": "ok", "cluster": st}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"status": "error", "message": str(e), "plan": plan})
+@app.get("/api/cluster/preview")
+def api_cluster_preview():
+    return CLUSTER.preview_cluster()
+@app.get("/api/cluster/status")
+def api_cluster_status(req: Request):
+    ok, is_owner = _is_cluster_authorized(req)
+    if not ok:
+        return JSONResponse(status_code=403, content={"status": "error", "message": "Authorization required"})
+    return CLUSTER.status(include_secrets=is_owner)
+@app.get("/api/cluster/plan")
+def api_cluster_plan(req: Request):
+    ok, _ = _is_cluster_authorized(req)
+    if not ok:
+        return JSONResponse(status_code=403, content={"status": "error", "message": "Authorization required"})
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
