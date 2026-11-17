@@ -178,3 +178,21 @@ class PipelineCoordinator:
         self.dtype = dtype
         self.tokenizer = None
         self.config = None
+        self.runners = []
+        self.stage_reports = []
+        self._lock = threading.RLock()
+        self._gen_lock = threading.Lock()
+        self.last_metrics = {}
+    def start(self):
+        if not _TORCH_READY:
+            raise RuntimeError("PyTorch and transformers are required for PipelineCoordinator")
+        stages = list(self.plan.get("stages") or [])
+        if not stages:
+            raise RuntimeError("Partition plan contains no stages")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path_or_repo, trust_remote_code=False)
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.config = AutoConfig.from_pretrained(self.model_path_or_repo, trust_remote_code=False)
+        cfg_dict = self.config.to_dict() if hasattr(self.config, "to_dict") else None
+        runners = []
+        for s in stages:
