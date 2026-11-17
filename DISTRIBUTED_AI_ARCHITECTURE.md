@@ -148,3 +148,13 @@ Given model metadata (`config.json` or GGUF probe) and cluster node inventories:
 - **Session Expiration & Revocation**: Worker tokens and client sessions support TTL expiration and immediate revocation (`kick` / `block` / `opt_out`).
 - **Safe Model Artifact Handling**: Path traversal rejection, GGUF magic/size verification, safetensors header validation (`safe_open`), no pickle/arbitrary `torch.load(..., weights_only=False)` execution on untrusted remote weights, and `SHARD_TRUST_REMOTE_CODE` disabled by default.
 
+---
+
+## 7. Multi-User Scheduling & Unified API
+
+- **Asynchronous Request Scheduler (`scheduler.py`)**:
+  - Bounded concurrency (`max_concurrent` slots) + bounded waiting queue (`max_queue_size`), avoiding FastAPI event-loop starvation.
+  - Per-key / per-peer sliding-window rate limiting.
+  - Request timeout enforcement and immediate client-disconnect cancellation (`req.is_disconnected()`).
+- **Unified Endpoints**:
+  - OpenAI compatible: `GET /v1/models`, `POST /v1/chat/completions` (streaming SSE & sync).
