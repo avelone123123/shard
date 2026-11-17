@@ -924,6 +924,8 @@ def api_ping():
         "engine": "shard-distributed-cluster" if cls_ready else "shard-local-engine",
         "active_model": CLUSTER.target_model if cls_ready else engine_instance.active_model_id,
         "is_loaded": is_loaded,
+        "cluster_state": CLUSTER.state,
+        "cluster_ready": cls_ready,
         "node_id": _safe_node_id(),
     }
 @app.post("/v1/chat/completions")
