@@ -22,3 +22,15 @@ This report provides the full production deployment specification, containerizat
                        +--------------+--------------+
                                       |
               +-----------------------+-----------------------+
+              | (HTTP /api/net/...)                           | (WebSocket wss://...)
+              v                                               v
++-----------------------------+               +-----------------------------+
+|   shard-discovery Service   |               |     shard-relay Service     |
+|   FastAPI + Uvicorn         |               |     Python WebSocket Async  |
+|   Persistent SQLite Volume  |               |     Zero-Knowledge Relay    |
++-----------------------------+               +-----------------------------+
+```
+
+---
+
+## Service Specifications
