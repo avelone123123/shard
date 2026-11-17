@@ -1844,6 +1844,22 @@ def cmd_cluster(args):
         r = requests.get(f"{base}/api/cluster/plan", headers=hdrs, timeout=10)
         print(json.dumps(r.json(), indent=2, ensure_ascii=False))
         return
+    if action in ("catalog", "browse"):
+        q = getattr(args, "q", "") or ""
+        m = getattr(args, "model", "") or ""
+        r = requests.get(f"{base}/api/catalog/servers", params={"q": q, "model": m}, headers=hdrs, timeout=10)
+        if r.status_code != 200:
+            print(f"[ERROR] {r.status_code}: {r.text[:200]}")
+            sys.exit(1)
+        data = r.json()
+        if getattr(args, "as_json", False):
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+            return
+        srvs = data.get("servers") or []
+        print(f"Discovered Clusters & Servers ({len(srvs)}):\n")
+        for s in srvs:
+            lst = s.get("listing") or s
+        return
     if action == "create":
         model_id = getattr(args, "model", None) or (args.extra[0] if getattr(args, "extra", None) else None)
         if not model_id:
