@@ -34,3 +34,15 @@ Every SHARD node possesses a sovereign cryptographic identity generated locally 
 1. **Key Generation**: 
    - A cryptographic Ed25519 signing keypair is generated and stored with strict filesystem permissions (`0600`) at `~/.shard/identity.json`.
    - The public key is encoded into a deterministic, human-identifiable Node ID with the `shn_` prefix (e.g. `shn_a1b2c3d4...`).
+
+2. **Domain-Separated Signatures**:
+   - Every mutation, registration envelope, and heartbeat sent over the network is signed with domain separation to prevent cross-protocol signature replay:
+     - `SHARD-DISCOVERY-REGISTER-V1`
+     - `SHARD-DISCOVERY-HEARTBEAT-V1`
+     - `SHARD-DISCOVERY-UNREGISTER-V1`
+     - `SHARD-RELAY-ENVELOPE-V1`
+
+3. **Trust On First Use (TOFU) Key Pinning**:
+   - On first contact with any peer node, its public key and Node ID are cryptographically bound and pinned in `tofu_pins.json`.
+   - Any attempt by an attacker to intercept traffic, spoof a Node ID, or present a different public key causes immediate connection abort with a `KEY_ROTATION_BLOCKED` security fault.
+
