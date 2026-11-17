@@ -304,3 +304,21 @@ class PipelineWorkerServer:
         self._accept_thread = threading.Thread(target=self._accept_loop, daemon=True)
         self._accept_thread.start()
         return self.bound_port
+    def stop(self):
+        self._stop_ev.set()
+        if self._sock is not None:
+            try:
+                self._sock.close()
+            except Exception:
+                pass
+            self._sock = None
+        if self._accept_thread is not None and self._accept_thread.is_alive():
+            self._accept_thread.join(timeout=2.0)
+        self._unload_stage()
+    def _unload_stage(self):
+        with self._stage_lock:
+            self._kv_caches.clear()
+            self._stage = None
+            if torch is not None and torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gc.collect()
