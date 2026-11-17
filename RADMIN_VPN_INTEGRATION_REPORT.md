@@ -118,3 +118,15 @@ If the Radmin service stalls or fails to respond after a Windows sleep cycle or 
 ```
 
 ---
+
+## Diagnostic Output Reference
+
+Executing `shard network radmin status` produces real-time structured output:
+
+```json
+{
+  "supported": true,
+  "installed": true,
+  "path": "C:\\Program Files (x86)\\Radmin VPN\\RvRvpnGui.exe",
+  "version": "2.1.4952.2",
+  "service_installed": true,
