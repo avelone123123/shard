@@ -160,3 +160,21 @@ class PipelineStageModule(_NN_BASE):
             self.layers = nn.ModuleList([layer_cls(config, layer_idx=i) for i in range(self.local_count)])
             if self.has_lm_head:
                 eps = getattr(config, "rms_norm_eps", 1e-6)
+                self.norm = norm_cls(config.hidden_size, eps=eps)
+                self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+    def load_stage_weights(self, weight_files):
+        tie = bool(getattr(self.config, "tie_word_embeddings", False))
+        state_map = dict(self.named_parameters())
+        buf_map = dict(self.named_buffers())
+        loaded_keys = set()
+        tied_embed_tensor = None
+        for wf in weight_files:
+            if wf.endswith(".safetensors"):
+                with safe_open(wf, framework="pt", device="cpu") as f:
+                    for key in f.keys():
+                        if tie and key in ("model.embed_tokens.weight", "embed_tokens.weight", "transformer.wte.weight", "wte.weight"):
+                            if self.has_lm_head and tied_embed_tensor is None:
+                                tied_embed_tensor = f.get_tensor(key)
+                        target = _remap_tensor_key(key, self.model_type, self.layer_start, self.layer_end, self.has_embed, self.has_lm_head, False)
+                        if target and (target in state_map or target in buf_map):
+                            t = f.get_tensor(key)
