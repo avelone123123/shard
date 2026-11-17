@@ -1233,6 +1233,10 @@ class HostTunnelAgent:
         self._relay_connected: dict[str, bool] = {}
         self._http_client: httpx.AsyncClient | None = None
         self._last_error: str | None = None
+        self._wrk_stream_lock = asyncio.Lock()
+        self._next_wrk_stream_id = 2
+        self._wrk_writers: dict[int, asyncio.StreamWriter] = {}
+        self._worker_proxies: dict[tuple[str, int], tuple[asyncio.AbstractServer, int]] = {}
     @property
     def active_peer_count(self) -> int:
         return len(self._active_channels)
