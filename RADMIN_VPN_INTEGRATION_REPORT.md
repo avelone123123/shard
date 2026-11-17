@@ -94,3 +94,15 @@ If the Radmin service stalls or fails to respond after a Windows sleep cycle or 
   Restart-Service RvControlSvc -Force -ErrorAction SilentlyContinue; Start-Service RvControlSvc -ErrorAction SilentlyContinue
   ```
 - The virtual adapter is polled until the `26.0.0.0/8` IP rebinds.
+
+---
+
+## State Transition Diagram
+
+```
++----------------+      Download & Verify      +--------------------+
+|  Not Installed | --------------------------> | Verified Installer |
++----------------+                             +--------------------+
+                                                         |
+                                                         | RunAs /VERYSILENT
+                                                         v
