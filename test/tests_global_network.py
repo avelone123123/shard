@@ -82,3 +82,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
         self.ident_a = net_identity.NodeIdentity(identity_path=os.path.join(self.node_a_dir, "identity.json"))
         self.ident_b = net_identity.NodeIdentity(identity_path=os.path.join(self.node_b_dir, "identity.json"))
         self.client = TestClient(server.app)
+        self.owner_hdr = {"X-Shard-Owner-Token": training.get_owner_token()}
+    def tearDown(self):
+        CLUSTER.stop_cluster()
+        CLUSTER.stop_local_worker()
+        shutil.rmtree(self.node_a_dir, ignore_errors=True)
+        shutil.rmtree(self.node_b_dir, ignore_errors=True)
+    def test_a_automatic_network_registration(self):
+        dc_a = net_discovery.DiscoveryClient(urls=[self.disc_url])
+        listing_a = {
+            "node_id": self.ident_a.node_id,
+            "pubkey": self.ident_a.pubkey_b64,
+            "name": "Node-Alpha",
+            "role": "server",
+            "visibility": "public",
