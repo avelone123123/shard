@@ -40,3 +40,17 @@ class TestAutonomousNetworkSuite(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("Invalid file size", reason)
         missing_path = os.path.join(self.tmp_dir, "nonexistent.exe")
+        ok_miss, reason_miss, _ = radmin_mgr.verify_installer(missing_path)
+        self.assertFalse(ok_miss)
+        self.assertIn("does not exist", reason_miss)
+    def test_production_default_infrastructure_and_failover(self):
+        self.assertGreaterEqual(len(net_strategy.DEFAULT_PUBLIC_DISCOVERY_URLS), 1)
+        self.assertGreaterEqual(len(net_strategy.DEFAULT_PUBLIC_RELAY_URLS), 1)
+        self.assertTrue(all(u.startswith("https://") for u in net_strategy.DEFAULT_PUBLIC_DISCOVERY_URLS))
+        self.assertTrue(all(u.startswith("wss://") for u in net_strategy.DEFAULT_PUBLIC_RELAY_URLS))
+        orig_disc = os.environ.pop("SHARD_DISCOVERY_URL", None)
+        orig_relay = os.environ.pop("SHARD_RELAY_URL", None)
+        try:
+            cfg = net_strategy.default_network_config()
+            self.assertEqual(cfg["discovery_urls"], list(net_strategy.DEFAULT_PUBLIC_DISCOVERY_URLS))
+            self.assertEqual(cfg["relay_urls"], list(net_strategy.DEFAULT_PUBLIC_RELAY_URLS))
