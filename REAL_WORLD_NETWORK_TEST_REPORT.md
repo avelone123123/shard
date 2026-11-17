@@ -46,3 +46,15 @@ All automated regression test suites executed with a **100% pass rate (119/119 t
 
 ### TEST-03: Production Infrastructure Defaults & Failover
 - **Objective**: Validate that nodes default to official public infrastructure when environment variables are omitted, and fail over seamlessly when primary URLs are unreachable.
+- **Verification Evidence**:
+  - Default discovery: `https://discovery.shard.network`
+  - Secondary discovery: `https://discovery-backup.shard.network`
+  - Default relay: `wss://relay.shard.network`
+  - Secondary relay: `wss://relay-backup.shard.network`
+- **Result**: PASS. Client transparently attempts secondary endpoints upon connection timeout.
+
+### TEST-04: Radmin VPN Detection, Credentials & Installation Flow
+- **Objective**: Test Radmin VPN status detection, Authenticode validation logic, REST API endpoints, and cluster network credential hashing.
+- **Verification Evidence**:
+  - Deterministic credential derivation produces unique network names:
+    - Cluster Alpha (`cluster-alpha-001`): `SHARD-281b3152`
