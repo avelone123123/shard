@@ -58,3 +58,15 @@ This report provides the full production deployment specification, containerizat
 - **Connection Upgrades**: Native HTTP/1.1 to WebSocket protocol upgrade for relay endpoints.
 - **Header Hardening**:
   - `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
+  - `X-Content-Type-Options: nosniff`
+  - `X-Frame-Options: DENY`
+  - `Referrer-Policy: strict-origin-when-cross-origin`
+
+---
+
+## Deployment Artifacts
+
+All configuration and container definitions are located in the `deploy/` directory:
+
+| File | Purpose |
+| :--- | :--- |
