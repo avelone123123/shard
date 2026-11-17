@@ -16,3 +16,21 @@ from . import scheduler as _sched
 HEARTBEAT_TIMEOUT_S = 12.0
 WORKER_TOKEN_PREFIX = "sk-shard-wrk-"
 def _free_port():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    p = s.getsockname()[1]
+    s.close()
+    return p
+class ClusterManager:
+    def __init__(self):
+        self._lock = threading.RLock()
+        self.role = "idle"
+        self.state = "IDLE"
+        self.cluster_id = None
+        self.name = socket.gethostname() or "shard-cluster"
+        self.pairing_code = None
+        self.open_net = False
+        self.access_mode = "invite_only"
+        self.target_model = None
+        self.strategy = "auto"
+        self.ctx_tokens = 4096
