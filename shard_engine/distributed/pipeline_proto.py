@@ -82,3 +82,17 @@ def encode_tensor_payload(meta_dict, tensor):
     else:
         raw_tensor = t.numpy().tobytes()
     t_hdr = _TENSOR_META_STRUCT.pack(dtype_code, ndim, 0, len(meta_bytes))
+    shape_bytes = struct.pack(f">{ndim}I", *shape) if ndim > 0 else b""
+    return t_hdr + shape_bytes + meta_bytes + raw_tensor
+def decode_tensor_payload(payload):
+    _, c2d = _dtype_maps()
+    if len(payload) < _TENSOR_META_STRUCT.size:
+        raise ProtocolError("Truncated tensor payload")
+    dtype_code, ndim, _, meta_len = _TENSOR_META_STRUCT.unpack(payload[:_TENSOR_META_STRUCT.size])
+    pos = _TENSOR_META_STRUCT.size
+    shape_len = ndim * 4
+    if len(payload) < pos + shape_len + meta_len:
+        raise ProtocolError("Truncated tensor shape/meta")
+    shape = tuple(struct.unpack(f">{ndim}I", payload[pos:pos + shape_len])) if ndim > 0 else ()
+    pos += shape_len
+    meta = json.loads(payload[pos:pos + meta_len].decode("utf-8")) if meta_len > 0 else {}
