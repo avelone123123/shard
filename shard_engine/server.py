@@ -1223,6 +1223,16 @@ def installer_script(req: Request, tool: str = "claude", os: str = "linux", key:
                  'echo "[OK] Shard: OPENAI_API_BASE and OPENAI_API_KEY exported for ' + tool_clean + '."\n'
     return PlainTextResponse(script, media_type="text/plain; charset=utf-8")
 def _verify_server_model_ready(model_id=None):
+    try:
+        from .distributed import cluster as dist_cluster
+        cm = dist_cluster.get_cluster_manager()
+        c_st = cm.status(include_secrets=False)
+        if c_st.get("role") == "coordinator" and c_st.get("state") in ("PLANNING", "WAITING_WORKERS", "READY", "RUNNING"):
+            t = (model_id or "").strip()
+            if not t or t == c_st.get("target_model"):
+                return True, ""
+    except Exception:
+        pass
     if not engine_instance.is_loaded():
         return False, "No model is loaded in memory. Load and verify a model before hosting or publishing."
     target = (model_id or "").strip() or engine_instance.active_model_id or engine_instance.current_loaded_id
