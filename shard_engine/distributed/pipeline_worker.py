@@ -106,3 +106,21 @@ def _download_or_locate_files(model_path_or_repo, shard_files):
         if not resolved:
             for fn in sorted(os.listdir(base_dir)):
                 if fn.endswith(".bin") and "pytorch_model" in fn:
+                    resolved.append(os.path.join(base_dir, fn))
+        return base_dir, resolved
+    from huggingface_hub import hf_hub_download
+    cfg_path = hf_hub_download(model_path_or_repo, "config.json")
+    base_dir = os.path.dirname(cfg_path)
+    targets = list(shard_files or [])
+    if not targets:
+        try:
+            idx_path = hf_hub_download(model_path_or_repo, "model.safetensors.index.json")
+            with open(idx_path, "r", encoding="utf-8") as f:
+                wm = json.load(f).get("weight_map") or {}
+            targets = sorted(set(wm.values()))
+        except Exception:
+            targets = ["model.safetensors"]
+    resolved = [hf_hub_download(model_path_or_repo, fn) for fn in targets]
+    return base_dir, resolved
+class PipelineStageModule(_NN_BASE):
+    def __init__(self, config, model_type, layer_start, layer_end, has_embed, has_lm_head, dtype, device):
