@@ -98,3 +98,13 @@ SHARD explicitly distinguishes **Model Parallelism** (partitioning one model acr
   - Coordinator launches `llama-server` with `--rpc <endpoints>`, `-sm layer` (pipeline layer split across RPC devices & local GPUs), exact `--tensor-split` matching the true device order `[RPC0..RPCk, local_GPUs...]`, `--parallel <slots>`, `--cont-batching`, and `--slots`.
   - KV cache for each layer lives directly on the device holding that layer.
 - **Supported Models**: Any GGUF model supported by `llama.cpp` (Llama, Qwen2/2.5/3, DeepSeek-R1/V2/V3, Mistral, Gemma, Phi, GPT-2, etc.).
+- **Constraints**: Requires `llama-server` and `ggml-rpc-server` binaries; high-latency WAN links degrade token latency proportionally to layer-crossing hops.
+
+### 4.2 Strategy B: PyTorch Pipeline Parallelism with Distributed Loading (`torch_pipeline_parallel`)
+- **Backend**: `shard_engine/distributed/pipeline_coordinator.py` + `pipeline_worker.py` + `pipeline_proto.py`.
+- **Mechanism**:
+  - **Architecture Support Check**: Explicitly validates `config.json` `model_type` against verified stage-partitionable architectures (`llama`, `qwen2`, `qwen3`, `mistral`, `gemma`, `gemma2`, `phi3`, `gpt2`, `deepseek_v2`, `deepseek_v3`). Unsupported architectures fail loudly with a structured error rather than faking partitioning.
+  - **Distributed Loading**: Using `model.safetensors.index.json` (or single `model.safetensors`), the planner resolves the exact tensor keys and shard filenames needed for each stage (`embed_tokens` + `layers[s:e]` + optional `norm` & `lm_head`). Each worker loads **only** its assigned tensors onto its configured device/dtype using `safetensors.safe_open(..., framework="pt")` — the coordinator never loads full-model weights into its own RAM/VRAM.
+  - **Distributed KV Cache**: Each worker maintains an independent `DynamicCache` / layer-indexed KV store keyed by `request_id` covering only its local layers `[start_layer..end_layer]`, freeing cache immediately on completion, cancellation, or timeout.
+  - **Binary Tensor Wire Protocol (`SHPT`)**: Activations (`hidden_states`, `position_ids` / `cache_position`) are transmitted over persistent authenticated TCP sockets as compact binary frames:
+    - Header: `4B magic ("SHPT") | 1B version | 1B msg_type | 2B flags | 16B request_id | 4B seq_pos | 1B dtype | 1B ndim | 2B reserved | 4B payload_len` + `ndim * 4B shape` + raw contiguous tensor buffer (`float16`/`bfloat16`/`float32`).
