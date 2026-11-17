@@ -54,3 +54,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
         os.environ["SHARD_ALLOW_INSECURE_LOCAL"] = "1"
         cls.tmp_root = tempfile.mkdtemp(prefix="shard_global_net_")
         cls.disc_port = _free_port()
+        cls.disc_store = net_discovery.DiscoveryStore()
+        cls.disc_app = net_discovery.create_discovery_app(store=cls.disc_store)
+        cfg = uvicorn.Config(cls.disc_app, host="127.0.0.1", port=cls.disc_port, log_level="warning")
+        cls.disc_server = uvicorn.Server(cfg)
+        cls.disc_th = threading.Thread(target=cls.disc_server.run, daemon=True)
+        cls.disc_th.start()
+        time.sleep(0.5)
+        cls.disc_url = f"http://127.0.0.1:{cls.disc_port}"
+        os.environ["SHARD_DISCOVERY_URL"] = cls.disc_url
+        cls.model_dir = os.path.join(cls.tmp_root, "test_qwen_model")
+        _build_test_model(cls.model_dir)
+    @classmethod
+    def tearDownClass(cls):
+        os.environ.pop("SHARD_ALLOW_INSECURE_LOCAL", None)
