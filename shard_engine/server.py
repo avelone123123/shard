@@ -31,6 +31,8 @@ from . import soup_adapter
 from . import storage
 from . import training
 from . import updater
+from .distributed import CLUSTER, SCHEDULER
+from .distributed.scheduler import QueueFullError, RateLimitError
 from .engine import engine_instance
 from .fit import fit_report
 from .hardware import evaluate_compatibility, get_hardware_profile
