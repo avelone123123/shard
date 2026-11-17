@@ -34,3 +34,15 @@ This report provides the full production deployment specification, containerizat
 ---
 
 ## Service Specifications
+
+### 1. Discovery Service (`discovery.shard.network`)
+- **Container**: `deploy/Dockerfile.discovery`
+- **Internal Port**: `8080`
+- **Endpoints**:
+  - `GET /health`: Health probe returning uptime, registered nodes, and memory usage.
+  - `POST /api/net/announce`: Node registration, heartbeat renewal, and capability advertisement.
+  - `GET /api/net/catalog`: Active AI server listing with latency annotations and load status.
+  - `POST /api/net/leave`: Explicit graceful departure notification.
+- **Data Persistence**:
+  Mounted volume at `/var/lib/shard` storing `discovery_state.json` and sqlite catalogs.
+
