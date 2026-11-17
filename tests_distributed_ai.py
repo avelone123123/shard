@@ -196,3 +196,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
             self.skipTest("torch/transformers/safetensors not installed")
         import torch
         model_dir = os.path.join(self.tmp_dir, "tiny_qwen2_sharded")
+        ref_model, tok = _build_sharded_qwen2_model(model_dir)
+        p1 = _free_port()
+        p2 = _free_port()
+        t1 = "sk-shard-wrk-proc1"
+        t2 = "sk-shard-wrk-proc2"
+        worker_script = (
+            "import sys, time\n"
+            "from shard_engine.distributed.pipeline_worker import PipelineWorkerServer\n"
+            "srv = PipelineWorkerServer(host='127.0.0.1', port=int(sys.argv[1]), auth_token=sys.argv[2], max_threads=2, allow_cuda=False)\n"
+            "srv.start()\n"
+            "print('READY', flush=True)\n"
+            "while True:\n"
+            "    time.sleep(0.5)\n"
+        )
+        proc1 = subprocess.Popen([sys.executable, "-c", worker_script, str(p1), t1], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        proc2 = subprocess.Popen([sys.executable, "-c", worker_script, str(p2), t2], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(proc1.stdout.readline().strip(), "READY")
