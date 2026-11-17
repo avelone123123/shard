@@ -268,3 +268,21 @@ def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, 
             "feasible": False,
             "reason": "No nodes with sufficient usable memory above system reserve",
             "strategy": eff_strategy,
+            "stages": [],
+        }
+    total_usable_mb = round(sum(b["alloc_cap_mb"] for b in exec_nodes), 1)
+    scratch_per_node = max(48.0, min(256.0, weight_mb * 0.06))
+    total_required_mb = round(weight_mb + kv_total_mb + scratch_per_node * len(exec_nodes), 1)
+    if total_usable_mb < total_required_mb:
+        return {
+            "feasible": False,
+            "reason": f"Cluster usable memory ({total_usable_mb} MB) is below model + KV + runtime requirement ({total_required_mb} MB).",
+            "strategy": eff_strategy,
+            "total_layers": total_layers,
+            "total_required_mb": total_required_mb,
+            "total_usable_cluster_mb": total_usable_mb,
+            "stages": [],
+        }
+    if is_torch:
+        exec_nodes.sort(key=lambda b: (0 if b["role"] == "coordinator" else 1, -b["speed_score"], -b["alloc_cap_mb"]))
+    weights = [max(1.0, (b["alloc_cap_mb"] - scratch_per_node) * (1.2 if b["device_type"] == "cuda" else 1.0)) for b in exec_nodes]
