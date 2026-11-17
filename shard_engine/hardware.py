@@ -52,6 +52,24 @@ def _probe_backends():
     has_transformers = False
     has_safetensors = False
     try:
+        import importlib.util
+        has_torch = importlib.util.find_spec("torch") is not None
+        has_transformers = importlib.util.find_spec("transformers") is not None
+        has_safetensors = importlib.util.find_spec("safetensors") is not None
+    except Exception:
+        pass
+    if has_torch:
+        try:
+            import torch
+            has_cuda = bool(torch.cuda.is_available())
+            has_mps = bool(getattr(torch.backends, "mps", None) and torch.backends.mps.is_available())
+        except Exception:
+            pass
+    has_llama_server = False
+    has_gguf_rpc = False
+    try:
+        from . import gguf_backend, lan
+        has_llama_server = bool(gguf_backend.find_llama_server())
 def get_hardware_profile(force_refresh=False):
     import psutil
     now = time.time()
