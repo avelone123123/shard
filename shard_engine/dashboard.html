@@ -2760,6 +2760,22 @@ async function netInstallRadmin() {
         if (data.status === 'ok') {
             showToast('Успешно', 'Radmin VPN установлен и готов к использованию!');
         } else {
+            showToast('Статус установки', data.message || data.status);
+        }
+        netLoadRadmin();
+    } catch(e) {
+        showToast('Ошибка установки', e.message);
+    }
+}
+async function netRepairRadmin() {
+    showToast('Восстановление', 'Перезапуск службы Radmin VPN...');
+    try {
+        const res = await fetch('/api/net/radmin/repair', {method: 'POST', headers: getAuthHeaders()});
+        const data = await res.json();
+        showToast('Готово', 'Служба Radmin VPN перезапущена');
+        netLoadRadmin();
+    } catch(e) {
+        showToast('Ошибка', e.message);
     }
 }
 async function lanJoinQuick(ip, port) {
