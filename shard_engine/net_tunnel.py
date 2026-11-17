@@ -1769,6 +1769,7 @@ class ClientTunnelAgent:
         bridge_host: str = "127.0.0.1",
         bridge_port: int = 0,
         verify_ping: bool = True,
+        worker_allowed_ports=(),
     ):
         if not isinstance(target_host_id, str) or not net_identity.NODE_ID_RE.match(target_host_id):
             raise ValueError("Invalid target_host_id")
