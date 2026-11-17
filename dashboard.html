@@ -4380,6 +4380,24 @@ async function clsRefresh() {
         }
         const wBox = document.getElementById('clsWorkersBox');
         if (wBox) {
+            const nodes = [];
+            if (c.coordinator) nodes.push(c.coordinator);
+            for (const wk of (c.workers || [])) nodes.push(wk);
+            wBox.innerHTML = nodes.map(n => {
+                const hw = n.hw || {};
+                const eff = n.effective || {};
+                const wid = n.worker_id || n.node_id || '';
+                const kickBtn = (n.role === 'worker' && wid) ? ('<button class="fb-btn" style="color:var(--danger);" data-wid="' + escHtml(wid) + '" onclick="clsKickWorker(this.dataset.wid)">Удалить</button>') : '';
+                return '<div style="padding:7px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;">' +
+                    '<div><b>' + escHtml(n.name || wid) + '</b> <span class="compat-pill ' + (n.alive ? 'compat-ok' : 'compat-warn') + '">' + escHtml(n.role) + '</span><br>' +
+                    '<span style="color:var(--text-muted);font-size:11px;">GPU: ' + escHtml(hw.gpu_name || 'CPU') + ' | Usable VRAM: ' + (eff.usable_vram_mb || 0) + ' MB | Usable RAM: ' + (eff.usable_ram_mb || 0) + ' MB | CPU: ' + (hw.cpu_util_pct || 0) + '% | RTT: ' + (n.rtt_ms || 0) + ' ms</span></div>' +
+                    kickBtn + '</div>';
+            }).join('') || 'Нет узлов';
+        }
+        const tBox = document.getElementById('clsTelemetryBox');
+        if (tBox) {
+            tBox.innerHTML =
+                '<div>Активных запросов: <b>' + (tel.active_requests || 0) + '</b> / ' + (tel.max_concurrent || 4) + ' | В очереди: <b>' + (tel.queue_length || 0) + '</b></div>' +
 async function srvCreateUnified() {
     const name = ((document.getElementById('srvCreateName') || {}).value || '').trim();
     const mode = ((document.getElementById('srvCreateMode') || {}).value || 'lan_and_global');
