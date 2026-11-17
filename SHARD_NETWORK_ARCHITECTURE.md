@@ -46,3 +46,15 @@ Every SHARD node possesses a sovereign cryptographic identity generated locally 
    - On first contact with any peer node, its public key and Node ID are cryptographically bound and pinned in `tofu_pins.json`.
    - Any attempt by an attacker to intercept traffic, spoof a Node ID, or present a different public key causes immediate connection abort with a `KEY_ROTATION_BLOCKED` security fault.
 
+## 3. Network Transport & NAT Traversal Topology
+
+SHARD Network implements an adaptive multi-tier transport architecture:
+
+```
++--------------------------------------------------------------------------+
+|                       Transport Selection Priority                        |
++--------------------------------------------------------------------------+
+| 1. LAN / Loopback Direct       | Zero overhead, sub-millisecond latency  |
+| 2. P2P Direct (STUN / Hole-punch)| Direct UDP/TCP socket over WAN        |
+| 3. Mesh VPN (WireGuard / Tailscale)| Kernel-level encrypted tunnel       |
+| 4. Blind WebSocket Relay Hub   | Zero-knowledge ciphertext relay         |
