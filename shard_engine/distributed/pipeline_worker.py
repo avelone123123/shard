@@ -88,3 +88,21 @@ def _remap_tensor_key(key, model_type, layer_start, layer_end, has_embed, has_lm
             if dot > 0:
                 g_idx = int(rest[:dot])
                 if layer_start <= g_idx < layer_end:
+                    return f"layers.{g_idx - layer_start}.{rest[dot + 1:]}"
+    return None
+def _download_or_locate_files(model_path_or_repo, shard_files):
+    if os.path.isdir(model_path_or_repo):
+        base_dir = model_path_or_repo
+        resolved = []
+        if shard_files:
+            for fn in shard_files:
+                cand = os.path.join(base_dir, fn)
+                if os.path.isfile(cand):
+                    resolved.append(cand)
+        if not resolved:
+            for fn in sorted(os.listdir(base_dir)):
+                if fn.endswith(".safetensors"):
+                    resolved.append(os.path.join(base_dir, fn))
+        if not resolved:
+            for fn in sorted(os.listdir(base_dir)):
+                if fn.endswith(".bin") and "pytorch_model" in fn:
