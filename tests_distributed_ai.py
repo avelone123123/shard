@@ -160,3 +160,21 @@ class TestDistributedUnit(unittest.TestCase):
         from shard_engine.distributed.scheduler import QueueFullError, RateLimitError, RequestScheduler
         sched = RequestScheduler(max_concurrent=1, max_queue_size=1, default_rpm=2)
         rid1, _ = sched.acquire_slot(client_key="u1")
+        sched.finish_slot(rid1, ok=True, ttft_ms=10.0, tps=20.0)
+        rid2, _ = sched.acquire_slot(client_key="u1")
+        with self.assertRaises(RateLimitError):
+            sched.acquire_slot(client_key="u1")
+        sched.finish_slot(rid2, ok=True)
+        rid3, ev3 = sched.acquire_slot(client_key="u2")
+        self.assertTrue(sched.cancel_request(rid3))
+        self.assertTrue(ev3.is_set())
+        sched.finish_slot(rid3, ok=False, cancelled=True)
+        s2 = RequestScheduler(max_concurrent=1, max_queue_size=0, default_rpm=100)
+        r_hold, _ = s2.acquire_slot(client_key="a")
+        s2.max_queue_size = 0
+        with self.assertRaises(QueueFullError):
+            s2.acquire_slot(client_key="b")
+        s2.finish_slot(r_hold, ok=True)
+class TestRealDistributedIntegration(unittest.TestCase):
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp(prefix="shard_dist_int_")
