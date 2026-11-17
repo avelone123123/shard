@@ -34,3 +34,21 @@ _ARCH_SPECS = {
     "phi3": ("transformers.models.phi3.modeling_phi3", "Phi3DecoderLayer", "Phi3RotaryEmbedding", "Phi3RMSNorm"),
     "gpt2": ("transformers.models.gpt2.modeling_gpt2", "GPT2Block", None, None),
 }
+def _resolve_arch_classes(model_type):
+    spec = _ARCH_SPECS.get(str(model_type or "").strip().lower())
+    if not spec:
+        raise ValueError(f"Unsupported architecture for pipeline worker: {model_type}")
+    mod_name, layer_cls, rope_cls, norm_cls = spec
+    mod = importlib.import_module(mod_name)
+    return (
+        getattr(mod, layer_cls),
+        getattr(mod, rope_cls) if rope_cls else None,
+        getattr(mod, norm_cls) if norm_cls else None,
+    )
+def _remap_tensor_key(key, model_type, layer_start, layer_end, has_embed, has_lm_head, tie_word_embeddings):
+    if model_type == "gpt2":
+        if has_embed:
+            if key == "transformer.wte.weight" or key == "wte.weight":
+                return "wte.weight"
+            if key == "transformer.wpe.weight" or key == "wpe.weight":
+                return "wpe.weight"
