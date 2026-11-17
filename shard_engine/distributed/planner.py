@@ -376,3 +376,21 @@ def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, 
         comm_warning = f"High network latency across {hops} stage boundary(ies) (~{round(comm_ms, 1)} ms/tok overhead)."
     rpc_stages = [s for s in stages if s["role"] == "worker" and s["endpoint"]]
     local_offload_stages = [s for s in stages if s["role"] == "coordinator"]
+    ordered_ts_stages = rpc_stages + local_offload_stages
+    rpc_arg = ",".join(s["endpoint"] for s in rpc_stages) if rpc_stages else None
+    ts_arg = ",".join(str(s["tensor_split_weight"]) for s in ordered_ts_stages) if (not is_torch and len(ordered_ts_stages) >= 1 and rpc_stages) else None
+    return {
+        "feasible": True,
+        "reason": "Cluster partition plan valid",
+        "strategy": eff_strategy,
+        "model_id": model_spec["model_id"],
+        "model_type": model_spec.get("model_type"),
+        "quant": model_spec.get("quant"),
+        "total_layers": total_layers,
+        "ctx_tokens": int(ctx_tokens),
+        "parallel_slots": int(parallel_slots),
+        "total_required_mb": total_required_mb,
+        "total_usable_cluster_mb": total_usable_mb,
+        "estimated_comm_overhead_ms_per_tok": round(comm_ms, 2),
+        "prefer_single_node": prefer_single,
+        "communication_warning": comm_warning,
