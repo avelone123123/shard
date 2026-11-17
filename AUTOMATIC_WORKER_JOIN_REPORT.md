@@ -46,3 +46,15 @@ The One-Click Cluster Join architecture allows any computer on the network to pa
              4. Active Distributed Execution
                 - Enters Cluster State: READY
                 - Bidirectional heartbeats every 10 seconds
+                - Exchanges intermediate activation tensors over sockets
+```
+
+## 2. Pre-Join Hardware Capability Analysis (`/api/catalog/prejoin/{node_id}`)
+
+Before any worker connects, the system performs a non-invasive local hardware audit:
+
+- **GPU & VRAM**: Inspects NVIDIA NVML / DirectML / Metal to detect GPU name and dedicated VRAM.
+- **System Memory**: Probes available and total system RAM.
+- **CPU Cores & Threads**: Probes logical and physical cores.
+- **Backend Compatibility**:
+  - `torch_pipeline`: Verifies PyTorch runtime, CUDA/ROCm acceleration, and safetensors support.
