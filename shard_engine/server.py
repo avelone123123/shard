@@ -871,6 +871,19 @@ async def api_apply_integration(req: Request):
         return JSONResponse(status_code=400, content={"status": "error", "message": f"Неизвестная интеграция: {tool}"})
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+def _client_rate_key(req):
+    tpeer = net_tunnel.tunnel_peer_id(req)
+    if tpeer:
+        return f"peer:{tpeer}"
+    tok = _extract_bearer(req)
+    if tok:
+        return f"tok:{hashlib.sha256(tok.encode('utf-8')).hexdigest()[:12]}"
+    ip = req.client.host if req.client else "unknown"
+    return f"ip:{ip}"
+def _inference_stream_factory(messages, max_tokens, temperature):
+    if CLUSTER.is_ready():
+        return lambda cancel_ev: CLUSTER.generate_stream(messages, max_tokens, temperature, cancel_check=cancel_ev.is_set)
+    return lambda cancel_ev: engine_instance.generate_stream(messages, max_tokens, temperature, cancel_check=cancel_ev.is_set)
 @app.get("/v1/models")
 def list_models():
     st = engine_instance.get_status()
