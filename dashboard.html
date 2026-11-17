@@ -4693,6 +4693,7 @@ async function srvSendSharedChat() {
         } else {
             if (d.chat_id) srvCurrentChatId = d.chat_id;
             await srvLoadPrivateChats();
+        await clsRefresh();
         }
     } catch(e) {
         showToast('Ошибка', 'Не удалось отправить запрос: ' + e.message);
