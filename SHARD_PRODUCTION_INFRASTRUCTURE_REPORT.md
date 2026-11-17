@@ -46,3 +46,15 @@ This report provides the full production deployment specification, containerizat
 - **Data Persistence**:
   Mounted volume at `/var/lib/shard` storing `discovery_state.json` and sqlite catalogs.
 
+### 2. Blind Encrypted Relay Service (`relay.shard.network`)
+- **Container**: `deploy/Dockerfile.relay`
+- **Internal Port**: `8765`
+- **Protocol**: Raw encrypted WebSocket frames (`wss://`)
+- **Security**: The relay never has access to encryption keys. Payloads are encrypted with ChaCha20-Poly1305 between endpoints. The relay inspects only the 32-byte destination node fingerprint in the frame header.
+
+### 3. Edge Reverse Proxy & TLS (Caddy)
+- **Configuration**: `deploy/Caddyfile`
+- **Automatic SSL/TLS**: Managed via Let's Encrypt / ZeroSSL with automatic OCSP stapling.
+- **Connection Upgrades**: Native HTTP/1.1 to WebSocket protocol upgrade for relay endpoints.
+- **Header Hardening**:
+  - `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
