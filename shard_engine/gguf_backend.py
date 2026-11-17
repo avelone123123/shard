@@ -728,6 +728,11 @@ class LlamaBackend:
                     self.proc.kill()
                 except Exception:
                     pass
+            try:
+                if self.proc.stderr is not None:
+                    self.proc.stderr.close()
+            except Exception:
+                pass
             self.proc = None
         self.port = None
         self.gguf_path = None
