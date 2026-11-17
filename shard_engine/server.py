@@ -1054,12 +1054,21 @@ async def anthropic_messages(req: Request):
             blk_start = {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}
             yield f"event: content_block_start\ndata: {json.dumps(blk_start, ensure_ascii=False)}\n\n"
             out_toks = 0
-            for item in engine_instance.generate_stream(normalized, max_tokens, temperature):
-                if item.get("type") in ("content", "thought") and item.get("token"):
-                    delta_ev = {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": item["token"]}}
-                    yield f"event: content_block_delta\ndata: {json.dumps(delta_ev, ensure_ascii=False)}\n\n"
-                elif item.get("type") == "done":
-                    out_toks = item.get("usage", {}).get("completion_tokens", 0)
+            try:
+                async for item in SCHEDULER.stream_async(
+                    factory,
+                    client_key=client_key,
+                    model_id=model,
+                    is_disconnected=req.is_disconnected,
+                ):
+                    if item.get("type") in ("content", "thought") and item.get("token"):
+                        delta_ev = {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": item["token"]}}
+                        yield f"event: content_block_delta\ndata: {json.dumps(delta_ev, ensure_ascii=False)}\n\n"
+                    elif item.get("type") == "done":
+                        out_toks = item.get("usage", {}).get("completion_tokens", 0)
+            except (RateLimitError, QueueFullError) as e:
+                err_ev = {"type": "error", "error": {"type": "overloaded_error", "message": str(e)}}
+                yield f"event: error\ndata: {json.dumps(err_ev, ensure_ascii=False)}\n\n"
             yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
             msg_delta = {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": out_toks}}
             yield f"event: message_delta\ndata: {json.dumps(msg_delta)}\n\n"
