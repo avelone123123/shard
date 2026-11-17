@@ -1449,6 +1449,24 @@ async def api_cluster_create(req: Request):
             access_mode=data.get("access_mode") or "invite_only",
             open_net=bool(data.get("open", False)),
             coordinator_contributes=bool(data.get("coordinator_contributes", True)),
+            coordinator_quota=data.get("coordinator_quota"),
+            auto_deploy=bool(data.get("auto_deploy", True)),
+            fetch_model_meta=bool(data.get("fetch_model_meta", True)),
+        )
+        return {"status": "ok", "cluster": st}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/cluster/stop")
+def api_cluster_stop(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    return CLUSTER.stop_cluster()
+@app.post("/api/cluster/deploy")
+async def api_cluster_deploy(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
