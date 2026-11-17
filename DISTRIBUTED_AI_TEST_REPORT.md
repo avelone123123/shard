@@ -38,3 +38,13 @@ OK
 | `test_real_multiprocess_pytorch_pipeline_parallelism` | Built a real 4-layer `Qwen2ForCausalLM` sharded across 2 `.safetensors` files (`model-00001-of-00002.safetensors`, `model-00002-of-00002.safetensors`). Spawned **2 separate OS Python worker subprocesses** (`PipelineWorkerServer`), loaded Stage 0 (`embed_tokens` + layers 0..1) in Worker 1 and Stage 1 (layers 2..3 + `norm` + `lm_head`) in Worker 2 with 0 weights on coordinator. Verified distributed forward logits matched single-process `Qwen2ForCausalLM` reference within `atol=1e-4`, ran autoregressive `generate_stream()` across TCP `SHPT` frames, and verified non-zero `transferred_bytes` | **PASSED** |
 | `test_real_multiprocess_gguf_rpc_cluster_and_api` | Spawned **2 separate `ggml-rpc-server.exe` worker processes** + `llama-server.exe --rpc` running real `gpt2-medium.i1-Q6_K.gguf` (`323 MB`). Verified `CLUSTER.deploy_cluster(verify=True)` -> `READY`, `/v1/chat/completions`, `/v1/messages`, and real scheduler telemetry (`completed_requests >= 2`, `total_tokens_generated > 0`) | **PASSED** |
 | `test_concurrent_multi_user_streaming_and_api_keys` | Spawned 2 `ggml-rpc-server.exe` workers with `--parallel 2` and `--cont-batching`; verified unauthenticated `/v1/chat/completions` returns HTTP `401`, and executed 4 concurrent SSE streaming requests with valid API key (`200 OK`, `data: [DONE]`) | **PASSED** |
+| `test_worker_disconnect_and_rebalance_recovery` | Deployed GGUF RPC cluster across **3 `ggml-rpc-server.exe` worker processes** (`3` stages); disconnected Worker 3 -> observed `CLUSTER.state == "DEGRADED"`, re-deployed across remaining **2 workers** -> `READY` (`2` stages) | **PASSED** |
+| `test_reverse_encrypted_tunnel_worker_proxy` | Connected `ClientTunnelAgent` to `HostTunnelAgent` over ChaCha20-Poly1305 encrypted TCP tunnel (Ed25519 identity); opened `HostTunnelAgent.open_worker_proxy()` to worker's loopback `PipelineWorkerServer` and exchanged authenticated `PING`/`PONG` frames over the encrypted reverse tunnel | **PASSED** |
+| `test_cluster_pytorch_pipeline_via_unified_api` | Full `/v1/ping` and `/v1/chat/completions` end-to-end execution backed by `CLUSTER` running `torch_pipeline_parallel` across two worker servers | **PASSED** |
+
+---
+
+## 3. Empirical `llama.cpp` RPC Verification Snapshot
+
+Prior to implementation, a direct probe of `llama-server.exe --rpc 127.0.0.1:P1,127.0.0.1:P2 -sm layer -ts 1,1` (`b12110`) with `gpt2-medium.i1-Q6_K.gguf` confirmed real memory allocation across both RPC workers:
+- `RPC0 (127.0.0.1:50374)`: `186 MiB` (`128` model + `26` KV + `32` compute)
