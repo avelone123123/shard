@@ -106,3 +106,21 @@ class TestDistributedUnit(unittest.TestCase):
             "tie_word_embeddings": False,
             "supported_for_torch_pipeline": True,
             "has_safetensors": True,
+            "weight_map": {},
+        }
+        nodes = [
+            {"node_id": "coordinator", "name": "WeakHost", "role": "coordinator", "hw": {"vram_total_mb": 4096, "vram_free_mb": 3500, "ram_total_mb": 16384, "ram_avail_mb": 8192, "cpu_cores": 4}, "quota": {"max_vram_mb": 0, "max_ram_mb": 0}, "backends": {"cuda": False, "llama_offload_devices": []}, "rtt_ms": 0.1, "bandwidth_mbps": 10000},
+            {"node_id": "wrk-1", "name": "WorkerA", "role": "worker", "hw": {"vram_total_mb": 8192, "vram_free_mb": 7800, "ram_total_mb": 32768, "ram_avail_mb": 24000, "cpu_cores": 8}, "quota": {"vram_pct": 85}, "backends": {"cuda": True}, "rpc_endpoint": "10.0.0.2:50052", "rtt_ms": 1.2, "bandwidth_mbps": 1000},
+            {"node_id": "wrk-2", "name": "WorkerB", "role": "worker", "hw": {"vram_total_mb": 8192, "vram_free_mb": 7800, "ram_total_mb": 32768, "ram_avail_mb": 24000, "cpu_cores": 8}, "quota": {"vram_pct": 85}, "backends": {"cuda": True}, "rpc_endpoint": "10.0.0.3:50052", "rtt_ms": 1.5, "bandwidth_mbps": 1000},
+        ]
+        plan = planner.plan_cluster_partition(spec_qwen, nodes, strategy="gguf_rpc_layer_split", ctx_tokens=4096, parallel_slots=2)
+        self.assertTrue(plan["feasible"], plan.get("reason"))
+        self.assertEqual(plan["total_layers"], 48)
+        self.assertEqual(sum(s["layer_count"] for s in plan["stages"]), 48)
+        self.assertEqual(len(plan["tensor_split_arg"].split(",")), 2)
+        self.assertEqual(plan["rpc_arg"], "10.0.0.2:50052,10.0.0.3:50052")
+        insufficient = planner.plan_cluster_partition(spec_qwen, nodes[:2], strategy="gguf_rpc_layer_split", ctx_tokens=4096, parallel_slots=2)
+        self.assertFalse(insufficient["feasible"])
+    def test_worker_consent_auth_and_api_lifecycle(self):
+        client = TestClient(server.app, client=("127.0.0.1", 50000))
+        r_create = client.post("/api/cluster/create", json={"model_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct", "name": "TestCluster", "auto_deploy": False, "fetch_model_meta": False})
