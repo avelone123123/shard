@@ -58,8 +58,8 @@ def default_network_config():
     relay_list = relay_env if relay_env else list(DEFAULT_PUBLIC_RELAY_URLS)
     return {
         "version": 1,
-        "discovery_urls": [],
-        "relay_urls": [],
+        "discovery_urls": disc_list,
+        "relay_urls": relay_list,
         "discovery_auth_tokens": {},
         "relay_auth_token": "",
         "stun_servers": [f"{h}:{p}" for h, p in DEFAULT_STUN_SERVERS],
