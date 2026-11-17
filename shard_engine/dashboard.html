@@ -2015,7 +2015,7 @@ function netSubTab(tab, btn) {
     else if (tab === 'invites') netLoadInvites();
     else if (tab === 'host') { netLoadHostConfig(); netLoadPeers(); }
     else if (tab === 'lan') lanRefresh();
-    else if (tab === 'settings') { netLoadConfig(); }
+    else if (tab === 'settings') { netLoadConfig(); netLoadRadmin(); }
 }
 async function netRefresh(force) {
     try {
