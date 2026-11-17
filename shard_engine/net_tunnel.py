@@ -2096,6 +2096,12 @@ class ClientTunnelAgent:
                     pass
                 try:
                     if ch.is_established:
+                        await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+                except Exception:
+                    pass
+        t = asyncio.create_task(_pump())
+        self._wrk_tasks.add(t)
+        t.add_done_callback(self._wrk_tasks.discard)
     async def _alloc_stream(self) -> tuple[int, asyncio.Queue]:
         async with self._stream_lock:
             sid = self._next_stream_id
