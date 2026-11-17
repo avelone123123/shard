@@ -124,3 +124,21 @@ class _LocalStageRunner:
     def load(self):
         base_dir, weight_files = pw._download_or_locate_files(self.model_path_or_repo, self.stage_info.get("shard_files") or [])
         cfg = AutoConfig.from_pretrained(base_dir) if os.path.isfile(os.path.join(base_dir, "config.json")) else self.config
+        mtype = str(getattr(cfg, "model_type", "") or "").lower()
+        st = pw.PipelineStageModule(
+            cfg,
+            mtype,
+            int(self.stage_info["layer_start"]),
+            int(self.stage_info["layer_end"]),
+            bool(self.stage_info["has_embed"]),
+            bool(self.stage_info["has_lm_head"]),
+            self.dtype,
+            self.device,
+        )
+        n_loaded = st.load_stage_weights(weight_files)
+        param_bytes = sum(p.numel() * p.element_size() for p in st.parameters())
+        with self.lock:
+            self.stage = st
+        return {
+            "status": "ready",
+            "layer_start": self.stage_info["layer_start"],
