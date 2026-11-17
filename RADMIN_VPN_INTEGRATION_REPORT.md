@@ -82,3 +82,15 @@ To provide a zero-configuration user experience despite this vendor limitation, 
    - **Network Password**: `ShardNet_<sha256(seed + cluster_id)[:10]>`
 2. When a worker joins the cluster:
    - SHARD queries `/api/net/radmin/cluster-network/{cluster_id}`.
+   - The dashboard presents one-click buttons to copy the network name and password to the clipboard.
+   - SHARD provides a direct trigger (`POST /api/net/radmin/gui` or `shard network radmin gui`) that launches `RvRvpnGui.exe` with zero navigation required.
+   - Once joined, SHARD automatically detects the new `26.x.x.x` peer routes without requiring manual IP address entry.
+
+### 5. Self-Healing & Service Repair
+If the Radmin service stalls or fails to respond after a Windows sleep cycle or system update:
+- SHARD exposes a self-healing API: `POST /api/net/radmin/repair` (CLI: `shard network radmin repair`).
+- Execution performs a clean restart of the driver subsystem:
+  ```powershell
+  Restart-Service RvControlSvc -Force -ErrorAction SilentlyContinue; Start-Service RvControlSvc -ErrorAction SilentlyContinue
+  ```
+- The virtual adapter is polled until the `26.0.0.0/8` IP rebinds.
