@@ -2295,6 +2295,22 @@ async function netTogglePublishServer(isPublished) {
     const endpoint = isPublished ? '/api/catalog/unpublish' : '/api/catalog/publish';
     try {
         const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: isPublished ? '{}' : JSON.stringify({visibility: 'public', access_mode: 'open'})
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast('Успешно', isPublished ? 'Сервер снят с публикации' : 'Сервер опубликован в каталоге');
+            netLoadMyServers();
+            netRefresh(true);
+        } else {
+            showToast('Ошибка', data.message || 'Сбой публикации');
+        }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
     }
 }
 async function netConnectTargetServer(nodeId) {
