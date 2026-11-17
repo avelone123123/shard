@@ -70,3 +70,21 @@ class RequestScheduler:
                 if len(self._waiting) >= self.max_queue_size:
                     self._failed_requests += 1
                     self._recent_errors.append({"ts": time.time(), "request_id": req_id, "error": "Request queue full"})
+                    raise QueueFullError("Cluster inference queue is full")
+                self._waiting.append(req_id)
+                try:
+                    while (len(self._active) >= self.max_concurrent or self._waiting[0] != req_id) and not cancel_ev.is_set():
+                        rem = deadline - time.monotonic()
+                        if rem <= 0:
+                            raise TimeoutError("Timed out waiting in inference queue")
+                        self._cond.wait(timeout=min(0.5, rem))
+                    if cancel_ev.is_set():
+                        raise RuntimeError("Request cancelled while queued")
+                except Exception as e:
+                    if req_id in self._waiting:
+                        self._waiting.remove(req_id)
+                    self._failed_requests += 1
+                    self._recent_errors.append({"ts": time.time(), "request_id": req_id, "error": str(e)[:160]})
+                    self._cond.notify_all()
+                    raise
+                if req_id in self._waiting:
