@@ -358,3 +358,21 @@ def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, 
             "total_usable_cluster_mb": total_usable_mb,
             "stages": stages,
         }
+    hidden = int(model_spec.get("hidden_size") or 2048)
+    act_bytes = hidden * 2
+    hops = max(0, len(stages) - 1)
+    comm_ms = 0.0
+    for s in stages[1:]:
+        link_bps = max(1_000_000.0, float(s["bandwidth_mbps"]) * 1_000_000.0 / 8.0)
+        comm_ms += float(s["rtt_ms"]) + (act_bytes / link_bps) * 1000.0
+    if len(stages) > 1:
+        comm_ms += float(stages[-1]["rtt_ms"])
+    coord_budget = next((b for b in budgets if b["role"] == "coordinator"), None)
+    prefer_single = bool(coord_budget and coord_budget["device_type"] == "cuda" and coord_budget["usable_vram_mb"] >= total_required_mb and comm_ms > 8.0)
+    comm_warning = None
+    if prefer_single:
+        comm_warning = f"Model fits in coordinator VRAM ({coord_budget['usable_vram_mb']} MB >= {total_required_mb} MB) and inter-worker transfer adds ~{round(comm_ms, 1)} ms/tok; single-GPU execution will be faster."
+    elif comm_ms > 40.0:
+        comm_warning = f"High network latency across {hops} stage boundary(ies) (~{round(comm_ms, 1)} ms/tok overhead)."
+    rpc_stages = [s for s in stages if s["role"] == "worker" and s["endpoint"]]
+    local_offload_stages = [s for s in stages if s["role"] == "coordinator"]
