@@ -34,3 +34,21 @@ class _RemoteStageClient:
             if self.sock is not None:
                 return
             host, port = _parse_endpoint(self.stage_info["endpoint"])
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(self.timeout)
+            s.connect((host, port))
+            proto.client_auth_handshake(s, self.auth_token, self.cluster_id)
+            self.sock = s
+    def close(self):
+        with self.lock:
+            if self.sock is not None:
+                try:
+                    self.sock.close()
+                except Exception:
+                    pass
+                self.sock = None
+    def load_stage(self, model_path_or_repo, config_dict=None, dtype="float32"):
+        self.connect()
+        payload = {
+            "model_path_or_repo": model_path_or_repo,
+            "layer_start": int(self.stage_info["layer_start"]),
