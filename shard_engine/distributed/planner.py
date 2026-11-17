@@ -340,3 +340,21 @@ def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, 
             "buffer_mb": round(buf_mb, 2),
             "total_alloc_mb": tot_alloc,
             "capacity_mb": round(b["alloc_cap_mb"], 2),
+            "device_type": b["device_type"],
+            "rtt_ms": b["rtt_ms"],
+            "bandwidth_mbps": b["bandwidth_mbps"],
+            "tensor_split_weight": max(1, int(round(tot_alloc))),
+            "shard_files": shard_files,
+        })
+    over_budget = [s for s in stages if s["total_alloc_mb"] > s["capacity_mb"]]
+    if over_budget:
+        s0 = over_budget[0]
+        return {
+            "feasible": False,
+            "reason": f"Stage {s0['stage_index']} on {s0['node_name']} needs {s0['total_alloc_mb']} MB, exceeding usable budget {s0['capacity_mb']} MB.",
+            "strategy": eff_strategy,
+            "total_layers": total_layers,
+            "total_required_mb": total_required_mb,
+            "total_usable_cluster_mb": total_usable_mb,
+            "stages": stages,
+        }
