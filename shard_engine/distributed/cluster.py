@@ -430,3 +430,21 @@ class ClusterManager:
         if not gguf_path:
             repo_id = _gguf.find_gguf_repo(model_id)
             if not repo_id:
+                raise RuntimeError(f"No GGUF repository found for {model_id}")
+            files = _gguf.list_gguf_files(repo_id)
+            sel = _gguf.select_gguf_file(files, wanted_quant=spec.get("quant"))
+            if not sel:
+                raise RuntimeError(f"No matching GGUF file in {repo_id}")
+            gguf_path = _gguf.download_gguf(repo_id, sel)
+        srv_exe = _gguf.ensure_llama_server()
+        gb = _gguf.LlamaBackend()
+        threads = _gguf.default_threads()
+        if self.coordinator_quota.get("max_threads"):
+            threads = max(1, int(self.coordinator_quota["max_threads"]))
+        gb.start(
+            gguf_path=gguf_path,
+            ctx_tokens=self.ctx_tokens,
+            ngl=int(plan.get("ngl") or 0),
+            threads=threads,
+            model_id=model_id,
+            server_path=srv_exe,
