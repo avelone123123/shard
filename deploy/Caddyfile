@@ -13,3 +13,18 @@ Referrer-Policy "strict-origin-when-cross-origin"
 reverse_proxy shard-discovery:8080 {
 health_uri /v1/discovery/health
 health_interval 10s
+health_timeout 3s
+}
+}
+{$RELAY_DOMAIN:relay.shard.network} {
+encode gzip zstd
+header {
+Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+X-Content-Type-Options "nosniff"
+X-Frame-Options "DENY"
+}
+reverse_proxy shard-relay:8081 {
+header_up Host {host}
+header_up X-Real-IP {remote_host}
+header_up X-Forwarded-For {remote_host}
+header_up X-Forwarded-Proto {scheme}
