@@ -142,3 +142,21 @@ class TestDistributedUnit(unittest.TestCase):
             "consented": True,
             "auth_code": code,
             "hw": {"vram_total_mb": 8192, "vram_free_mb": 7500, "ram_total_mb": 16384, "ram_avail_mb": 12000, "cpu_cores": 8},
+            "quota": {"vram_pct": 70, "max_threads": 4},
+            "rpc_port": 50052,
+        })
+        self.assertEqual(r_ok.status_code, 200)
+        wtok = r_ok.json()["worker_token"]
+        self.assertTrue(wtok.startswith("sk-shard-wrk-"))
+        r_hb_bad = client.post("/api/cluster/workers/heartbeat", json={"worker_id": "w1", "worker_token": "forged"})
+        self.assertEqual(r_hb_bad.status_code, 401)
+        r_hb_ok = client.post("/api/cluster/workers/heartbeat", json={"worker_id": "w1", "worker_token": wtok})
+        self.assertEqual(r_hb_ok.status_code, 200)
+        r_leave = client.post("/api/cluster/workers/leave", json={"worker_id": "w1", "worker_token": wtok})
+        self.assertEqual(r_leave.status_code, 200)
+        r_st = client.get("/api/cluster/status")
+        self.assertEqual(len(r_st.json()["workers"]), 0)
+    def test_scheduler_queue_rate_limit_and_cancel(self):
+        from shard_engine.distributed.scheduler import QueueFullError, RateLimitError, RequestScheduler
+        sched = RequestScheduler(max_concurrent=1, max_queue_size=1, default_rpm=2)
+        rid1, _ = sched.acquire_slot(client_key="u1")
