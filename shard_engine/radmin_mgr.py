@@ -62,3 +62,19 @@ def get_radmin_status() -> dict:
         "$svc = Get-Service -Name 'RvControlSvc' -ErrorAction SilentlyContinue; "
         "if ($svc) { $res.svc_installed = $true; $res.svc_state = $svc.Status.ToString() }; "
         "if (Get-Process -Name 'RvControlSvc' -ErrorAction SilentlyContinue) { $res.proc_svc = $true }; "
+        "if (Get-Process -Name 'RvRvpnGui' -ErrorAction SilentlyContinue) { $res.proc_gui = $true }; "
+        "$ad = Get-NetAdapter | Where-Object { $_.InterfaceDescription -like '*Famatech*' -or $_.Name -eq 'Radmin VPN' } | Select-Object -First 1; "
+        "if ($ad) { $res.adapter = $true; $res.adapter_name = $ad.Name; $res.adapter_status = $ad.Status.ToString(); "
+        "$ips = Get-NetIPAddress -InterfaceIndex $ad.InterfaceIndex -ErrorAction SilentlyContinue; "
+        "foreach ($ip in $ips) { if ($ip.AddressFamily -eq 'IPv4' -and $ip.IPAddress -like '26.*') { $res.ipv4 = $ip.IPAddress } "
+        "elseif ($ip.AddressFamily -eq 'IPv6' -and -not $ip.IPAddress.StartsWith('fe80')) { $res.ipv6 = $ip.IPAddress } } }; "
+        "$exe = 'C:\\Program Files (x86)\\Radmin VPN\\RvControlSvc.exe'; "
+        "if (Test-Path $exe) { $res.installed = $true; $res.version = (Get-Item $exe).VersionInfo.ProductVersion }; "
+        "$res | ConvertTo-Json -Compress"
+    )
+    try:
+        raw = subprocess.check_output(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd], timeout=10, text=True, errors="ignore").strip()
+        data = json.loads(raw)
+        out["installed"] = bool(data.get("installed") or out["installed"])
+        out["version"] = data.get("version") or out["version"] or OFFICIAL_RADMIN_VERSION
+        out["service_installed"] = bool(data.get("svc_installed"))
