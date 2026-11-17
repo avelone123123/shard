@@ -22,3 +22,15 @@ This report documents the deep integration of Radmin VPN into SHARD, covering au
        v                                                                v
 [ State Inspection ]                                           [ Installation / Repair ]
 - Check Registry & Filesystem                                  - Official Executable Download
+- Query RvControlSvc Service Status                            - Authenticode Signature Verification
+- Query Radmin VPN Virtual Adapter                             - Elevated UAC Execution
+- Read 26.x.x.x IPv4 Allocation                                - Silent Inno Setup Installation
+                                                                - Service / Adapter Initialization
+```
+
+---
+
+## Detailed Component Breakdown
+
+### 1. Vendor Binary & Authenticode Signature Verification
+- **Official Download URL**: `https://download.radmin-vpn.com/download/files/Radmin_VPN_2.1.4952.2.exe`
