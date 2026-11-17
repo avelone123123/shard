@@ -627,6 +627,9 @@ class LlamaBackend:
         self.started_at = 0.0
         self.ctx_tokens = 4096
         self.ngl = 0
+        self.parallel_slots = 1
+        self.rpc_servers = None
+        self.tensor_split = None
     def is_running(self):
         return self.proc is not None and self.proc.poll() is None
     def start(self, gguf_path, ctx_tokens, ngl, threads, model_id, server_path=None,
