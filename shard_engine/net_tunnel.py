@@ -1273,6 +1273,7 @@ class HostTunnelAgent:
             await ch.send_close("host_shutdown")
             await ch.close()
         self._active_channels.clear()
+        await self.close_worker_proxies()
         for t in list(self._relay_tasks):
             t.cancel()
         for t in list(self._peer_tasks):
