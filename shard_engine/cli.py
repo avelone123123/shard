@@ -1791,6 +1791,24 @@ def cmd_cluster(args):
             "strategy": getattr(args, "strategy", "auto"),
             "ctx_tokens": getattr(args, "ctx", 4096),
             "parallel_slots": getattr(args, "slots", 4),
+            "open": bool(getattr(args, "open", False)),
+            "coordinator_contributes": not bool(getattr(args, "no_contribute", False)),
+        }
+        r = requests.post(f"{base}/api/cluster/create", json=payload, headers=hdrs, timeout=30)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        if r.status_code != 200:
+            sys.exit(1)
+        return
+    if action == "deploy":
+        r = requests.post(f"{base}/api/cluster/deploy", json={}, headers=hdrs, timeout=120)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        if r.status_code != 200:
+            sys.exit(1)
+        return
+    if action == "join":
+        if not getattr(args, "consent", False):
+            print("[ERROR] Explicit --consent is required before donating compute resources.")
+            sys.exit(1)
 def _build_parser():
     parser = argparse.ArgumentParser(prog="shard", description="SHARD CLI Engine", add_help=False)
     parser.add_argument("-V", "--version", action="store_true")
