@@ -91,7 +91,7 @@ def get_hardware_profile(force_refresh=False):
         _gpu_cache["ts"] = now
         _gpu_cache["probed"] = True
         try:
-            cmd = ["nvidia-smi", "--query-gpu=name,memory.total,memory.used", "--format=csv,noheader,nounits"]
+            cmd = ["nvidia-smi", "--query-gpu=index,name,memory.total,memory.used,utilization.gpu", "--format=csv,noheader,nounits"]
             kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
             res = proc_io.run_subprocess_safe(cmd, stdin=subprocess.DEVNULL, timeout=3, **kw)
             if res.returncode == 0 and res.stdout.strip():
