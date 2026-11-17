@@ -2078,6 +2078,24 @@ class ClientTunnelAgent:
             await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
             return
         self._wrk_writers[stream_id] = writer
+        async def _pump():
+            try:
+                while ch.is_established and not self._stop:
+                    chunk = await reader.read(MAX_CHUNK_BYTES)
+                    if not chunk:
+                        break
+                    await ch.send_frame(net_identity.MSG_WRK_DATA, payload=chunk, stream_id=stream_id, flags=0)
+            except Exception:
+                pass
+            finally:
+                self._wrk_writers.pop(stream_id, None)
+                try:
+                    writer.close()
+                    await asyncio.wait_for(writer.wait_closed(), timeout=0.5)
+                except Exception:
+                    pass
+                try:
+                    if ch.is_established:
     async def _alloc_stream(self) -> tuple[int, asyncio.Queue]:
         async with self._stream_lock:
             sid = self._next_stream_id
