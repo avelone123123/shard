@@ -2151,6 +2151,22 @@ async function openClusterJoinModal(nodeId, serverData) {
     bd.style.display = 'flex';
     try {
         const res = await fetch('/api/catalog/prejoin/' + encodeURIComponent(nodeId), {headers: getAuthHeaders()});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        document.getElementById('joinModalTitle').innerText = data.server_name || 'Сервер SHARD';
+        document.getElementById('joinModalSubtitle').innerText = 'Модель: ' + (data.target_model || '—') + ' | ' + (data.cluster_state || 'READY');
+        const stBadge = document.getElementById('joinModalStateBadge');
+        if (stBadge) {
+            stBadge.innerText = data.cluster_state || 'READY';
+            stBadge.className = 'compat-pill ' + (data.cluster_state === 'READY' ? 'compat-ideal' : 'compat-good');
+        }
+        const hw = data.local_hardware || {};
+        document.getElementById('joinHwGpu').innerText = hw.gpu_model || 'CPU';
+        document.getElementById('joinHwRam').innerText = Math.round((hw.ram_total_mb || 0) / 1024) + ' GB';
+        document.getElementById('joinEstShard').innerText = '~' + (data.estimated_partition_mb || 0) + ' MB';
+        document.getElementById('joinBackend').innerText = (hw.backends && hw.backends.torch_pipeline) ? 'PyTorch Pipeline' : ((hw.backends && hw.backends.gguf_rpc) ? 'GGUF RPC' : 'Fallback');
+        const rec = data.recommendations || {};
+        if (rec.vram_pct !== undefined) {
     }
 }
 async function netConnectTargetServer(nodeId) {
