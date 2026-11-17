@@ -484,3 +484,21 @@ class ClusterManager:
             if self._pipeline_coord is not None and self._pipeline_coord.is_running():
                 return True
             if self._gguf_backend is not None and self._gguf_backend.is_running():
+                return True
+            return False
+    def generate_stream(self, messages, max_tokens=512, temperature=0.7, cancel_check=None):
+        with self._lock:
+            pc = self._pipeline_coord
+            gb = self._gguf_backend
+        if pc is not None and pc.is_running():
+            yield from pc.generate_stream(messages, max_tokens=max_tokens, temperature=temperature, cancel_check=cancel_check)
+            return
+        if gb is not None and gb.is_running():
+            from ..engine import _StreamSanitizer
+            t0 = time.perf_counter()
+            sanitizer = _StreamSanitizer()
+            token_count = 0
+            ttft_ms = None
+            usage = None
+            for kind, payload in gb.chat_stream(messages, max_tokens=int(max_tokens), temperature=float(temperature), cancel_check=cancel_check):
+                if kind == "delta" and payload:
