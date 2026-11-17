@@ -2095,7 +2095,7 @@ async function netLoadServers() {
         const data = await res.json();
         const srvs = data.servers || [];
         if (srvs.length === 0) {
-            grid.innerHTML = '<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);">Серверы не найдены. Опубликуйте свой сервер или подключитесь по инвайту.</div>';
+            grid.innerHTML = '<div style="grid-column:1/-1;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);">Серверы не найдены в каталоге. Опубликуйте свой сервер или создайте кластер.</div>';
             return;
         }
         grid.innerHTML = srvs.map(s => {
