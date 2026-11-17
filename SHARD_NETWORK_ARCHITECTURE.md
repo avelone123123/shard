@@ -82,3 +82,15 @@ When a user executes `shard start`, the autonomous initialization sequence runs:
 3. **Presence Registration**:
    - If public servers or clusters are hosted, packages signed catalog listing and registers with the discovery hub.
    - Begins periodic heartbeat thread with jittered interval (30s) to keep presence active.
+4. **Local-First & Offline Resilience**:
+   - If the global discovery service is unreachable, SHARD continues to operate in local-first mode without crashing or hanging.
+   - Local LAN peer discovery continues via UDP broadcast and local interfaces.
+
+## 5. Security & Threat Mitigation
+
+- **No Plaintext Network Traffic**: All inter-node communication utilizes authenticated encryption (TLS 1.3 or ChaCha20-Poly1305 AEAD with Poly1305 MAC).
+- **Owner-Only API Guard**: Local management endpoints (`/api/catalog/*`, `/api/cluster/*`, `/api/keys/*`) require loopback origin or explicit bearer token (`X-Shard-Owner-Token`).
+- **Strict Anti-Spoofing & Replay Mitigation**:
+  - Envelopes carry millisecond timestamps and strictly increasing sequence numbers.
+  - Discovery servers reject messages with clock skew exceeding 60 seconds.
+- **Resource Donation Consent Verification**:
