@@ -4434,6 +4434,24 @@ async function clsDeploy() {
 }
 async function clsStop() {
     try {
+        await fetch('/api/cluster/stop', {method: 'POST', headers: getAuthHeaders()});
+        showToast('Кластер остановлен', 'Все распределённые процессы освобождены');
+        clsRefresh();
+    } catch(e) {}
+}
+async function clsJoinWorker() {
+    const consented = Boolean((document.getElementById('clsJoinConsent') || {}).checked);
+    if (!consented) { showToast('Требуется согласие', 'Отметьте явное разрешение на выделение ресурсов'); return; }
+    const url = ((document.getElementById('clsJoinUrl') || {}).value || '').trim();
+    const code = ((document.getElementById('clsJoinCode') || {}).value || '').trim();
+    const vramPct = parseFloat((document.getElementById('clsJoinVramPct') || {}).value || '70');
+    const ramGb = parseFloat((document.getElementById('clsJoinRamGb') || {}).value || '8');
+    const threads = parseInt((document.getElementById('clsJoinThreads') || {}).value || '4', 10);
+    const viaTunnel = Boolean((document.getElementById('clsJoinTunnel') || {}).checked);
+    if (!url) { showToast('Укажите URL', 'Введите URL координатора'); return; }
+    try {
+        const res = await fetch('/api/cluster/worker/join', {
+            method: 'POST',
 async function srvCreateUnified() {
     const name = ((document.getElementById('srvCreateName') || {}).value || '').trim();
     const mode = ((document.getElementById('srvCreateMode') || {}).value || 'lan_and_global');
