@@ -78,3 +78,13 @@ Inspection of the existing codebase (`shard_engine/`), runtime binaries (`llama-
 - Discover or inspect a server (`preview`), review model requirements and owner identity, and explicitly opt in (`Join as Worker` / `consent=True`).
 - Enforce local resource limits (`vram_pct`, `max_vram_mb`, `ram_pct`, `max_ram_mb`, `max_threads`) before admitting workload.
 - Run authenticated local execution workers (`ggml-rpc-server` for GGUF RPC and/or `PipelineWorkerServer` for PyTorch pipeline stages) bound safely to loopback (when tunneled) or verified mesh/LAN interface.
+- Can safely leave or revoke consent at any time (`leave` / `opt_out`), immediately stopping worker processes and freeing VRAM/RAM.
+
+### 3.3 Client / AI Consumer
+- Connects via API key, LAN token, session token, or encrypted tunnel.
+- Interacts strictly with `/v1/chat/completions`, `/v1/messages`, `/v1/models`, and isolated private chats (`/api/server/chats`) without knowing which worker executes which layers.
+
+---
+
+## 4. Genuine Distributed Model Execution Strategies
+
