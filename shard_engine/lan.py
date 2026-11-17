@@ -577,7 +577,7 @@ def find_rpc_server():
         if which:
             return which
     return None
-def worker_cmd(port, exe=None, host="0.0.0.0"):
+def worker_cmd(port, exe=None, host="0.0.0.0", threads=None, cache=False):
     exe = exe or find_rpc_server()
     if not exe:
         raise RuntimeError(
