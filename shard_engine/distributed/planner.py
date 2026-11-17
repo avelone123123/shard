@@ -52,3 +52,21 @@ def _read_safetensors_index(local_dir):
     if os.path.isfile(single):
         try:
             from safetensors import safe_open
+            with safe_open(single, framework="pt", device="cpu") as f:
+                return {k: "model.safetensors" for k in f.keys()}
+        except Exception:
+            pass
+    return None
+def _layer_prefix_for_type(model_type):
+    if model_type == "gpt2":
+        return "transformer.h."
+    return "model.layers."
+def _shard_files_for_stage(weight_map, model_type, layer_start, layer_end, has_embed, has_lm_head):
+    if not weight_map:
+        return []
+    prefix = _layer_prefix_for_type(model_type)
+    files = set()
+    for tensor_name, shard_file in weight_map.items():
+        if has_embed and (tensor_name.startswith("model.embed_tokens") or tensor_name.startswith("transformer.wte") or tensor_name.startswith("transformer.wpe")):
+            files.add(shard_file)
+            continue
