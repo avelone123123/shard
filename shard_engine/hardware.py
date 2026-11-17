@@ -137,6 +137,12 @@ def get_hardware_profile(force_refresh=False):
     target_disk = _existing_ancestor(os.environ.get("HF_HOME") or paths.default_models_dir())
     disk = shutil.disk_usage(target_disk)
     disk_free_gb = round(disk.free / (1024 ** 3), 1)
+    try:
+        cpu_util = round(float(psutil.cpu_percent(interval=None)), 1)
+    except Exception:
+        cpu_util = 0.0
+    backends = _probe_backends()
+    backends["cuda"] = bool(backends.get("cuda") or vram_total_mb > 0)
     return {
         "gpu_name": gpu_name,
         "vram_total_mb": vram_total_mb,
