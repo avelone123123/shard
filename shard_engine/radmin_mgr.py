@@ -206,3 +206,19 @@ def install_radmin(consent: bool = False, unattended: bool = False, installer_pa
             except Exception:
                 pass
             time.sleep(2.0)
+            post_st = get_radmin_status()
+        pref["installed_at"] = time.time()
+        pref["last_error"] = None
+        _save_radmin_pref(pref)
+        return {"status": "ok", "message": "Radmin VPN installed successfully", "status_info": post_st}
+    return {"status": "incomplete", "message": "Installation completed but Radmin files not detected", "status_info": post_st}
+def decline_radmin() -> dict:
+    pref = _load_radmin_pref()
+    pref["consent"] = False
+    pref["declined"] = True
+    _save_radmin_pref(pref)
+    return {"status": "ok", "declined": True}
+def repair_radmin() -> dict:
+    if not _IS_WIN:
+        return {"status": "unsupported_platform", "message": "Only available on Windows"}
+    ps_cmd = "Restart-Service RvControlSvc -Force -ErrorAction SilentlyContinue; Start-Service RvControlSvc -ErrorAction SilentlyContinue"
