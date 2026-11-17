@@ -178,3 +178,21 @@ class ClusterManager:
             self.plan = None
             self.model_spec = None
             self.last_error = None
+            self.workers.clear()
+        return {"status": "ok", "state": "IDLE"}
+    def _stop_execution_backends(self):
+        with self._lock:
+            pc = self._pipeline_coord
+            gb = self._gguf_backend
+            self._pipeline_coord = None
+            self._gguf_backend = None
+        if pc is not None:
+            try:
+                pc.stop()
+            except Exception:
+                pass
+        if gb is not None:
+            try:
+                gb.stop()
+            except Exception:
+                pass
