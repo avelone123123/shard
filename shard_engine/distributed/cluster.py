@@ -646,3 +646,21 @@ class ClusterManager:
                     pass
             if pipe_srv is not None:
                 pipe_srv.stop()
+            raise
+        wtok = data["worker_token"]
+        if pipe_srv is not None:
+            pipe_srv.auth_token = wtok
+        hb_stop = threading.Event()
+        with self._lock:
+            self.role = "worker"
+            self._local_worker = {
+                "active": True,
+                "coordinator_url": base,
+                "worker_id": data["worker_id"],
+                "worker_token": wtok,
+                "quota": q,
+                "rpc_proc": rpc_proc,
+                "rpc_port": rpc_port,
+                "pipeline_srv": pipe_srv,
+                "pipeline_port": pipe_port,
+                "hb_stop": hb_stop,
