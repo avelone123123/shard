@@ -196,3 +196,21 @@ def _node_budget(node):
     rtt_ms = node.get("rtt_ms")
     bw_mbps = node.get("bandwidth_mbps")
     b = _cap.effective_worker_budget(hw, quota=quota, link_rtt_ms=rtt_ms, bandwidth_mbps=bw_mbps)
+    backends = node.get("backends") or hw.get("backends") or {}
+    has_cuda = bool(backends.get("cuda") and b["usable_vram_mb"] > 0)
+    offload_devs = list(node.get("local_offload_devices") or backends.get("llama_offload_devices") or [])
+    return {
+        "node_id": node.get("node_id") or node.get("id") or "node",
+        "name": node.get("name") or node.get("node_id") or "node",
+        "role": node.get("role") or "worker",
+        "rpc_endpoint": node.get("rpc_endpoint"),
+        "pipeline_endpoint": node.get("pipeline_endpoint"),
+        "rtt_ms": float(rtt_ms) if rtt_ms is not None else (0.2 if node.get("role") == "coordinator" else 2.0),
+        "bandwidth_mbps": float(bw_mbps) if bw_mbps is not None else (10000.0 if node.get("role") == "coordinator" else 1000.0),
+        "usable_vram_mb": b["usable_vram_mb"],
+        "usable_ram_mb": b["usable_ram_mb"],
+        "usable_threads": b["usable_threads"],
+        "device_type": "cuda" if has_cuda else "cpu",
+        "speed_score": b["speed_score"],
+        "backends": backends,
+        "local_offload_devices": offload_devs,
