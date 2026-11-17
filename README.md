@@ -478,7 +478,7 @@ SHARD supports collaborative model-parallel execution across independent machine
    shard cluster status
    ```
 
-2. **Worker Node (Explicit Consent & Quotas):**
+2. **Discover Global Servers & 1-Click Join:**
    ```bash
    shard start --daemon
    shard cluster join http://<COORDINATOR_IP>:8000 <PAIRING_CODE> --consent --vram-pct 70 --max-ram-gb 8 --max-threads 4
