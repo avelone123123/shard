@@ -214,3 +214,21 @@ class PipelineCoordinator:
         threads = [threading.Thread(target=_load_idx, args=(i, r), daemon=True) for i, r in enumerate(runners)]
         for t in threads:
             t.start()
+        for t in threads:
+            t.join(timeout=300.0)
+        if errors:
+            for r in runners:
+                r.close()
+            raise RuntimeError("; ".join(errors))
+        with self._lock:
+            self.runners = runners
+            self.stage_reports = reports
+        return {"status": "ready", "stages": reports}
+    def stop(self):
+        with self._lock:
+            runners = list(self.runners)
+            self.runners = []
+            self.stage_reports = []
+        for r in runners:
+            try:
+                r.close()
