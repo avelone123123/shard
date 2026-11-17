@@ -2185,6 +2185,22 @@ async function openClusterJoinModal(nodeId, serverData) {
         document.getElementById('joinWorkerCompatBadge').innerText = 'Данные о сервере получены по P2P';
     }
 }
+function closeClusterJoinModal() {
+    const bd = document.getElementById('clusterJoinModalBackdrop');
+    if (bd) bd.style.display = 'none';
+    currentJoinNodeId = null;
+    currentJoinServerData = null;
+}
+async function submitJoinAsClient() {
+    if (!currentJoinNodeId) return;
+    const nid = currentJoinNodeId;
+    showToast('Подключение...', 'Установка сессии клиента к ' + nid.substring(0, 16) + '...');
+    try {
+        const res = await fetch('/api/catalog/join', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+    }
+}
 async function netConnectTargetServer(nodeId) {
     showToast('Подключение...', 'Инициализация туннеля к ' + nodeId.substring(0, 16) + '...');
     try {
