@@ -1507,6 +1507,11 @@ class NetworkManager:
                 listing["vram_gb"] = round(float(ov.get("aggregate_usable_vram_mb", 0)) / 1024.0, 2)
                 listing["ram_gb"] = round(float(ov.get("aggregate_usable_ram_mb", 0)) / 1024.0, 2)
                 listing["accepts_workers"] = bool(st.get("open", True))
+                if st.get("target_model"):
+                    listing["active_model"] = st.get("target_model")
+                    listing["model"] = st.get("target_model")
+        except Exception:
+            pass
         return listing
     def _publish_private_commitments(self, dc):
         with self._lock:
