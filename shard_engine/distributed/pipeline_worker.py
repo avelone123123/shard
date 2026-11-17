@@ -232,3 +232,21 @@ class PipelineStageModule(_NN_BASE):
                 causal_mask = mask.unsqueeze(0).unsqueeze(0)
             for layer in self.layers:
                 hidden_states = layer(hidden_states, past_key_values=cache, attention_mask=causal_mask, use_cache=use_cache)
+            if self.has_lm_head:
+                hidden_states = self.ln_f(hidden_states)
+                logits = self.lm_head(hidden_states[:, -1:, :]).to(torch.float32)
+                return logits if return_logits else torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+            return hidden_states
+        mask_kwargs = {
+            "config": self.stage_config,
+            "inputs_embeds": hidden_states,
+            "attention_mask": None,
+            "past_key_values": cache,
+            "position_ids": position_ids,
+        }
+        causal_mask_mapping = {"full_attention": create_causal_mask(**mask_kwargs)}
+        has_sliding = getattr(self.stage_config, "layer_types", None) and ("sliding_attention" in self.stage_config.layer_types)
+        if has_sliding:
+            causal_mask_mapping["sliding_attention"] = create_sliding_window_causal_mask(**mask_kwargs)
+        position_embeddings = self.rotary_emb(hidden_states, position_ids)
+        layer_types = getattr(self.stage_config, "layer_types", None)
