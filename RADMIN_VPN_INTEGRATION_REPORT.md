@@ -34,3 +34,15 @@ This report documents the deep integration of Radmin VPN into SHARD, covering au
 
 ### 1. Vendor Binary & Authenticode Signature Verification
 - **Official Download URL**: `https://download.radmin-vpn.com/download/files/Radmin_VPN_2.1.4952.2.exe`
+- **Installer Technology**: Inno Setup with silent arguments `/VERYSILENT /NORESTART /SP-`
+- **Authenticode Signature Verification**:
+  To protect users from supply chain attacks or MITM binary injection, SHARD verifies the digital signature of the downloaded installer before execution:
+  - Subject: `CN=Famatech Corp.`
+  - Certification Authority: Trusted Windows Root Certification Authorities
+  - PowerShell validation:
+    ```powershell
+    Get-AuthenticodeSignature -FilePath '<installer_path>' | Select-Object Status, SignerCertificate
+    ```
+  - Execution is immediately halted if `Status` does not equal `Valid` or if the Subject does not contain `Famatech Corp.`.
+
+### 2. UAC Elevated Silent Installation
