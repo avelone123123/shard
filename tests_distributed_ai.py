@@ -304,3 +304,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
             tel = r_tel.json()["telemetry"]
             self.assertGreaterEqual(tel["completed_requests"], 2)
             self.assertGreater(tel["total_tokens_generated"], 0)
+        finally:
+            CLUSTER.stop_cluster()
+            w1.terminate()
+            w2.terminate()
+            w1.wait(timeout=5)
+            w2.wait(timeout=5)
+    def test_reverse_encrypted_tunnel_worker_proxy(self):
+        async def _run():
+            id_host = net_identity.NodeIdentity(os.path.join(self.tmp_dir, "host_id.json"))
+            id_wrk = net_identity.NodeIdentity(os.path.join(self.tmp_dir, "wrk_id.json"))
+            wtok = "sk-shard-wrk-tunnel-secret"
+            pipe_srv = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, auth_token=wtok)
+            w_port = pipe_srv.start()
+            from fastapi import FastAPI
+            dummy_app = FastAPI()
+            @dummy_app.get("/v1/ping")
+            def _p():
+                return {"status": "ok"}
