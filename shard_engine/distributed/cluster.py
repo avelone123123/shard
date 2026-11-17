@@ -196,3 +196,21 @@ class ClusterManager:
                 gb.stop()
             except Exception:
                 pass
+    def _build_planner_nodes(self):
+        coord = self._coordinator_node_record()
+        nodes = [coord]
+        for w in self._alive_worker_records():
+            nodes.append({
+                "node_id": w["worker_id"],
+                "name": w["name"],
+                "role": "worker",
+                "hw": w.get("hw") or {},
+                "backends": w.get("backends") or {},
+                "quota": w.get("quota") or {},
+                "rpc_endpoint": w.get("rpc_endpoint"),
+                "pipeline_endpoint": w.get("pipeline_endpoint"),
+                "rtt_ms": w.get("rtt_ms"),
+                "bandwidth_mbps": w.get("bandwidth_mbps"),
+            })
+        return nodes
+    def recompute_plan(self):
