@@ -340,3 +340,21 @@ class ClusterManager:
             w["alive"] = True
             if isinstance(hw, dict) and hw:
                 w["hw"] = hw
+            if isinstance(quota, dict):
+                w["quota"] = quota
+            w["effective"] = _hardware.effective_usable_resources(w.get("hw") or {}, quota=w.get("quota") or {})
+            if isinstance(workload, dict):
+                w["workload"] = workload
+            if rtt_ms is not None:
+                w["rtt_ms"] = float(rtt_ms)
+            if bandwidth_mbps is not None:
+                w["bandwidth_mbps"] = float(bandwidth_mbps)
+            return True, {"cluster_state": self.state, "assigned_stage": w.get("assigned_stage")}
+    def leave_worker(self, worker_id, worker_token):
+        with self._lock:
+            w = self.workers.get(str(worker_id or ""))
+            if not w:
+                return False
+            expected = str(w.get("worker_token") or "")
+            if not expected or not secrets.compare_digest(str(worker_token or ""), expected):
+                return False
