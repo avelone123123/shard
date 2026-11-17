@@ -350,6 +350,8 @@ def api_client_bootstrap(req: Request):
         "active_model": CLUSTER.target_model if cls_ready else engine_instance.active_model_id,
         "engine_status": "ready" if cls_ready else engine_instance.status,
         "is_loaded": is_loaded,
+        "cluster_state": CLUSTER.state,
+        "cluster_role": CLUSTER.role,
         "update": upd,
     }
 @app.get("/api/system/hardware")
