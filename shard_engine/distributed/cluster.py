@@ -322,3 +322,21 @@ class ClusterManager:
                 "assigned_stage": None,
             }
             self.workers[wid] = rec
+            self._rebalance_needed.set()
+        self.recompute_plan()
+        return {"worker_id": wid, "worker_token": tok, "cluster_id": self.cluster_id, "plan": self.plan}
+    def heartbeat_worker(self, worker_id, worker_token, hw=None, quota=None, workload=None, rtt_ms=None, bandwidth_mbps=None):
+        now = time.time()
+        with self._lock:
+            w = self.workers.get(str(worker_id or ""))
+            if not w or w.get("revoked"):
+                return False, "Unknown or revoked worker"
+            expected = str(w.get("worker_token") or "")
+            if not expected or not secrets.compare_digest(str(worker_token or ""), expected):
+                return False, "Invalid worker token"
+            if w.get("token_expires_at") and now > w["token_expires_at"]:
+                return False, "Worker session expired"
+            w["last_heartbeat"] = now
+            w["alive"] = True
+            if isinstance(hw, dict) and hw:
+                w["hw"] = hw
