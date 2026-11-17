@@ -286,3 +286,21 @@ def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, 
     if is_torch:
         exec_nodes.sort(key=lambda b: (0 if b["role"] == "coordinator" else 1, -b["speed_score"], -b["alloc_cap_mb"]))
     weights = [max(1.0, (b["alloc_cap_mb"] - scratch_per_node) * (1.2 if b["device_type"] == "cuda" else 1.0)) for b in exec_nodes]
+    w_sum = sum(weights)
+    raw_counts = [total_layers * (w / w_sum) for w in weights]
+    layer_counts = [max(1, int(math.floor(c))) if total_layers >= len(exec_nodes) else 0 for c in raw_counts]
+    if sum(layer_counts) == 0:
+        layer_counts[0] = total_layers
+    while sum(layer_counts) > total_layers:
+        idx = max(range(len(layer_counts)), key=lambda i: layer_counts[i])
+        if layer_counts[idx] <= 1:
+            break
+        layer_counts[idx] -= 1
+    while sum(layer_counts) < total_layers:
+        remainders = [(raw_counts[i] - layer_counts[i], i) for i in range(len(layer_counts))]
+        _, best_i = max(remainders)
+        layer_counts[best_i] += 1
+    stages = []
+    cur_layer = 0
+    model_type = model_spec.get("model_type") or ""
+    weight_map = model_spec.get("weight_map")
