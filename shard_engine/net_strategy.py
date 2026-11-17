@@ -986,6 +986,9 @@ class NetworkManager:
         allow_local = bool(cfg.get("allow_insecure_local") or os.environ.get("SHARD_ALLOW_INSECURE_LOCAL") == "1")
         offline = bool(cfg.get("offline_only"))
         raw_urls = list(cfg.get("discovery_urls") or [])
+        env_disc = [u.strip() for u in os.environ.get("SHARD_DISCOVERY_URL", "").split(",") if u.strip()]
+        if env_disc:
+            raw_urls = env_disc + [u for u in raw_urls if u not in env_disc]
         for u in extra_urls or ():
             if u and u not in raw_urls:
                 raw_urls.append(u)
