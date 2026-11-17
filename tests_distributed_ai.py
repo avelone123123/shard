@@ -214,3 +214,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
         proc2 = subprocess.Popen([sys.executable, "-c", worker_script, str(p2), t2], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         try:
             self.assertEqual(proc1.stdout.readline().strip(), "READY")
+            self.assertEqual(proc2.stdout.readline().strip(), "READY")
+            spec = planner.inspect_model_architecture(model_dir, ctx_tokens=128, fetch=False)
+            self.assertTrue(spec["supported_for_torch_pipeline"])
+            self.assertTrue(spec["has_safetensors"])
+            nodes = [
+                {"node_id": "coordinator", "name": "WeakCoord", "role": "coordinator", "hw": {"vram_total_mb": 0, "vram_free_mb": 0, "ram_total_mb": 4096, "ram_avail_mb": 2048, "cpu_cores": 2}, "quota": {"max_vram_mb": 0, "max_ram_mb": 0}, "backends": {"torch_pipeline": True}, "rtt_ms": 0.1, "bandwidth_mbps": 10000},
+                {"node_id": "wrk-1", "name": "ProcWorker1", "role": "worker", "hw": {"vram_total_mb": 0, "vram_free_mb": 0, "ram_total_mb": 8192, "ram_avail_mb": 6000, "cpu_cores": 4}, "quota": {"max_ram_gb": 4}, "backends": {"torch_pipeline": True}, "pipeline_endpoint": f"127.0.0.1:{p1}", "rtt_ms": 0.5, "bandwidth_mbps": 1000},
+                {"node_id": "wrk-2", "name": "ProcWorker2", "role": "worker", "hw": {"vram_total_mb": 0, "vram_free_mb": 0, "ram_total_mb": 8192, "ram_avail_mb": 6000, "cpu_cores": 4}, "quota": {"max_ram_gb": 4}, "backends": {"torch_pipeline": True}, "pipeline_endpoint": f"127.0.0.1:{p2}", "rtt_ms": 0.5, "bandwidth_mbps": 1000},
+            ]
+            plan = planner.plan_cluster_partition(spec, nodes, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=1)
+            self.assertTrue(plan["feasible"], plan.get("reason"))
+            self.assertEqual(len(plan["stages"]), 2)
+            self.assertEqual(plan["stages"][0]["shard_files"], ["model-00001-of-00002.safetensors"])
+            self.assertEqual(plan["stages"][1]["shard_files"], ["model-00002-of-00002.safetensors"])
+            coord = pipeline_coordinator.PipelineCoordinator(model_dir, plan, worker_tokens={"wrk-1": t1, "wrk-2": t2}, cluster_id="test-pipe")
+            load_res = coord.start()
+            self.assertEqual(load_res["status"], "ready")
+            self.assertEqual(len(load_res["stages"]), 2)
