@@ -142,3 +142,19 @@ def download_official_installer(target_dir: str | None = None) -> tuple[bool, st
             os.remove(target_path)
         os.rename(tmp_path, target_path)
         ok, reason, details = verify_installer(target_path)
+        if not ok:
+            try:
+                os.remove(target_path)
+            except Exception:
+                pass
+            return False, f"Downloaded installer verification failed: {reason}", None
+        return True, "Installer downloaded and verified successfully", target_path
+    except Exception as exc:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        return False, f"Download failed: {exc}", None
+def install_radmin(consent: bool = False, unattended: bool = False, installer_path: str | None = None, silent: bool = True) -> dict:
+    if not _IS_WIN:
