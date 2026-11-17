@@ -471,7 +471,7 @@ SHARD supports collaborative model-parallel execution across independent machine
 
 ### Quick Start (Coordinator + Workers)
 
-1. **Coordinator (Server Owner):**
+1. **Coordinator (Create & Publish Global Server):**
    ```bash
    shard start --daemon
    shard cluster create Qwen/Qwen2.5-Coder-7B-Instruct --name MyCluster --strategy auto --slots 4
