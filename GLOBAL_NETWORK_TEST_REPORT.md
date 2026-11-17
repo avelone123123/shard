@@ -34,3 +34,15 @@ This report documents the verification of the SHARD Global Network, Server Catal
 - **Verification**: Node Beta successfully queried the catalog and retrieved Node Alpha's public listing with verified Ed25519 signature.
 
 ### Test B: Global Server Discovery & Catalog Filtering
+- **Procedure**: Published clusters with varying models (including DeepSeek) and VRAM allocations (24GB). Executed catalog queries with search term `q=DeepSeek` and `min_vram=16`.
+- **Verification**: Exact keyword search returned only matching models. VRAM filtering correctly excluded under-capacity nodes. Passport endpoint (`/api/catalog/servers/{node_id}`) returned complete verified metadata.
+
+### Test C: 1-Click Worker Join Pre-Join & Consent Enforcement
+- **Procedure**: Simulated a worker connecting to a cluster. Queried `/api/catalog/prejoin/{node_id}` to probe local hardware capabilities. Attempted to join with `consent=False`.
+- **Verification**: Pre-join returned GPU/VRAM recommendations and compatibility flag. The join attempt with `consent=False` was strictly rejected with HTTP 403 and error code `CONSENT_REQUIRED`.
+
+### Test D: Real Distributed Inference Pipeline Parallelism
+- **Procedure**: Spun up a `PipelineWorkerServer` on a dynamic port. Initialized a 2-stage Qwen2 model pipeline (Stage 0: embedding + layers 0..1 on coordinator; Stage 1: layers 2..3 + lm_head on worker). Executed streaming generation.
+- **Verification**: Coordinator streamed activation tensors to the worker over TCP sockets. Intermediate tokens were generated and streamed back. Both stages reported handled requests and computed tokens.
+
+### Test E: Multi-User Concurrent Streaming & Scheduling
