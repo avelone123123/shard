@@ -28,3 +28,13 @@ Inspection of the existing codebase (`shard_engine/`), runtime binaries (`llama-
 ### 2.4 Reverse NAT Tunneling Gap for Remote Workers (`shard_engine/net_tunnel.py`)
 - `HostTunnelAgent._handle_rpc_open()` currently proxies TCP streams from a connected **client** to `127.0.0.1:port` on the **host**.
 - For distributed inference across NAT, the direction is inverted: the **coordinator** (`llama-server` or `PipelineCoordinator`) must connect to the **worker's** local runtime (`127.0.0.1:rpc_port` or `127.0.0.1:pipeline_port`) through the authenticated ChaCha20-Poly1305 tunnel without the worker exposing public ports.
+
+### 2.5 Single-Slot Serial Inference & Lack of PyTorch Distributed Execution (`shard_engine/gguf_backend.py`, `shard_engine/engine.py`)
+- `gguf_backend.py` hardcodes `--parallel 1`.
+- `server.py` invokes blocking synchronous generators inside `async def` FastAPI handlers with a single global `_cancel_gen` flag, zero request queueing, no per-client fairness/rate limiting, and no TTFT or inter-worker transfer metrics.
+- No distributed HuggingFace/PyTorch execution engine exists for safetensors models where each worker loads only its assigned layer shards directly (distributed loading) and maintains its own per-layer KV cache.
+
+---
+
+## 3. Target Role Architecture
+
