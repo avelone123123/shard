@@ -214,3 +214,21 @@ class PipelineStageModule(_NN_BASE):
             seq_len = input_ids.shape[1]
             past_seen = cache.get_seq_length() if (use_cache and cache is not None) else 0
             position_ids = torch.arange(seq_len, device=self.device, dtype=torch.long).unsqueeze(0) + past_seen
+            if self.model_type == "gpt2":
+                hidden_states = self.wte(input_ids) + self.wpe(position_ids)
+            else:
+                hidden_states = self.embed_tokens(input_ids)
+        else:
+            hidden_states = tensor_in.to(device=self.device, dtype=self.dtype)
+            seq_len = hidden_states.shape[1]
+            past_seen = cache.get_seq_length() if (use_cache and cache is not None) else 0
+            position_ids = torch.arange(seq_len, device=self.device, dtype=torch.long).unsqueeze(0) + past_seen
+        if self.model_type == "gpt2":
+            causal_mask = None
+            if seq_len > 1:
+                total_len = past_seen + seq_len
+                mask = torch.full((seq_len, total_len), torch.finfo(hidden_states.dtype).min, device=self.device, dtype=hidden_states.dtype)
+                mask = torch.triu(mask, diagonal=past_seen + 1)
+                causal_mask = mask.unsqueeze(0).unsqueeze(0)
+            for layer in self.layers:
+                hidden_states = layer(hidden_states, past_key_values=cache, attention_mask=causal_mask, use_cache=use_cache)
