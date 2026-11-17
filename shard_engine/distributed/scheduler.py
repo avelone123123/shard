@@ -124,3 +124,21 @@ class RequestScheduler:
                 self._xfer_samples.append(float(transfer_ms))
             self._cond.notify_all()
     def cancel_request(self, req_id):
+        with self._cond:
+            rec = self._active.get(req_id)
+            if rec is not None:
+                rec["cancel_event"].set()
+                return True
+            return False
+    def cancel_all(self):
+        with self._cond:
+            for rec in self._active.values():
+                rec["cancel_event"].set()
+            self._cond.notify_all()
+    async def stream_async(self, stream_factory, client_key="anonymous", model_id=None, timeout_s=None, is_disconnected=None, rpm_override=None):
+        loop = asyncio.get_running_loop()
+        req_id, cancel_ev = await loop.run_in_executor(
+            None,
+            lambda: self.acquire_slot(client_key=client_key, model_id=model_id, timeout_s=timeout_s, rpm_override=rpm_override),
+        )
+        q = asyncio.Queue(maxsize=256)
