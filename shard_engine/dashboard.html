@@ -4362,6 +4362,24 @@ async function clsRefresh() {
         }
         const pBox = document.getElementById('clsPlanBox');
         if (pBox) {
+            const plan = c.plan || {};
+            const stages = plan.stages || [];
+            if (stages.length > 0) {
+                let html = '<div style="margin-bottom:8px;">Стратегия: <b>' + escHtml(plan.strategy) + '</b> | Слоёв: <b>' + plan.total_layers + '</b> | Требуется: <b>' + plan.total_required_mb + ' MB</b> / Кластер: <b>' + plan.total_usable_cluster_mb + ' MB</b> | Межузловая задержка: ~' + (plan.estimated_comm_overhead_ms_per_tok || 0) + ' ms/ток</div>';
+                if (plan.communication_warning) html += '<div class="v-alert-warn" style="margin-bottom:8px;">' + escHtml(plan.communication_warning) + '</div>';
+                html += stages.map(s => {
+                    const pct = Math.max(8, Math.round((s.layer_count / Math.max(1, plan.total_layers)) * 100));
+                    return '<div style="margin-bottom:6px;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-sunken);">' +
+                        '<div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span><b>Stage ' + s.stage_index + '</b>: ' + escHtml(s.node_name) + ' [' + escHtml(s.device_type) + ']</span><span>Слои ' + s.layer_start + '..' + (s.layer_end - 1) + ' (' + s.layer_count + ') | ' + s.total_alloc_mb + ' MB (KV: ' + s.kv_cache_mb + ' MB)</span></div>' +
+                        '<div style="height:6px;background:var(--surface);border-radius:3px;overflow:hidden;"><div style="width:' + pct + '%;height:100%;background:var(--accent-text);"></div></div></div>';
+                }).join('');
+                pBox.innerHTML = html;
+            } else {
+                pBox.innerText = plan.reason || c.last_error || 'Нет активного плана распределения';
+            }
+        }
+        const wBox = document.getElementById('clsWorkersBox');
+        if (wBox) {
 async function srvCreateUnified() {
     const name = ((document.getElementById('srvCreateName') || {}).value || '').trim();
     const mode = ((document.getElementById('srvCreateMode') || {}).value || 'lan_and_global');
