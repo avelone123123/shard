@@ -358,3 +358,21 @@ class PipelineWorkerServer:
             auth_obj = json.loads(payload.decode("utf-8")) if payload else {}
             if not proto.verify_token_constant_time(auth_obj.get("token"), self.auth_token):
                 proto.send_json_frame(conn, proto.MSG_AUTH_ERR, {"error": "Invalid worker token"})
+                return
+            proto.send_json_frame(conn, proto.MSG_AUTH_OK, {"status": "ok", "port": self.bound_port})
+            while not self._stop_ev.is_set():
+                try:
+                    mtype, _, payload = proto.recv_frame(conn)
+                except socket.timeout:
+                    continue
+                self._bytes_rx += len(payload)
+                if mtype == proto.MSG_PING:
+                    proto.send_json_frame(conn, proto.MSG_PONG, self.stats())
+                elif mtype == proto.MSG_BW_PROBE:
+                    proto.send_json_frame(conn, proto.MSG_BW_ACK, {"bytes": len(payload)})
+                elif mtype == proto.MSG_LOAD_STAGE:
+                    meta = json.loads(payload.decode("utf-8"))
+                    res = self._load_stage(meta)
+                    proto.send_json_frame(conn, proto.MSG_STAGE_READY, res)
+                elif mtype == proto.MSG_FORWARD:
+                    meta, t_in = proto.decode_tensor_payload(payload)
