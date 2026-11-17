@@ -1431,6 +1431,24 @@ async def api_cluster_create(req: Request):
     denied = _deny_non_owner(req)
     if denied:
         return denied
+    try:
+        data = await req.json()
+    except Exception:
+        data = {}
+    model_id = str(data.get("model") or data.get("model_id") or engine_instance.active_model_id or "").strip()
+    if not model_id:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "model_id is required"})
+    try:
+        st = await asyncio.to_thread(
+            CLUSTER.create_cluster,
+            name=data.get("name"),
+            model_id=model_id,
+            strategy=data.get("strategy", "auto"),
+            ctx_tokens=int(data.get("ctx_tokens") or 4096),
+            parallel_slots=int(data.get("parallel_slots") or 4),
+            access_mode=data.get("access_mode") or "invite_only",
+            open_net=bool(data.get("open", False)),
+            coordinator_contributes=bool(data.get("coordinator_contributes", True)),
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
