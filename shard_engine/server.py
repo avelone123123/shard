@@ -935,7 +935,8 @@ async def chat_completions(req: Request):
     stream = data.get("stream", False)
     max_tokens = data.get("max_tokens", 512)
     temperature = data.get("temperature", 0.7)
-    model = data.get("model") or engine_instance.active_model_id or "shard-local-model"
+    default_model = CLUSTER.target_model if CLUSTER.is_ready() else (engine_instance.active_model_id or "shard-local-model")
+    model = data.get("model") or default_model
     cid = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     created = int(time.time())
     if stream:
