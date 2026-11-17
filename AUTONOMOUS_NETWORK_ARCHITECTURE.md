@@ -34,3 +34,15 @@ Connections between distributed nodes automatically negotiate the optimal path b
 
 ### Path Selection Priority Matrix
 
+| Priority | Transport Mode | Latency / Bandwidth | Classification Criteria | Failover Precedence |
+| :--- | :--- | :--- | :--- | :--- |
+| **1** | `same_machine` | < 0.1 ms / ~25 GB/s | `127.0.0.1`, `::1`, `localhost` | Preferred when local worker slots exist |
+| **2** | `direct_lan` | 0.2 - 2 ms / 1-10 Gbps | Private RFC1918 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) | Preferred for local clusters / home labs |
+| **3** | `mesh_vpn` | 5 - 35 ms / 100-500 Mbps | Virtual adapters (`26.0.0.0/8` Radmin, `100.64.0.0/10` CGNAT/WireGuard) | Zero-NAT virtual mesh with direct IP |
+| **4** | `direct_p2p` | 10 - 60 ms / Line rate | Public IPv4/IPv6 resolved via STUN | Direct hole punching through cone NATs |
+| **5** | `relay` | 40 - 120 ms / 50-200 Mbps | End-to-end encrypted Blind WebSocket Relay | Guaranteed traversal for symmetric NATs |
+
+### 3. Production Discovery & Catalog Sync
+- **Official Public Infrastructure**:
+  - Primary Discovery: `https://discovery.shard.network`
+  - Backup Discovery: `https://discovery-backup.shard.network`
