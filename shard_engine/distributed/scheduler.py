@@ -52,3 +52,21 @@ class RequestScheduler:
                 self._rate_windows.pop(oldest, None)
             win = self._rate_windows.setdefault(k, deque())
             cutoff = now - 60.0
+            while win and win[0] < cutoff:
+                win.popleft()
+            if len(win) >= limit:
+                retry = max(1, int(60.0 - (now - win[0])))
+                raise RateLimitError(f"Rate limit exceeded ({limit} req/min)", retry_after=retry)
+            win.append(now)
+    def acquire_slot(self, client_key="anonymous", model_id=None, timeout_s=None, rpm_override=None):
+        self._check_rate_limit(client_key, rpm_override=rpm_override)
+        req_id = f"sreq-{uuid.uuid4().hex[:10]}"
+        cancel_ev = threading.Event()
+        wait_limit = float(timeout_s or self.default_timeout_s)
+        deadline = time.monotonic() + wait_limit
+        with self._cond:
+            self._total_requests += 1
+            if len(self._active) >= self.max_concurrent:
+                if len(self._waiting) >= self.max_queue_size:
+                    self._failed_requests += 1
+                    self._recent_errors.append({"ts": time.time(), "request_id": req_id, "error": "Request queue full"})
