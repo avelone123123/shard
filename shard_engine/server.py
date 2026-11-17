@@ -1413,6 +1413,24 @@ async def api_lan_member_unblock(req: Request):
     if not target:
         return JSONResponse(status_code=400, content={"status": "error", "message": "target required"})
     return LAN.unblock_member(target)
+def _is_cluster_authorized(req):
+    if _is_owner_request(req):
+        return True, True
+    if net_tunnel.is_tunnel_request(req):
+        return True, False
+    tok = _extract_bearer(req)
+    if tok:
+        if _token_in_pool(tok, LAN.tokens() | set(load_keys())):
+            return True, False
+        worker_toks = {w.get("worker_token") for w in CLUSTER.workers.values() if w.get("worker_token")}
+        if _token_in_pool(tok, worker_toks):
+            return True, False
+    return False, False
+@app.post("/api/cluster/create")
+async def api_cluster_create(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
