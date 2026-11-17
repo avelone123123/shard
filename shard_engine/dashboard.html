@@ -2744,6 +2744,22 @@ async function netLoadRadmin() {
             actions.innerHTML = actHtml;
         }
     } catch(e) {
+        content.innerHTML = '<span style="color:var(--danger);">Ошибка получения статуса: ' + e.message + '</span>';
+    }
+}
+async function netInstallRadmin() {
+    if (!confirm('Вы подтверждаете загрузку официального инсталлятора Radmin VPN от Famatech Corp. и запуск установки через запрос администратора Windows UAC?')) return;
+    showToast('Установка Radmin VPN', 'Загрузка официального пакета и запуск инсталлятора...');
+    try {
+        const res = await fetch('/api/net/radmin/install', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
+            body: JSON.stringify({consent: true, silent: true})
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            showToast('Успешно', 'Radmin VPN установлен и готов к использованию!');
+        } else {
     }
 }
 async function lanJoinQuick(ip, port) {
