@@ -106,3 +106,15 @@ ACME_EMAIL=admin@shard.network
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+Verify service status:
+```bash
+docker compose -f docker-compose.prod.yml ps
+curl -fsS https://discovery.shard.network/health
+```
+
+---
+
+## Backup and Recovery Procedures
+
+### Automated Daily Backup (`deploy/backup_discovery.sh`)
