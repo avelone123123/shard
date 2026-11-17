@@ -70,3 +70,21 @@ class TestDistributedUnit(unittest.TestCase):
         CLUSTER.stop_local_worker()
         CLUSTER.stop_cluster()
         SCHEDULER.configure(max_concurrent=4, max_queue_size=32, default_rpm=200)
+        server._PAIR_FAIL_LIMITER._hits.clear()
+        server._PAIR_TOTAL_LIMITER._hits.clear()
+    def tearDown(self):
+        CLUSTER.stop_local_worker()
+        CLUSTER.stop_cluster()
+        if self.orig_data_dir is not None:
+            os.environ["SHARD_DATA_DIR"] = self.orig_data_dir
+        else:
+            os.environ.pop("SHARD_DATA_DIR", None)
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+    def test_hardware_discovery_and_quota_enforcement(self):
+        hw = hardware.get_hardware_profile(force_refresh=True)
+        self.assertIn("cpu_model", hw)
+        self.assertIn("backends", hw)
+        self.assertGreaterEqual(hw["cpu_cores"], 1)
+        fake_hw = {"vram_total_mb": 8192, "vram_free_mb": 7800, "ram_total_mb": 32768, "ram_avail_mb": 28000, "cpu_cores": 16}
+        eff = hardware.effective_usable_resources(fake_hw, quota={"vram_pct": 50, "max_ram_gb": 10, "max_threads": 6})
+        self.assertEqual(eff["usable_vram_mb"], 4096)
