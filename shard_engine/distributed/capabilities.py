@@ -54,3 +54,17 @@ def measure_tcp_link(host, port, timeout=2.0, probe_bytes=65536):
     finally:
         try:
             s.close()
+        except Exception:
+            pass
+def measure_bandwidth_mbps(send_fn, recv_fn, payload_bytes=262144):
+    buf = b"\x5a" * int(payload_bytes)
+    t0 = time.perf_counter()
+    send_fn(buf)
+    ack = recv_fn()
+    dt = max(1e-5, time.perf_counter() - t0)
+    mbps = round((len(buf) * 8.0) / (dt * 1_000_000.0), 2)
+    return {"bytes": len(buf), "elapsed_ms": round(dt * 1000.0, 2), "mbps": mbps, "ok": bool(ack is not None)}
+def effective_worker_budget(hw, quota=None, link_rtt_ms=None, bandwidth_mbps=None):
+    eff = _hardware.effective_usable_resources(hw, quota=quota)
+    vram_mb = eff["usable_vram_mb"]
+    ram_mb = eff["usable_ram_mb"]
