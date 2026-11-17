@@ -52,3 +52,21 @@ def _build_sharded_qwen2_model(target_dir):
     weight_map = {}
     for k, v in sd.items():
         if k.startswith("model.embed_tokens") or k.startswith("model.layers.0.") or k.startswith("model.layers.1."):
+            shard1[k] = v
+            weight_map[k] = "model-00001-of-00002.safetensors"
+        else:
+            shard2[k] = v
+            weight_map[k] = "model-00002-of-00002.safetensors"
+    save_file(shard1, os.path.join(target_dir, "model-00001-of-00002.safetensors"))
+    save_file(shard2, os.path.join(target_dir, "model-00002-of-00002.safetensors"))
+    with open(os.path.join(target_dir, "model.safetensors.index.json"), "w", encoding="utf-8") as f:
+        json.dump({"metadata": {"total_size": 0}, "weight_map": weight_map}, f)
+    return mdl, fast_tok
+class TestDistributedUnit(unittest.TestCase):
+    def setUp(self):
+        self.tmp_dir = tempfile.mkdtemp(prefix="shard_dist_unit_")
+        self.orig_data_dir = os.environ.get("SHARD_DATA_DIR")
+        os.environ["SHARD_DATA_DIR"] = self.tmp_dir
+        CLUSTER.stop_local_worker()
+        CLUSTER.stop_cluster()
+        SCHEDULER.configure(max_concurrent=4, max_queue_size=32, default_rpm=200)
