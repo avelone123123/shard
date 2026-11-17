@@ -200,6 +200,16 @@ def cmd_start(args):
     os.environ["SHARD_HOST"] = str(host)
     print(f"Starting SHARD server on http://{host}:{port}...")
     _print_start_urls(host, port)
+    if sys.platform == "win32":
+        try:
+            from . import radmin_mgr
+            rst = radmin_mgr.get_radmin_status()
+            if rst.get("ready"):
+                print(f"[NETWORK] Radmin VPN active: {rst.get('ipv4')} (mesh transport ready)")
+            elif not rst.get("installed") and not rst.get("declined"):
+                print("[NETWORK] Note: Optional Radmin VPN fallback available for CGNAT traversal ('shard network radmin install')")
+        except Exception:
+            pass
     try:
         from . import main as shard_main
         shard_main.main(host=host, port=port, no_browser=no_browser)
