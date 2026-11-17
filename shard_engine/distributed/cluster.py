@@ -88,3 +88,21 @@ class ClusterManager:
             "role": "coordinator",
             "hw": hw,
             "backends": caps["backends"],
+            "local_offload_devices": caps["local_offload_devices"],
+            "quota": quota,
+            "effective": eff,
+            "rtt_ms": 0.1,
+            "bandwidth_mbps": 10000.0,
+            "alive": True,
+            "consented": self.coordinator_contributes,
+        }
+    def _alive_worker_records(self, now=None):
+        now = time.time() if now is None else now
+        out = []
+        with self._lock:
+            for wid, w in self.workers.items():
+                if w.get("revoked"):
+                    continue
+                if w.get("token_expires_at") and now > w["token_expires_at"]:
+                    continue
+                alive = (now - float(w.get("last_heartbeat") or 0)) <= HEARTBEAT_TIMEOUT_S
