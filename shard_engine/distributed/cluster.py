@@ -70,3 +70,21 @@ class ClusterManager:
             self._monitor_thread.start()
     def _stop_monitor(self):
         self._monitor_stop.set()
+        self._rebalance_needed.set()
+        th = self._monitor_thread
+        self._monitor_thread = None
+        if th is not None and th.is_alive() and th is not threading.current_thread():
+            th.join(timeout=2.0)
+    def _coordinator_node_record(self, caps=None):
+        caps = caps or _cap.probe_node_capabilities()
+        hw = caps["hw"]
+        quota = dict(self.coordinator_quota or {})
+        if not self.coordinator_contributes:
+            quota = {"max_vram_mb": 0, "max_ram_mb": 0, "max_threads": 1}
+        eff = _hardware.effective_usable_resources(hw, quota=quota)
+        return {
+            "node_id": "coordinator",
+            "name": f"{self.name} (Coordinator)",
+            "role": "coordinator",
+            "hw": hw,
+            "backends": caps["backends"],
