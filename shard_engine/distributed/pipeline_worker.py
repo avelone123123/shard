@@ -6,12 +6,24 @@ import os
 import socket
 import threading
 import time
-import torch
-import torch.nn as nn
-from safetensors import safe_open
-from transformers import AutoConfig, DynamicCache
-from transformers.masking_utils import create_causal_mask, create_sliding_window_causal_mask
+try:
+    import torch
+    import torch.nn as nn
+    from safetensors import safe_open
+    from transformers import AutoConfig, DynamicCache
+    from transformers.masking_utils import create_causal_mask, create_sliding_window_causal_mask
+    _TORCH_PIPELINE_READY = True
+except Exception:
+    torch = None
+    nn = None
+    safe_open = None
+    AutoConfig = None
+    DynamicCache = None
+    create_causal_mask = None
+    create_sliding_window_causal_mask = None
+    _TORCH_PIPELINE_READY = False
 from . import pipeline_proto as proto
+_NN_BASE = nn.Module if nn is not None else object
 _ARCH_SPECS = {
     "llama": ("transformers.models.llama.modeling_llama", "LlamaDecoderLayer", "LlamaRotaryEmbedding", "LlamaRMSNorm"),
     "qwen2": ("transformers.models.qwen2.modeling_qwen2", "Qwen2DecoderLayer", "Qwen2RotaryEmbedding", "Qwen2RMSNorm"),
@@ -110,8 +122,10 @@ def _download_or_locate_files(model_path_or_repo, shard_files):
             targets = ["model.safetensors"]
     resolved = [hf_hub_download(model_path_or_repo, fn) for fn in targets]
     return base_dir, resolved
-class PipelineStageModule(nn.Module):
+class PipelineStageModule(_NN_BASE):
     def __init__(self, config, model_type, layer_start, layer_end, has_embed, has_lm_head, dtype, device):
+        if not _TORCH_PIPELINE_READY:
+            raise RuntimeError("PyTorch, transformers, and safetensors are required for PipelineStageModule")
         super().__init__()
         self.config = config
         self.model_type = str(model_type).lower()
@@ -305,7 +319,7 @@ class PipelineWorkerServer:
         with self._stage_lock:
             self._kv_caches.clear()
             self._stage = None
-            if torch.cuda.is_available():
+            if torch is not None and torch.cuda.is_available():
                 torch.cuda.empty_cache()
             gc.collect()
     def stats(self):

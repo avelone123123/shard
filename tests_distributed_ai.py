@@ -191,6 +191,9 @@ class TestRealDistributedIntegration(unittest.TestCase):
             os.environ.pop("SHARD_DATA_DIR", None)
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
     def test_real_multiprocess_pytorch_pipeline_parallelism(self):
+        import importlib.util
+        if any(importlib.util.find_spec(m) is None for m in ("torch", "transformers", "safetensors")):
+            self.skipTest("torch/transformers/safetensors not installed")
         import torch
         model_dir = os.path.join(self.tmp_dir, "tiny_qwen2_sharded")
         ref_model, tok = _build_sharded_qwen2_model(model_dir)
@@ -446,6 +449,9 @@ class TestRealDistributedIntegration(unittest.TestCase):
                 wp.terminate()
                 wp.wait(timeout=5)
     def test_cluster_pytorch_pipeline_via_unified_api(self):
+        import importlib.util
+        if any(importlib.util.find_spec(m) is None for m in ("torch", "transformers", "safetensors")):
+            self.skipTest("torch/transformers/safetensors not installed")
         model_dir = os.path.join(self.tmp_dir, "tiny_qwen2_api")
         _build_sharded_qwen2_model(model_dir)
         s1 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, auth_token="", max_threads=2, allow_cuda=False)

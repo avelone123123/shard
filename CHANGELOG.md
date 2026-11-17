@@ -1,5 +1,18 @@
 # Shard Engine Changelog
 
+## [1.9.0] - 2026-11-17
+
+### Added — Distributed AI Computing Platform
+
+- **Cluster Coordinator & Worker Lifecycle (`shard_engine/distributed/cluster.py`)**: Added `ClusterManager` (`CLUSTER`) with `IDLE -> FORMING -> LOADING -> VERIFYING -> READY / DEGRADED` state machine supporting weak coordinators, explicit worker consent enforcement, cryptographic worker tokens (`sk-shard-wrk-...`), heartbeat monitoring, and automatic degraded-state rebalancing.
+- **PyTorch Pipeline Parallelism (`shard_engine/distributed/pipeline_*.py`)**: Added authenticated binary `SHPT` TCP tensor transport, `PipelineWorkerServer` with selective `safetensors` shard loading per stage and per-stage `DynamicCache`, and `PipelineCoordinator` supporting `llama`, `qwen2`, `qwen3`, `mistral`, `gemma`, `gemma2`, `phi3`, and `gpt2` decoder architectures.
+- **GGUF Distributed RPC Upgrades (`gguf_backend.py`, `lan.py`)**: Added `--parallel`, `--cont-batching`, `--slots`, `-sm layer`, `/slots` monitoring, and worker `-t max_threads` quota enforcement.
+- **Partition Planner & Capability Discovery (`planner.py`, `capabilities.py`, `hardware.py`)**: Added multi-GPU `nvidia-smi` probing, CPU model/utilization detection, backend capability probing, `effective_usable_resources()` quota bounds, and communication-aware layer partition planning.
+- **Reverse Encrypted Worker Tunnel (`net_tunnel.py`, `net_identity.py`, `net_strategy.py`)**: Added `MSG_WRK_OPEN` / `MSG_WRK_DATA` / `MSG_WRK_CLOSE` reverse loopback proxying over ChaCha20-Poly1305 encrypted tunnels for NAT-traversed workers.
+- **Multi-User Async Scheduler (`scheduler.py`, `server.py`)**: Added `RequestScheduler` (`SCHEDULER`) with bounded concurrency slots, request queue, per-client RPM rate limiting, client-disconnect cancellation, and live TTFT / tok/s / inter-worker transfer telemetry across `/v1/chat/completions`, `/v1/messages`, and `/api/cluster/*`.
+- **CLI & Dashboard (`cli.py`, `dashboard.html`)**: Added `shard cluster <create|join|status|plan|deploy|leave|stop>` and the `Кластер и Распределение` tab inside the server workspace.
+- **Documentation & Tests**: Added `DISTRIBUTED_AI_ARCHITECTURE.md`, `DISTRIBUTED_AI_IMPLEMENTATION_REPORT.md`, `DISTRIBUTED_AI_TEST_REPORT.md`, and `tests_distributed_ai.py` (10 unit and multi-process real distributed integration tests).
+
 ## [1.8.1] - 2026-11-15
 
 ### Security & Hardening

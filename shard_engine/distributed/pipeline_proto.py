@@ -2,7 +2,10 @@ import hmac
 import json
 import socket
 import struct
-import torch
+try:
+    import torch
+except Exception:
+    torch = None
 MAGIC = b"SHPT"
 PROTO_VER = 1
 MAX_FRAME_BYTES = 128 * 1024 * 1024
@@ -22,13 +25,17 @@ MSG_BW_PROBE = 13
 MSG_BW_ACK = 14
 _HDR_STRUCT = struct.Struct(">4sBBHI")
 _TENSOR_META_STRUCT = struct.Struct(">BBHI")
-_DTYPE_TO_CODE = {
-    torch.float32: 1,
-    torch.float16: 2,
-    torch.bfloat16: 3,
-    torch.int64: 4,
-}
-_CODE_TO_DTYPE = {v: k for k, v in _DTYPE_TO_CODE.items()}
+def _dtype_maps():
+    if torch is None:
+        raise RuntimeError("PyTorch is required for tensor serialization")
+    d2c = {
+        torch.float32: 1,
+        torch.float16: 2,
+        torch.bfloat16: 3,
+        torch.int64: 4,
+    }
+    c2d = {v: k for k, v in d2c.items()}
+    return d2c, c2d
 class ProtocolError(RuntimeError):
     pass
 def recv_exact(sock, n):
@@ -62,11 +69,12 @@ def recv_json_frame(sock):
     obj = json.loads(payload.decode("utf-8")) if payload else {}
     return msg_type, flags, obj
 def encode_tensor_payload(meta_dict, tensor):
+    d2c, _ = _dtype_maps()
     meta_bytes = json.dumps(meta_dict, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     t = tensor.detach().contiguous().cpu()
-    if t.dtype not in _DTYPE_TO_CODE:
+    if t.dtype not in d2c:
         t = t.to(torch.float32)
-    dtype_code = _DTYPE_TO_CODE[t.dtype]
+    dtype_code = d2c[t.dtype]
     shape = list(t.shape)
     ndim = len(shape)
     if t.dtype == torch.bfloat16:
@@ -77,6 +85,7 @@ def encode_tensor_payload(meta_dict, tensor):
     shape_bytes = struct.pack(f">{ndim}I", *shape) if ndim > 0 else b""
     return t_hdr + shape_bytes + meta_bytes + raw_tensor
 def decode_tensor_payload(payload):
+    _, c2d = _dtype_maps()
     if len(payload) < _TENSOR_META_STRUCT.size:
         raise ProtocolError("Truncated tensor payload")
     dtype_code, ndim, _, meta_len = _TENSOR_META_STRUCT.unpack(payload[:_TENSOR_META_STRUCT.size])
@@ -89,7 +98,7 @@ def decode_tensor_payload(payload):
     meta = json.loads(payload[pos:pos + meta_len].decode("utf-8")) if meta_len > 0 else {}
     pos += meta_len
     raw = payload[pos:]
-    dtype = _CODE_TO_DTYPE.get(dtype_code)
+    dtype = c2d.get(dtype_code)
     if dtype is None:
         raise ProtocolError(f"Unsupported dtype code {dtype_code}")
     if len(raw) == 0:

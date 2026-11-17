@@ -20,7 +20,7 @@ class TestPathsAndPackaging(unittest.TestCase):
         root = Path(__file__).resolve().parent
         pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
         setup_py = (root / "setup.py").read_text(encoding="utf-8")
-        self.assertEqual(shard_engine.__version__, "1.8.1")
+        self.assertEqual(shard_engine.__version__, "1.9.0")
         self.assertIn('dynamic = ["version"]', pyproject)
         self.assertIn('version = {attr = "shard_engine.__version__"}', pyproject)
         self.assertNotIn("1.4.79", setup_py)

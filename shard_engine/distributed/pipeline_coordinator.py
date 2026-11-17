@@ -4,8 +4,15 @@ import socket
 import threading
 import time
 import uuid
-import torch
-from transformers import AutoConfig, AutoTokenizer
+try:
+    import torch
+    from transformers import AutoConfig, AutoTokenizer
+    _TORCH_READY = True
+except Exception:
+    torch = None
+    AutoConfig = None
+    AutoTokenizer = None
+    _TORCH_READY = False
 from . import pipeline_proto as proto
 from . import pipeline_worker as pw
 def _parse_endpoint(ep):
@@ -177,6 +184,8 @@ class PipelineCoordinator:
         self._gen_lock = threading.Lock()
         self.last_metrics = {}
     def start(self):
+        if not _TORCH_READY:
+            raise RuntimeError("PyTorch and transformers are required for PipelineCoordinator")
         stages = list(self.plan.get("stages") or [])
         if not stages:
             raise RuntimeError("Partition plan contains no stages")
