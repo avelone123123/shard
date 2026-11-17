@@ -2474,7 +2474,8 @@ async def api_net_publish(req: Request):
         data = await req.json()
     except Exception:
         data = {}
-    model = (data.get("models") or [None])[0] if data.get("models") else (engine_instance.active_model_id or engine_instance.current_loaded_id)
+    c_model = CLUSTER.target_model if getattr(CLUSTER, "target_model", None) else None
+    model = (data.get("models") or [None])[0] if data.get("models") else (engine_instance.active_model_id or engine_instance.current_loaded_id or c_model)
     ok, reason = _verify_server_model_ready(model)
     if not ok:
         return JSONResponse(status_code=409, content={"status": "error", "code": "MODEL_NOT_READY", "message": f"Model must be loaded and pass inference verification before hosting or publishing a server: {reason}"})
