@@ -150,6 +150,7 @@ def get_hardware_profile(force_refresh=False):
         "vram_total_mb": vram_total_mb,
         "vram_used_mb": vram_used_mb,
         "vram_free_mb": max(0, vram_total_mb - vram_used_mb),
+        "gpu_util_pct": _gpu_cache["gpu_util_pct"],
         "ram_total_mb": ram_total_mb,
         "ram_avail_mb": ram_avail_mb,
         "ram_used_mb": ram_used_mb,
