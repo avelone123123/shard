@@ -158,3 +158,19 @@ def download_official_installer(target_dir: str | None = None) -> tuple[bool, st
         return False, f"Download failed: {exc}", None
 def install_radmin(consent: bool = False, unattended: bool = False, installer_path: str | None = None, silent: bool = True) -> dict:
     if not _IS_WIN:
+        return {"status": "unsupported_platform", "message": "Radmin VPN is only available on Windows"}
+    pref = _load_radmin_pref()
+    if not consent and not unattended and not pref.get("consent"):
+        return {"status": "consent_required", "message": "User consent is required before installing Radmin VPN"}
+    pref["consent"] = True
+    pref["declined"] = False
+    _save_radmin_pref(pref)
+    current = get_radmin_status()
+    if current["installed"] and current["ready"]:
+        return {"status": "already_installed", "message": "Radmin VPN is already installed and ready", "status_info": current}
+    exe_path = installer_path
+    if not exe_path or not os.path.isfile(exe_path):
+        ok, msg, downloaded = download_official_installer()
+        if not ok or not downloaded:
+            pref["last_error"] = msg
+            _save_radmin_pref(pref)
