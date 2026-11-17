@@ -68,3 +68,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         os.environ.pop("SHARD_ALLOW_INSECURE_LOCAL", None)
+        os.environ.pop("SHARD_DISCOVERY_URL", None)
+        try:
+            cls.disc_server.should_exit = True
+        except Exception:
+            pass
+        shutil.rmtree(cls.tmp_root, ignore_errors=True)
+    def setUp(self):
+        CLUSTER.stop_cluster()
+        CLUSTER.stop_local_worker()
+        self.node_a_dir = tempfile.mkdtemp(prefix="node_a_")
+        self.node_b_dir = tempfile.mkdtemp(prefix="node_b_")
+        self.ident_a = net_identity.NodeIdentity(identity_path=os.path.join(self.node_a_dir, "identity.json"))
+        self.ident_b = net_identity.NodeIdentity(identity_path=os.path.join(self.node_b_dir, "identity.json"))
+        self.client = TestClient(server.app)
