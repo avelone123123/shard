@@ -664,3 +664,21 @@ class ClusterManager:
                 "pipeline_srv": pipe_srv,
                 "pipeline_port": pipe_port,
                 "hb_stop": hb_stop,
+                "hb_thread": None,
+                "via_tunnel": bool(via_tunnel),
+            }
+        hb_th = threading.Thread(target=self._worker_hb_loop, daemon=True)
+        with self._lock:
+            self._local_worker["hb_thread"] = hb_th
+        hb_th.start()
+        return {"status": "ok", "worker_id": data["worker_id"], "rpc_port": rpc_port, "pipeline_port": pipe_port}
+    def _worker_hb_loop(self):
+        import requests
+        while True:
+            with self._lock:
+                lw = dict(self._local_worker)
+            stop_ev = lw.get("hb_stop")
+            if not lw.get("active") or stop_ev is None or stop_ev.is_set():
+                break
+            try:
+                hw = _hardware.get_hardware_profile()
