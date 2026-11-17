@@ -58,3 +58,13 @@ Each server registered in the catalog presents a verified passport structure:
 ## 4. Integrity, Anti-Spam & TTL Expiration
 
 1. **Cryptographic Envelope Verification**:
+   - Every registration and heartbeat requires a valid Ed25519 signature over the listing payload.
+   - Nodes cannot forge listings under another node's `node_id`.
+
+2. **TTL Auto-Pruning**:
+   - Each registered server has a time-to-live (TTL) between 30 and 120 seconds.
+   - If a coordinator goes offline or fails to send heartbeats, the server automatically disappears from the catalog after TTL expiration.
+
+3. **Rate Limiting & Abuse Prevention**:
+   - The discovery service enforces per-IP mutation rate limits (maximum 60 mutations/minute).
+   - Insecure HTTP endpoints from external public IPs are blocked; HTTPS or secure WSS endpoints are mandated outside local test environments.
