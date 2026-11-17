@@ -82,3 +82,15 @@ All configuration and container definitions are located in the `deploy/` directo
 
 ## Step-by-Step Production Deployment
 
+### 1. Server Prerequisites
+- Ubuntu 22.04 LTS or Debian 12
+- Docker 24.0+ and Docker Compose v2
+- Ports open: 80 (TCP), 443 (TCP/UDP for HTTP/3)
+
+### 2. Clone Repository and Configure Environment
+```bash
+git clone https://github.com/avelone123123/shard.git /opt/shard
+cd /opt/shard/deploy
+cp env.production.example .env
+nano .env
+```
