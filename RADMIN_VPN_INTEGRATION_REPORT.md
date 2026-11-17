@@ -106,3 +106,15 @@ If the Radmin service stalls or fails to respond after a Windows sleep cycle or 
                                                          |
                                                          | RunAs /VERYSILENT
                                                          v
++----------------+     Restart-Service         +--------------------+
+| Adapter Error  | <-------------------------- | Service Installed  |
++----------------+                             +--------------------+
+        |                                                |
+        | Repair                                         | Adapter Up
+        v                                                v
++--------------------------------------------------------------------+
+|                    Radmin VPN Ready (26.x.x.x)                     |
++--------------------------------------------------------------------+
+```
+
+---
