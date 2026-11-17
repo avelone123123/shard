@@ -1839,7 +1839,7 @@ class NetworkManager:
         if offline:
             return {"status": "offline", "servers": [], "count": 0, "dropped": 0, "endpoints": [], "offline_only": True}
         dc = self._make_discovery_client()
-        return dc.fetch_servers(q=q, model=model, region=region, access=access, sort=sort, limit=limit, online_only=online_only)
+        return dc.fetch_servers(q=q, model=model, region=region, access=access, sort=sort, limit=limit, online_only=online_only, min_vram=min_vram, status=status, accepts_workers=accepts_workers)
     def lookup_server(self, node_id, invite_token=None, discovery_urls=None):
         with self._lock:
             offline = bool(self._config.get("offline_only"))
