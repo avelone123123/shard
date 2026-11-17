@@ -18,3 +18,13 @@ python -m unittest tests_distributed_ai -v
 ```
 
 Observed result:
+```
+Ran 10 tests in 23.617s
+
+OK
+```
+
+### 2.1 Unit Tests
+| Test Case | Verification Target | Result |
+|---|---|---|
+| `test_hardware_discovery_and_quota_enforcement` | Real `get_hardware_profile()`, CPU/backend probing, `effective_usable_resources()` clamping `vram_pct=50%`, `max_ram_gb=10`, `max_threads=6` | **PASSED** |
