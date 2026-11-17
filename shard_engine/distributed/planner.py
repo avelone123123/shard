@@ -142,3 +142,21 @@ def inspect_model_architecture(model_id, ctx_tokens=4096, fetch=True, quant=None
         bpw = _gguf.QUANT_BPW.get(eff_quant, 4.85)
         gguf_bytes = int(local_gguf["size_bytes"])
     else:
+        eff_quant = _gguf.normalize_quant(quant) or "Q4_K_M"
+        bpw = _gguf.QUANT_BPW.get(eff_quant, 4.85)
+        gguf_bytes = int(_fit.quant_size_bytes(params_b, bpw))
+    fp16_bytes = int(_fit.quant_size_bytes(params_b, 16.0))
+    kv_bytes_ctx = int(_fit.kv_cache_bytes_from_config(cfg, ctx_tokens))
+    kv_per_tok_layer_bytes = 2 * kv_heads * head_dim * 2
+    torch_supported = model_type in SUPPORTED_TORCH_PIPELINE_TYPES
+    torch_reason = "Supported decoder layer pipeline" if torch_supported else f"Architecture '{model_type or 'unknown'}' requires GGUF RPC backend; PyTorch stage sharding is restricted to standard decoder blocks ({', '.join(sorted(SUPPORTED_TORCH_PIPELINE_TYPES))})."
+    return {
+        "model_id": raw_mid,
+        "model_type": model_type,
+        "params_b": params_b,
+        "params_source": source,
+        "num_layers": int(num_layers),
+        "hidden_size": int(hidden_size),
+        "num_attention_heads": int(heads),
+        "num_key_value_heads": int(kv_heads),
+        "head_dim": int(head_dim),
