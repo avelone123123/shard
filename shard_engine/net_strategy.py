@@ -935,6 +935,10 @@ class NetworkManager:
         merged["max_participants"] = mp
         merged["max_peers"] = mp
         merged["published"] = False
+        if not merged.get("discovery_urls") and default.get("discovery_urls"):
+            merged["discovery_urls"] = list(default["discovery_urls"])
+        if not merged.get("relay_urls") and default.get("relay_urls"):
+            merged["relay_urls"] = list(default["relay_urls"])
         return merged
     def _save_config(self):
         with self._lock:
