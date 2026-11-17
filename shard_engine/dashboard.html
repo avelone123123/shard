@@ -1999,6 +1999,8 @@ async function lanToggleOpen(open) {
 }
 let currentNetSubTab = 'browser';
 let lastNetStatus = null;
+let currentJoinNodeId = null;
+let currentJoinServerData = null;
 function netSubTab(tab, btn) {
     currentNetSubTab = tab;
     document.querySelectorAll('#tab-network .trn-subbtn').forEach(b => b.classList.remove('active'));
