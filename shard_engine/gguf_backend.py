@@ -662,6 +662,8 @@ class LlamaBackend:
             cmd += ["--cont-batching"]
         if rpc_servers:
             cmd += ["--rpc", str(rpc_servers)]
+            if split_mode in ("none", "layer", "row", "tensor"):
+                cmd += ["-sm", split_mode]
         if tensor_split:
             cmd += ["-ts", str(tensor_split)]
         kw = {}
