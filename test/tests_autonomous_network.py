@@ -54,3 +54,17 @@ class TestAutonomousNetworkSuite(unittest.TestCase):
             cfg = net_strategy.default_network_config()
             self.assertEqual(cfg["discovery_urls"], list(net_strategy.DEFAULT_PUBLIC_DISCOVERY_URLS))
             self.assertEqual(cfg["relay_urls"], list(net_strategy.DEFAULT_PUBLIC_RELAY_URLS))
+            os.environ["SHARD_DISCOVERY_URL"] = "https://custom-discovery.example.com"
+            cfg_override = net_strategy.default_network_config()
+            self.assertEqual(cfg_override["discovery_urls"], ["https://custom-discovery.example.com"])
+        finally:
+            if orig_disc is not None:
+                os.environ["SHARD_DISCOVERY_URL"] = orig_disc
+            else:
+                os.environ.pop("SHARD_DISCOVERY_URL", None)
+            if orig_relay is not None:
+                os.environ["SHARD_RELAY_URL"] = orig_relay
+            else:
+                os.environ.pop("SHARD_RELAY_URL", None)
+    def test_autonomous_transport_selection_priority(self):
+        expected_priority = ("same_machine", "direct_lan", "mesh_vpn", "direct_p2p", "relay")
