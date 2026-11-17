@@ -250,3 +250,21 @@ class RequestScheduler:
         return {
             "content": "".join(content_chunks),
             "reasoning_content": "".join(thought_chunks),
+            "usage": usage,
+            "telemetry": telemetry,
+        }
+    def telemetry(self):
+        with self._lock:
+            avg_ttft = round(sum(self._ttft_samples) / len(self._ttft_samples), 2) if self._ttft_samples else 0.0
+            avg_tps = round(sum(self._tps_samples) / len(self._tps_samples), 2) if self._tps_samples else 0.0
+            avg_xfer = round(sum(self._xfer_samples) / len(self._xfer_samples), 2) if self._xfer_samples else 0.0
+            active_list = [
+                {
+                    "request_id": r["request_id"],
+                    "model_id": r["model_id"],
+                    "tokens": r["tokens"],
+                    "elapsed_s": round(time.time() - r["started_at"], 2),
+                }
+                for r in self._active.values()
+            ]
+            return {
