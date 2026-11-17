@@ -214,3 +214,21 @@ class RequestScheduler:
             cancel_ev.set()
             self.finish_slot(
                 req_id,
+                ok=state["ok"],
+                cancelled=state["cancelled"],
+                ttft_ms=state["ttft_ms"],
+                tps=state["tps"],
+                transfer_ms=state["xfer_ms"],
+                error=state["err"],
+            )
+    async def run_sync_async(self, stream_factory, client_key="anonymous", model_id=None, timeout_s=None, is_disconnected=None, rpm_override=None):
+        thought_chunks = []
+        content_chunks = []
+        usage = {}
+        telemetry = {}
+        err_msg = None
+        async for item in self.stream_async(
+            stream_factory,
+            client_key=client_key,
+            model_id=model_id,
+            timeout_s=timeout_s,
