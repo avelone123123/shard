@@ -2087,8 +2087,10 @@ async function netLoadServers() {
     try {
         const u = new URL('/api/catalog/servers', window.location.origin);
         if (q) u.searchParams.set('q', q);
-        if (reg) u.searchParams.set('region', reg);
-        if (acc) u.searchParams.set('access', acc);
+        if (minVram && minVram !== '0') u.searchParams.set('min_vram', minVram);
+        if (accWrk === 'true') u.searchParams.set('accepts_workers', 'true');
+        else if (accWrk === 'ready') u.searchParams.set('status', 'READY');
+        if (sort) u.searchParams.set('sort', sort);
         const res = await fetch(u.toString(), {headers: getAuthHeaders()});
         const data = await res.json();
         const srvs = data.servers || [];
