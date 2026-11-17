@@ -52,3 +52,21 @@ class ClusterManager:
         self._local_worker = {
             "active": False,
             "coordinator_url": None,
+            "worker_id": None,
+            "worker_token": None,
+            "quota": {},
+            "rpc_proc": None,
+            "rpc_port": None,
+            "pipeline_srv": None,
+            "pipeline_port": None,
+            "hb_stop": threading.Event(),
+            "hb_thread": None,
+            "via_tunnel": False,
+        }
+    def _ensure_monitor(self):
+        if self._monitor_thread is None or not self._monitor_thread.is_alive():
+            self._monitor_stop.clear()
+            self._monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
+            self._monitor_thread.start()
+    def _stop_monitor(self):
+        self._monitor_stop.set()
