@@ -124,3 +124,21 @@ def _download_or_locate_files(model_path_or_repo, shard_files):
     return base_dir, resolved
 class PipelineStageModule(_NN_BASE):
     def __init__(self, config, model_type, layer_start, layer_end, has_embed, has_lm_head, dtype, device):
+        if not _TORCH_PIPELINE_READY:
+            raise RuntimeError("PyTorch, transformers, and safetensors are required for PipelineStageModule")
+        super().__init__()
+        self.config = config
+        self.model_type = str(model_type).lower()
+        self.layer_start = int(layer_start)
+        self.layer_end = int(layer_end)
+        self.local_count = max(0, self.layer_end - self.layer_start)
+        self.has_embed = bool(has_embed)
+        self.has_lm_head = bool(has_lm_head)
+        self.dtype = dtype
+        self.device = device
+        self.stage_config = copy.deepcopy(config)
+        self.stage_config.num_hidden_layers = self.local_count
+        if hasattr(config, "layer_types") and isinstance(getattr(config, "layer_types"), list):
+            self.stage_config.layer_types = list(config.layer_types[self.layer_start:self.layer_end])
+        if hasattr(self.stage_config, "_attn_implementation") and not getattr(self.stage_config, "_attn_implementation", None):
+            self.stage_config._attn_implementation = "sdpa"
