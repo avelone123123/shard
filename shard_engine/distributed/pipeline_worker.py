@@ -340,3 +340,21 @@ class PipelineWorkerServer:
     def _accept_loop(self):
         while not self._stop_ev.is_set() and self._sock is not None:
             try:
+                conn, addr = self._sock.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            t = threading.Thread(target=self._handle_conn, args=(conn, addr), daemon=True)
+            self._conn_threads.add(t)
+            t.start()
+    def _handle_conn(self, conn, _addr):
+        conn.settimeout(60.0)
+        try:
+            mtype, _, payload = proto.recv_frame(conn)
+            if mtype != proto.MSG_AUTH:
+                proto.send_json_frame(conn, proto.MSG_AUTH_ERR, {"error": "Expected AUTH frame"})
+                return
+            auth_obj = json.loads(payload.decode("utf-8")) if payload else {}
+            if not proto.verify_token_constant_time(auth_obj.get("token"), self.auth_token):
+                proto.send_json_frame(conn, proto.MSG_AUTH_ERR, {"error": "Invalid worker token"})
