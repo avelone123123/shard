@@ -70,3 +70,21 @@ def _shard_files_for_stage(weight_map, model_type, layer_start, layer_end, has_e
         if has_embed and (tensor_name.startswith("model.embed_tokens") or tensor_name.startswith("transformer.wte") or tensor_name.startswith("transformer.wpe")):
             files.add(shard_file)
             continue
+        if has_lm_head and (tensor_name.startswith("lm_head") or tensor_name.startswith("model.norm") or tensor_name.startswith("transformer.ln_f")):
+            files.add(shard_file)
+            continue
+        if tensor_name.startswith(prefix):
+            rest = tensor_name[len(prefix):]
+            dot_idx = rest.find(".")
+            if dot_idx > 0:
+                try:
+                    li = int(rest[:dot_idx])
+                    if layer_start <= li < layer_end:
+                        files.add(shard_file)
+                except ValueError:
+                    pass
+    return sorted(files)
+def inspect_model_architecture(model_id, ctx_tokens=4096, fetch=True, quant=None):
+    raw_mid = str(model_id or "").strip()
+    local_dir = _resolve_local_hf_dir(raw_mid)
+    local_gguf = _gguf.find_local_gguf(raw_mid, wanted_quant=quant)
