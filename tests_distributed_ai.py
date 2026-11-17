@@ -34,3 +34,21 @@ def _build_sharded_qwen2_model(target_dir):
     torch.manual_seed(42)
     cfg = Qwen2Config(
         vocab_size=len(vocab),
+        hidden_size=32,
+        intermediate_size=64,
+        num_hidden_layers=4,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=128,
+        tie_word_embeddings=False,
+        eos_token_id=1,
+        pad_token_id=1,
+    )
+    cfg.save_pretrained(target_dir)
+    mdl = Qwen2ForCausalLM(cfg).eval()
+    sd = {k: v.detach().cpu().contiguous() for k, v in mdl.state_dict().items()}
+    shard1 = {}
+    shard2 = {}
+    weight_map = {}
+    for k, v in sd.items():
+        if k.startswith("model.embed_tokens") or k.startswith("model.layers.0.") or k.startswith("model.layers.1."):
