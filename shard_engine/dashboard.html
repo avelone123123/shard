@@ -2407,6 +2407,11 @@ async function netLoadClusterDetails() {
                         '<div><b>' + escHtml(w.name || w.worker_id) + '</b> <span style="color:var(--text-muted);">(' + escHtml(w.transport || 'lan') + ')</span></div>' +
                         '<div style="color:var(--accent-text);">VRAM: ' + (w.hw ? w.hw.usable_vram_mb : 0) + ' MB &bull; RAM: ' + (w.hw ? w.hw.usable_ram_mb : 0) + ' MB</div>' +
                         '</div>';
+                }).join('') +
+                '</div>';
+        }
+    } catch(e) {
+        ob.innerHTML = '<div style="color:var(--danger);font-size:12px;">Ошибка загрузки кластера: ' + escHtml(e.message) + '</div>';
     }
 }
 async function netConnectTargetServer(nodeId) {
