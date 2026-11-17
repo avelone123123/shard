@@ -1357,6 +1357,24 @@ macOS
 <div style="margin-bottom:10px;font-size:12px;">
 <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--accent-soft-text);"><input type="checkbox" id="clsJoinConsent"> Я явно разрешаю SHARD использовать указанные лимиты GPU/RAM/CPU</label>
 </div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<button class="btn-action active" onclick="clsJoinWorker()">Подключиться как Worker</button>
+<button class="btn-action" onclick="clsLeaveWorker()">Отключиться</button>
+</div>
+</div>
+</div>
+<div class="trn-row" style="margin-bottom:14px;">
+<div class="v-section-title">Распределение слоёв модели по узлам (Model Distribution)</div>
+<div id="clsPlanBox" style="font-size:12px;color:var(--text-muted);">Кластер не активен</div>
+</div>
+<div class="v-grid-2">
+<div class="trn-row">
+<div class="v-section-title">Узлы кластера (Workers & Coordinator)</div>
+<div id="clsWorkersBox" style="font-size:12px;color:var(--text-muted);">Нет подключённых узлов</div>
+</div>
+<div class="trn-row">
+<div class="v-section-title">Мониторинг инференса (Real Metrics)</div>
+<div id="clsTelemetryBox" style="font-size:12px;color:var(--text-muted);">Ожидание запросов...</div>
 </div>
 </div>
 </div>
