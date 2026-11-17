@@ -1881,6 +1881,10 @@ def cmd_cluster(args):
         print(json.dumps(r.json(), indent=2, ensure_ascii=False))
         if r.status_code != 200:
             sys.exit(1)
+        if getattr(args, "publish", False):
+            pr = requests.post(f"{base}/api/catalog/publish", json={"visibility": "public", "access_mode": "open" if payload["open"] else "invite_only"}, headers=hdrs, timeout=15)
+            if pr.status_code == 200:
+                print("Cluster published to global Server Catalog.")
         return
     if action == "deploy":
         r = requests.post(f"{base}/api/cluster/deploy", json={}, headers=hdrs, timeout=120)
