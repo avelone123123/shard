@@ -178,3 +178,21 @@ def inspect_model_architecture(model_id, ctx_tokens=4096, fetch=True, quant=None
         "config": cfg,
     }
 def _choose_strategy(model_spec, nodes, requested_strategy):
+    req = str(requested_strategy or "auto").strip().lower()
+    if req in ("gguf", "gguf_rpc", "gguf_rpc_layer_split"):
+        return "gguf_rpc_layer_split"
+    if req in ("torch", "torch_pipeline", "torch_pipeline_parallel", "pipeline"):
+        return "torch_pipeline_parallel"
+    if model_spec.get("local_gguf_path"):
+        return "gguf_rpc_layer_split"
+    if model_spec.get("has_safetensors") and model_spec.get("supported_for_torch_pipeline"):
+        all_torch = all((n.get("backends") or {}).get("torch_pipeline") for n in nodes)
+        if all_torch:
+            return "torch_pipeline_parallel"
+    return "gguf_rpc_layer_split"
+def _node_budget(node):
+    hw = node.get("hw") or {}
+    quota = node.get("quota") or {}
+    rtt_ms = node.get("rtt_ms")
+    bw_mbps = node.get("bandwidth_mbps")
+    b = _cap.effective_worker_budget(hw, quota=quota, link_rtt_ms=rtt_ms, bandwidth_mbps=bw_mbps)
