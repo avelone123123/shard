@@ -1539,6 +1539,24 @@ async def api_cluster_worker_register(req: Request):
             pipeline_host=data.get("pipeline_host"),
             transport=data.get("transport") or ("tunnel" if tpeer else "lan"),
             tunnel_peer=tpeer,
+            remote_ip=ip,
+        )
+        return {"status": "ok", **res}
+    except PermissionError as e:
+        _PAIR_FAIL_LIMITER.record(ip)
+        return JSONResponse(status_code=403, content={"status": "error", "message": str(e)})
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
+@app.post("/api/cluster/workers/heartbeat")
+async def api_cluster_worker_heartbeat(req: Request):
+    try:
+        data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    ok, res = CLUSTER.heartbeat_worker(
+        worker_id=data.get("worker_id"),
+        worker_token=data.get("worker_token") or _extract_bearer(req),
+        hw=data.get("hw"),
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
