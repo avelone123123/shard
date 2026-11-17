@@ -2247,6 +2247,22 @@ async function submitJoinAsWorker() {
         } else {
             showToast('Отклонено', data.message || data.error || 'Ошибка подключения воркера');
         }
+    } catch(e) {
+        showToast('Ошибка', e.message);
+    }
+}
+async function netLoadMyServers() {
+    const el = document.getElementById('netMyServersList');
+    if (!el) return;
+    try {
+        const res = await fetch('/api/cluster/my-servers', {headers: getAuthHeaders()});
+        const data = await res.json();
+        const srvs = data.servers || [];
+        if (srvs.length === 0) {
+            el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;background:var(--surface-sunken);border-radius:var(--radius-md);">У вас пока нет активных серверов или кластеров. Создайте сервер во вкладке «Сервер» или выполните shard cluster create &lt;model&gt;.</div>';
+            return;
+        }
+        el.innerHTML = srvs.map(s => {
     }
 }
 async function netConnectTargetServer(nodeId) {
