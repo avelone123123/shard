@@ -14,8 +14,8 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -e .
-      - name: Run test discovery
-        run: python -m unittest discover -s . -p "tests_*.py" -v
+      - name: Run test suite
+        run: python -m unittest discover -s test -t . -p "tests_*.py" -v
   build-and-publish:
     name: Build distributions and publish to PyPI
     needs: test-before-publish

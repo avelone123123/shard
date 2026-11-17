@@ -17,20 +17,22 @@ jobs:
       - name: Install package
         run: pip install -e .
       - name: Run core shard tests
-        run: python -m unittest tests_shard.py -v
+        run: python -m unittest test/tests_shard.py -v
       - name: Run CLI and packaging tests
-        run: python -m unittest tests_cli_pkg.py -v
+        run: python -m unittest test/tests_cli_pkg.py -v
       - name: Run training ecosystem tests
-        run: python -m unittest tests_training_ecosystem.py -v
+        run: python -m unittest test/tests_training_ecosystem.py -v
       - name: Run network persistence and security tests
-        run: python -m unittest tests_network_persistence_security.py -v
+        run: python -m unittest test/tests_network_persistence_security.py -v
       - name: Run shard network tests
-        run: python -m unittest tests_shard_network.py -v
+        run: python -m unittest test/tests_shard_network.py -v
       - name: Run Phase 4 network integration tests
-        run: python -m unittest tests_phase4_network_integration.py -v
+        run: python -m unittest test/tests_phase4_network_integration.py -v
       - name: Run Phase III unified hosting tests
-        run: python -m unittest tests_phase_iii_unified_hosting.py -v
+        run: python -m unittest test/tests_phase_iii_unified_hosting.py -v
       - name: Run Phase III chat security tests
-        run: python -m unittest tests_phase_iii_chat_security.py -v
+        run: python -m unittest test/tests_phase_iii_chat_security.py -v
+      - name: Run distributed AI tests
+        run: python -m unittest test/tests_distributed_ai.py -v
       - name: Run full test suite discovery
-        run: python -m unittest discover -s . -p "tests_*.py" -v
+        run: python -m unittest discover -s test -t . -p "tests_*.py" -v

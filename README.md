@@ -493,7 +493,7 @@ SHARD supports collaborative model-parallel execution across independent machine
 ### Supported Execution Backends & Documentation
 - **GGUF Distributed RPC (`gguf_rpc_layer_split`)**: Splits model layers and KV cache across `ggml-rpc-server` workers and local offload devices via `llama-server --rpc`, with continuous batching (`--parallel`, `--cont-batching`).
 - **PyTorch Pipeline Parallelism (`torch_pipeline_parallel`)**: Directly loads only assigned safetensors layer shards per worker (`llama`, `qwen2`, `qwen3`, `mistral`, `gemma`, `gemma2`, `phi3`, `gpt2`), maintains per-worker distributed KV caches, and streams binary tensor activations over authenticated `SHPT` TCP sockets.
-- **Technical Specs**: [`DISTRIBUTED_AI_ARCHITECTURE.md`](DISTRIBUTED_AI_ARCHITECTURE.md) | [`DISTRIBUTED_AI_IMPLEMENTATION_REPORT.md`](DISTRIBUTED_AI_IMPLEMENTATION_REPORT.md) | [`DISTRIBUTED_AI_TEST_REPORT.md`](DISTRIBUTED_AI_TEST_REPORT.md)
+- **Technical Specs**: [`DISTRIBUTED_AI_ARCHITECTURE.docx`](docs/reports/DISTRIBUTED_AI_ARCHITECTURE.docx) | [`DISTRIBUTED_AI_IMPLEMENTATION_REPORT.docx`](docs/reports/DISTRIBUTED_AI_IMPLEMENTATION_REPORT.docx) | [`DISTRIBUTED_AI_TEST_REPORT.docx`](docs/reports/DISTRIBUTED_AI_TEST_REPORT.docx)
 
 ---
 

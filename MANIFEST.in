@@ -9,6 +9,7 @@ include shard_engine/engine_optimizations.json
 prune assets
 prune website
 prune docs
+prune test
 prune native
 prune dist
 prune build

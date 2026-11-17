@@ -14,7 +14,7 @@ import tempfile
 import unittest
 import unittest.mock
 
-REPO = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
 # settings.py reads SHARD_DATA_DIR at import time -> must be set first

@@ -17,7 +17,7 @@ import shard_engine
 from shard_engine import cli, lan, paths, process
 class TestPathsAndPackaging(unittest.TestCase):
     def test_version_single_source_of_truth(self):
-        root = Path(__file__).resolve().parent
+        root = Path(__file__).resolve().parent.parent
         pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
         setup_py = (root / "setup.py").read_text(encoding="utf-8")
         self.assertEqual(shard_engine.__version__, "1.9.0")
@@ -241,7 +241,7 @@ class TestLanDynamicDiscoveryAndClusterFlow(unittest.TestCase):
                 srv.server_close()
 class TestBuiltDistribution(unittest.TestCase):
     def test_wheel_contents_when_built(self):
-        whl = Path(__file__).resolve().parent / "dist" / f"shard_engine-{shard_engine.__version__}-py3-none-any.whl"
+        whl = Path(__file__).resolve().parent.parent / "dist" / f"shard_engine-{shard_engine.__version__}-py3-none-any.whl"
         if not whl.is_file():
             self.skipTest("Wheel not built in dist/ yet")
         with zipfile.ZipFile(whl) as zf:
