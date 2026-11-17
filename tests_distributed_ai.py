@@ -124,3 +124,21 @@ class TestDistributedUnit(unittest.TestCase):
     def test_worker_consent_auth_and_api_lifecycle(self):
         client = TestClient(server.app, client=("127.0.0.1", 50000))
         r_create = client.post("/api/cluster/create", json={"model_id": "Qwen/Qwen2.5-Coder-1.5B-Instruct", "name": "TestCluster", "auto_deploy": False, "fetch_model_meta": False})
+        self.assertEqual(r_create.status_code, 200)
+        cls_data = r_create.json()["cluster"]
+        self.assertEqual(cls_data["state"], "FORMING")
+        code = cls_data["pairing_code"]
+        self.assertTrue(code)
+        r_prev = client.get("/api/cluster/preview")
+        self.assertEqual(r_prev.status_code, 200)
+        self.assertTrue(r_prev.json()["consent_required"])
+        r_noconsent = client.post("/api/cluster/workers/register", json={"worker_id": "w1", "consented": False, "auth_code": code})
+        self.assertEqual(r_noconsent.status_code, 403)
+        r_badcode = client.post("/api/cluster/workers/register", json={"worker_id": "w1", "consented": True, "auth_code": "AAAA-BBBB"})
+        self.assertEqual(r_badcode.status_code, 403)
+        r_ok = client.post("/api/cluster/workers/register", json={
+            "worker_id": "w1",
+            "name": "Node-1",
+            "consented": True,
+            "auth_code": code,
+            "hw": {"vram_total_mb": 8192, "vram_free_mb": 7500, "ram_total_mb": 16384, "ram_avail_mb": 12000, "cpu_cores": 8},
