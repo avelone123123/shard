@@ -68,3 +68,8 @@ All existing SHARD test modules were executed alongside `tests_distributed_ai.py
 ---
 
 ## 5. Known Limitations
+
+1. **Single Physical Machine Verification Only**: Multi-machine physical testing (two or more separate computers over LAN, Radmin VPN, Tailscale, or Relay) has not yet been executed in this session.
+2. **PyTorch Pipeline Concurrency**: `PipelineCoordinator` serializes token generation steps across stages per request slot (`_gen_lock`), whereas `gguf_rpc_layer_split` uses `llama-server --parallel N --cont-batching` for true slot-level parallel batching.
+3. **Architecture Coverage for `torch_pipeline_parallel`**: Restricted to `llama`, `qwen2`, `qwen3`, `mistral`, `gemma`, `gemma2`, `phi3`, and `gpt2` decoder architectures. Other model families (e.g., MLA/MoE DeepSeek-V2/V3) must use `gguf_rpc_layer_split`.
+4. **CPU-only PyTorch Wheel on Test Host**: The test host has `torch 2.14.1+cpu` (`torch.cuda.is_available() == False`), so CUDA GPU execution paths in `PipelineWorkerServer` were not exercised on physical NVIDIA hardware in this run (CUDA VRAM discovery was exercised via `nvidia-smi`).
