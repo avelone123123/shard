@@ -168,3 +168,5 @@ Given model metadata (`config.json` or GGUF probe) and cluster node inventories:
 All metrics are measured directly from execution:
 - **TTFT (ms)**: Time from request dispatch to first generated token.
 - **Tokens/sec**: Measured post-prefill and end-to-end generation rate.
+- **Inter-worker Transfer Time (ms)**: Actual measured TCP/tunnel send+recv time for activation frames and RPC RTT probes.
+- **Per-Worker Telemetry**: Real CPU %, GPU/VRAM used vs quota cap, RAM used vs quota cap, assigned layer range, active tasks, heartbeat age, link RTT, and measured link bandwidth.
