@@ -580,6 +580,22 @@ main{padding:14px !important;}
 <div id="joinWorkerConfigBox" class="v-card-elevated" style="padding:14px;background:var(--surface-sunken);border:1px solid var(--border);border-radius:var(--radius-md);">
 <div class="v-section-title" style="margin-bottom:8px;">Настройка выделения ресурсов воркера</div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;margin-bottom:10px;">
+<div>Обнаружено GPU: <b id="joinHwGpu">Поиск...</b></div>
+<div>Доступно RAM: <b id="joinHwRam">0 GB</b></div>
+<div>Расчетный сегмент: <b id="joinEstShard">~0 MB</b></div>
+<div>Режим бэкенда: <b id="joinBackend">Auto</b></div>
+</div>
+<div style="margin-bottom:10px;">
+<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+<span>Выделение VRAM GPU:</span>
+<span id="joinVramPctVal">70%</span>
+</div>
+<input type="range" id="joinVramRange" min="0" max="100" value="70" class="trn-input" style="width:100%;padding:0;" oninput="document.getElementById('joinVramPctVal').innerText=this.value+'%'">
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+<div>
+<label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">ПОТОКИ CPU</label>
+<input type="number" id="joinMaxThreads" min="1" max="128" value="4" class="trn-input">
 <div class="brand">
 <div class="brand-logo-icon">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
