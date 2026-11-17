@@ -286,3 +286,21 @@ class ClusterManager:
                 p_host = str(pipeline_host or rpc_host or remote_ip or "127.0.0.1").strip()
                 if rpc_port:
                     eff_rpc_ep = f"{r_host}:{int(rpc_port)}"
+                if pipeline_port:
+                    eff_pipe_ep = f"{p_host}:{int(pipeline_port)}"
+            probe_target = eff_pipe_ep or eff_rpc_ep
+            if probe_target and ":" in probe_target:
+                ph, pp = probe_target.rsplit(":", 1)
+                link = _cap.measure_tcp_link(ph, int(pp), timeout=1.5)
+                if link.get("reachable"):
+                    rtt_ms = link.get("rtt_ms")
+            tok = WORKER_TOKEN_PREFIX + secrets.token_hex(16)
+            rec = {
+                "worker_id": wid,
+                "name": (str(name or wid).strip())[:64],
+                "worker_token": tok,
+                "token_expires_at": now + max(60.0, float(ttl_seconds)),
+                "consented": True,
+                "joined_at": now,
+                "last_heartbeat": now,
+                "alive": True,
