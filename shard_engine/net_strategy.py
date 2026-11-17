@@ -983,7 +983,7 @@ class NetworkManager:
     def _make_discovery_client(self, extra_urls=None):
         with self._lock:
             cfg = copy.deepcopy(self._config)
-        allow_local = bool(cfg.get("allow_insecure_local"))
+        allow_local = bool(cfg.get("allow_insecure_local") or os.environ.get("SHARD_ALLOW_INSECURE_LOCAL") == "1")
         offline = bool(cfg.get("offline_only"))
         raw_urls = list(cfg.get("discovery_urls") or [])
         for u in extra_urls or ():
