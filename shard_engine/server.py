@@ -181,6 +181,14 @@ async def lifespan(_app):
         except Exception:
             pass
         try:
+            CLUSTER.stop_local_worker()
+        except Exception:
+            pass
+        try:
+            CLUSTER.stop_cluster()
+        except Exception:
+            pass
+        try:
             engine_instance.unload_model()
         except Exception:
             pass
