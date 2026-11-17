@@ -797,5 +797,8 @@ class LlamaBackend:
             "port": self.port,
             "ngl": self.ngl,
             "ctx_tokens": self.ctx_tokens,
+            "parallel_slots": self.parallel_slots,
+            "rpc_servers": self.rpc_servers,
+            "tensor_split": self.tensor_split,
             "running": self.is_running(),
         }
