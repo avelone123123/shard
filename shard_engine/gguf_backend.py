@@ -658,6 +658,8 @@ class LlamaBackend:
             "--parallel", str(self.parallel_slots),
             "--slots",
         ]
+        if self.parallel_slots > 1:
+            cmd += ["--cont-batching"]
         if rpc_servers:
             cmd += ["--rpc", str(rpc_servers)]
         if tensor_split:
