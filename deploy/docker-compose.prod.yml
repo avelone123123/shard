@@ -13,3 +13,18 @@ services:
     networks:
       - shard_internal
     expose:
+      - "8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+  shard-relay:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.relay
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+      - SHARD_ALLOW_INSECURE_LOCAL=0
+    networks:
