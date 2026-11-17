@@ -412,3 +412,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
         from shard_engine import lan
         rpc_exe = lan.find_rpc_server()
         srv_exe = gguf_backend.find_llama_server()
+        loc_gguf = gguf_backend.find_local_gguf("mradermacher/gpt2-medium-i1-GGUF")
+        if not (rpc_exe and srv_exe and loc_gguf):
+            self.skipTest("llama-server / ggml-rpc-server / cached gpt2-medium GGUF not present")
+        p1, p2, p3 = _free_port(), _free_port(), _free_port()
+        w1 = subprocess.Popen([rpc_exe, "-H", "127.0.0.1", "-p", str(p1), "-t", "2"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        w2 = subprocess.Popen([rpc_exe, "-H", "127.0.0.1", "-p", str(p2), "-t", "2"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        w3 = subprocess.Popen([rpc_exe, "-H", "127.0.0.1", "-p", str(p3), "-t", "2"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            time.sleep(0.5)
+            st = CLUSTER.create_cluster(
+                name="FailoverCluster",
+                model_id=loc_gguf["path"],
+                strategy="gguf_rpc_layer_split",
+                ctx_tokens=512,
+                parallel_slots=1,
+                open_net=True,
+                coordinator_contributes=False,
+                auto_deploy=False,
