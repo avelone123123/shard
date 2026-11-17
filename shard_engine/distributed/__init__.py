@@ -6,3 +6,9 @@ __all__ = [
     "SCHEDULER",
     "capabilities",
     "cluster",
+    "pipeline_coordinator",
+    "pipeline_proto",
+    "pipeline_worker",
+    "planner",
+    "scheduler",
+]
