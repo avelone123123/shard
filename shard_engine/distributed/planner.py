@@ -232,3 +232,21 @@ def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, 
             "feasible": False,
             "reason": model_spec.get("torch_pipeline_reason") or "Unsupported model architecture for torch pipeline",
             "strategy": eff_strategy,
+            "stages": [],
+        }
+    budgets = [_node_budget(n) for n in nodes]
+    total_layers = max(1, int(model_spec.get("num_layers") or 1))
+    weight_mb = float(model_spec["fp16_weight_mb"] if is_torch else model_spec["gguf_weight_mb"])
+    kv_total_mb = float(model_spec.get("kv_cache_mb_at_ctx") or 0.0)
+    if not is_torch:
+        kv_total_mb = kv_total_mb * max(1, int(parallel_slots)) * (float(ctx_tokens) / max(256, int(model_spec.get("ctx_tokens") or ctx_tokens)))
+    else:
+        kv_total_mb = kv_total_mb * (float(ctx_tokens) / max(256, int(model_spec.get("ctx_tokens") or ctx_tokens)))
+    embed_share = 0.08 if not model_spec.get("tie_word_embeddings") else 0.04
+    head_share = 0.06 if not model_spec.get("tie_word_embeddings") else 0.04
+    layer_pool_mb = weight_mb * (1.0 - embed_share - head_share)
+    weight_per_layer_mb = layer_pool_mb / total_layers
+    kv_per_layer_mb = kv_total_mb / total_layers
+    if is_torch:
+        exec_nodes = [b for b in budgets if b.get("pipeline_endpoint") or b["role"] == "coordinator"]
+        for b in exec_nodes:
