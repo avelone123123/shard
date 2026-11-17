@@ -58,3 +58,7 @@ services:
 volumes:
   discovery_data:
   caddy_data:
+  caddy_config:
+networks:
+  shard_internal:
+    driver: bridge
