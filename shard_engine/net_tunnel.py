@@ -2060,6 +2060,24 @@ class ClientTunnelAgent:
                 await ch.close()
                 if not self._stop:
                     self._state = TunnelState.RECONNECTING if self.reconnect_enabled else TunnelState.DISCONNECTED
+    def set_worker_allowed_ports(self, ports) -> None:
+        self.worker_allowed_ports = {int(p) for p in (ports or ()) if 1 <= int(p) <= 65535}
+    async def _handle_wrk_open(self, ch: EncryptedChannel, stream_id: int, payload: bytes) -> None:
+        try:
+            info = json.loads(payload.decode("utf-8"))
+            port = info.get("port")
+        except Exception:
+            await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+            return
+        if isinstance(port, bool) or not isinstance(port, int) or port not in self.worker_allowed_ports:
+            await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+            return
+        try:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection("127.0.0.1", port), timeout=5.0)
+        except Exception:
+            await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=stream_id, flags=net_identity.FLAG_FIN)
+            return
+        self._wrk_writers[stream_id] = writer
     async def _alloc_stream(self) -> tuple[int, asyncio.Queue]:
         async with self._stream_lock:
             sid = self._next_stream_id
