@@ -340,3 +340,21 @@ class PipelineCoordinator:
             finally:
                 self.release_request(rid)
         total_s = max(0.001, time.perf_counter() - t_start)
+        completion_tokens = len(generated_ids)
+        tps = round(completion_tokens / total_s, 2)
+        metrics = {
+            "thinking_seconds": 0.0,
+            "total_seconds": round(total_s, 3),
+            "ttft_ms": ttft_ms or round(total_s * 1000.0, 2),
+            "tokens_per_sec": tps,
+            "compute_ms": round(total_compute_ms, 2),
+            "inter_worker_transfer_ms": round(total_transfer_ms, 2),
+            "transferred_bytes": total_bytes,
+            "stages": len(self.runners),
+        }
+        self.last_metrics = metrics
+        yield {
+            "type": "done",
+            "token": "",
+            "done": True,
+            "telemetry": metrics,
