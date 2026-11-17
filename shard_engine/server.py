@@ -942,38 +942,51 @@ async def chat_completions(req: Request):
     client_key = _client_rate_key(req)
     factory = _inference_stream_factory(messages, max_tokens, temperature)
     if stream:
-        def event_generator():
-            for item in engine_instance.generate_stream(messages, max_tokens, temperature):
-                if item.get("type") == "thought":
-                    delta_payload = {
-                        "id": cid,
-                        "object": "chat.completion.chunk",
-                        "created": created,
-                        "model": model,
-                        "choices": [{"index": 0, "delta": {"reasoning_content": item["token"]}, "finish_reason": None}]
-                    }
-                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                elif item.get("type") == "content":
-                    delta_payload = {
-                        "id": cid,
-                        "object": "chat.completion.chunk",
-                        "created": created,
-                        "model": model,
-                        "choices": [{"index": 0, "delta": {"content": item["token"]}, "finish_reason": None}]
-                    }
-                    yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                elif item.get("type") == "done":
-                    final_payload = {
-                        "id": cid,
-                        "object": "chat.completion.chunk",
-                        "created": created,
-                        "model": model,
-                        "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-                        "telemetry": item.get("telemetry", {}),
-                        "usage": item.get("usage", {})
-                    }
-                    yield f"data: {json.dumps(final_payload, ensure_ascii=False)}\n\n"
-                    yield "data: [DONE]\n\n"
+        async def event_generator():
+            try:
+                async for item in SCHEDULER.stream_async(
+                    factory,
+                    client_key=client_key,
+                    model_id=model,
+                    is_disconnected=req.is_disconnected,
+                ):
+                    if item.get("type") == "thought":
+                        delta_payload = {
+                            "id": cid,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": model,
+                            "choices": [{"index": 0, "delta": {"reasoning_content": item["token"]}, "finish_reason": None}]
+                        }
+                        yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                    elif item.get("type") == "content":
+                        delta_payload = {
+                            "id": cid,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": model,
+                            "choices": [{"index": 0, "delta": {"content": item["token"]}, "finish_reason": None}]
+                        }
+                        yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
+                    elif item.get("type") == "error":
+                        err_payload = {"error": {"message": item.get("error") or "Inference error", "type": "server_error"}}
+                        yield f"data: {json.dumps(err_payload, ensure_ascii=False)}\n\n"
+                    elif item.get("type") == "done":
+                        final_payload = {
+                            "id": cid,
+                            "object": "chat.completion.chunk",
+                            "created": created,
+                            "model": model,
+                            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                            "telemetry": item.get("telemetry", {}),
+                            "usage": item.get("usage", {})
+                        }
+                        yield f"data: {json.dumps(final_payload, ensure_ascii=False)}\n\n"
+                        yield "data: [DONE]\n\n"
+            except RateLimitError as e:
+                yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'rate_limit_error'}})}\n\n"
+            except QueueFullError as e:
+                yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'server_busy'}})}\n\n"
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     result = engine_instance.generate_sync(messages, max_tokens, temperature)
     return {
