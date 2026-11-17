@@ -88,3 +88,21 @@ class RequestScheduler:
                     self._cond.notify_all()
                     raise
                 if req_id in self._waiting:
+                    self._waiting.remove(req_id)
+            self._active[req_id] = {
+                "request_id": req_id,
+                "client_key": str(client_key or "anonymous"),
+                "model_id": model_id,
+                "started_at": time.time(),
+                "tokens": 0,
+                "cancel_event": cancel_ev,
+            }
+            self._cond.notify_all()
+        return req_id, cancel_ev
+    def record_token(self, req_id, count=1):
+        with self._lock:
+            self._total_tokens += int(count)
+            rec = self._active.get(req_id)
+            if rec is not None:
+                rec["tokens"] += int(count)
+    def finish_slot(self, req_id, ok=True, cancelled=False, ttft_ms=None, tps=None, transfer_ms=None, error=None):
