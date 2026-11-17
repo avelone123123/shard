@@ -178,3 +178,21 @@ class PipelineStageModule(_NN_BASE):
                         target = _remap_tensor_key(key, self.model_type, self.layer_start, self.layer_end, self.has_embed, self.has_lm_head, False)
                         if target and (target in state_map or target in buf_map):
                             t = f.get_tensor(key)
+                            self._assign_param(state_map, buf_map, target, t)
+                            loaded_keys.add(target)
+            else:
+                sd = torch.load(wf, map_location="cpu", weights_only=True)
+                for key, t in sd.items():
+                    if tie and key in ("model.embed_tokens.weight", "embed_tokens.weight", "transformer.wte.weight", "wte.weight"):
+                        if self.has_lm_head and tied_embed_tensor is None:
+                            tied_embed_tensor = t
+                    target = _remap_tensor_key(key, self.model_type, self.layer_start, self.layer_end, self.has_embed, self.has_lm_head, False)
+                    if target and (target in state_map or target in buf_map):
+                        self._assign_param(state_map, buf_map, target, t)
+                        loaded_keys.add(target)
+                del sd
+        if self.has_lm_head and "lm_head.weight" not in loaded_keys and tied_embed_tensor is not None:
+            self._assign_param(state_map, buf_map, "lm_head.weight", tied_embed_tensor)
+            loaded_keys.add("lm_head.weight")
+        self.to(device=self.device, dtype=self.dtype)
+        self.eval()
