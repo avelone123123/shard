@@ -26,3 +26,17 @@ def _build_test_model(target_dir):
     from transformers import PreTrainedTokenizerFast, Qwen2Config, Qwen2ForCausalLM
     os.makedirs(target_dir, exist_ok=True)
     vocab = {"<unk>": 0, "<|endoftext|>": 1, "hello": 2, "shard": 3, "network": 4, "global": 5, "cluster": 6}
+    tok_obj = Tokenizer(WordLevel(vocab=vocab, unk_token="<unk>"))
+    tok_obj.pre_tokenizer = Whitespace()
+    fast_tok = PreTrainedTokenizerFast(tokenizer_object=tok_obj, unk_token="<unk>", eos_token="<|endoftext|>", pad_token="<|endoftext|>")
+    fast_tok.save_pretrained(target_dir)
+    torch.manual_seed(42)
+    cfg = Qwen2Config(vocab_size=len(vocab), hidden_size=32, intermediate_size=64, num_hidden_layers=4, num_attention_heads=4, num_key_value_heads=2, max_position_embeddings=128, tie_word_embeddings=False, eos_token_id=1, pad_token_id=1)
+    cfg.save_pretrained(target_dir)
+    mdl = Qwen2ForCausalLM(cfg).eval()
+    sd = {k: v.detach().cpu().contiguous() for k, v in mdl.state_dict().items()}
+    shard1, shard2, weight_map = {}, {}, {}
+    for k, v in sd.items():
+        if k.startswith("model.embed_tokens") or k.startswith("model.layers.0.") or k.startswith("model.layers.1."):
+            shard1[k] = v
+            weight_map[k] = "model-00001-of-00002.safetensors"
