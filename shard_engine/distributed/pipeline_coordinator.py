@@ -196,3 +196,21 @@ class PipelineCoordinator:
         cfg_dict = self.config.to_dict() if hasattr(self.config, "to_dict") else None
         runners = []
         for s in stages:
+            if s.get("endpoint"):
+                tok = self.worker_tokens.get(s["node_id"]) or self.worker_tokens.get("*") or ""
+                runners.append(_RemoteStageClient(s, auth_token=tok, cluster_id=self.cluster_id))
+            else:
+                runners.append(_LocalStageRunner(s, self.model_path_or_repo, self.config, dtype=self.dtype))
+        reports = [None] * len(runners)
+        errors = []
+        def _load_idx(idx, runner):
+            try:
+                if isinstance(runner, _RemoteStageClient):
+                    reports[idx] = runner.load_stage(self.model_path_or_repo, config_dict=cfg_dict, dtype=self.dtype)
+                else:
+                    reports[idx] = runner.load()
+            except Exception as e:
+                errors.append(f"Stage {idx}: {e}")
+        threads = [threading.Thread(target=_load_idx, args=(i, r), daemon=True) for i, r in enumerate(runners)]
+        for t in threads:
+            t.start()
