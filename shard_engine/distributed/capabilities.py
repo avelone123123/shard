@@ -82,3 +82,8 @@ def effective_worker_budget(hw, quota=None, link_rtt_ms=None, bandwidth_mbps=Non
         "primary_mb": primary_mb,
         "device_type": tier,
         "speed_score": score,
+        "link_rtt_ms": link_rtt_ms,
+        "bandwidth_mbps": bandwidth_mbps,
+        "raw_vram_total_mb": eff["raw_vram_total_mb"],
+        "raw_ram_total_mb": eff["raw_ram_total_mb"],
+    }
