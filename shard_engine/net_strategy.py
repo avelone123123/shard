@@ -843,6 +843,7 @@ def network_diagnostics(probe_public=False, offline_only=False, port=None, stun_
         "lan": lan_rep,
         "stun": stun_rep,
         "wireguard": wg_rep,
+        "radmin": radmin_mgr.get_radmin_status(),
         "platform": plat_rep,
     }
 class NetworkManager:
