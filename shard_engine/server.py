@@ -1521,6 +1521,24 @@ async def api_cluster_worker_register(req: Request):
         return JSONResponse(status_code=429, headers={"Retry-After": str(retry_fail)}, content={"status": "error", "message": "Registration temporarily rate-limited"})
     try:
         data = await req.json()
+    except Exception:
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    tpeer = net_tunnel.tunnel_peer_id(req)
+    try:
+        res = CLUSTER.register_worker(
+            worker_id=data.get("worker_id"),
+            name=data.get("name"),
+            hw=data.get("hw"),
+            backends=data.get("backends"),
+            quota=data.get("quota"),
+            consented=bool(data.get("consented", False)),
+            auth_code=data.get("auth_code") or data.get("code") or "",
+            rpc_port=data.get("rpc_port"),
+            pipeline_port=data.get("pipeline_port"),
+            rpc_host=data.get("rpc_host"),
+            pipeline_host=data.get("pipeline_host"),
+            transport=data.get("transport") or ("tunnel" if tpeer else "lan"),
+            tunnel_peer=tpeer,
 def _extract_bearer(req):
     auth = req.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
