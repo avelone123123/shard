@@ -18,3 +18,13 @@ Inspection of the existing codebase (`shard_engine/`), runtime binaries (`llama-
 
 ### 2.2 Disconnected Compute Quotas & Unauthenticated RPC Exposure (`shard_engine/lan.py`)
 - `LanManager.set_compute_consent()` persists `compute_quota` (`max_vram_gb`, `max_threads`), but `_start_worker()` launches `ggml-rpc-server` without `-t max_threads`, without device filtering, and without propagating quota limits to the coordinator's `_pool_snapshot()`.
+- `ggml-rpc-server` speaks raw unauthenticated TCP (`transport: TCP`). Binding directly to `0.0.0.0:50052` on untrusted networks exposes raw memory/compute allocation to any peer.
+- Empirical test with `llama-server.exe --list-devices` and `--rpc` (`b12110`) proved a critical tensor-split bug in `lan.py`: on CPU-only `llama-server` builds, `device_info` lists **only** `RPC0, RPC1, ...` (no local CPU offload device), whereas `lan.py`'s `rpc_targets()` always emitted `N + 1` weights with the coordinator first, shifting every worker's weight by one slot.
+
+### 2.3 Missing Cluster Rebalancing & Weak-Coordinator Support (`shard_engine/server.py`, `shard_engine/lan.py`)
+- `lan.py` declares `REBALANCE_INTERVAL_S = 2.0` and `_rebal_note`, but no rebalancing loop exists. Workers joining after model load or disconnecting mid-run never trigger partition replanning or recovery.
+- `_verify_server_model_ready()` rejects server creation (`HTTP 409 MODEL_NOT_READY`) unless the full model is already running on the coordinator alone, preventing a weak coordinator (e.g., 4 GB VRAM / 16 GB RAM) from creating a cluster for a larger model and waiting for workers to pool memory.
+
+### 2.4 Reverse NAT Tunneling Gap for Remote Workers (`shard_engine/net_tunnel.py`)
+- `HostTunnelAgent._handle_rpc_open()` currently proxies TCP streams from a connected **client** to `127.0.0.1:port` on the **host**.
+- For distributed inference across NAT, the direction is inverted: the **coordinator** (`llama-server` or `PipelineCoordinator`) must connect to the **worker's** local runtime (`127.0.0.1:rpc_port` or `127.0.0.1:pipeline_port`) through the authenticated ChaCha20-Poly1305 tunnel without the worker exposing public ports.
