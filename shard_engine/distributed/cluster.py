@@ -232,3 +232,21 @@ class ClusterManager:
                 w["assigned_stage"] = st
             return copy.deepcopy(plan)
     def register_worker(
+        self,
+        worker_id=None,
+        name=None,
+        hw=None,
+        backends=None,
+        quota=None,
+        consented=False,
+        auth_code=None,
+        rpc_port=None,
+        pipeline_port=None,
+        rpc_host=None,
+        pipeline_host=None,
+        transport="lan",
+        tunnel_peer=None,
+        remote_ip=None,
+        ttl_seconds=604800.0,
+    ):
+        if not consented:
