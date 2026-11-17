@@ -130,3 +130,7 @@ The backup script:
 
 ### Disaster Recovery (`deploy/restore_discovery.sh`)
 To restore from a backup snapshot:
+```bash
+/opt/shard/deploy/restore_discovery.sh /var/backups/shard/shard_discovery_backup_20261118_020000.tar.gz /opt/shard/deploy
+```
+The script safely halts the discovery container, restores state files, fixes ownership, and restarts the discovery service with zero data loss.
