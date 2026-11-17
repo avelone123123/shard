@@ -48,3 +48,13 @@ This implementation advances SHARD on branch `feat/distributed-ai-platform` from
 - `shard_engine/cli.py`: Added `shard cluster <create|join|status|plan|deploy|leave|stop>` with `--consent` enforcement.
 - `shard_engine/dashboard.html`: Added the `Кластер и Распределение` subtab in `tab-server` with cluster overview cards, coordinator creation form, worker consent + quota join form, layer distribution visualizer, worker roster, and real inference monitoring.
 
+---
+
+## 3. Feature Status Classification Matrix
+
+| Feature | Classification | Notes |
+|---|---|---|
+| Hardware & Backend Discovery (`hardware.py`, `capabilities.py`) | Implemented, Unit tested | Multi-GPU, CPU model/threads/util, RAM, disk, backend probes |
+| Worker Consent & Resource Quotas (`vram_pct`, `max_ram_gb`, `max_threads`) | Implemented, Unit tested, Integration tested | Strictly rejects unconsented join (`HTTP 403`) |
+| Model Architecture Inspection & Explicit Support Check (`planner.py`) | Implemented, Unit tested | Flags unsupported architectures honestly |
+| Weak-Coordinator Partition Planning & Comm Cost Estimation | Implemented, Unit tested, Integration tested | Separates usable vs raw memory; accounts for KV + buffers + RTT |
