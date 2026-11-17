@@ -538,3 +538,21 @@ class ClusterManager:
     def _monitor_loop(self):
         while not self._monitor_stop.is_set():
             self._rebalance_needed.wait(timeout=2.0)
+            self._rebalance_needed.clear()
+            if self._monitor_stop.is_set():
+                break
+            now = time.time()
+            lost_assigned = False
+            with self._lock:
+                if self.role != "coordinator":
+                    break
+                for w in self.workers.values():
+                    if w.get("revoked"):
+                        continue
+                    alive = (now - float(w.get("last_heartbeat") or 0)) <= HEARTBEAT_TIMEOUT_S
+                    prev = bool(w.get("alive", True))
+                    w["alive"] = alive
+                    if prev and not alive and w.get("assigned_stage"):
+                        lost_assigned = True
+                if lost_assigned and self.state == "READY":
+                    self.state = "DEGRADED"
