@@ -534,7 +534,10 @@ def classify_endpoint_path(endpoint):
     if ip_obj.version == 4:
         for net in _local_vpn_networks():
             if ip_obj in net:
-                return "direct_p2p"
+                return "mesh_vpn"
+        for net in _VPN_NETS:
+            if ip_obj in net:
+                return "mesh_vpn"
         for net in _LAN_NETS_V4:
             if ip_obj in net:
                 return "direct_lan"
