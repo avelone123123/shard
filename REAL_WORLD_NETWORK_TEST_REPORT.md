@@ -22,3 +22,15 @@ All automated regression test suites executed with a **100% pass rate (119/119 t
 
 ---
 
+## Detailed Test Case Results
+
+### TEST-01: Cryptographic Identity Generation (TOFU)
+- **Objective**: Verify deterministic keypair generation, public key fingerprinting, and Ed25519 signature verification without external dependencies.
+- **Verification Evidence**:
+  - Node generates 32-byte Ed25519 seed.
+  - Fingerprint formatted as `sha256(pubkey)[:16]` hex string.
+  - Signature verification passes; tampered payload signatures are rejected immediately.
+
+### TEST-02: Transport Classification & Priority Hierarchy
+- **Objective**: Ensure the transport classification engine routes traffic through the highest-performing available tier.
+- **Verification Code**:
