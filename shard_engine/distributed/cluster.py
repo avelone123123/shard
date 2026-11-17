@@ -718,3 +718,21 @@ class ClusterManager:
                 import requests
                 requests.post(
                     f"{lw['coordinator_url']}/api/cluster/workers/leave",
+                    json={"worker_id": lw["worker_id"], "worker_token": lw["worker_token"]},
+                    timeout=2.0,
+                )
+            except Exception:
+                pass
+        if lw.get("rpc_proc") is not None:
+            try:
+                lw["rpc_proc"].terminate()
+                lw["rpc_proc"].wait(timeout=3.0)
+            except Exception:
+                try:
+                    lw["rpc_proc"].kill()
+                except Exception:
+                    pass
+        if lw.get("pipeline_srv") is not None:
+            try:
+                lw["pipeline_srv"].stop()
+            except Exception:
