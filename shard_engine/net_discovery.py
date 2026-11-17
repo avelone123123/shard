@@ -231,6 +231,11 @@ def _sort_key_for_server(rec, sort_mode):
         load = 0.0
     name = str(listing.get("name") or rec.get("node_id") or "").lower()
     nid = str(rec.get("node_id") or "")
+    vram_val = float(listing.get("vram_gb") or (float(listing.get("aggregate_vram_mb") or 0) / 1024.0) or 0.0)
+    if mode == "vram":
+        return (-vram_val, -updated, -slots, nid)
+    if mode == "performance":
+        return (-vram_val, load, -updated, nid)
     if mode in ("participants", "users", "popular"):
         return (-participants, -updated, -slots, load, nid)
     if mode in ("slots", "capacity"):
