@@ -1594,6 +1594,9 @@ class HostTunnelAgent:
             srv, _ = self._worker_proxies.pop(key)
             srv.close()
             try:
+                await asyncio.wait_for(srv.wait_closed(), timeout=1.0)
+            except Exception:
+                pass
     async def _send_http_error(self, channel: EncryptedChannel, stream_id: int, status: int, message: str) -> None:
         if not channel.is_established:
             return
