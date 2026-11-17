@@ -88,3 +88,21 @@ class TestDistributedUnit(unittest.TestCase):
         fake_hw = {"vram_total_mb": 8192, "vram_free_mb": 7800, "ram_total_mb": 32768, "ram_avail_mb": 28000, "cpu_cores": 16}
         eff = hardware.effective_usable_resources(fake_hw, quota={"vram_pct": 50, "max_ram_gb": 10, "max_threads": 6})
         self.assertEqual(eff["usable_vram_mb"], 4096)
+        self.assertEqual(eff["usable_ram_mb"], 10240)
+        self.assertEqual(eff["usable_threads"], 6)
+    def test_planner_weak_coordinator_and_unsupported_arch(self):
+        spec_bad = planner.inspect_model_architecture("custom/mamba-3b", fetch=False)
+        self.assertFalse(spec_bad["supported_for_torch_pipeline"])
+        spec_qwen = {
+            "model_id": "Qwen/Qwen2.5-14B",
+            "model_type": "qwen2",
+            "params_b": 14.0,
+            "num_layers": 48,
+            "hidden_size": 5120,
+            "kv_cache_mb_at_ctx": 512.0,
+            "ctx_tokens": 4096,
+            "gguf_weight_mb": 9000.0,
+            "fp16_weight_mb": 28000.0,
+            "tie_word_embeddings": False,
+            "supported_for_torch_pipeline": True,
+            "has_safetensors": True,
