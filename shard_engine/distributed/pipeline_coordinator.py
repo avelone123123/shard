@@ -70,3 +70,21 @@ class _RemoteStageClient:
     def forward(self, request_id, tensor, use_cache=True, return_logits=True):
         self.connect()
         meta = {
+            "request_id": str(request_id),
+            "use_cache": bool(use_cache),
+            "return_logits": bool(return_logits),
+        }
+        frame_bytes = proto.encode_tensor_payload(meta, tensor)
+        with self.lock:
+            t0 = time.perf_counter()
+            proto.send_frame(self.sock, proto.MSG_FORWARD, frame_bytes)
+            mtype, _, resp_payload = proto.recv_frame(self.sock)
+            total_ms = (time.perf_counter() - t0) * 1000.0
+        if mtype == proto.MSG_ERROR:
+            try:
+                err_obj = json.loads(resp_payload.decode("utf-8"))
+                raise RuntimeError(err_obj.get("error") or "Worker forward error")
+            except Exception as exc:
+                if isinstance(exc, RuntimeError):
+                    raise
+                raise RuntimeError("Worker forward error")
