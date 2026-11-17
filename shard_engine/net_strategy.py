@@ -548,7 +548,7 @@ def classify_endpoint_path(endpoint):
     return "direct_p2p"
 def _is_local_or_lan_endpoint(endpoint):
     ptype = classify_endpoint_path(endpoint)
-    return ptype in ("same_machine", "direct_lan")
+    return ptype in ("same_machine", "direct_lan", "mesh_vpn")
 def parse_connect_target(target, default_port=None):
     raw = str(target or "").strip()
     if not raw:
