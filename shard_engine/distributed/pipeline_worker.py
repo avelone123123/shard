@@ -70,3 +70,21 @@ def _remap_tensor_key(key, model_type, layer_start, layer_end, has_embed, has_lm
                     if layer_start <= g_idx < layer_end:
                         return f"layers.{g_idx - layer_start}.{rest[dot + 1:]}"
         return None
+    if has_embed and key in ("model.embed_tokens.weight", "embed_tokens.weight"):
+        return "embed_tokens.weight"
+    if has_lm_head:
+        if key in ("model.norm.weight", "norm.weight"):
+            return "norm.weight"
+        if key in ("model.norm.bias", "norm.bias"):
+            return "norm.bias"
+        if key == "lm_head.weight":
+            return "lm_head.weight"
+        if tie_word_embeddings and key in ("model.embed_tokens.weight", "embed_tokens.weight"):
+            return "lm_head.weight"
+    for pfx in ("model.layers.", "layers."):
+        if key.startswith(pfx):
+            rest = key[len(pfx):]
+            dot = rest.find(".")
+            if dot > 0:
+                g_idx = int(rest[:dot])
+                if layer_start <= g_idx < layer_end:
