@@ -1436,7 +1436,7 @@ class ShardEngine:
                 "total_tokens": prompt_tokens + token_count
             }
         }
-    def _generate_gguf(self, messages, max_tokens=512, temperature=0.7):
+    def _generate_gguf(self, messages, max_tokens=512, temperature=0.7, cancel_check=None):
         t0 = time.time()
         self.status = "generating"
         self._cancel_gen = False
