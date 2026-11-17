@@ -628,3 +628,21 @@ class ClusterManager:
             "consented": True,
             "auth_code": auth_code,
             "rpc_port": rpc_port,
+            "pipeline_port": pipe_port,
+            "rpc_host": None if via_tunnel else caps["primary_ip"],
+            "pipeline_host": None if via_tunnel else caps["primary_ip"],
+            "transport": "tunnel" if via_tunnel else "lan",
+        }
+        try:
+            r = requests.post(f"{base}/api/cluster/workers/register", json=payload, timeout=8.0)
+            if r.status_code != 200:
+                raise RuntimeError(f"Coordinator rejected worker registration ({r.status_code}): {r.text[:200]}")
+            data = r.json()
+        except Exception:
+            if rpc_proc is not None:
+                try:
+                    rpc_proc.terminate()
+                except Exception:
+                    pass
+            if pipe_srv is not None:
+                pipe_srv.stop()
