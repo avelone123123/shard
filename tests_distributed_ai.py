@@ -178,3 +178,21 @@ class TestDistributedUnit(unittest.TestCase):
 class TestRealDistributedIntegration(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.mkdtemp(prefix="shard_dist_int_")
+        self.orig_data_dir = os.environ.get("SHARD_DATA_DIR")
+        os.environ["SHARD_DATA_DIR"] = self.tmp_dir
+        CLUSTER.stop_local_worker()
+        CLUSTER.stop_cluster()
+    def tearDown(self):
+        CLUSTER.stop_local_worker()
+        CLUSTER.stop_cluster()
+        if self.orig_data_dir is not None:
+            os.environ["SHARD_DATA_DIR"] = self.orig_data_dir
+        else:
+            os.environ.pop("SHARD_DATA_DIR", None)
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
+    def test_real_multiprocess_pytorch_pipeline_parallelism(self):
+        import importlib.util
+        if any(importlib.util.find_spec(m) is None for m in ("torch", "transformers", "safetensors")):
+            self.skipTest("torch/transformers/safetensors not installed")
+        import torch
+        model_dir = os.path.join(self.tmp_dir, "tiny_qwen2_sharded")
