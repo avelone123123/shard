@@ -921,8 +921,8 @@ def api_ping():
         "status": "ok",
         "version": __version__,
         "latency_ms": 0.3,
-        "engine": "shard-local-engine",
-        "active_model": engine_instance.active_model_id,
+        "engine": "shard-distributed-cluster" if cls_ready else "shard-local-engine",
+        "active_model": CLUSTER.target_model if cls_ready else engine_instance.active_model_id,
         "is_loaded": is_loaded,
         "node_id": _safe_node_id(),
     }
