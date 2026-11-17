@@ -1395,7 +1395,8 @@ class ShardEngine:
             gen_thread = threading.Thread(target=_runner, daemon=True)
             gen_thread.start()
             for chunk in streamer:
-                if self._cancel_gen:
+                if self._cancel_gen or (cancel_check and cancel_check()):
+                    self._cancel_gen = True
                     break
                 if not chunk:
                     continue
