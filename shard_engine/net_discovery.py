@@ -202,6 +202,19 @@ def _listing_matches(rec, q="", model="", region="", access="", min_vram=0, stat
                 return False
         elif acc != a_s:
             return False
+    if min_vram and float(min_vram) > 0:
+        eff_vram_gb = float(listing.get("vram_gb") or (float(listing.get("aggregate_vram_mb") or 0) / 1024.0) or 0.0)
+        if eff_vram_gb < float(min_vram):
+            return False
+    st_s = str(status or "").strip().lower()
+    if st_s:
+        c_st = str(listing.get("cluster_state") or listing.get("status") or "").strip().lower()
+        if st_s not in c_st:
+            return False
+    if accepts_workers is not None:
+        aw = bool(listing.get("accepts_workers"))
+        if aw != bool(accepts_workers):
+            return False
     return True
 def _sort_key_for_server(rec, sort_mode):
     listing = rec.get("listing") or {}
