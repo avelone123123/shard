@@ -138,3 +138,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
             "role": "server",
             "visibility": "public",
             "access_mode": "open",
+            "active_model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+            "vram_gb": 24.0,
+            "aggregate_vram_mb": 24576,
+            "worker_count": 3,
+            "accepts_workers": True,
+            "cluster_state": "READY",
+            "direct_endpoints": ["127.0.0.1:9090"],
+        }
+        dc.register_server(self.ident_a, listing, ttl_s=30)
+        resp_q = self.client.get("/api/catalog/servers?q=DeepSeek", headers=self.owner_hdr)
+        self.assertEqual(resp_q.status_code, 200)
+        servers_q = resp_q.json().get("servers") or []
+        self.assertTrue(any("deepseek" in (s.get("listing", {}).get("active_model", "").lower()) for s in servers_q))
+        resp_vram = self.client.get("/api/catalog/servers?min_vram=16", headers=self.owner_hdr)
