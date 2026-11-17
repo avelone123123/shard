@@ -754,3 +754,21 @@ class ClusterManager:
                 "access_mode": self.access_mode,
                 "worker_count": len(self._alive_worker_records()),
                 "aggregate_usable_vram_mb": agg_vram,
+                "aggregate_usable_ram_mb": agg_ram,
+                "model_requirements": {
+                    "params_b": (self.model_spec or {}).get("params_b"),
+                    "num_layers": (self.model_spec or {}).get("num_layers"),
+                    "quant": (self.model_spec or {}).get("quant"),
+                    "required_mb": (self.plan or {}).get("total_required_mb"),
+                } if self.model_spec else None,
+                "consent_required": True,
+                "privacy_notice": "Resources are never allocated without explicit consent. Quotas limit maximum VRAM, RAM, and CPU threads.",
+            }
+    def status(self, include_secrets=False):
+        now = time.time()
+        with self._lock:
+            coord = self._coordinator_node_record()
+            workers_out = []
+            for wid, w in self.workers.items():
+                alive = (now - float(w.get("last_heartbeat") or 0)) <= HEARTBEAT_TIMEOUT_S
+                w["alive"] = alive
