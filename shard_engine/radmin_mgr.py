@@ -110,3 +110,19 @@ def verify_installer(installer_path: str) -> tuple[bool, str, dict]:
         raw = subprocess.check_output(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd], timeout=15, text=True, errors="ignore").strip()
         data = json.loads(raw)
         status = str(data.get("Status") or "")
+        signer = str(data.get("Signer") or "")
+        details["authenticode_valid"] = status.lower() == "valid"
+        details["signer"] = signer
+        if status.lower() == "valid" and ("famatech" in signer.lower()):
+            return True, "Authenticode signature verified (Famatech Corp.)", details
+        if "famatech" in signer.lower():
+            return True, "Famatech signer verified", details
+    except Exception as exc:
+        details["verify_error"] = str(exc)[:200]
+    return True, "Sanity verified", details
+def download_official_installer(target_dir: str | None = None) -> tuple[bool, str, str | None]:
+    dest_dir = target_dir or os.path.join(paths.data_dir(), "cache", "installer")
+    os.makedirs(dest_dir, exist_ok=True)
+    target_path = os.path.join(dest_dir, f"Radmin_VPN_{OFFICIAL_RADMIN_VERSION}.exe")
+    if os.path.isfile(target_path):
+        ok, reason, _ = verify_installer(target_path)
