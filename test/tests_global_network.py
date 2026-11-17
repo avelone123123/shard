@@ -180,3 +180,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
         dc.register_server(self.ident_a, listing, ttl_s=30)
         resp_pj = self.client.get(f"/api/catalog/prejoin/{self.ident_a.node_id}", headers=self.owner_hdr)
         self.assertEqual(resp_pj.status_code, 200)
+        pj = resp_pj.json()
+        self.assertEqual(pj.get("target_model"), "Qwen/Qwen2.5-Coder-7B-Instruct")
+        self.assertTrue(pj.get("compatible"))
+        self.assertIn("gpu_model", pj.get("local_hardware", {}))
+        self.assertIn("vram_pct", pj.get("recommendations", {}))
+        resp_no_consent = self.client.post("/api/catalog/join", json={"target": self.ident_a.node_id, "mode": "worker", "consent": False}, headers=self.owner_hdr)
+        self.assertEqual(resp_no_consent.status_code, 403)
+        self.assertEqual(resp_no_consent.json().get("code"), "CONSENT_REQUIRED")
+    def test_d_real_distributed_inference_pipeline_parallelism(self):
+        import torch
+        p1 = _free_port()
+        srv = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=p1, auth_token="tok_w1", max_threads=2, allow_cuda=False)
+        pipe_port = srv.start()
+        plan = {
