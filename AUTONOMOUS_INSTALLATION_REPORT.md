@@ -22,3 +22,15 @@ This report documents the end-to-end installation workflow, operating system spe
              |              - If Declined: Save Preference, Use P2P/Relay
              |
              +---> Linux / macOS: Initialize P2P / WireGuard / Blind Relay
+             |
+             v
+[ Cryptographic Identity Initialized (Ed25519) ]
+             |
+             v
+[ Autonomous Network Discovery (`https://discovery.shard.network`) ]
+             |
+             v
+[ Dashboard Ready: 1-Click Join as User or Contributor ]
+```
+
+---
