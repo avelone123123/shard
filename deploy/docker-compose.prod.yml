@@ -28,3 +28,18 @@ services:
       - PYTHONUNBUFFERED=1
       - SHARD_ALLOW_INSECURE_LOCAL=0
     networks:
+      - shard_internal
+    expose:
+      - "8081"
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4096M
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
