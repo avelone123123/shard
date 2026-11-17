@@ -564,6 +564,22 @@ main{padding:14px !important;}
 Подключиться как клиент
 </button>
 </div>
+<div class="v-subcard" style="display:flex;flex-direction:column;justify-content:space-between;">
+<div>
+<div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+Вариант Б: Стать воркером
+</div>
+<div style="font-size:12px;color:var(--text-secondary);line-height:1.5;margin-bottom:10px;">
+Выделить часть ресурсов своего ПК (GPU / VRAM / RAM) в общий кластер. Модель будет разделена, ваш ПК выполнит назначенные слои нейросети.
+</div>
+</div>
+<div id="joinWorkerCompatBadge" class="compat-pill compat-neutral" style="margin-bottom:8px;">Проверка...</div>
+</div>
+</div>
+<div id="joinWorkerConfigBox" class="v-card-elevated" style="padding:14px;background:var(--surface-sunken);border:1px solid var(--border);border-radius:var(--radius-md);">
+<div class="v-section-title" style="margin-bottom:8px;">Настройка выделения ресурсов воркера</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;margin-bottom:10px;">
 <div class="brand">
 <div class="brand-logo-icon">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
