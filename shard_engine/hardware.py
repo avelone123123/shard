@@ -145,6 +145,8 @@ def get_hardware_profile(force_refresh=False):
     backends["cuda"] = bool(backends.get("cuda") or vram_total_mb > 0)
     return {
         "gpu_name": gpu_name,
+        "gpus": list(_gpu_cache["gpus"]),
+        "gpu_count": len(_gpu_cache["gpus"]),
         "vram_total_mb": vram_total_mb,
         "vram_used_mb": vram_used_mb,
         "vram_free_mb": max(0, vram_total_mb - vram_used_mb),
