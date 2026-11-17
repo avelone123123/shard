@@ -268,3 +268,21 @@ class PipelineCoordinator:
                 return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
             except Exception:
                 pass
+        parts = []
+        for m in messages:
+            role = m.get("role", "user")
+            c = m.get("content", "")
+            parts.append(f"<|im_start|>{role}\n{c}<|im_end|>")
+        parts.append("<|im_start|>assistant\n")
+        return "\n".join(parts)
+    def _sample_next(self, logits_1d, temperature=0.7, top_p=0.95):
+        if temperature is None or float(temperature) <= 0.05:
+            return int(torch.argmax(logits_1d, dim=-1).item())
+        scaled = logits_1d / max(0.05, float(temperature))
+        probs = torch.softmax(scaled, dim=-1)
+        if 0.0 < float(top_p) < 1.0:
+            sorted_probs, sorted_idx = torch.sort(probs, descending=True)
+            cum = torch.cumsum(sorted_probs, dim=-1)
+            mask = (cum - sorted_probs) > float(top_p)
+            sorted_probs[mask] = 0.0
+            s_sum = sorted_probs.sum()
