@@ -322,3 +322,21 @@ class PipelineWorkerServer:
             if torch is not None and torch.cuda.is_available():
                 torch.cuda.empty_cache()
             gc.collect()
+    def stats(self):
+        with self._stage_lock:
+            loaded = self._stage is not None
+            return {
+                "running": self._sock is not None and not self._stop_ev.is_set(),
+                "port": self.bound_port,
+                "stage_loaded": loaded,
+                "layer_start": self._stage.layer_start if loaded else None,
+                "layer_end": self._stage.layer_end if loaded else None,
+                "active_kv_sessions": len(self._kv_caches),
+                "requests_handled": self._requests_handled,
+                "bytes_rx": self._bytes_rx,
+                "bytes_tx": self._bytes_tx,
+                "last_compute_ms": self._last_compute_ms,
+            }
+    def _accept_loop(self):
+        while not self._stop_ev.is_set() and self._sock is not None:
+            try:
