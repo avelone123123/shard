@@ -268,3 +268,21 @@ class PipelineStageModule(_NN_BASE):
 class PipelineWorkerServer:
     def __init__(self, host="127.0.0.1", port=0, auth_token="", max_threads=None, allow_cuda=True, max_vram_mb=None):
         self.host = str(host or "127.0.0.1")
+        self.requested_port = int(port)
+        self.auth_token = str(auth_token or "")
+        self.max_threads = int(max_threads) if max_threads else None
+        self.allow_cuda = bool(allow_cuda)
+        self.max_vram_mb = int(max_vram_mb) if max_vram_mb else None
+        self.bound_port = None
+        self._sock = None
+        self._stop_ev = threading.Event()
+        self._accept_thread = None
+        self._conn_threads = set()
+        self._stage_lock = threading.RLock()
+        self._stage = None
+        self._kv_caches = {}
+        self._requests_handled = 0
+        self._bytes_rx = 0
+        self._bytes_tx = 0
+        self._last_compute_ms = 0.0
+    def start(self):
