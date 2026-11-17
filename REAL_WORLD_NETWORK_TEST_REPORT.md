@@ -58,3 +58,15 @@ All automated regression test suites executed with a **100% pass rate (119/119 t
 - **Verification Evidence**:
   - Deterministic credential derivation produces unique network names:
     - Cluster Alpha (`cluster-alpha-001`): `SHARD-281b3152`
+    - Cluster Beta (`cluster-beta-002`): `SHARD-a29910d9`
+  - API endpoints `/api/net/radmin/status`, `/api/net/radmin/cluster-network/{id}`, `/api/net/radmin/decline`, and `/api/net/doctor` returned HTTP 200 with correct schema.
+- **Result**: PASS.
+
+### TEST-05: Real Distributed Inference via Pipeline Parallelism
+- **Objective**: Validate end-to-end model partition execution where Coordinator (Stage 0) computes initial hidden states, transmits tensors to Worker (Stage 1), and receives output logits.
+- **Verification Evidence**:
+  - Real PyTorch / GGUF RPC tensor serialization and socket transfer.
+  - Intermediate tensor shapes matched partition boundaries `(batch_size, seq_len, hidden_dim)`.
+  - Final generation output was coherent and mathematically deterministic.
+- **Result**: PASS.
+
