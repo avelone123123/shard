@@ -1859,6 +1859,9 @@ def cmd_cluster(args):
         print(f"Discovered Clusters & Servers ({len(srvs)}):\n")
         for s in srvs:
             lst = s.get("listing") or s
+            print(f"- {lst.get('name')} | Node: {s.get('node_id')}")
+            print(f"  Model: {lst.get('active_model') or lst.get('model')} | State: {lst.get('cluster_state') or lst.get('status')}")
+            print(f"  VRAM: {lst.get('aggregate_vram_mb', 0)} MB | Workers: {lst.get('worker_count', 0)} | Access: {lst.get('access_mode')}")
         return
     if action == "create":
         model_id = getattr(args, "model", None) or (args.extra[0] if getattr(args, "extra", None) else None)
