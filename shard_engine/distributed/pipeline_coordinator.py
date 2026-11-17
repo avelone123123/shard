@@ -358,3 +358,9 @@ class PipelineCoordinator:
             "token": "",
             "done": True,
             "telemetry": metrics,
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+            },
+        }
