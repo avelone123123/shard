@@ -1755,6 +1755,24 @@ def cmd_network(args):
             print(f"NAT Profile:         {nat_prof.get('nat_type')} (symmetric: {nat_prof.get('symmetric_nat')})")
         wg = diag.get("wireguard") or {}
         print(f"WireGuard Ready:     {wg.get('installed')}")
+def cmd_cluster(args):
+    import requests
+    action = getattr(args, "cluster_action", "status") or "status"
+    base = _base_url()
+    hdrs = _owner_headers()
+    if action == "status":
+        r = requests.get(f"{base}/api/cluster/status", headers=hdrs, timeout=5)
+        if r.status_code != 200:
+            print(f"[ERROR] {r.status_code}: {r.text[:200]}")
+            sys.exit(1)
+        data = r.json()
+        if getattr(args, "as_json", False):
+            print(json.dumps(data, indent=2, ensure_ascii=False))
+            return
+        ov = data.get("cluster_overview") or {}
+        tel = data.get("telemetry") or {}
+        print(f"Cluster Role:   {data.get('role')} | State: {data.get('state')}")
+        print(f"Cluster Name:   {data.get('name')} | Model: {data.get('target_model')}")
 def _build_parser():
     parser = argparse.ArgumentParser(prog="shard", description="SHARD CLI Engine", add_help=False)
     parser.add_argument("-V", "--version", action="store_true")
