@@ -4452,6 +4452,24 @@ async function clsJoinWorker() {
     try {
         const res = await fetch('/api/cluster/worker/join', {
             method: 'POST',
+            headers: getAuthHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({coordinator_url: url, auth_code: code, consented: true, via_tunnel: viaTunnel, quota: {vram_pct: vramPct, max_ram_gb: ramGb, max_threads: threads}})
+        });
+        const d = await res.json();
+        if (!res.ok) { showToast('Ошибка подключения', d.message || 'Отклонено координатором'); return; }
+        showToast('Worker подключён', 'ID: ' + d.worker_id);
+        clsRefresh();
+    } catch(e) { showToast('Ошибка', e.message); }
+}
+async function clsLeaveWorker() {
+    try {
+        await fetch('/api/cluster/worker/leave', {method: 'POST', headers: getAuthHeaders()});
+        showToast('Worker остановлен', 'Вычислительные ресурсы освобождены');
+        clsRefresh();
+    } catch(e) {}
+}
+async function clsKickWorker(wid) {
+    try {
 async function srvCreateUnified() {
     const name = ((document.getElementById('srvCreateName') || {}).value || '').trim();
     const mode = ((document.getElementById('srvCreateMode') || {}).value || 'lan_and_global');
