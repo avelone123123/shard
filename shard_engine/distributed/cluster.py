@@ -592,3 +592,21 @@ class ClusterManager:
         q = dict(quota or {})
         eff = _hardware.effective_usable_resources(hw, quota=q)
         rpc_port = None
+        rpc_proc = None
+        pipe_srv = None
+        pipe_port = None
+        bind_host = "127.0.0.1" if via_tunnel else "0.0.0.0"
+        if start_rpc and _lan.find_rpc_server():
+            rpc_port = _free_port()
+            cmd = _lan.worker_cmd(rpc_port, exe=_lan.find_rpc_server(), host=bind_host, threads=eff["usable_threads"])
+            kw = {"creationflags": _lan._CREATE_NO_WINDOW} if os.name == "nt" else {}
+            rpc_proc = _lan.subprocess.Popen(cmd, stdin=_lan.subprocess.DEVNULL, stdout=_lan.subprocess.DEVNULL, stderr=_lan.subprocess.PIPE, **kw)
+        worker_id = f"wrk-{_lan.LAN.node_id() or uuid.uuid4().hex[:10]}"
+        if start_pipeline and (hw.get("backends") or {}).get("torch_pipeline"):
+            pipe_srv = _pworker.PipelineWorkerServer(
+                host=bind_host,
+                port=0,
+                auth_token="",
+                max_threads=eff["usable_threads"],
+                allow_cuda=eff["usable_vram_mb"] >= 256,
+                max_vram_mb=eff["usable_vram_mb"],
