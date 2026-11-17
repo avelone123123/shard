@@ -68,3 +68,17 @@ class TestAutonomousNetworkSuite(unittest.TestCase):
                 os.environ.pop("SHARD_RELAY_URL", None)
     def test_autonomous_transport_selection_priority(self):
         expected_priority = ("same_machine", "direct_lan", "mesh_vpn", "direct_p2p", "relay")
+        self.assertEqual(net_strategy.PATH_PRIORITY, expected_priority)
+        self.assertEqual(net_strategy.classify_endpoint_path("127.0.0.1:8000"), "same_machine")
+        self.assertEqual(net_strategy.classify_endpoint_path("localhost:8000"), "same_machine")
+        self.assertEqual(net_strategy.classify_endpoint_path("192.168.1.100:8000"), "direct_lan")
+        self.assertEqual(net_strategy.classify_endpoint_path("10.0.0.5:8000"), "direct_lan")
+        self.assertEqual(net_strategy.classify_endpoint_path("26.84.23.251:8000"), "mesh_vpn")
+        self.assertEqual(net_strategy.classify_endpoint_path("100.64.0.15:8000"), "mesh_vpn")
+        self.assertEqual(net_strategy.classify_endpoint_path("203.0.113.45:8000"), "direct_p2p")
+        self.assertEqual(net_strategy.classify_endpoint_path("wss://relay.shard.network"), "relay")
+    def test_server_radmin_api_endpoints(self):
+        resp_st = self.client.get("/api/net/radmin/status", headers=self.owner_hdr)
+        self.assertEqual(resp_st.status_code, 200)
+        data_st = resp_st.json()
+        self.assertIn("supported", data_st)
