@@ -920,5 +920,6 @@ def windows_diagnostics(port: int = 8000, extra_ports: tuple[int, ...] = (8001,)
         "docker": docker,
         "wireguard": wg,
         "wireguard_plan": wireguard_install_plan(),
+        "radmin": radmin,
         "recommendations": recommendations,
     }
