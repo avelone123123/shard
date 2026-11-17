@@ -166,3 +166,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
             "node_id": self.ident_a.node_id,
             "pubkey": self.ident_a.pubkey_b64,
             "name": "Cluster-Coordinator",
+            "role": "server",
+            "visibility": "public",
+            "access_mode": "open",
+            "active_model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+            "vram_gb": 16.0,
+            "aggregate_vram_mb": 16384,
+            "worker_count": 1,
+            "accepts_workers": True,
+            "cluster_state": "WAITING_WORKERS",
+            "direct_endpoints": ["127.0.0.1:8000"],
+        }
+        dc.register_server(self.ident_a, listing, ttl_s=30)
+        resp_pj = self.client.get(f"/api/catalog/prejoin/{self.ident_a.node_id}", headers=self.owner_hdr)
+        self.assertEqual(resp_pj.status_code, 200)
