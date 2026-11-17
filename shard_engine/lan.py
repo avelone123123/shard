@@ -1330,7 +1330,7 @@ class LanManager:
             mip = master_ip or ((self._state.get("master") or {}).get("ip"))
             quota = dict(self._state.get("compute_quota") or {})
         eff_bind = str(bind_host or "").strip() or _route_local_ip_for(mip) or "0.0.0.0"
-        cmd = worker_cmd(port, exe=find_rpc_server(), host=eff_bind)
+        cmd = worker_cmd(port, exe=find_rpc_server(), host=eff_bind, threads=quota.get("max_threads"))
         kw = {}
         if os.name == "nt":
             kw["creationflags"] = _CREATE_NO_WINDOW
