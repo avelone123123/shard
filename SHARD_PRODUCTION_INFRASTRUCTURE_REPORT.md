@@ -118,3 +118,15 @@ curl -fsS https://discovery.shard.network/health
 ## Backup and Recovery Procedures
 
 ### Automated Daily Backup (`deploy/backup_discovery.sh`)
+Add the following cron entry (`crontab -e`) to execute automated daily snapshots:
+```cron
+0 2 * * * /opt/shard/deploy/backup_discovery.sh /opt/shard/deploy /var/backups/shard
+```
+
+The backup script:
+- Verifies directory integrity.
+- Atomically archives `/var/lib/shard/` into `shard_discovery_backup_<timestamp>.tar.gz`.
+- Maintains a rolling retention policy, automatically removing snapshots older than 14 days.
+
+### Disaster Recovery (`deploy/restore_discovery.sh`)
+To restore from a backup snapshot:
