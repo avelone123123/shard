@@ -70,6 +70,20 @@ def _probe_backends():
     try:
         from . import gguf_backend, lan
         has_llama_server = bool(gguf_backend.find_llama_server())
+        has_gguf_rpc = bool(lan.find_rpc_server())
+    except Exception:
+        pass
+    res = {
+        "gguf_rpc": has_gguf_rpc,
+        "llama_server": has_llama_server,
+        "torch_pipeline": bool(has_torch and has_transformers and has_safetensors),
+        "torch": has_torch,
+        "cuda": has_cuda or bool(_gpu_cache.get("vram_total_mb", 0) > 0),
+        "mps": has_mps,
+    }
+    _backend_cache["ts"] = now
+    _backend_cache["data"] = res
+    return dict(res)
 def get_hardware_profile(force_refresh=False):
     import psutil
     now = time.time()
