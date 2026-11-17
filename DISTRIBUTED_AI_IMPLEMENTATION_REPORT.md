@@ -18,3 +18,13 @@ This implementation advances SHARD on branch `feat/distributed-ai-platform` from
 ## 2. Implemented Components & Modified Files
 
 ### 2.1 New Package: `shard_engine/distributed/`
+- `shard_engine/distributed/capabilities.py`:
+  - `detect_llama_offload_devices()` probes `llama-server --list-devices` so offload device count is never miscalculated on CPU-only `llama.cpp` builds.
+  - `probe_node_capabilities()` gathers GPU list, CPU model/cores/utilization, RAM, disk, supported backends (`gguf_rpc`, `llama_server`, `torch_pipeline`, `cuda`, `mps`), and non-virtual network interfaces.
+  - `measure_tcp_link()` & `measure_bandwidth_mbps()` perform real TCP RTT and payload throughput measurements.
+  - `effective_worker_budget()` applies system reserves (`VRAM_RESERVE_MB`, `RAM_RESERVE_MB`), user quotas, and RTT penalties.
+- `shard_engine/distributed/planner.py`:
+  - `inspect_model_architecture()` resolves `config.json`, `model.safetensors.index.json` / `model.safetensors`, GGUF files, exact layer counts, KV bytes per token per layer, and explicit `torch_pipeline_parallel` support status (`llama`, `qwen2`, `qwen3`, `mistral`, `gemma`, `gemma2`, `phi3`, `gpt2`).
+  - `plan_cluster_partition()` computes per-stage weight MB, KV cache MB (scaled by `ctx_tokens` and `parallel_slots`), scratch buffer overhead, exact `shard_files` per worker, `rpc_arg`, `tensor_split_arg`, estimated inter-worker transfer latency (`estimated_comm_overhead_ms_per_tok`), and `prefer_single_node` warnings.
+- `shard_engine/distributed/pipeline_proto.py`:
+  - Binary TCP framing protocol (`SHPT` v1) with constant-time token auth handshake (`MSG_AUTH` / `MSG_AUTH_OK` / `MSG_AUTH_ERR`), zero-pickle tensor serialization supporting `float32`, `float16`, `bfloat16` (bit-exact via `uint16` view), and `int64`, plus `MSG_LOAD_STAGE`, `MSG_FORWARD`, `MSG_FORWARD_RES`, `MSG_RELEASE_KV`, `MSG_PING`, `MSG_BW_PROBE`.
