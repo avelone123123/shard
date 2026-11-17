@@ -412,3 +412,21 @@ class PipelineWorkerServer:
         dev = torch.device("cuda" if use_cuda else "cpu")
         if requested_dtype == "float16" and (use_cuda or hasattr(torch, "float16")):
             dt = torch.float16 if use_cuda else torch.float32
+        elif requested_dtype == "bfloat16":
+            dt = torch.bfloat16
+        else:
+            dt = torch.float32
+        return dev, dt
+    def _load_stage(self, meta):
+        model_ref = str(meta["model_path_or_repo"])
+        layer_start = int(meta["layer_start"])
+        layer_end = int(meta["layer_end"])
+        has_embed = bool(meta.get("has_embed"))
+        has_lm_head = bool(meta.get("has_lm_head"))
+        shard_files = list(meta.get("shard_files") or [])
+        dev, dt = self._select_device_and_dtype(meta.get("dtype") or "float32")
+        if isinstance(meta.get("config_dict"), dict) and meta["config_dict"].get("model_type"):
+            cfg_dict = meta["config_dict"]
+            base_dir, weight_files = _download_or_locate_files(model_ref, shard_files)
+            cfg = AutoConfig.from_pretrained(base_dir) if os.path.isfile(os.path.join(base_dir, "config.json")) else AutoConfig.for_model(**cfg_dict)
+        else:
