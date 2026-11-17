@@ -643,6 +643,9 @@ class LlamaBackend:
         self.model_id = model_id
         self.ctx_tokens = int(ctx_tokens)
         self.ngl = int(ngl)
+        self.parallel_slots = max(1, int(parallel_slots))
+        self.rpc_servers = rpc_servers
+        self.tensor_split = tensor_split
         self.port = _free_port()
         cmd = [
             server_path,
