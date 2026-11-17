@@ -152,3 +152,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
         servers_q = resp_q.json().get("servers") or []
         self.assertTrue(any("deepseek" in (s.get("listing", {}).get("active_model", "").lower()) for s in servers_q))
         resp_vram = self.client.get("/api/catalog/servers?min_vram=16", headers=self.owner_hdr)
+        self.assertEqual(resp_vram.status_code, 200)
+        servers_vram = resp_vram.json().get("servers") or []
+        self.assertTrue(all(float(s.get("listing", {}).get("vram_gb") or 0) >= 16 for s in servers_vram))
+        resp_details = self.client.get(f"/api/catalog/servers/{self.ident_a.node_id}", headers=self.owner_hdr)
+        self.assertEqual(resp_details.status_code, 200)
+        data = resp_details.json()
+        self.assertEqual(data.get("node_id"), self.ident_a.node_id)
+        self.assertEqual(data.get("public", {}).get("listing", {}).get("name"), "Alpha-DeepSeek-Cluster")
+    def test_c_one_click_worker_join_prejoin_and_consent(self):
+        dc = net_discovery.DiscoveryClient(urls=[self.disc_url])
+        listing = {
+            "node_id": self.ident_a.node_id,
+            "pubkey": self.ident_a.pubkey_b64,
+            "name": "Cluster-Coordinator",
