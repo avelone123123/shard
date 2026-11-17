@@ -160,3 +160,21 @@ class RequestScheduler:
                     if itype in ("content", "thought") and item.get("token"):
                         if state["ttft_ms"] is None:
                             state["ttft_ms"] = round((time.perf_counter() - t_dispatch) * 1000.0, 2)
+                        self.record_token(req_id, 1)
+                    elif itype == "done":
+                        tel = item.get("telemetry") or {}
+                        if tel.get("ttft_ms") is not None:
+                            state["ttft_ms"] = float(tel["ttft_ms"])
+                        if tel.get("tokens_per_sec") is not None:
+                            state["tps"] = float(tel["tokens_per_sec"])
+                        if tel.get("inter_worker_transfer_ms") is not None:
+                            state["xfer_ms"] = float(tel["inter_worker_transfer_ms"])
+                    asyncio.run_coroutine_threadsafe(q.put(("item", item)), loop).result(timeout=10.0)
+            except Exception as exc:
+                state["ok"] = False
+                state["err"] = str(exc)
+                try:
+                    asyncio.run_coroutine_threadsafe(q.put(("error", str(exc))), loop).result(timeout=5.0)
+                except Exception:
+                    pass
+            finally:
