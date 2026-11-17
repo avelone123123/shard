@@ -532,7 +532,22 @@ main{padding:14px !important;}
 </div>
 </div>
 </div>
-<header>
+<div id="clusterJoinModalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" onclick="if(event.target===this)closeClusterJoinModal()">
+<div class="modal-card" style="max-width:680px;">
+<div class="modal-header">
+<div>
+<div class="modal-title-row">
+<div id="joinModalTitle" class="modal-title">Подключение к серверу SHARD</div>
+<span id="joinModalStateBadge" class="compat-pill compat-ideal">READY</span>
+</div>
+<div id="joinModalSubtitle" class="modal-author">...</div>
+</div>
+<div class="modal-actions">
+<button class="modal-close-btn" onclick="closeClusterJoinModal()" title="Закрыть">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+</button>
+</div>
+</div>
 <div class="brand">
 <div class="brand-logo-icon">
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
