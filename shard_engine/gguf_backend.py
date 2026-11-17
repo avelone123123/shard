@@ -655,7 +655,8 @@ class LlamaBackend:
             "-c", str(self.ctx_tokens),
             "-ngl", str(self.ngl),
             "-t", str(threads),
-            "--parallel", "1",
+            "--parallel", str(self.parallel_slots),
+            "--slots",
         ]
         if rpc_servers:
             cmd += ["--rpc", str(rpc_servers)]
