@@ -190,3 +190,19 @@ def install_radmin(consent: bool = False, unattended: bool = False, installer_pa
             _save_radmin_pref(pref)
             return {"status": "uac_cancelled", "message": "Installation requires administrator privileges (UAC prompt declined)"}
     except subprocess.TimeoutExpired:
+        pref["last_error"] = "Installation timed out"
+        _save_radmin_pref(pref)
+        return {"status": "timeout", "message": "Installation timed out after 240 seconds"}
+    except Exception as exc:
+        pref["last_error"] = str(exc)
+        _save_radmin_pref(pref)
+        return {"status": "error", "message": str(exc)}
+    time.sleep(3.0)
+    post_st = get_radmin_status()
+    if post_st["installed"]:
+        if not post_st["service_running"] and post_st["service_installed"]:
+            try:
+                subprocess.run(["powershell", "-NoProfile", "-Command", "Start-Service RvControlSvc -ErrorAction SilentlyContinue"], timeout=10)
+            except Exception:
+                pass
+            time.sleep(2.0)
