@@ -394,3 +394,21 @@ class ClusterManager:
             except Exception:
                 pass
         self.recompute_plan()
+        return {"status": "ok", "removed": w is not None, "blocked": bool(block)}
+    def deploy_cluster(self, verify=True):
+        plan = self.recompute_plan()
+        if not plan.get("feasible"):
+            with self._lock:
+                self.last_error = plan.get("reason")
+            raise RuntimeError(plan.get("reason") or "Cluster partition plan is not feasible")
+        with self._lock:
+            self.state = "LOADING"
+            self.last_error = None
+            strategy = plan["strategy"]
+            model_id = self.target_model
+            spec = dict(self.model_spec or {})
+            worker_tokens = {wid: w["worker_token"] for wid, w in self.workers.items()}
+            cid = self.cluster_id
+        self._stop_execution_backends()
+        if strategy == "torch_pipeline_parallel":
+            model_ref = spec.get("local_hf_dir") or model_id
