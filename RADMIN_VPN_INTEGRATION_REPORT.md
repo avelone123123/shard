@@ -130,3 +130,15 @@ Executing `shard network radmin status` produces real-time structured output:
   "path": "C:\\Program Files (x86)\\Radmin VPN\\RvRvpnGui.exe",
   "version": "2.1.4952.2",
   "service_installed": true,
+  "service_state": "Running",
+  "service_running": true,
+  "processes": {
+    "RvControlSvc.exe": true,
+    "RvRvpnGui.exe": false
+  },
+  "adapter_detected": true,
+  "adapter_name": "Radmin VPN",
+  "adapter_status": "Up",
+  "ipv4": "26.84.23.251",
+  "ipv6": null,
+  "ready": true,
