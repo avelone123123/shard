@@ -466,3 +466,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
                 parallel_slots=1,
                 open_net=True,
                 coordinator_contributes=False,
+                auto_deploy=False,
+                fetch_model_meta=False,
+            )
+            hw_w = {"vram_total_mb": 0, "vram_free_mb": 0, "ram_total_mb": 8192, "ram_avail_mb": 6144, "cpu_cores": 2, "backends": {"torch_pipeline": True}}
+            r1 = CLUSTER.register_worker(worker_id="pw1", name="PW-1", hw=hw_w, backends={"torch_pipeline": True}, quota={"max_ram_gb": 2}, consented=True, pipeline_port=p1, pipeline_host="127.0.0.1")
+            r2 = CLUSTER.register_worker(worker_id="pw2", name="PW-2", hw=hw_w, backends={"torch_pipeline": True}, quota={"max_ram_gb": 2}, consented=True, pipeline_port=p2, pipeline_host="127.0.0.1")
+            s1.auth_token = r1["worker_token"]
+            s2.auth_token = r2["worker_token"]
+            dep = CLUSTER.deploy_cluster(verify=True)
+            self.assertEqual(dep["state"], "READY")
+            client = TestClient(server.app, client=("127.0.0.1", 50000))
+            r_ping = client.get("/v1/ping")
+            self.assertEqual(r_ping.status_code, 200)
+            self.assertEqual(r_ping.json()["engine"], "shard-distributed-cluster")
+            r_chat = client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello world"}], "max_tokens": 4, "temperature": 0.0})
+            self.assertEqual(r_chat.status_code, 200)
+            self.assertGreater(r_chat.json()["usage"]["completion_tokens"], 0)
+            self.assertGreater(r_chat.json()["telemetry"]["transferred_bytes"], 0)
