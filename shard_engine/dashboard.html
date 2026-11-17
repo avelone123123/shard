@@ -1029,12 +1029,12 @@ macOS
 <div id="net-panel-browser" class="trn-panel active">
 <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
 <input id="netSearchQ" placeholder="Поиск по модели или имени..." class="trn-input" style="flex:2;min-width:180px;" onkeydown="if(event.key==='Enter')netLoadServers()">
-<input id="netSearchRegion" placeholder="Регион (e.g. eu, us, kz)" class="trn-input" style="flex:1;min-width:110px;" onkeydown="if(event.key==='Enter')netLoadServers()">
-<select id="netSearchAccess" class="trn-input" style="flex:1;min-width:110px;" onchange="netLoadServers()">
-<option value="">Все типы доступа</option>
-<option value="open">Открытые</option>
-<option value="invite_only">По инвайту</option>
-<option value="owner_confirm">С подтверждением</option>
+<select id="netSearchMinVram" class="trn-input" style="flex:1;min-width:120px;" onchange="netLoadServers()">
+<option value="0">Все объемы VRAM</option>
+<option value="4">От 4 GB VRAM</option>
+<option value="8">От 8 GB VRAM</option>
+<option value="16">От 16 GB VRAM</option>
+<option value="24">От 24 GB VRAM</option>
 </select>
 <button class="btn-action active" onclick="netLoadServers()">Найти</button>
 </div>
