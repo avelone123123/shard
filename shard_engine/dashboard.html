@@ -2327,6 +2327,22 @@ async function netLoadMyWorkers() {
             const assigned = w.assigned_layers ? ('Слои: ' + w.assigned_layers.join(', ')) : 'Сегмент в распределении';
             return '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:14px;margin-bottom:10px;">' +
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">' +
+                '<div>' +
+                '<div class="v-section-title" style="margin-bottom:2px;">Узел ' + escHtml(w.worker_id) + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono);">Координатор: ' + escHtml(w.coordinator_url) + '</div>' +
+                '</div>' +
+                '<span class="compat-pill compat-ideal">Активный донор GPU/RAM</span>' +
+                '</div>' +
+                '<div style="font-size:12px;color:var(--accent-text);margin-bottom:8px;font-weight:600;">' + assigned + ' &bull; Выделено VRAM: ' + (q.vram_pct || 70) + '% &bull; Потоки: ' + (q.max_threads || 4) + '</div>' +
+                '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;">' +
+                '<span>Сессий: <b>' + (w.active_sessions || 0) + '</b></span>' +
+                '<span>Обработано задач: <b>' + (w.requests_handled || 0) + '</b></span>' +
+                '<span>Туннель: <b>' + (w.via_tunnel ? 'Да (Relay)' : 'Direct') + '</b></span>' +
+                '</div>' +
+                '<button class="v-btn-danger" onclick="netLeaveCluster()">Покинуть кластер и освободить память</button>' +
+                '</div>';
+        }).join('');
+    } catch(e) {
     }
 }
 async function netConnectTargetServer(nodeId) {
