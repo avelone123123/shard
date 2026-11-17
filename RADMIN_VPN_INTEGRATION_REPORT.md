@@ -10,3 +10,15 @@ This report documents the deep integration of Radmin VPN into SHARD, covering au
 
 ---
 
+## Technical Architecture & Lifecycle
+
+```
++-------------------------------------------------------------------------------+
+|                       SHARD RADMIN VPN LIFECYCLE                              |
++-------------------------------------------------------------------------------+
+                                        |
+       +--------------------------------+-------------------------------+
+       |                                                                |
+       v                                                                v
+[ State Inspection ]                                           [ Installation / Repair ]
+- Check Registry & Filesystem                                  - Official Executable Download
