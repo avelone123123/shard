@@ -2022,6 +2022,13 @@ class ClientTunnelAgent:
                     continue
                 if msg_type == net_identity.MSG_WRK_CLOSE:
                     w = self._wrk_writers.pop(stream_id, None)
+                    if w is not None:
+                        try:
+                            w.close()
+                            await asyncio.wait_for(w.wait_closed(), timeout=0.5)
+                        except Exception:
+                            pass
+                    continue
                 q = self._pending_streams.get(stream_id)
                 if q is not None:
                     try:
