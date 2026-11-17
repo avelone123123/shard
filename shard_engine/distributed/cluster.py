@@ -448,3 +448,21 @@ class ClusterManager:
             threads=threads,
             model_id=model_id,
             server_path=srv_exe,
+            wait_timeout=360.0 if plan.get("rpc_arg") else 180.0,
+            rpc_servers=plan.get("rpc_arg"),
+            tensor_split=plan.get("tensor_split_arg"),
+            parallel_slots=self.parallel_slots,
+            split_mode="layer",
+        )
+        if verify:
+            with self._lock:
+                self.state = "VERIFYING"
+            ok = self._verify_gguf(gb)
+            if not ok:
+                gb.stop()
+                raise RuntimeError("Distributed GGUF self-test verification failed")
+        with self._lock:
+            self._gguf_backend = gb
+            self.state = "READY"
+            self.ready_at = time.time()
+        return self.status(include_secrets=False)
