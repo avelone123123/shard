@@ -1066,7 +1066,7 @@ def sanitize_public_listing(raw: dict) -> dict:
         vv = raw.get(ver_key)
         if isinstance(vv, str) and _SAFE_VER_RE.match(vv.strip()):
             out[ver_key] = vv.strip()
-    for bool_key in ("open", "requires_invite"):
+    for bool_key in ("open", "requires_invite", "accepts_workers"):
         if isinstance(raw.get(bool_key), bool):
             out[bool_key] = raw[bool_key]
     vis = raw.get("visibility")
