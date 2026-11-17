@@ -466,3 +466,21 @@ class ClusterManager:
             self.state = "READY"
             self.ready_at = time.time()
         return self.status(include_secrets=False)
+    def _verify_pipeline(self, pc):
+        out = []
+        for ev in pc.generate_stream([{"role": "user", "content": "ping"}], max_tokens=2, temperature=0.0):
+            if ev.get("type") == "done":
+                out.append(ev)
+        return bool(out)
+    def _verify_gguf(self, gb):
+        for kind, _ in gb.chat_stream([{"role": "user", "content": "ping"}], max_tokens=4, temperature=0.0):
+            if kind == "error":
+                return False
+        return gb.is_running()
+    def is_ready(self):
+        with self._lock:
+            if self.state != "READY":
+                return False
+            if self._pipeline_coord is not None and self._pipeline_coord.is_running():
+                return True
+            if self._gguf_backend is not None and self._gguf_backend.is_running():
