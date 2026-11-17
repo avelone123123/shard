@@ -178,3 +178,21 @@ class RequestScheduler:
                 except Exception:
                     pass
             finally:
+                try:
+                    asyncio.run_coroutine_threadsafe(q.put(("end", None)), loop).result(timeout=5.0)
+                except Exception:
+                    pass
+        t = threading.Thread(target=_worker, daemon=True)
+        t.start()
+        try:
+            while True:
+                if is_disconnected is not None:
+                    try:
+                        if await is_disconnected():
+                            cancel_ev.set()
+                            state["cancelled"] = True
+                            break
+                    except Exception:
+                        pass
+                try:
+                    kind, payload = await asyncio.wait_for(q.get(), timeout=0.4)
