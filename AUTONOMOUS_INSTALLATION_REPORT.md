@@ -82,3 +82,15 @@ All node configuration is stored in the user profile directory under `~/.shard/`
 
 For CI/CD pipelines, Docker containers, and automated server deployments:
 
+### Command Line Flags
+- `--no-radmin`: Disables Radmin VPN prompts and checks entirely.
+- `--discovery-url <URL>`: Overrides the default public discovery service.
+- `--relay-url <URL>`: Overrides the default public relay endpoint.
+- `--headless`: Suppresses browser launch on server startup.
+
+### Environment Variable Overrides
+```bash
+export SHARD_DISCOVERY_URL="https://discovery.internal.mycluster:8080"
+export SHARD_RELAY_URL="wss://relay.internal.mycluster:8765"
+export SHARD_NO_RADMIN=1
+export SHARD_PORT=8000
