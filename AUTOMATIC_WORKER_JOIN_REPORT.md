@@ -58,3 +58,15 @@ Before any worker connects, the system performs a non-invasive local hardware au
 - **CPU Cores & Threads**: Probes logical and physical cores.
 - **Backend Compatibility**:
   - `torch_pipeline`: Verifies PyTorch runtime, CUDA/ROCm acceleration, and safetensors support.
+  - `gguf_rpc`: Checks availability of llama-box RPC server binary.
+- **Recommendation Engine**:
+  - Automatically recommends safe allocation limits (e.g. 70% of available VRAM).
+  - Emits compatibility warnings if available memory is insufficient for the target model.
+
+## 3. Explicit User Consent Guarantee
+
+Worker resource donation is strictly opt-in:
+
+- Joining with `mode="worker"` and `consent=false` is rejected at the API level with HTTP 403 `CONSENT_REQUIRED`.
+- The dashboard UI disables the "Start Contributing" button until the user explicitly checks the confirmation checkbox.
+- A worker node may detach at any time via `shard cluster leave` or by clicking "Disconnect Worker" in the dashboard, immediately terminating tensor socket listeners.
