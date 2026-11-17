@@ -193,6 +193,24 @@ def effective_usable_resources(hw, quota=None, vram_reserve_mb=400, ram_reserve_
             vram_cap = min(vram_cap, max(0, int(float(quota["max_vram_gb"]) * 1024)))
         except Exception:
             pass
+    ram_cap = unreserved_ram
+    if quota.get("ram_pct") is not None:
+        try:
+            pct = max(0.0, min(100.0, float(quota["ram_pct"]))) / 100.0
+            ram_cap = min(ram_cap, int(raw_ram_total * pct))
+        except Exception:
+            pass
+    if quota.get("max_ram_mb") is not None:
+        try:
+            ram_cap = min(ram_cap, max(0, int(float(quota["max_ram_mb"]))))
+        except Exception:
+            pass
+    elif quota.get("max_ram_gb") is not None:
+        try:
+            ram_cap = min(ram_cap, max(0, int(float(quota["max_ram_gb"]) * 1024)))
+        except Exception:
+            pass
+    threads_cap = raw_threads
     }
 def estimate_model_params(model_id):
     mid = model_id.lower()
