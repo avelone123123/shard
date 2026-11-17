@@ -232,3 +232,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
             load_res = coord.start()
             self.assertEqual(load_res["status"], "ready")
             self.assertEqual(len(load_res["stages"]), 2)
+            prompt_ids = tok("hello world shard", return_tensors="pt")["input_ids"]
+            with torch.inference_mode():
+                ref_logits = ref_model(input_ids=prompt_ids).logits[:, -1:, :]
+            dist_logits, hop_stats = coord.forward_logits(prompt_ids, request_id="eq-test", use_cache=True)
+            self.assertTrue(torch.allclose(ref_logits, dist_logits, atol=1e-4), f"Max diff: {(ref_logits - dist_logits).abs().max().item()}")
+            self.assertGreater(hop_stats["transferred_bytes"], 0)
+            coord.release_request("eq-test")
+            events = list(coord.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=4, temperature=0.0))
+            done_ev = [e for e in events if e.get("type") == "done"]
+            self.assertEqual(len(done_ev), 1)
+            self.assertGreater(done_ev[0]["telemetry"]["transferred_bytes"], 0)
+            self.assertGreater(done_ev[0]["usage"]["completion_tokens"], 0)
+            coord.stop()
+        finally:
+            proc1.terminate()
+            proc2.terminate()
+            proc1.wait(timeout=5)
+            proc2.wait(timeout=5)
