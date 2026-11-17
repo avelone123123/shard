@@ -12,3 +12,17 @@ def detect_llama_offload_devices():
         if res.returncode != 0:
             return []
         devices = []
+        in_section = False
+        for line in (res.stdout or "").splitlines():
+            s = line.strip()
+            if s.lower().startswith("available devices:"):
+                in_section = True
+                continue
+            if not in_section or not s:
+                continue
+            if s.lower() == "(none)":
+                return []
+            devices.append(s)
+        return devices
+    except Exception:
+        return []
