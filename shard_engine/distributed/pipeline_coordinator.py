@@ -232,3 +232,21 @@ class PipelineCoordinator:
         for r in runners:
             try:
                 r.close()
+            except Exception:
+                pass
+    def is_running(self):
+        with self._lock:
+            return len(self.runners) > 0
+    def forward_logits(self, input_ids, request_id=None, use_cache=True):
+        rid = request_id or f"req-{uuid.uuid4().hex[:10]}"
+        with self._lock:
+            runners = list(self.runners)
+        if not runners:
+            raise RuntimeError("PipelineCoordinator is not loaded")
+        cur = input_ids
+        total_compute_ms = 0.0
+        total_transfer_ms = 0.0
+        total_bytes = 0
+        for r in runners:
+            cur, c_ms, t_ms, n_bytes = r.forward(rid, cur, use_cache=use_cache, return_logits=True)
+            total_compute_ms += c_ms
