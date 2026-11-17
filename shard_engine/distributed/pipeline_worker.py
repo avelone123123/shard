@@ -376,3 +376,21 @@ class PipelineWorkerServer:
                     proto.send_json_frame(conn, proto.MSG_STAGE_READY, res)
                 elif mtype == proto.MSG_FORWARD:
                     meta, t_in = proto.decode_tensor_payload(payload)
+                    t0 = time.perf_counter()
+                    out_t, out_meta = self._run_forward(meta, t_in)
+                    dt_ms = round((time.perf_counter() - t0) * 1000.0, 3)
+                    self._last_compute_ms = dt_ms
+                    out_meta["stage_compute_ms"] = dt_ms
+                    frame_bytes = proto.encode_tensor_payload(out_meta, out_t)
+                    self._bytes_tx += len(frame_bytes)
+                    proto.send_frame(conn, proto.MSG_FORWARD_RES, frame_bytes)
+                elif mtype == proto.MSG_RELEASE_KV:
+                    meta = json.loads(payload.decode("utf-8")) if payload else {}
+                    rid = str(meta.get("request_id") or "")
+                    with self._stage_lock:
+                        self._kv_caches.pop(rid, None)
+                    proto.send_json_frame(conn, proto.MSG_PONG, {"released": rid})
+                elif mtype == proto.MSG_UNLOAD:
+                    self._unload_stage()
+                    proto.send_json_frame(conn, proto.MSG_PONG, {"unloaded": True})
+        except (ConnectionError, EOFError, OSError):
