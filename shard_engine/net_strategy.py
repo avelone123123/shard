@@ -26,7 +26,9 @@ DEFAULT_STUN_SERVERS = (
     ("stun.l.google.com", 19302),
     ("stun.cloudflare.com", 3478),
 )
-PATH_PRIORITY = ("same_machine", "direct_lan", "direct_p2p", "relay")
+DEFAULT_PUBLIC_DISCOVERY_URLS = ("https://discovery.shard.network", "https://discovery-backup.shard.network")
+DEFAULT_PUBLIC_RELAY_URLS = ("wss://relay.shard.network", "wss://relay-backup.shard.network")
+PATH_PRIORITY = ("same_machine", "direct_lan", "mesh_vpn", "direct_p2p", "relay")
 VALID_VISIBILITY = frozenset({"public", "private", "local"})
 VALID_ACCESS_MODES = frozenset({"open", "invite_only", "owner_confirm"})
 VALID_CONNECT_MODES = frozenset({"auto", "direct", "relay", "lan", "p2p"})
