@@ -1039,7 +1039,7 @@ def sanitize_public_listing(raw: dict) -> dict:
         pv = raw.get(port_key)
         if not isinstance(pv, bool) and isinstance(pv, int) and 1 <= pv <= 65535:
             out[port_key] = pv
-    for num_key in ("max_ctx", "ctx", "ram_gb", "vram_gb", "capacity_mb", "pool_capacity_mb", "worker_count", "peers_count", "slots_available", "participant_count", "max_participants", "load"):
+    for num_key in ("max_ctx", "ctx", "ram_gb", "vram_gb", "capacity_mb", "pool_capacity_mb", "worker_count", "peers_count", "slots_available", "participant_count", "max_participants", "load", "aggregate_vram_mb", "aggregate_ram_mb", "required_layers", "assigned_stages"):
         nv = raw.get(num_key)
         if not isinstance(nv, bool) and isinstance(nv, (int, float)) and math.isfinite(float(nv)) and 0 <= float(nv) <= 10000000:
             out[num_key] = nv
