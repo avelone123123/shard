@@ -1773,6 +1773,24 @@ def cmd_cluster(args):
         tel = data.get("telemetry") or {}
         print(f"Cluster Role:   {data.get('role')} | State: {data.get('state')}")
         print(f"Cluster Name:   {data.get('name')} | Model: {data.get('target_model')}")
+        print(f"Workers Alive:  {ov.get('worker_count', 0)} | Usable VRAM: {ov.get('aggregate_usable_vram_mb', 0)} MB | Usable RAM: {ov.get('aggregate_usable_ram_mb', 0)} MB")
+        print(f"Inference:      active={tel.get('active_requests', 0)} queue={tel.get('queue_length', 0)} avg_ttft={tel.get('avg_ttft_ms', 0)}ms tok/s={tel.get('avg_tokens_per_sec', 0)}")
+        return
+    if action == "plan":
+        r = requests.get(f"{base}/api/cluster/plan", headers=hdrs, timeout=10)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+        return
+    if action == "create":
+        model_id = getattr(args, "model", None) or (args.extra[0] if getattr(args, "extra", None) else None)
+        if not model_id:
+            print("[ERROR] Model ID required: shard cluster create <model_id>")
+            sys.exit(1)
+        payload = {
+            "model_id": model_id,
+            "name": getattr(args, "name", None),
+            "strategy": getattr(args, "strategy", "auto"),
+            "ctx_tokens": getattr(args, "ctx", 4096),
+            "parallel_slots": getattr(args, "slots", 4),
 def _build_parser():
     parser = argparse.ArgumentParser(prog="shard", description="SHARD CLI Engine", add_help=False)
     parser.add_argument("-V", "--version", action="store_true")
