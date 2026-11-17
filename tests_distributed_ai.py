@@ -394,3 +394,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
                     body = "".join(resp.iter_text())
                     results.append((resp.status_code, body))
             threads = [threading.Thread(target=_run_stream, args=(i,)) for i in range(4)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(timeout=30)
+            self.assertEqual(len(results), 4)
+            for code, body in results:
+                self.assertEqual(code, 200)
+                self.assertIn("data: [DONE]", body)
+        finally:
+            CLUSTER.stop_cluster()
+            w1.terminate()
+            w2.terminate()
+            w1.wait(timeout=5)
+            w2.wait(timeout=5)
+    def test_worker_disconnect_and_rebalance_recovery(self):
+        from shard_engine import lan
+        rpc_exe = lan.find_rpc_server()
+        srv_exe = gguf_backend.find_llama_server()
