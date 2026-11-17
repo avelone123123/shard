@@ -430,3 +430,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
                 open_net=True,
                 coordinator_contributes=False,
                 auto_deploy=False,
+                fetch_model_meta=False,
+            )
+            hw_w = {"vram_total_mb": 0, "vram_free_mb": 0, "ram_total_mb": 8192, "ram_avail_mb": 6144, "cpu_cores": 4}
+            CLUSTER.register_worker(worker_id="fw1", name="FW-1", hw=hw_w, quota={"max_ram_gb": 3, "max_threads": 2}, consented=True, rpc_port=p1, rpc_host="127.0.0.1")
+            CLUSTER.register_worker(worker_id="fw2", name="FW-2", hw=hw_w, quota={"max_ram_gb": 3, "max_threads": 2}, consented=True, rpc_port=p2, rpc_host="127.0.0.1")
+            r3 = CLUSTER.register_worker(worker_id="fw3", name="FW-3", hw=hw_w, quota={"max_ram_gb": 3, "max_threads": 2}, consented=True, rpc_port=p3, rpc_host="127.0.0.1")
+            dep1 = CLUSTER.deploy_cluster(verify=True)
+            self.assertEqual(len(dep1["plan"]["stages"]), 3)
+            CLUSTER.leave_worker("fw3", r3["worker_token"])
+            self.assertEqual(CLUSTER.state, "DEGRADED")
+            dep2 = CLUSTER.deploy_cluster(verify=True)
+            self.assertEqual(dep2["state"], "READY")
+            self.assertEqual(len(dep2["plan"]["stages"]), 2)
+        finally:
+            CLUSTER.stop_cluster()
+            for wp in (w1, w2, w3):
+                wp.terminate()
+                wp.wait(timeout=5)
