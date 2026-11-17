@@ -208,3 +208,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
         load_res = coord.start()
         self.assertEqual(load_res.get("status"), "ready")
         events = list(coord.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=4, temperature=0.0))
+        done_ev = [e for e in events if e.get("type") == "done"]
+        self.assertEqual(len(done_ev), 1)
+        self.assertGreater(done_ev[0]["usage"]["completion_tokens"], 0)
+        coord.stop()
+        srv.stop()
+    def test_e_multi_user_concurrent_streaming_and_scheduling(self):
+        def _factory(label):
+            def _gen(cancel_ev):
+                for w in [label, "distributed", "inference", "ok"]:
+                    if cancel_ev.is_set():
+                        break
+                    yield {"type": "content", "token": w}
+                yield {"type": "done", "token": "", "done": True}
+            return _gen
