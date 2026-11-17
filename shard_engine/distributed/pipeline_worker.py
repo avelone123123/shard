@@ -250,3 +250,21 @@ class PipelineStageModule(_NN_BASE):
             causal_mask_mapping["sliding_attention"] = create_sliding_window_causal_mask(**mask_kwargs)
         position_embeddings = self.rotary_emb(hidden_states, position_ids)
         layer_types = getattr(self.stage_config, "layer_types", None)
+        for idx, layer in enumerate(self.layers):
+            ltype = layer_types[idx] if (layer_types and idx < len(layer_types)) else "full_attention"
+            hidden_states = layer(
+                hidden_states,
+                attention_mask=causal_mask_mapping[ltype],
+                position_ids=position_ids,
+                past_key_values=cache,
+                use_cache=use_cache,
+                position_embeddings=position_embeddings,
+            )
+        if self.has_lm_head:
+            hidden_states = self.norm(hidden_states)
+            logits = self.lm_head(hidden_states[:, -1:, :]).to(torch.float32)
+            return logits if return_logits else torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+        return hidden_states
+class PipelineWorkerServer:
+    def __init__(self, host="127.0.0.1", port=0, auth_token="", max_threads=None, allow_cuda=True, max_vram_mb=None):
+        self.host = str(host or "127.0.0.1")
