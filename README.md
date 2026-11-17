@@ -489,7 +489,7 @@ SHARD supports collaborative model-parallel execution across independent machine
    # Join as a Compute Worker (Explicit Consent & Quota):
    shard cluster join shn_coordinator_node_id --consent --vram-pct 70 --max-ram-gb 8 --max-threads 4
    ```
-   For workers behind CGNAT/NAT connected via `shard network connect`, add `--via-tunnel` so the worker binds strictly to `127.0.0.1` and receives coordinator RPC/tensor traffic over the ChaCha20-Poly1305 tunnel.
+   For workers behind restrictive CGNAT/NAT, SHARD automatically traverses NAT using STUN or establishes an end-to-end ChaCha20-Poly1305 encrypted blind WebSocket relay tunnel with zero configuration.
 
 3. **Deploy & Monitor:**
    ```bash
