@@ -38,3 +38,13 @@ This implementation advances SHARD on branch `feat/distributed-ai-platform` from
 - `shard_engine/distributed/cluster.py`:
   - `ClusterManager` (`CLUSTER`) implements the `IDLE -> FORMING -> LOADING -> VERIFYING -> READY / DEGRADED` state machine, explicit-consent worker enrollment (`consented=True` required), cryptographic worker tokens (`sk-shard-wrk-...`) with TTL & revocation, heartbeat monitoring + automatic rebalance/degraded handling on worker loss, local worker runtime (`ggml-rpc-server` + `PipelineWorkerServer`), and unified status/preview/distribution snapshots.
 
+### 2.2 Core Updates
+- `shard_engine/hardware.py`: Added multi-GPU `nvidia-smi` probing, CPU model & utilization, OS/arch metadata, backend probing, and `effective_usable_resources()`.
+- `shard_engine/gguf_backend.py`: Added `parallel_slots`, `--cont-batching`, `--slots`, `-sm layer`, `slots_status()`, and clean stderr pipe closure on `stop()`.
+- `shard_engine/lan.py`: Fixed `worker_cmd()` to enforce `-t <max_threads>` and optional `-c` cache; fixed `rpc_targets()` to emit `tensor-split` weights matching actual `llama-server` offload devices (`RPC0..RPCk` + local offload devices) rather than blindly `N + 1`.
+- `shard_engine/net_identity.py`, `shard_engine/net_tunnel.py`, `shard_engine/net_strategy.py`: Added reverse worker tunnel frames (`MSG_WRK_OPEN`, `MSG_WRK_DATA`, `MSG_WRK_CLOSE`), `ClientTunnelAgent.worker_allowed_ports` / `_handle_wrk_open`, `HostTunnelAgent.open_worker_proxy` / `close_worker_proxies`, and added `/api/cluster/*` paths to `ALLOWED_TUNNEL_PATHS`.
+- `shard_engine/engine.py`: Added `cancel_check` parameter to `ShardEngine.generate_stream()` and `_generate_gguf()`.
+- `shard_engine/server.py`: Routed `/v1/chat/completions`, `/v1/messages`, `/v1/models`, `/v1/ping`, and `/api/server/chats` through `CLUSTER` + `SCHEDULER` asynchronously while preserving all Phase III single-node model-first guards and test contracts; added `/api/cluster/*` control-plane endpoints.
+- `shard_engine/cli.py`: Added `shard cluster <create|join|status|plan|deploy|leave|stop>` with `--consent` enforcement.
+- `shard_engine/dashboard.html`: Added the `Кластер и Распределение` subtab in `tab-server` with cluster overview cards, coordinator creation form, worker consent + quota join form, layer distribution visualizer, worker roster, and real inference monitoring.
+
