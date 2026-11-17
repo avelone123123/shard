@@ -108,3 +108,13 @@ SHARD explicitly distinguishes **Model Parallelism** (partitioning one model acr
   - **Distributed KV Cache**: Each worker maintains an independent `DynamicCache` / layer-indexed KV store keyed by `request_id` covering only its local layers `[start_layer..end_layer]`, freeing cache immediately on completion, cancellation, or timeout.
   - **Binary Tensor Wire Protocol (`SHPT`)**: Activations (`hidden_states`, `position_ids` / `cache_position`) are transmitted over persistent authenticated TCP sockets as compact binary frames:
     - Header: `4B magic ("SHPT") | 1B version | 1B msg_type | 2B flags | 16B request_id | 4B seq_pos | 1B dtype | 1B ndim | 2B reserved | 4B payload_len` + `ndim * 4B shape` + raw contiguous tensor buffer (`float16`/`bfloat16`/`float32`).
+  - **Autoregressive Execution**: Prefill passes the prompt tensor `[1, prompt_len, hidden]` sequentially through Stages `0 -> 1 -> ... -> K`; Stage `K` computes `norm` + `lm_head` logits and returns the sampled `next_token_id` to Stage `0` for decode steps `1..max_tokens` (micro-step latency and transfer bytes recorded per hop).
+- **Constraints**: Current implementation targets single-batch/serialized-per-worker pipeline execution per request slot (concurrent requests queue cleanly via `RequestScheduler` or pipeline micro-stages); tensor parallelism (splitting individual attention/MLP matrices within a single layer across machines) is intentionally deferred on commodity internet/LAN links because AllReduce synchronization per transformer layer requires two network barriers per layer (64–160 barriers/token), which is prohibitive over Ethernet/VPN compared to pipeline parallelism (1 hop per stage boundary).
+
+---
+
+## 5. Partition Planner & Resource Economics (`shard_engine/distributed/planner.py`)
+
+Given model metadata (`config.json` or GGUF probe) and cluster node inventories:
+
+1. **Usable Resource Calculation**:
