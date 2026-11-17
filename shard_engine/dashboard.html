@@ -5693,7 +5693,7 @@ window.onload = function() {
 };
 document.addEventListener('keydown', function(ev) {
 if (ev.key === 'Escape') {
-['modelModalBackdrop', 'dirModalBackdrop', 'updateModalBackdrop', 'browserModalBackdrop'].forEach(function(id) {
+['modelModalBackdrop', 'dirModalBackdrop', 'updateModalBackdrop', 'browserModalBackdrop', 'clusterJoinModalBackdrop'].forEach(function(id) {
 const el = document.getElementById(id);
 if (el && getComputedStyle(el).display !== 'none') {
 if (id === 'modelModalBackdrop' && typeof closeModelCard === 'function') closeModelCard();
