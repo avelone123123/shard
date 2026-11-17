@@ -520,3 +520,21 @@ class ClusterManager:
                     token_count += 1
                     yield {"type": ev_type, "token": ev_tok, "done": False}
             total_s = max(0.001, time.perf_counter() - t0)
+            yield {
+                "type": "done",
+                "token": "",
+                "done": True,
+                "telemetry": {
+                    "thinking_seconds": sanitizer.think_duration,
+                    "total_seconds": round(total_s, 3),
+                    "ttft_ms": ttft_ms or round(total_s * 1000.0, 2),
+                    "tokens_per_sec": round(token_count / total_s, 2),
+                    "inter_worker_transfer_ms": 0.0,
+                },
+                "usage": usage or {"prompt_tokens": 1, "completion_tokens": token_count, "total_tokens": 1 + token_count},
+            }
+            return
+        raise RuntimeError("Distributed cluster backend is not ready")
+    def _monitor_loop(self):
+        while not self._monitor_stop.is_set():
+            self._rebalance_needed.wait(timeout=2.0)
