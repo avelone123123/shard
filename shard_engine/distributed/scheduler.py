@@ -232,3 +232,21 @@ class RequestScheduler:
             client_key=client_key,
             model_id=model_id,
             timeout_s=timeout_s,
+            is_disconnected=is_disconnected,
+            rpm_override=rpm_override,
+        ):
+            itype = item.get("type")
+            if itype == "thought":
+                thought_chunks.append(item.get("token") or "")
+            elif itype == "content":
+                content_chunks.append(item.get("token") or "")
+            elif itype == "done":
+                usage = item.get("usage", {})
+                telemetry = item.get("telemetry", {})
+            elif itype == "error":
+                err_msg = item.get("error")
+        if err_msg and not content_chunks:
+            raise RuntimeError(err_msg)
+        return {
+            "content": "".join(content_chunks),
+            "reasoning_content": "".join(thought_chunks),
