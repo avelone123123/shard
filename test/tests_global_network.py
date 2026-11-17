@@ -96,3 +96,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
             "name": "Node-Alpha",
             "role": "server",
             "visibility": "public",
+            "access_mode": "open",
+            "active_model": "Qwen/Test-Model",
+            "vram_gb": 12.0,
+            "aggregate_vram_mb": 12288,
+            "accepts_workers": True,
+            "cluster_state": "READY",
+            "direct_endpoints": ["127.0.0.1:8000"],
+        }
+        res_a = dc_a.register_server(self.ident_a, listing_a, ttl_s=30)
+        self.assertEqual(res_a.get("status"), "ok")
+        dc_b = net_discovery.DiscoveryClient(urls=[self.disc_url])
+        listing_b = {
+            "node_id": self.ident_b.node_id,
+            "pubkey": self.ident_b.pubkey_b64,
