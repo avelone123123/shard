@@ -22,3 +22,15 @@ The One-Click Cluster Join architecture allows any computer on the network to pa
              |     Ready to stream prompts via OpenAI API / UI.
              |
              +---> Option B: [Contribute Computing Resources]
+                      |
+                      v
+             1. Pre-Join Hardware Capability Analysis
+                (GET /api/catalog/prejoin/{node_id})
+                - Probes GPU VRAM, System RAM, CPU threads, CUDA/GGUF
+                - Calculates estimated layer shard size
+                - Displays compatibility badge & recommendations
+                      |
+                      v
+             2. Quota Tuning & Consent Enforcement
+                - VRAM slider (default 70%)
+                - CPU threads allocation slider
