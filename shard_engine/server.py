@@ -915,7 +915,8 @@ def list_models():
     return {"object": "list", "data": model_list}
 @app.get("/v1/ping")
 def api_ping():
-    is_loaded = engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
+    cls_ready = CLUSTER.is_ready()
+    is_loaded = cls_ready or engine_instance.model is not None or (engine_instance.gguf is not None and engine_instance.gguf.is_running())
     return {
         "status": "ok",
         "version": __version__,
