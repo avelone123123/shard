@@ -340,3 +340,21 @@ class TestRealDistributedIntegration(unittest.TestCase):
                 def _probe_via_proxy():
                     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     s.settimeout(5.0)
+                    s.connect(("127.0.0.1", proxy_port))
+                    try:
+                        pipeline_proto.client_auth_handshake(s, wtok)
+                        pipeline_proto.send_json_frame(s, pipeline_proto.MSG_PING, {})
+                        mtype, _, obj = pipeline_proto.recv_json_frame(s)
+                        return mtype, obj
+                    finally:
+                        s.close()
+                mtype, obj = await asyncio.to_thread(_probe_via_proxy)
+                self.assertEqual(mtype, pipeline_proto.MSG_PONG)
+                self.assertEqual(obj["port"], w_port)
+            finally:
+                await ca.disconnect()
+                await ha.stop()
+                pipe_srv.stop()
+        asyncio.run(_run())
+    def test_concurrent_multi_user_streaming_and_api_keys(self):
+        from shard_engine import lan
