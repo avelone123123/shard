@@ -94,3 +94,4 @@ When a user executes `shard start`, the autonomous initialization sequence runs:
   - Envelopes carry millisecond timestamps and strictly increasing sequence numbers.
   - Discovery servers reject messages with clock skew exceeding 60 seconds.
 - **Resource Donation Consent Verification**:
+  - Worker join operations strictly require explicit user consent (`consent: true`). Unconsented requests are rejected with HTTP 403 `CONSENT_REQUIRED`.
