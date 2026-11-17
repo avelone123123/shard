@@ -142,3 +142,8 @@ Executing `shard network radmin status` produces real-time structured output:
   "ipv4": "26.84.23.251",
   "ipv6": null,
   "ready": true,
+  "last_error": null,
+  "consent": true,
+  "declined": false
+}
+```
