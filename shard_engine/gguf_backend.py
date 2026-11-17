@@ -634,7 +634,7 @@ class LlamaBackend:
         return self.proc is not None and self.proc.poll() is None
     def start(self, gguf_path, ctx_tokens, ngl, threads, model_id, server_path=None,
               wait_timeout=180.0, on_wait=None, rpc_servers=None,
-              tensor_split=None):
+              tensor_split=None, parallel_slots=1, split_mode="layer"):
         self.stop()
         server_path = server_path or find_llama_server()
         if not server_path:
