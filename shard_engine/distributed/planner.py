@@ -304,3 +304,21 @@ def plan_cluster_partition(model_spec, nodes, strategy="auto", ctx_tokens=4096, 
     cur_layer = 0
     model_type = model_spec.get("model_type") or ""
     weight_map = model_spec.get("weight_map")
+    active_nodes = []
+    for idx, (b, cnt) in enumerate(zip(exec_nodes, layer_counts)):
+        if cnt <= 0:
+            continue
+        active_nodes.append((b, cnt))
+    for s_idx, (b, cnt) in enumerate(active_nodes):
+        l_start = cur_layer
+        l_end = cur_layer + cnt
+        cur_layer = l_end
+        has_embed = s_idx == 0
+        has_head = s_idx == (len(active_nodes) - 1)
+        w_mb = cnt * weight_per_layer_mb
+        if has_embed:
+            w_mb += weight_mb * embed_share
+        if has_head:
+            w_mb += weight_mb * head_share
+        kv_mb = cnt * kv_per_layer_mb
+        buf_mb = max(32.0, min(256.0, w_mb * 0.08))
