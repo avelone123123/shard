@@ -94,3 +94,5 @@ The integrated network diagnostic engine performs end-to-end verification across
 ## Security & Privacy Architecture
 
 - **End-to-End Encryption (E2EE)**: Tensor buffers, pipeline activations, and token embeddings are encrypted before leaving worker memory.
+- **Replay Protection**: All network frames include monotonic 64-bit sequence numbers and cryptographic timestamps with 30-second window validation.
+- **Authentication**: Workers must provide an Ed25519 signature of the server invitation token to join a cluster partition.
