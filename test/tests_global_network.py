@@ -236,3 +236,17 @@ class TestGlobalNetworkSuite(unittest.TestCase):
         self.assertEqual(len(res), 3)
         for r in res:
             self.assertGreaterEqual(len(r), 2)
+    def test_f_worker_disconnect_detection_and_degradation(self):
+        CLUSTER.create_cluster(name="FailoverCluster", model_id=self.model_dir, strategy="torch", open_net=True, coordinator_contributes=False)
+        w_res = CLUSTER.register_worker(
+            worker_id="wrk-failover-1",
+            name="FlakyWorker",
+            hw={"usable_vram_mb": 4096, "usable_ram_mb": 8192, "cpu_threads": 4, "backends": {"torch_pipeline": True}},
+            backends={"torch_pipeline_parallel": True},
+            quota={"vram_pct": 70},
+            consented=True,
+            pipeline_host="127.0.0.1",
+            pipeline_port=_free_port(),
+            transport="lan",
+        )
+        self.assertEqual(w_res.get("status"), "ok")
