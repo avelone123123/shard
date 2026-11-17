@@ -737,6 +737,9 @@ class LlamaBackend:
         self.port = None
         self.gguf_path = None
         self.model_id = None
+        self.rpc_servers = None
+        self.tensor_split = None
+        self.parallel_slots = 1
     def chat_stream(self, messages, max_tokens=512, temperature=0.7, cancel_check=None):
         if not self.is_running():
             raise RuntimeError("GGUF backend не запущен")
