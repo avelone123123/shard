@@ -40,3 +40,17 @@ class ProtocolError(RuntimeError):
     pass
 def recv_exact(sock, n):
     buf = bytearray()
+    while len(buf) < n:
+        chunk = sock.recv(n - len(buf))
+        if not chunk:
+            raise ConnectionError("Socket closed while reading frame")
+        buf.extend(chunk)
+    return bytes(buf)
+def send_frame(sock, msg_type, payload=b"", flags=0):
+    data = bytes(payload)
+    if len(data) > MAX_FRAME_BYTES:
+        raise ProtocolError(f"Frame exceeds max size ({len(data)})")
+    hdr = _HDR_STRUCT.pack(MAGIC, PROTO_VER, int(msg_type), int(flags), len(data))
+    sock.sendall(hdr + data)
+def recv_frame(sock):
+    hdr = recv_exact(sock, _HDR_STRUCT.size)
