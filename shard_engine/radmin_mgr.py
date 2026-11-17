@@ -30,3 +30,19 @@ def get_radmin_status() -> dict:
         "service_running": False,
         "processes": {"RvControlSvc.exe": False, "RvRvpnGui.exe": False},
         "adapter_detected": False,
+        "adapter_name": None,
+        "adapter_status": None,
+        "ipv4": None,
+        "ipv6": None,
+        "ready": False,
+        "last_error": pref.get("last_error"),
+        "consent": pref.get("consent"),
+        "declined": bool(pref.get("declined")),
+    }
+    if not _IS_WIN:
+        return out
+    candidates = [
+        r"C:\Program Files (x86)\Radmin VPN\RvControlSvc.exe",
+        r"C:\Program Files\Radmin VPN\RvControlSvc.exe",
+        os.path.join(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"), "Radmin VPN", "RvControlSvc.exe"),
+        os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "Radmin VPN", "RvControlSvc.exe"),
