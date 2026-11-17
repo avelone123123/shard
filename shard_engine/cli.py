@@ -1814,6 +1814,11 @@ def cmd_network(args):
                 print(json.dumps(res, indent=2, ensure_ascii=False))
                 return
             print(f"Result: {res.get('status')} - {res.get('message', 'Service restarted')}")
+        elif subact == "gui":
+            res = _call_api("post", "/api/net/radmin/gui")
+            ok = res.get("launched") if res else radmin_mgr.launch_radmin_gui()
+            print("Radmin VPN GUI launched." if ok else "Failed to launch Radmin VPN GUI (not found).")
+        return
 def cmd_cluster(args):
     import requests
     action = getattr(args, "cluster_action", "status") or "status"
