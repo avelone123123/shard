@@ -1911,18 +1911,18 @@ def cmd_cluster(args):
             quota["max_ram_gb"] = args.max_ram_gb
         if getattr(args, "max_threads", None) is not None:
             quota["max_threads"] = args.max_threads
-        r = requests.post(
-            f"{base}/api/cluster/worker/join",
-            json={
-                "coordinator_url": target_url,
-                "auth_code": code,
-                "quota": quota,
-                "consented": True,
-                "via_tunnel": bool(getattr(args, "via_tunnel", False)),
-            },
-            headers=hdrs,
-            timeout=15,
-        )
+        join_endpoint = f"{base}/api/catalog/join" if (target_url.startswith("shn_") or target_url.startswith("shard://")) else f"{base}/api/cluster/worker/join"
+        join_payload = {
+            "target": target_url,
+            "coordinator_url": target_url,
+            "mode": "worker",
+            "auth_code": code,
+            "quota": quota,
+            "consented": True,
+            "consent": True,
+            "via_tunnel": bool(getattr(args, "via_tunnel", False)),
+        }
+        r = requests.post(join_endpoint, json=join_payload, headers=hdrs, timeout=25)
         print(json.dumps(r.json(), indent=2, ensure_ascii=False))
         if r.status_code != 200:
             sys.exit(1)
