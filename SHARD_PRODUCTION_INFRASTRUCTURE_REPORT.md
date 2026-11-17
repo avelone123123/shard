@@ -94,3 +94,15 @@ cd /opt/shard/deploy
 cp env.production.example .env
 nano .env
 ```
+
+Ensure domain names and administrator email are configured in `.env`:
+```ini
+DOMAIN_DISCOVERY=discovery.shard.network
+DOMAIN_RELAY=relay.shard.network
+ACME_EMAIL=admin@shard.network
+```
+
+### 3. Launch the Stack
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
