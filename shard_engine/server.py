@@ -2198,6 +2198,22 @@ async def api_net_radmin_install(req: Request):
     return radmin_mgr.install_radmin(consent=bool(data.get("consent", True)), unattended=bool(data.get("unattended", False)), silent=bool(data.get("silent", True)))
 @app.post("/api/net/radmin/decline")
 def api_net_radmin_decline(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    from . import radmin_mgr
+    return radmin_mgr.decline_radmin()
+@app.post("/api/net/radmin/repair")
+def api_net_radmin_repair(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    from . import radmin_mgr
+    return radmin_mgr.repair_radmin()
+@app.post("/api/net/radmin/gui")
+def api_net_radmin_gui(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
 @app.get("/api/net/identity")
 def api_net_identity(req: Request):
     denied = _deny_non_owner(req)
