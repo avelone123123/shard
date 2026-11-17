@@ -836,6 +836,7 @@ def network_diagnostics(probe_public=False, offline_only=False, port=None, stun_
             plat_rep = net_platform_linux.linux_diagnostics(ports=(http_port, lan.BEACON_PORT))
         else:
             plat_rep = {"platform": sys.platform, "supported": False}
+    from . import radmin_mgr
     return {
         "port": http_port,
         "offline_only": bool(offline_only),
