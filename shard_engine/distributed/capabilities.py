@@ -40,3 +40,17 @@ def probe_node_capabilities(force_refresh=False):
         "interfaces": usable_ifaces,
         "primary_ip": usable_ifaces[0]["ip"] if usable_ifaces else _lan.local_ip(),
         "probed_at": time.time(),
+    }
+def measure_tcp_link(host, port, timeout=2.0, probe_bytes=65536):
+    t0 = time.perf_counter()
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(float(timeout))
+    try:
+        s.connect((str(host), int(port)))
+        rtt_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+        return {"reachable": True, "rtt_ms": rtt_ms, "host": str(host), "port": int(port)}
+    except Exception as e:
+        return {"reachable": False, "rtt_ms": None, "host": str(host), "port": int(port), "error": str(e)[:120]}
+    finally:
+        try:
+            s.close()
