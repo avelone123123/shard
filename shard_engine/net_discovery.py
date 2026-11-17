@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from . import net_identity
 _MAX_BODY_BYTES = 65536
-_ALLOWED_SORT = {"activity", "participants", "users", "popular", "slots", "capacity", "load", "newest", "recent", "name"}
+_ALLOWED_SORT = {"activity", "participants", "users", "popular", "slots", "capacity", "load", "newest", "recent", "name", "vram", "performance"}
 _VALID_HEX = frozenset("0123456789abcdef")
 _FORBIDDEN_HINT_KEYS = frozenset({"invite_id", "secret", "token", "private_key", "privkey", "password", "listing", "name", "models", "prompt", "messages"})
 def commitment_for_invite(invite_id):
