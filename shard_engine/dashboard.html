@@ -2135,7 +2135,22 @@ async function netLoadServers() {
                 '</div>';
         }).join('');
     } catch(e) {
-        grid.innerHTML = '<div style="grid-column:1/-1;padding:16px;color:var(--danger);font-size:13px;">Ошибка связи с Discovery-сервером.</div>';
+        grid.innerHTML = '<div style="grid-column:1/-1;padding:16px;color:var(--danger);font-size:13px;">Ошибка связи с Discovery-сервером: ' + escHtml(e.message) + '</div>';
+    }
+}
+async function openClusterJoinModal(nodeId, serverData) {
+    currentJoinNodeId = nodeId;
+    currentJoinServerData = serverData || null;
+    const bd = document.getElementById('clusterJoinModalBackdrop');
+    if (!bd) return;
+    document.getElementById('joinModalTitle').innerText = 'Подключение к серверу';
+    document.getElementById('joinModalSubtitle').innerText = 'Целевой узел: ' + (nodeId || '');
+    document.getElementById('joinConsentCheck').checked = false;
+    document.getElementById('joinWorkerCompatBadge').innerText = 'Проверка совместимости...';
+    document.getElementById('joinWorkerCompatBadge').className = 'compat-pill compat-neutral';
+    bd.style.display = 'flex';
+    try {
+        const res = await fetch('/api/catalog/prejoin/' + encodeURIComponent(nodeId), {headers: getAuthHeaders()});
     }
 }
 async function netConnectTargetServer(nodeId) {
