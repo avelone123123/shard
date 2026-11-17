@@ -22,3 +22,15 @@ Connections between distributed nodes automatically negotiate the optimal path b
 +-------------------------------------------------------------------------+
                                      |
            +-------------------------+-------------------------+
+           |                                                   |
+           v                                                   v
+   [ Local & Direct ]                                 [ Mesh & Relayed ]
++---------------------+                            +---------------------+
+| Tier 1: Localhost   | (IPC / Loopback)           | Tier 3: Mesh VPN    | (Radmin VPN 26.x,
+| Tier 2: LAN Direct  | (RFC1918 / RFC4193)        |                      WireGuard 100.64.x)
+| Tier 4: Direct P2P  | (STUN / UPnP NAT-T)        | Tier 5: Blind Relay | (WSS WebSocket Relay)
++---------------------+                            +---------------------+
+```
+
+### Path Selection Priority Matrix
+
