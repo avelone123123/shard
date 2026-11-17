@@ -106,3 +106,21 @@ def inspect_model_architecture(model_id, ctx_tokens=4096, fetch=True, quant=None
             q_name = local_gguf.get("quant") or quant or "Q4_K_M"
             bpw = _gguf.QUANT_BPW.get(q_name, 4.85)
             params_b = round(max(0.1, (local_gguf["size_bytes"] * 8.0) / (bpw * 1e9)), 2)
+            source = "gguf-file"
+        else:
+            params_b = float(_hardware.estimate_model_params(raw_mid))
+        cfg, _ = _fit._fallback_cfg(raw_mid, params_b, ctx_tokens)
+    model_type = str(cfg.get("model_type") or "").strip().lower()
+    if not model_type:
+        low = raw_mid.lower()
+        if "qwen2" in low:
+            model_type = "qwen2"
+        elif "qwen3" in low:
+            model_type = "qwen3"
+        elif "llama" in low:
+            model_type = "llama"
+        elif "mistral" in low:
+            model_type = "mistral"
+        elif "gpt2" in low:
+            model_type = "gpt2"
+        elif "gemma2" in low:
