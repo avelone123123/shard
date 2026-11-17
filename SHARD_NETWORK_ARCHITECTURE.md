@@ -70,3 +70,15 @@ SHARD Network implements an adaptive multi-tier transport architecture:
 - **Zero-Knowledge Guarantee**: The relay server acts solely as a blind ciphertext forwarder. Payloads are encrypted end-to-end between the coordinator and worker using ephemeral X25519 Diffie-Hellman key exchange and ChaCha20-Poly1305 AEAD. The relay operator cannot inspect weights, prompt tokens, or activations.
 
 ## 4. Automatic Startup Lifecycle (`shard start`)
+
+When a user executes `shard start`, the autonomous initialization sequence runs:
+
+1. **Hardware & Capability Probe**:
+   - Detects CPU cores, threads, available RAM, GPU model, VRAM, CUDA/ROCm runtimes, and PyTorch/GGUF backends.
+2. **Network Strategy Initialization**:
+   - Loads network configuration and node identity.
+   - Scans network interfaces (LAN, Wi-Fi, mesh VPNs).
+   - Validates firewall rules and local port availability (TCP 8000, UDP 8001).
+3. **Presence Registration**:
+   - If public servers or clusters are hosted, packages signed catalog listing and registers with the discovery hub.
+   - Begins periodic heartbeat thread with jittered interval (30s) to keep presence active.
