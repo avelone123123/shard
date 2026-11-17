@@ -1558,6 +1558,24 @@ class HostTunnelAgent:
                 writer.close()
                 return
             async with self._wrk_stream_lock:
+                sid = self._next_wrk_stream_id
+                self._next_wrk_stream_id += 2
+            self._wrk_writers[sid] = writer
+            try:
+                open_payload = net_identity.canonical_json({"port": int(remote_port)})
+                await ch.send_frame(net_identity.MSG_WRK_OPEN, payload=open_payload, stream_id=sid, flags=0)
+                while ch.is_established and not self._stop:
+                    chunk = await reader.read(MAX_CHUNK_BYTES)
+                    if not chunk:
+                        break
+                    await ch.send_frame(net_identity.MSG_WRK_DATA, payload=chunk, stream_id=sid, flags=0)
+            except Exception:
+                pass
+            finally:
+                self._wrk_writers.pop(sid, None)
+                try:
+                    if ch.is_established:
+                        await ch.send_frame(net_identity.MSG_WRK_CLOSE, payload=b"", stream_id=sid, flags=net_identity.FLAG_FIN)
     async def _send_http_error(self, channel: EncryptedChannel, stream_id: int, status: int, message: str) -> None:
         if not channel.is_established:
             return
