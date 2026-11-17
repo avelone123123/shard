@@ -88,3 +88,21 @@ class _RemoteStageClient:
                 if isinstance(exc, RuntimeError):
                     raise
                 raise RuntimeError("Worker forward error")
+        if mtype != proto.MSG_FORWARD_RES:
+            raise RuntimeError(f"Unexpected forward response type {mtype}")
+        out_meta, out_tensor = proto.decode_tensor_payload(resp_payload)
+        compute_ms = float(out_meta.get("stage_compute_ms") or 0.0)
+        transfer_ms = max(0.0, total_ms - compute_ms)
+        return out_tensor, compute_ms, transfer_ms, len(frame_bytes) + len(resp_payload)
+    def release_kv(self, request_id):
+        with self.lock:
+            if self.sock is None:
+                return
+            try:
+                proto.send_json_frame(self.sock, proto.MSG_RELEASE_KV, {"request_id": str(request_id)})
+                proto.recv_json_frame(self.sock)
+            except Exception:
+                pass
+    def ping(self):
+        self.connect()
+        with self.lock:
