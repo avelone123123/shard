@@ -412,3 +412,21 @@ class ClusterManager:
         self._stop_execution_backends()
         if strategy == "torch_pipeline_parallel":
             model_ref = spec.get("local_hf_dir") or model_id
+            pc = _pcoord.PipelineCoordinator(model_ref, plan, worker_tokens=worker_tokens, cluster_id=cid)
+            pc.start()
+            if verify:
+                with self._lock:
+                    self.state = "VERIFYING"
+                res = self._verify_pipeline(pc)
+                if not res:
+                    pc.stop()
+                    raise RuntimeError("Distributed pipeline verification failed")
+            with self._lock:
+                self._pipeline_coord = pc
+                self.state = "READY"
+                self.ready_at = time.time()
+            return self.status(include_secrets=False)
+        gguf_path = spec.get("local_gguf_path")
+        if not gguf_path:
+            repo_id = _gguf.find_gguf_repo(model_id)
+            if not repo_id:
