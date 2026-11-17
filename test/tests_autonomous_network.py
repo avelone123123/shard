@@ -26,3 +26,17 @@ class TestAutonomousNetworkSuite(unittest.TestCase):
             self.assertTrue(st["supported"])
     def test_radmin_cluster_network_credentials(self):
         c1 = radmin_mgr.cluster_network_credentials("cluster-alpha-001")
+        c2 = radmin_mgr.cluster_network_credentials("cluster-beta-002")
+        self.assertTrue(c1["network_name"].startswith("SHARD-"))
+        self.assertTrue(c2["network_name"].startswith("SHARD-"))
+        self.assertNotEqual(c1["network_name"], c2["network_name"])
+        self.assertNotEqual(c1["network_password"], c2["network_password"])
+        self.assertGreaterEqual(len(c1["network_password"]), 10)
+    def test_radmin_installer_verification_sanity(self):
+        undersized_path = os.path.join(self.tmp_dir, "small_installer.exe")
+        with open(undersized_path, "wb") as f:
+            f.write(b"MZ" + b"\x00" * 1024)
+        ok, reason, details = radmin_mgr.verify_installer(undersized_path)
+        self.assertFalse(ok)
+        self.assertIn("Invalid file size", reason)
+        missing_path = os.path.join(self.tmp_dir, "nonexistent.exe")
