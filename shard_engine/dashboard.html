@@ -2024,6 +2024,9 @@ async function netRefresh(force) {
         const st = await res.json();
         renderNetStatus(st);
         if (currentNetSubTab === 'browser' || force) netLoadServers();
+        if (currentNetSubTab === 'myservers' || force) netLoadMyServers();
+        if (currentNetSubTab === 'myworkers' || force) netLoadMyWorkers();
+        if (currentNetSubTab === 'cluster' || force) netLoadClusterDetails();
         if (currentNetSubTab === 'invites' || force) netLoadInvites();
         if (currentNetSubTab === 'host' || force) netLoadPeers();
     } catch(e) {}
