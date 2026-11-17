@@ -58,3 +58,15 @@ On POSIX platforms (Ubuntu, Debian, Fedora, Arch, macOS):
    Radmin VPN is neither supported nor required on Linux/macOS. SHARD automatically skips Windows-specific adapters.
 2. **Native Transports**:
    - **LAN Discovery**: Multicast and subnet scanning for local cluster nodes.
+   - **WireGuard**: Automatic detection of active `wg*` interfaces and `100.64.0.0/10` CGNAT / Tailscale / Netbird interfaces.
+   - **Direct P2P**: STUN-based UDP hole punching.
+   - **Encrypted Blind Relay**: Seamless fallback over `wss://relay.shard.network`.
+3. **No Root Requirement**:
+   SHARD runs completely in user space without requiring `sudo` privileges.
+
+---
+
+## Configuration & State Persistence
+
+All node configuration is stored in the user profile directory under `~/.shard/`:
+
