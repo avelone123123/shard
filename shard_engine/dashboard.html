@@ -2105,9 +2105,14 @@ async function netLoadServers() {
             const nid = escHtml(s.node_id || m.node_id || '');
             const region = escHtml(m.region || 'global');
             const access = escHtml(m.access_policy || m.access_mode || 'open');
-            const direct = (m.direct_endpoints && m.direct_endpoints.length) ? '<span style="color:var(--success);">Direct P2P</span>' : '<span style="color:var(--warning);">Relay</span>';
-            const loadVal = Math.round((m.load || 0) * 100);
-            return '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:12px;display:flex;flex-direction:column;justify-content:space-between;">' +
+            const clusterState = escHtml(m.cluster_state || m.status || 'online');
+            const stateColor = clusterState === 'READY' ? 'var(--success)' : (clusterState === 'WAITING_WORKERS' ? 'var(--warning)' : 'var(--accent-text)');
+            const direct = (m.direct_endpoints && m.direct_endpoints.length) ? '<span style="color:var(--success);">Direct P2P</span>' : '<span style="color:var(--warning);">Relay Tunnel</span>';
+            const wrkCount = m.worker_count !== undefined ? m.worker_count : (m.participant_count || 0);
+            const vramText = m.aggregate_vram_mb ? (m.aggregate_vram_mb + ' MB VRAM') : (m.vram_gb ? (m.vram_gb + ' GB') : '0 MB');
+            const backend = escHtml(m.backend || (m.cluster_strategy === 'torch' ? 'PyTorch Pipeline' : 'GGUF RPC'));
+            const acceptsBadge = m.accepts_workers ? '<span class="compat-pill compat-ideal" style="font-size:10px;">Прием воркеров</span>' : '';
+            return '<div style="background:var(--surface-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:14px;display:flex;flex-direction:column;justify-content:space-between;">' +
                 '<div>' +
                 '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">' +
                 '<div class="v-section-title" style="margin-bottom:2px;">' + name + '</div>' +
