@@ -574,3 +574,21 @@ class ClusterManager:
     def join_cluster_as_worker(
         self,
         coordinator_url,
+        auth_code="",
+        name=None,
+        quota=None,
+        consented=False,
+        start_rpc=True,
+        start_pipeline=True,
+        via_tunnel=False,
+    ):
+        if not consented:
+            raise PermissionError("Worker consent must be explicitly approved")
+        import requests
+        self.stop_local_worker()
+        base = str(coordinator_url or "").strip().rstrip("/")
+        caps = _cap.probe_node_capabilities(force_refresh=True)
+        hw = caps["hw"]
+        q = dict(quota or {})
+        eff = _hardware.effective_usable_resources(hw, quota=q)
+        rpc_port = None
