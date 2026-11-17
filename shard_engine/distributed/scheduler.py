@@ -196,3 +196,21 @@ class RequestScheduler:
                         pass
                 try:
                     kind, payload = await asyncio.wait_for(q.get(), timeout=0.4)
+                except asyncio.TimeoutError:
+                    if (time.perf_counter() - t_dispatch) > eff_timeout:
+                        cancel_ev.set()
+                        state["ok"] = False
+                        state["err"] = "Inference timeout exceeded"
+                        break
+                    continue
+                if kind == "item":
+                    yield payload
+                elif kind == "error":
+                    yield {"type": "error", "error": payload}
+                    break
+                elif kind == "end":
+                    break
+        finally:
+            cancel_ev.set()
+            self.finish_slot(
+                req_id,
