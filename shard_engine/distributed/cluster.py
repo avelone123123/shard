@@ -502,3 +502,21 @@ class ClusterManager:
             usage = None
             for kind, payload in gb.chat_stream(messages, max_tokens=int(max_tokens), temperature=float(temperature), cancel_check=cancel_check):
                 if kind == "delta" and payload:
+                    for ev_type, ev_tok in sanitizer.feed(payload):
+                        if ev_tok:
+                            if ttft_ms is None:
+                                ttft_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+                            token_count += 1
+                            yield {"type": ev_type, "token": ev_tok, "done": False}
+                    if sanitizer.stopped:
+                        break
+                elif kind == "error":
+                    yield {"type": "content", "token": f"[Cluster inference error: {payload}]", "done": False}
+                    break
+                elif kind == "usage" and isinstance(payload, dict):
+                    usage = payload
+            for ev_type, ev_tok in sanitizer.flush():
+                if ev_tok:
+                    token_count += 1
+                    yield {"type": ev_type, "token": ev_tok, "done": False}
+            total_s = max(0.001, time.perf_counter() - t0)
