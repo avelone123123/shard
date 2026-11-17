@@ -2714,6 +2714,22 @@ async function netRunDiag() {
         el.innerText = 'Ошибка выполнения диагностики: ' + e.message;
     }
 }
+async function netLoadRadmin() {
+    const content = document.getElementById('netRadminStatusContent');
+    const actions = document.getElementById('netRadminActions');
+    if (!content) return;
+    try {
+        const res = await fetch('/api/net/radmin/status', {headers: getAuthHeaders()});
+        const st = await res.json();
+        if (!st.supported) {
+            content.innerHTML = '<span style="color:var(--text-muted);">Radmin VPN доступен для Windows. На текущей платформе используется WireGuard, P2P и защищенный Relay.</span>';
+            if (actions) actions.innerHTML = '';
+            return;
+        }
+        let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:8px;margin-bottom:8px;">';
+        html += '<div><strong>Установлен:</strong> ' + (st.installed ? '<span style="color:var(--accent);">Да (' + (st.version || 'v2.x') + ')</span>' : '<span style="color:var(--warn);">Не установлен</span>') + '</div>';
+    }
+}
 async function lanJoinQuick(ip, port) {
     const res = await fetch('/api/lan/join', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
