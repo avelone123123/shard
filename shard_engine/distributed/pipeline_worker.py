@@ -448,3 +448,21 @@ class PipelineWorkerServer:
             "device": str(dev),
             "dtype": str(dt).replace("torch.", ""),
         }
+    def _run_forward(self, meta, t_in):
+        rid = str(meta.get("request_id") or "default")
+        use_cache = bool(meta.get("use_cache", True))
+        return_logits = bool(meta.get("return_logits", True))
+        with self._stage_lock:
+            stage = self._stage
+            if stage is None:
+                raise RuntimeError("Pipeline stage not loaded on worker")
+            cache = None
+            if use_cache:
+                cache = self._kv_caches.get(rid)
+                if cache is None:
+                    cache = stage.new_cache()
+                    self._kv_caches[rid] = cache
+            with torch.inference_mode():
+                out = stage.forward_stage(t_in, cache=cache, use_cache=use_cache, return_logits=return_logits)
+            self._requests_handled += 1
+            kv_seq = cache.get_seq_length() if cache is not None else 0
