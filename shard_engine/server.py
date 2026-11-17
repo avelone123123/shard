@@ -1074,7 +1074,19 @@ async def anthropic_messages(req: Request):
             yield f"event: message_delta\ndata: {json.dumps(msg_delta)}\n\n"
             yield f"event: message_stop\ndata: {json.dumps({'type': 'message_stop'})}\n\n"
         return StreamingResponse(anthropic_sse(), media_type="text/event-stream")
-    result = engine_instance.generate_sync(normalized, max_tokens, temperature)
+    try:
+        result = await SCHEDULER.run_sync_async(
+            factory,
+            client_key=client_key,
+            model_id=model,
+            is_disconnected=req.is_disconnected,
+        )
+    except RateLimitError as e:
+        return JSONResponse(status_code=429, headers={"Retry-After": str(e.retry_after)}, content={"error": {"message": str(e), "type": "rate_limit_error"}})
+    except QueueFullError as e:
+        return JSONResponse(status_code=503, content={"error": {"message": str(e), "type": "overloaded_error"}})
+    except TimeoutError as e:
+        return JSONResponse(status_code=504, content={"error": {"message": str(e), "type": "timeout_error"}})
     return {
         "id": msg_id,
         "type": "message",
