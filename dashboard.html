@@ -4416,6 +4416,24 @@ async function clsCreate() {
             method: 'POST',
             headers: getAuthHeaders({'Content-Type': 'application/json'}),
             body: JSON.stringify({model_id: model, name: name || undefined, strategy: strategy, parallel_slots: slots, open: openNet, coordinator_contributes: contrib, auto_deploy: true})
+        });
+        const d = await res.json();
+        if (!res.ok) { showToast('Ошибка кластера', d.message || 'Не удалось создать кластер'); return; }
+        showToast('Кластер создан', 'Состояние: ' + ((d.cluster && d.cluster.state) || 'FORMING'));
+        clsRefresh();
+    } catch(e) { showToast('Ошибка', e.message); }
+}
+async function clsDeploy() {
+    try {
+        const res = await fetch('/api/cluster/deploy', {method: 'POST', headers: getAuthHeaders({'Content-Type': 'application/json'}), body: JSON.stringify({verify: true})});
+        const d = await res.json();
+        if (!res.ok) { showToast('Ожидание ресурсов', d.message || 'Недостаточно узлов'); return; }
+        showToast('Кластер READY', 'Модель распределена и прошла проверку инференса');
+        clsRefresh();
+    } catch(e) { showToast('Ошибка', e.message); }
+}
+async function clsStop() {
+    try {
 async function srvCreateUnified() {
     const name = ((document.getElementById('srvCreateName') || {}).value || '').trim();
     const mode = ((document.getElementById('srvCreateMode') || {}).value || 'lan_and_global');
