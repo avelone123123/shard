@@ -70,3 +70,15 @@ All configuration and container definitions are located in the `deploy/` directo
 
 | File | Purpose |
 | :--- | :--- |
+| `deploy/docker-compose.prod.yml` | Multi-container production deployment stack |
+| `deploy/Dockerfile.discovery` | Minimal hardened Python 3.11 container for Discovery |
+| `deploy/Dockerfile.relay` | Minimal hardened Python 3.11 container for Relay |
+| `deploy/Caddyfile` | Production reverse proxy configuration |
+| `deploy/env.production.example` | Template for environment variables and secrets |
+| `deploy/backup_discovery.sh` | Automated snapshot and backup script |
+| `deploy/restore_discovery.sh` | Point-in-time state restoration script |
+
+---
+
+## Step-by-Step Production Deployment
+
