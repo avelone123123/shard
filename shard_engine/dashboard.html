@@ -2375,6 +2375,22 @@ async function netLoadClusterDetails() {
         ob.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;">' +
             '<div class="trn-stat"><div class="trn-stat-label">Роль узла</div><div class="trn-stat-val" style="font-size:14px;">' + (st.role || '—') + '</div></div>' +
             '<div class="trn-stat"><div class="trn-stat-label">Состояние</div><div class="trn-stat-val" style="font-size:14px;color:var(--success);">' + (st.state || '—') + '</div></div>' +
+            '<div class="trn-stat"><div class="trn-stat-label">Модель</div><div class="trn-stat-val" style="font-size:13px;word-break:break-all;">' + escHtml(st.target_model || '—') + '</div></div>' +
+            '<div class="trn-stat"><div class="trn-stat-label">Воркеры</div><div class="trn-stat-val">' + (ov.worker_count || 0) + '</div></div>' +
+            '<div class="trn-stat"><div class="trn-stat-label">Пул VRAM</div><div class="trn-stat-val">' + (ov.aggregate_usable_vram_mb || 0) + ' MB</div></div>' +
+            '<div class="trn-stat"><div class="trn-stat-label">Скорость</div><div class="trn-stat-val">' + (tel.avg_tokens_per_sec || 0) + ' t/s</div></div>' +
+            '</div>';
+        const stages = plan.stages || [];
+        if (stages.length === 0) {
+            sm.innerHTML = '<div style="padding:14px;color:var(--text-muted);font-size:12px;background:var(--surface-sunken);border-radius:var(--radius-md);">План распределения не сформирован (требуется создать кластер и подключить воркеры).</div>';
+        } else {
+            sm.innerHTML = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">' +
+                stages.map((stg, i) => {
+                    const isCoord = stg.worker_id === 'coordinator' || stg.role === 'coordinator';
+                    const bg = isCoord ? 'var(--accent-soft)' : 'var(--surface-elevated)';
+                    const border = isCoord ? 'var(--accent-border)' : 'var(--border-strong)';
+                    return '<div style="flex:1;min-width:140px;background:' + bg + ';border:1px solid ' + border + ';border-radius:var(--radius-md);padding:10px;text-align:center;">' +
+                        '<div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px;">Этап ' + (stg.stage_idx !== undefined ? stg.stage_idx : i) + '</div>' +
     }
 }
 async function netConnectTargetServer(nodeId) {
