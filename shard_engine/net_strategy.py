@@ -1491,6 +1491,22 @@ class NetworkManager:
             listing["model"] = model
         if self._host_models_override:
             listing["models"] = list(self._host_models_override)
+        try:
+            from .distributed import cluster as dist_cluster
+            cm = dist_cluster.get_cluster_manager()
+            st = cm.status(include_secrets=False)
+            if st.get("role") == "coordinator" or st.get("state") in ("PLANNING", "WAITING_WORKERS", "READY", "RUNNING"):
+                listing["cluster_state"] = st.get("state")
+                listing["cluster_role"] = st.get("role")
+                listing["cluster_strategy"] = st.get("strategy")
+                listing["backend"] = "torch_pipeline_parallel" if st.get("strategy") == "torch" else ("gguf_rpc" if st.get("strategy") == "gguf" else "auto")
+                ov = st.get("cluster_overview") or {}
+                listing["worker_count"] = int(ov.get("worker_count", 0))
+                listing["aggregate_vram_mb"] = int(ov.get("aggregate_usable_vram_mb", 0))
+                listing["aggregate_ram_mb"] = int(ov.get("aggregate_usable_ram_mb", 0))
+                listing["vram_gb"] = round(float(ov.get("aggregate_usable_vram_mb", 0)) / 1024.0, 2)
+                listing["ram_gb"] = round(float(ov.get("aggregate_usable_ram_mb", 0)) / 1024.0, 2)
+                listing["accepts_workers"] = bool(st.get("open", True))
         return listing
     def _publish_private_commitments(self, dc):
         with self._lock:
