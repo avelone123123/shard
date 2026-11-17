@@ -1019,6 +1019,12 @@ class DiscoveryClient:
             "limit": lim,
             "online_only": "true" if online_only else "false",
         }
+        if min_vram and float(min_vram) > 0:
+            params["min_vram"] = float(min_vram)
+        if status:
+            params["status"] = str(status)
+        if accepts_workers is not None:
+            params["accepts_workers"] = "true" if accepts_workers else "false"
         dedup = {}
         endpoints = []
         total_dropped = 0
