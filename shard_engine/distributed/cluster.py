@@ -268,3 +268,21 @@ class ClusterManager:
             eff_pipe_ep = None
             rtt_ms = None
             if tunnel_peer:
+                try:
+                    from .. import net_strategy
+                    mgr = net_strategy.get_network_manager()
+                    if rpc_port:
+                        px = mgr.open_worker_proxy(tunnel_peer, int(rpc_port))
+                        if px:
+                            eff_rpc_ep = f"127.0.0.1:{px}"
+                    if pipeline_port:
+                        px_p = mgr.open_worker_proxy(tunnel_peer, int(pipeline_port))
+                        if px_p:
+                            eff_pipe_ep = f"127.0.0.1:{px_p}"
+                except Exception:
+                    pass
+            else:
+                r_host = str(rpc_host or remote_ip or "127.0.0.1").strip()
+                p_host = str(pipeline_host or rpc_host or remote_ip or "127.0.0.1").strip()
+                if rpc_port:
+                    eff_rpc_ep = f"{r_host}:{int(rpc_port)}"
