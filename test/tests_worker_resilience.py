@@ -718,3 +718,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
     def test_16_request_deadline_respected_across_api_and_scheduler(self):
         resilience.POLICY.configure(request_deadline_s=0.25, decode_step_timeout_s=10.0, prefill_timeout_s=10.0, poll_slice_s=0.04, max_recovery_attempts=0)
         s_bh = _ScriptedPeerServer(behavior="blackhole")
+        s_bh.start()
+        self._servers.append(s_bh)
+        CLUSTER.create_cluster(name="DeadlineCluster", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r = CLUSTER.register_worker(worker_id="w_dl", name="DeadlineW", hw=self._hw(2048), quota={"max_ram_gb": 2}, consented=True, pipeline_port=s_bh.port, pipeline_host="127.0.0.1")
+        plan = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_idx": 0, "node_id": "w_dl", "worker_id": "w_dl", "role": "worker", "endpoint": f"127.0.0.1:{s_bh.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}]}
+        pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w_dl": r["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc.on_worker_failure = CLUSTER._on_data_plane_failure
+        pc.start()
+        with CLUSTER._lock:
+            CLUSTER.workers["w_dl"]["assigned_stage"] = plan["stages"][0]
+            CLUSTER._pipeline_coord = pc
+            CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        t0 = time.monotonic()
+        resp = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello shard"}], "max_tokens": 2})
+        self.assertLess(time.monotonic() - t0, 1.5)
+        self.assertEqual(resp.status_code, 504)
+        self.assertEqual(resp.json()["error"]["code"], "REQUEST_DEADLINE_EXCEEDED")
