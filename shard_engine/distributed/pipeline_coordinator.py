@@ -82,6 +82,20 @@ class _RemoteStageClient:
                 cb(self.worker_id, failure)
             except Exception:
                 pass
+    def _fail(self, code, message, ctx, phase, t0, cause=None):
+        elapsed_ms = round((time.monotonic() - t0) * 1000.0, 2)
+        if ctx is not None and ctx.cancelled():
+            return _res.RequestCancelled(ctx.request_id)
+        err = ctx.abort_error if ctx is not None else None
+        if err is not None:
+            return err.clone(request_id=ctx.request_id, tokens_delivered=ctx.tokens_delivered)
+        if self._closed_by_us:
+            return _res.InferenceFailure("CLUSTER_UNAVAILABLE", "Pipeline was shut down while the request was in flight", request_id=ctx.request_id if ctx is not None else None, phase=phase, tokens_delivered=ctx.tokens_delivered if ctx is not None else 0, cluster_available=False)
+        out = _res.InferenceFailure(code, message, request_id=ctx.request_id if ctx is not None else None, worker_id=self.worker_id, stage=self.stage_idx, phase=phase, tokens_delivered=ctx.tokens_delivered if ctx is not None else 0, detail={"elapsed_ms": elapsed_ms, "cause": str(cause)[:160] if cause else None})
+        _res.METRICS.observe("failure_detection_ms", elapsed_ms)
+        _res.METRICS.inc("worker_data_plane_failures_total")
+        if phase in ("prefill", "decode", "load"):
+            self._notify_failure(out)
     def load_stage(self, model_path_or_repo, config_dict=None, dtype="float32"):
         self.connect()
         payload = {
