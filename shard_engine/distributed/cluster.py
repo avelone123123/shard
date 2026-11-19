@@ -555,6 +555,7 @@ class ClusterManager:
         return {"status": "ok", "worker_id": wid, "worker_token": tok, "cluster_id": self.cluster_id, "plan": self.plan}
     def heartbeat_worker(self, worker_id, worker_token, hw=None, quota=None, workload=None, rtt_ms=None, bandwidth_mbps=None):
         now = time.time()
+        pol = _res.POLICY
         with self._lock:
             w = self.workers.get(str(worker_id or ""))
             if not w or w.get("revoked"):
