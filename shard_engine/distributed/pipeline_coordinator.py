@@ -181,6 +181,20 @@ class _RemoteStageClient:
             self._drop_sock()
             raise _res.InferenceFailure("STALE_RESPONSE", f"Unexpected forward response type {mtype}", request_id=str(request_id), worker_id=self.worker_id, stage=self.stage_idx, phase=phase)
         out_meta, out_tensor = proto.decode_tensor_payload(resp_payload)
+        bad_req = out_meta.get("request_id") is not None and out_meta.get("request_id") != str(request_id)
+        bad_seq = out_meta.get("seq") is not None and out_meta.get("seq") != seq
+        bad_exe = ctx is not None and out_meta.get("execution_id") is not None and out_meta.get("execution_id") != ctx.execution_id
+        if bad_req or bad_seq or bad_exe:
+            self._drop_sock()
+            _res.METRICS.inc("stale_responses_rejected_total")
+            _res.METRICS.event("stale_response_rejected", level=30, request_id=ctx.request_id if ctx is not None else str(request_id), worker_id=self.worker_id, stage=self.stage_idx)
+            raise _res.InferenceFailure("STALE_RESPONSE", "Worker response does not match the in-flight request", request_id=ctx.request_id if ctx is not None else str(request_id), worker_id=self.worker_id, stage=self.stage_idx, phase=phase)
+        if total_ms > float(self.policy.slow_step_warn_s) * 1000.0:
+            _res.METRICS.inc("slow_steps_total")
+            _res.METRICS.event("slow_worker_step", level=30, request_id=ctx.request_id if ctx is not None else str(request_id), worker_id=self.worker_id, stage=self.stage_idx, phase=phase, duration_ms=round(total_ms, 1))
+            cb_slow = self.on_slow_step
+            if cb_slow is not None:
+                try:
         compute_ms = float(out_meta.get("stage_compute_ms") or 0.0)
         transfer_ms = max(0.0, total_ms - compute_ms)
         return out_tensor, compute_ms, transfer_ms, len(frame_bytes) + len(resp_payload)
