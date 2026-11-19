@@ -644,11 +644,9 @@ class ClusterManager:
             plan = self.recompute_plan()
             if not plan.get("feasible"):
                 with self._lock:
-                    self.state = "VERIFYING"
-                res = self._verify_pipeline(pc)
-                if not res:
-                    pc.stop()
-                    raise RuntimeError("Distributed pipeline verification failed")
+                    if self._cluster_epoch == my_epoch:
+                        self.last_error = plan.get("reason")
+                raise RuntimeError(plan.get("reason") or "Cluster partition plan is not feasible")
             with self._lock:
                 self._pipeline_coord = pc
                 self.state = "READY"
