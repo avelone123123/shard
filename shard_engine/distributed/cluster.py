@@ -549,6 +549,8 @@ class ClusterManager:
             self._reform_infeasible = False
             self._capacity_returned = True
             self._rebalance_needed.set()
+        if was_assigned_live:
+            self._handle_assigned_worker_lost(wid, "worker re-registered", "WORKER_LOST")
         self.recompute_plan()
         return {"status": "ok", "worker_id": wid, "worker_token": tok, "cluster_id": self.cluster_id, "plan": self.plan}
     def heartbeat_worker(self, worker_id, worker_token, hw=None, quota=None, workload=None, rtt_ms=None, bandwidth_mbps=None):
