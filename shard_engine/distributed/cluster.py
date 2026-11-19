@@ -295,6 +295,20 @@ class ClusterManager:
             with self._lock:
                 self._reform_active = False
             self._rebalance_needed.set()
+    def _cluster_available(self):
+        try:
+            return bool(self.is_ready())
+        except Exception:
+            return False
+    def resilience_status(self):
+        now = time.monotonic()
+        with self._inflight_lock:
+            inflight = [
+                {"request_id": c.request_id, "execution_id": c.execution_id, "attempt": c.attempt, "phase": c.phase, "tokens_delivered": c.tokens_delivered, "workers": sorted(c.workers), "age_s": round(now - c.started, 2)}
+                for c in self._inflight.values()
+            ]
+        with self._lock:
+            workers = [
     def create_cluster(
         self,
         name=None,
