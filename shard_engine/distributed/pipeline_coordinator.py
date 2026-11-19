@@ -410,7 +410,7 @@ class PipelineCoordinator:
             "transfer_ms": round(total_transfer_ms, 2),
             "transferred_bytes": total_bytes,
         }
-    def release_request(self, request_id):
+    def release_request(self, request_id, skip_workers=()):
         with self._lock:
             runners = list(self.runners)
         for r in runners:
