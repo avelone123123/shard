@@ -1089,6 +1089,10 @@ class ClusterManager:
                     },
                     timeout=3.0,
                 )
+                try:
+                    hb_interval = float((hb_resp.json() or {}).get("heartbeat_interval_s") or hb_interval)
+                except Exception:
+                    pass
             except Exception:
                 pass
             if stop_ev.wait(2.5):
