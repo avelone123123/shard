@@ -214,3 +214,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         if hasattr(s2, "auth_token"):
             s2.auth_token = r2["worker_token"]
         return r1, r2
+    def _wait_for(self, pred, timeout_s=5.0):
+        end = time.monotonic() + timeout_s
+        while time.monotonic() < end:
+            if pred():
+                return True
+            time.sleep(0.03)
+        return bool(pred())
+    def _assert_clean_resources(self):
+        tel = SCHEDULER.telemetry()
+        self.assertEqual(tel["active_requests"], 0)
+        rs = CLUSTER.resilience_status()
+        self.assertEqual(rs["inflight"], [])
+    def test_01_worker_disconnect_before_generation(self):
+        s1 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s2 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s1.start()
+        s2.start()
+        self._servers.extend([s1, s2])
