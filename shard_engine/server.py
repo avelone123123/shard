@@ -882,6 +882,15 @@ def _client_rate_key(req):
         return f"tok:{hashlib.sha256(tok.encode('utf-8')).hexdigest()[:12]}"
     ip = req.client.host if req.client else "unknown"
     return f"ip:{ip}"
+def _extract_request_timeout(req: Request, data: dict):
+    raw = (data or {}).get("timeout_s") or req.headers.get("X-Shard-Timeout")
+    if raw is None or raw == "":
+        return None
+    try:
+        v = float(raw)
+        return v if v > 0 else None
+    except (TypeError, ValueError):
+        return None
 def _inference_stream_factory(messages, max_tokens, temperature):
     if CLUSTER.is_ready():
         return lambda cancel_ev: CLUSTER.generate_stream(messages, max_tokens, temperature, cancel_check=cancel_ev.is_set)
