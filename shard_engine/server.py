@@ -972,6 +972,7 @@ async def chat_completions(req: Request):
                     factory,
                     client_key=client_key,
                     model_id=model,
+                    timeout_s=req_timeout,
                     is_disconnected=req.is_disconnected,
                 ):
                     if item.get("type") == "thought":
