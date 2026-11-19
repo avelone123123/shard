@@ -1164,6 +1164,7 @@ class ClusterManager:
         with self._lock:
             coord = self._coordinator_node_record()
             workers_out = []
+            self._refresh_worker_states_locked(now)
             for wid, w in self.workers.items():
                 alive = (now - float(w.get("last_heartbeat") or 0)) <= HEARTBEAT_TIMEOUT_S
                 w["alive"] = alive
