@@ -1577,7 +1577,20 @@ def api_cluster_telemetry(req: Request):
     ok, _ = _is_cluster_authorized(req)
     if not ok:
         return JSONResponse(status_code=403, content={"status": "error", "message": "Authorization required"})
-    return {"status": "ok", "telemetry": SCHEDULER.telemetry(), "cluster_state": CLUSTER.state}
+    return {"status": "ok", "telemetry": SCHEDULER.telemetry(), "cluster_state": CLUSTER.state, "resilience": _resilience.METRICS.snapshot()}
+@app.get("/api/cluster/resilience")
+def api_cluster_resilience(req: Request):
+    ok, _ = _is_cluster_authorized(req)
+    if not ok:
+        return JSONResponse(status_code=403, content={"status": "error", "message": "Authorization required"})
+    return {"status": "ok", **CLUSTER.resilience_status()}
+@app.post("/api/cluster/resilience/policy")
+async def api_cluster_resilience_policy(req: Request):
+    denied = _deny_non_owner(req)
+    if denied:
+        return denied
+    try:
+        data = await req.json()
 @app.post("/api/cluster/workers/register")
 async def api_cluster_worker_register(req: Request):
     ip = req.client.host if req.client else "unknown"
