@@ -393,7 +393,7 @@ class PipelineCoordinator:
         with self._lock:
             runners = list(self.runners)
         if not runners:
-            raise RuntimeError("PipelineCoordinator is not loaded")
+            raise _res.InferenceFailure("CLUSTER_UNAVAILABLE", "PipelineCoordinator is not loaded", request_id=ctx.request_id if ctx is not None else None, cluster_available=False)
         cur = input_ids
         total_compute_ms = 0.0
         total_transfer_ms = 0.0
