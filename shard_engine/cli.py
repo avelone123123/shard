@@ -1839,6 +1839,13 @@ def cmd_cluster(args):
         print(f"Cluster Name:   {data.get('name')} | Model: {data.get('target_model')}")
         print(f"Workers Alive:  {ov.get('worker_count', 0)} | Usable VRAM: {ov.get('aggregate_usable_vram_mb', 0)} MB | Usable RAM: {ov.get('aggregate_usable_ram_mb', 0)} MB")
         print(f"Inference:      active={tel.get('active_requests', 0)} queue={tel.get('queue_length', 0)} avg_ttft={tel.get('avg_ttft_ms', 0)}ms tok/s={tel.get('avg_tokens_per_sec', 0)}")
+        for w in data.get("workers") or []:
+            slow_tag = " [SLOW]" if w.get("slow") else ""
+            print(f"  - {w.get('worker_id')} state={w.get('state', 'HEALTHY')}{slow_tag} hb_age={w.get('heartbeat_age_s', 0)}s fails={w.get('fail_count', 0)}")
+        return
+    if action == "resilience":
+        r = requests.get(f"{base}/api/cluster/resilience", headers=hdrs, timeout=5)
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
         return
     if action == "plan":
         r = requests.get(f"{base}/api/cluster/plan", headers=hdrs, timeout=10)
