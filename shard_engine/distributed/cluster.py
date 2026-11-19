@@ -732,6 +732,20 @@ class ClusterManager:
                     with self._lock:
                         self.state = "VERIFYING"
                     ok = self._verify_gguf(gb)
+                    if not ok:
+                        raise RuntimeError("Distributed GGUF self-test verification failed")
+                with self._lock:
+                    self._starting_backend = None
+                    if self._cluster_epoch != my_epoch or self.role != "coordinator":
+                        raise RuntimeError("Cluster stopped during deployment")
+                    self._gguf_backend = gb
+                    self.state = "READY"
+                    self.ready_at = time.time()
+                    self._reform_requested = False
+                    self._reform_infeasible = False
+                    self._reform_failures = 0
+                    self._next_reform_at = 0.0
+                return self.status(include_secrets=False)
     def _verify_pipeline(self, pc):
         out = []
         for ev in pc.generate_stream([{"role": "user", "content": "ping"}], max_tokens=2, temperature=0.0):
