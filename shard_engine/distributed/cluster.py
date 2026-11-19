@@ -1225,5 +1225,6 @@ class ClusterManager:
                 "telemetry": _sched.SCHEDULER.telemetry(),
                 "gguf_slots": slots,
                 "local_worker": lw,
+                "resilience": {"workers": {wid: w.get("state") or _res.HEALTHY for wid, w in self.workers.items()}, "reform_active": self._reform_active, "reform_infeasible": self._reform_infeasible, "inflight_requests": len(self._inflight)},
             }
 CLUSTER = ClusterManager()
