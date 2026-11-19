@@ -34,3 +34,15 @@ _DEFAULTS = {
 class ResiliencePolicy:
     def __init__(self, **overrides):
         self._lock = threading.Lock()
+        for k, v in _DEFAULTS.items():
+            setattr(self, k, v)
+        for k, v in _DEFAULTS.items():
+            raw = os.environ.get("SHARD_RESILIENCE_" + k.upper())
+            if raw is not None:
+                self._set(k, raw)
+        self.configure(**overrides)
+    def _set(self, key, value):
+        default = _DEFAULTS[key]
+        if isinstance(default, bool):
+            val = value if isinstance(value, bool) else str(value).strip().lower() in ("1", "true", "yes", "on")
+        elif isinstance(default, int):
