@@ -177,6 +177,17 @@ class RequestScheduler:
                     fut = asyncio.run_coroutine_threadsafe(coro, loop)
                 except Exception:
                     coro.close()
+                    return False
+                try:
+                    fut.result(timeout=0.1)
+                    return True
+                except Exception as exc:
+                    if isinstance(exc, TimeoutError) or "TimeoutError" in type(exc).__name__:
+                        fut.cancel()
+                        if time.monotonic() < end and not consumer_done.is_set():
+                            continue
+                    return False
+            return False
         def _worker():
             try:
                 for item in stream_factory(cancel_ev):
