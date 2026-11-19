@@ -18,6 +18,7 @@ class RequestScheduler:
         self.default_rpm = max(0, int(default_rpm))
         self.default_timeout_s = max(5.0, float(default_timeout_s))
         self._active = {}
+        self._queued = {}
         self._waiting = deque()
         self._cond = threading.Condition(self._lock)
         self._rate_windows = {}
