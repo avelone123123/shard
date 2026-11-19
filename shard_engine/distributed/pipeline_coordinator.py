@@ -286,6 +286,7 @@ class PipelineCoordinator:
         self.worker_tokens = dict(worker_tokens or {})
         self.cluster_id = str(cluster_id or "")
         self.dtype = dtype
+        self.policy = policy or _res.POLICY
         self.tokenizer = None
         self.config = None
         self.runners = []
