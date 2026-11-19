@@ -51,7 +51,7 @@ class _RemoteStageClient:
                 proto.client_auth_handshake(s, self.auth_token, self.cluster_id)
             except Exception:
                 try:
-                    self.sock.close()
+                    s.close()
                 except Exception:
                     pass
                 self.sock = None
