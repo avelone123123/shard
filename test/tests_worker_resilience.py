@@ -466,3 +466,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         with CLUSTER._lock:
             CLUSTER.workers["w_str2"]["assigned_stage"] = plan2["stages"][0]
             CLUSTER._pipeline_coord = pc2
+            CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        with self.client.stream("POST", "/v1/messages", json={"messages": [{"role": "user", "content": "hello shard"}], "max_tokens": 5, "stream": True}) as resp:
+            body_an = "".join(resp.iter_text())
+        self.assertIn("event: error", body_an)
+        self.assertIn('"code": "WORKER_LOST"', body_an)
+        self.assertNotIn('"stop_reason": "end_turn"', body_an)
+        self._assert_clean_resources()
+    def test_08_multi_worker_pipeline_failure_keeps_healthy_worker_alive(self):
+        resilience.POLICY.configure(max_recovery_attempts=1, recovery_wait_s=6.0, retry_backoff_s=0.05, heartbeat_interval_s=0.3, monitor_tick_s=0.08, poll_slice_s=0.05)
+        s1 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s2 = _ScriptedPeerServer(behavior="ok", fail_after_forwards=1)
+        s1.start()
+        s2.start()
+        self._servers.extend([s1, s2])
+        r1, _ = self._setup_two_worker_cluster(s1, s2, coord_contrib=True, ram1=8192, ram2=8192)
+        self._start_hb("w1", r1["worker_token"])
+        plan = {
