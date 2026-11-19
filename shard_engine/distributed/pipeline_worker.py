@@ -492,4 +492,4 @@ class PipelineWorkerServer:
                 out = stage.forward_stage(t_in, cache=cache, use_cache=use_cache, return_logits=return_logits)
             self._requests_handled += 1
             kv_seq = cache.get_seq_length() if cache is not None else 0
-        return out, {"request_id": rid, "kv_seq_len": int(kv_seq)}
+        return out, {"request_id": rid, "kv_seq_len": int(kv_seq), "seq": meta.get("seq"), "execution_id": meta.get("execution_id")}
