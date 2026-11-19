@@ -135,7 +135,6 @@ class _RemoteStageClient:
                 self._drop_sock()
                 raise self._fail("WORKER_LOST", f"Lost connection to worker {self.worker_id} during {phase}", ctx, phase, t0, exc)
     def load_stage(self, model_path_or_repo, config_dict=None, dtype="float32"):
-        self.connect()
         payload = {
             "model_path_or_repo": model_path_or_repo,
             "layer_start": int(self.stage_info["layer_start"]),
