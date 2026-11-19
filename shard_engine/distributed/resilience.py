@@ -82,3 +82,15 @@ class ResiliencePolicy:
         return min(float(self.retry_backoff_s) * (2 ** max(0, int(attempt))), float(self.retry_backoff_max_s))
     def as_dict(self):
         out = {k: getattr(self, k) for k in _DEFAULTS}
+        out["suspect_after_s"] = round(self.suspect_after_s, 3)
+        out["dead_after_s"] = round(self.dead_after_s, 3)
+        return out
+POLICY = ResiliencePolicy()
+_CODES = {
+    "WORKER_LOST": (503, True),
+    "WORKER_TIMEOUT": (504, True),
+    "WORKER_STALLED": (504, True),
+    "REQUEST_DEADLINE_EXCEEDED": (504, True),
+    "CLUSTER_UNAVAILABLE": (503, True),
+    "RECOVERY_FAILED": (503, True),
+    "REQUEST_CANCELLED": (499, False),
