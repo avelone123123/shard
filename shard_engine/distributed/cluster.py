@@ -375,6 +375,20 @@ class ClusterManager:
             self.model_spec = None
             self.last_error = None
             self.workers.clear()
+            self._newly_failed.clear()
+            self._reform_requested = False
+            self._reform_infeasible = False
+            self._reform_failures = 0
+            self._next_reform_at = 0.0
+            self._capacity_returned = False
+            starting = self._starting_backend
+            self._starting_backend = None
+        self._abort_executions(None, _res.InferenceFailure("CLUSTER_UNAVAILABLE", "Cluster was stopped", cluster_available=False, retryable=True))
+        if starting is not None:
+            try:
+                starting.stop()
+            except Exception:
+                pass
         return {"status": "ok", "state": "IDLE"}
     def _stop_execution_backends(self):
         with self._lock:
