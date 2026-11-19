@@ -151,6 +151,7 @@ class _RemoteStageClient:
             self._drop_sock()
             raise RuntimeError(obj.get("error") or "Worker failed to load stage")
         if mtype != proto.MSG_STAGE_READY:
+            self._drop_sock()
             raise RuntimeError(f"Unexpected worker response type {mtype}")
         return obj
     def forward(self, request_id, tensor, use_cache=True, return_logits=True):
