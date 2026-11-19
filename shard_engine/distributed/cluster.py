@@ -239,6 +239,20 @@ class ClusterManager:
                 return False
             need = self._reform_requested or (capacity_returned and self.state == "DEGRADED")
             if not need or time.time() < self._next_reform_at:
+                return False
+            self._reform_active = True
+            self._reform_requested = False
+            th = threading.Thread(target=self._reform_cluster, daemon=True)
+            self._reform_thread = th
+        th.start()
+        return True
+    def _reform_cluster(self):
+        t0 = time.monotonic()
+        with self._lock:
+            epoch = self._cluster_epoch
+            if self.role != "coordinator":
+                self._reform_active = False
+                return
     def create_cluster(
         self,
         name=None,
