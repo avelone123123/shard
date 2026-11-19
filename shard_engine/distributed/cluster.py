@@ -160,6 +160,7 @@ class ClusterManager:
         now = time.time() if now is None else now
         out = []
         with self._lock:
+            self._refresh_worker_states_locked(now)
             for wid, w in self.workers.items():
                 if w.get("revoked"):
                     continue
