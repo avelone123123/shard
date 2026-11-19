@@ -110,3 +110,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 | **9** | One worker fails in a multi-worker pipeline | Only failed worker is marked `FAILED`; healthy worker remains `HEALTHY` (`fail_count == 0`), receives `MSG_RELEASE_KV` to free partial KV cache, and executes rebalanced stages. | Verified in 2-worker + coordinator test |
 | **10** | Multiple concurrent requests active when worker fails | `_abort_executions()` aborts all in-flight and lock-waiting requests referencing that worker; all HTTP callers receive `503`/`504`; `SCHEDULER` active requests return to `0`. | All 4 concurrent clients terminate `< 3s` |
 | **11** | Failed worker reconnects later | Resumed heartbeats move `FAILED -> RECOVERING` probation (exponential backoff by `fail_count`), then `HEALTHY`, automatically re-forming `DEGRADED -> READY` so new requests return `200 OK`. | Verified end-to-end |
+| **12** | Stale/out-of-order worker frame (`seq` / `execution_id` mismatch) | Rejected with `STALE_RESPONSE`, socket closed immediately, `stale_responses_rejected_total` incremented. | Verified for both `seq` and `execution_id` |
+| **13** | Client cancels / disconnects during hang or recovery wait | `RequestCancelled` aborts `_roundtrip()` (`poll_slice_s`), `_await_recovery()`, and `SCHEDULER.stream_async()`, running `finally:` cleanup with `0` leaked slots. | Terminates `< 1.0s` |
+| **14** | GGUF `llama-server` stalls silently or closes stream before `[DONE]` | `chat_stream_guarded()` yields `"stalled"` (`504 WORKER_STALLED`) on idle read timeout or `"truncated"` (`502 BACKEND_ERROR`) on premature EOF. | Verified via `ThreadingHTTPServer` mock |
+
+---
+
+## 5. Automated Verification Results & Execution Scope
+
