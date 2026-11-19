@@ -513,6 +513,7 @@ SHARD explicitly separates worker liveness states (`HEALTHY`, `SUSPECT`, `FAILED
 - **GGUF Distributed RPC (`gguf_rpc_layer_split`)**: Splits model layers and KV cache across `ggml-rpc-server` workers and local offload devices via `llama-server --rpc`, with continuous batching (`--parallel`, `--cont-batching`).
 - **PyTorch Pipeline Parallelism (`torch_pipeline_parallel`)**: Directly loads only assigned safetensors layer shards per worker (`llama`, `qwen2`, `qwen3`, `mistral`, `gemma`, `gemma2`, `phi3`, `gpt2`), maintains per-worker distributed KV caches, and streams binary tensor activations over authenticated `SHPT` TCP sockets.
 - **Autonomous Global Network & Infrastructure Specs**:
+  - Worker Failure Resilience & Recovery Report: [`SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md`](SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md)
   - Autonomous Architecture: [`AUTONOMOUS_NETWORK_ARCHITECTURE.md`](AUTONOMOUS_NETWORK_ARCHITECTURE.md)
   - Radmin VPN Integration & Fallback: [`RADMIN_VPN_INTEGRATION_REPORT.md`](RADMIN_VPN_INTEGRATION_REPORT.md)
   - Production Deployment & Docker: [`SHARD_PRODUCTION_INFRASTRUCTURE_REPORT.md`](SHARD_PRODUCTION_INFRASTRUCTURE_REPORT.md)
