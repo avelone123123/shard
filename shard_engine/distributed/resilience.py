@@ -154,3 +154,15 @@ class CancelEvent(threading.Event):
 _SENSITIVE = ("prompt", "messages", "content", "token", "worker_token", "api_key", "authorization", "key", "secret")
 class Metrics:
     def __init__(self):
+        self._lock = threading.Lock()
+        self.counters = {}
+        self.samples = {}
+        self.events = deque(maxlen=200)
+    def inc(self, name, n=1):
+        with self._lock:
+            self.counters[name] = self.counters.get(name, 0) + n
+    def observe(self, name, value):
+        with self._lock:
+            self.samples.setdefault(name, deque(maxlen=100)).append(float(value))
+    def event(self, _event_name, level=logging.INFO, **fields):
+        clean = {}
