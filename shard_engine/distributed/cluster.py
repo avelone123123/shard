@@ -142,6 +142,20 @@ class ClusterManager:
                 new = _res.classify_heartbeat_age(age, pol)
                 if new == st:
                     continue
+                self._set_worker_state_locked(w, new, f"heartbeat age {age:.1f}s", now)
+                if new == _res.SUSPECT:
+                    _res.METRICS.inc("heartbeat_missed_total")
+                elif new == _res.FAILED:
+                    _res.METRICS.inc("heartbeat_loss_total")
+                    _res.METRICS.observe("failure_detection_ms", age * 1000.0)
+                    self._newly_failed.append((wid, age))
+            elif st == _res.RECOVERING:
+                if age > pol.suspect_after_s:
+                    self._set_worker_state_locked(w, _res.FAILED, "heartbeat lost during probation", now)
+                elif now - float(w.get("recovering_since") or now) >= pol.probation_s(w.get("fail_count") or 1):
+                    self._set_worker_state_locked(w, _res.HEALTHY, "probation passed", now)
+                    self._capacity_returned = True
+                    self._reform_infeasible = False
     def _alive_worker_records(self, now=None):
         now = time.time() if now is None else now
         out = []
