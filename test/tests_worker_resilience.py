@@ -448,3 +448,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
             CLUSTER.ready_at = time.time()
         with self.client.stream("POST", "/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello shard"}], "max_tokens": 5, "stream": True}) as resp:
             body_oa = "".join(resp.iter_text())
+        self.assertIn('"code": "WORKER_LOST"', body_oa)
+        self.assertIn('"worker_id": "w_str"', body_oa)
+        self.assertIn("data: [DONE]", body_oa)
+        self.assertNotIn('"finish_reason": "stop"', body_oa)
+        s_drop.stop()
+        CLUSTER.stop_cluster()
+        s_drop2 = _ScriptedPeerServer(behavior="ok", fail_after_forwards=1)
+        s_drop2.start()
+        self._servers.append(s_drop2)
+        CLUSTER.create_cluster(name="StreamFailAnth", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r2 = CLUSTER.register_worker(worker_id="w_str2", name="StreamW2", hw=self._hw(2048), quota={"max_ram_gb": 2}, consented=True, pipeline_port=s_drop2.port, pipeline_host="127.0.0.1")
+        plan2 = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_idx": 0, "node_id": "w_str2", "worker_id": "w_str2", "role": "worker", "endpoint": f"127.0.0.1:{s_drop2.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}]}
+        pc2 = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan2, worker_tokens={"w_str2": r2["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc2.on_worker_failure = CLUSTER._on_data_plane_failure
+        pc2.start()
+        with CLUSTER._lock:
+            CLUSTER.workers["w_str2"]["assigned_stage"] = plan2["stages"][0]
+            CLUSTER._pipeline_coord = pc2
