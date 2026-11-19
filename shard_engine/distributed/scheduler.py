@@ -151,6 +151,8 @@ class RequestScheduler:
         with self._cond:
             for rec in self._active.values():
                 rec["cancel_event"].set()
+            for qev in self._queued.values():
+                qev.set()
             self._cond.notify_all()
     async def stream_async(self, stream_factory, client_key="anonymous", model_id=None, timeout_s=None, is_disconnected=None, rpm_override=None):
         loop = asyncio.get_running_loop()
