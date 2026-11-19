@@ -994,7 +994,7 @@ async def chat_completions(req: Request):
                         }
                         yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
                     elif item.get("type") == "error":
-                        err_payload = {"error": {"message": item.get("error") or "Inference error", "type": "server_error"}}
+                        err_payload = {"error": _stream_error_detail(item)}
                         yield f"data: {json.dumps(err_payload, ensure_ascii=False)}\n\n"
                     elif item.get("type") == "done":
                         final_payload = {
