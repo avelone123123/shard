@@ -943,7 +943,7 @@ class ClusterManager:
                 _res.METRICS.observe("request_cleanup_ms", (time.monotonic() - ctx.aborted_at) * 1000.0)
     def _monitor_loop(self):
         while not self._monitor_stop.is_set():
-            self._rebalance_needed.wait(timeout=2.0)
+            self._rebalance_needed.wait(timeout=_res.POLICY.monitor_tick_s)
             self._rebalance_needed.clear()
             if self._monitor_stop.is_set():
                 break
