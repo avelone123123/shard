@@ -280,7 +280,7 @@ class _LocalStageRunner:
             self.caches.clear()
             self.stage = None
 class PipelineCoordinator:
-    def __init__(self, model_path_or_repo, plan, worker_tokens=None, cluster_id="", dtype="float32"):
+    def __init__(self, model_path_or_repo, plan, worker_tokens=None, cluster_id="", dtype="float32", policy=None):
         self.model_path_or_repo = str(model_path_or_repo)
         self.plan = dict(plan)
         self.worker_tokens = dict(worker_tokens or {})
