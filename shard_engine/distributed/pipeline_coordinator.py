@@ -458,6 +458,14 @@ class PipelineCoordinator:
             if input_ids.shape[-1] == 0:
                 fallback_id = self.tokenizer.bos_token_id or self.tokenizer.eos_token_id or 0
                 input_ids = torch.tensor([[int(fallback_id)]], dtype=torch.long)
+        return input_ids
+    def generate_stream(self, messages, max_tokens=256, temperature=0.7, cancel_check=None, ctx=None, resume=None, request_id=None, deadline_s=None):
+        if ctx is None:
+            ctx = _res.ExecutionContext(request_id, cancel_check, deadline_s)
+        if not self.is_running():
+            raise _res.InferenceFailure("CLUSTER_UNAVAILABLE", "PipelineCoordinator is not running", request_id=ctx.request_id, cluster_available=False)
+        t_start = time.perf_counter()
+        input_ids = self._encode_prompt(messages)
         prompt_tokens = int(input_ids.shape[-1])
         rid = f"pipe-{uuid.uuid4().hex[:10]}"
         eos_id = self.tokenizer.eos_token_id
