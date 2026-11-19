@@ -10,5 +10,6 @@ __all__ = [
     "pipeline_proto",
     "pipeline_worker",
     "planner",
+    "resilience",
     "scheduler",
 ]
