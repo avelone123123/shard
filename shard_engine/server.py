@@ -32,6 +32,8 @@ from . import storage
 from . import training
 from . import updater
 from .distributed import CLUSTER, SCHEDULER
+from .distributed import resilience as _resilience
+from .distributed.resilience import InferenceFailure
 from .distributed.scheduler import QueueFullError, RateLimitError
 from .engine import engine_instance
 from .fit import fit_report
