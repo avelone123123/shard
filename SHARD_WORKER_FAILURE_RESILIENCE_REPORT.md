@@ -118,3 +118,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 
 ## 5. Automated Verification Results & Execution Scope
 
+### New Resilience Suite (`test/tests_worker_resilience.py`)
+
+Command executed after final code edit:
+```powershell
+python -m unittest test/tests_worker_resilience.py -v
+```
+Result: **16 test methods (`test_01` through `test_17`, combining 13 & 14) ran in 17.537s — `OK` (16/16 passed, 0 failures, 0 errors, 0 thread warnings).**
+
