@@ -166,9 +166,7 @@ class ClusterManager:
                     continue
                 if w.get("token_expires_at") and now > w["token_expires_at"]:
                     continue
-                alive = (now - float(w.get("last_heartbeat") or 0)) <= HEARTBEAT_TIMEOUT_S
-                w["alive"] = alive
-                if alive:
+                if (w.get("state") or _res.HEALTHY) == _res.HEALTHY:
                     out.append(copy.deepcopy(w))
         return out
     def create_cluster(
