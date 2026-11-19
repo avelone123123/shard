@@ -255,7 +255,13 @@ class RequestScheduler:
                         cancel_ev.set()
                         failure = _deadline_failure()
                         state["ok"] = False
-                        state["err"] = "Inference timeout exceeded"
+                        state["err"] = failure.message
+                        state["code"] = failure.code
+                        state["detail"] = failure.to_error()
+                        _res.METRICS.inc("request_timeouts_total")
+                        _res.METRICS.inc("requests_failed_total")
+                        _res.METRICS.event("request_failed", level=30, request_id=req_id, code=failure.code, phase="stream", retryable=True)
+                        yield {"type": "error", "error": failure.message, "error_detail": state["detail"]}
                         break
                     continue
                 if kind == "item":
