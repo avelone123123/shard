@@ -1591,6 +1591,12 @@ async def api_cluster_resilience_policy(req: Request):
         return denied
     try:
         data = await req.json()
+    except Exception:
+        data = {}
+    try:
+        return {"status": "ok", "policy": _resilience.POLICY.configure(**{k: v for k, v in (data or {}).items()})}
+    except (KeyError, ValueError, TypeError) as e:
+        return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
 @app.post("/api/cluster/workers/register")
 async def api_cluster_worker_register(req: Request):
     ip = req.client.host if req.client else "unknown"
