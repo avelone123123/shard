@@ -34,3 +34,21 @@ def _build_sharded_qwen2(target_dir, hidden=32, layers=4):
     cfg.save_pretrained(target_dir)
     mdl = Qwen2ForCausalLM(cfg).eval()
     with torch.no_grad():
+        mdl.lm_head.weight[0].zero_()
+        mdl.lm_head.weight[1].zero_()
+        mdl.lm_head.weight[3].copy_(-mdl.lm_head.weight[2])
+        mdl.lm_head.weight[5].copy_(-mdl.lm_head.weight[4])
+    sd = {k: v.detach().cpu().contiguous() for k, v in mdl.state_dict().items()}
+    s1, s2, wmap = {}, {}, {}
+    mid = layers // 2
+    for k, v in sd.items():
+        shard_two = False
+        if k.startswith("lm_head") or k.startswith("model.norm."):
+            shard_two = True
+        elif k.startswith("model.layers."):
+            idx = int(k.split(".")[2])
+            shard_two = idx >= mid
+        if shard_two:
+            s2[k] = v
+            wmap[k] = "model-00002-of-00002.safetensors"
+        else:
