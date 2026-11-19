@@ -166,11 +166,10 @@ class _RemoteStageClient:
         if ctx is not None:
             meta["execution_id"] = ctx.execution_id
         frame_bytes = proto.encode_tensor_payload(meta, tensor)
-        with self.lock:
-            t0 = time.perf_counter()
-            proto.send_frame(self.sock, proto.MSG_FORWARD, frame_bytes)
-            mtype, _, resp_payload = proto.recv_frame(self.sock)
-            total_ms = (time.perf_counter() - t0) * 1000.0
+        timeout_s = self.policy.prefill_timeout_s if phase == "prefill" else self.policy.decode_step_timeout_s
+        t0 = time.perf_counter()
+        mtype, _, resp_payload = self._roundtrip(lambda s: proto.send_frame(s, proto.MSG_FORWARD, frame_bytes), ctx, timeout_s, phase)
+        total_ms = (time.perf_counter() - t0) * 1000.0
         if mtype == proto.MSG_ERROR:
             try:
                 err_obj = json.loads(resp_payload.decode("utf-8"))
