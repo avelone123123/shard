@@ -64,8 +64,8 @@ class RequestScheduler:
     def acquire_slot(self, client_key="anonymous", model_id=None, timeout_s=None, rpm_override=None):
         self._check_rate_limit(client_key, rpm_override=rpm_override)
         req_id = f"sreq-{uuid.uuid4().hex[:10]}"
-        cancel_ev = threading.Event()
-        wait_limit = float(timeout_s or self.default_timeout_s)
+        wait_limit = _res.resolve_deadline(timeout_s or self.default_timeout_s, _res.POLICY.request_deadline_s) or float(self.default_timeout_s)
+        cancel_ev = _res.CancelEvent(request_id=req_id, deadline_s=wait_limit)
         deadline = time.monotonic() + wait_limit
         with self._cond:
             self._total_requests += 1
