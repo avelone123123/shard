@@ -166,3 +166,15 @@ class Metrics:
             self.samples.setdefault(name, deque(maxlen=100)).append(float(value))
     def event(self, _event_name, level=logging.INFO, **fields):
         clean = {}
+        for k, v in fields.items():
+            if any(s == k.lower() for s in _SENSITIVE):
+                continue
+            clean[k] = v[:200] if isinstance(v, str) else v
+        rec = {"event": _event_name, "ts": round(time.time(), 3), **clean}
+        with self._lock:
+            self.events.append(rec)
+        log.log(level, "shard.resilience %s", json.dumps(rec, default=str, ensure_ascii=False))
+        return rec
+    def reset(self):
+        with self._lock:
+            self.counters.clear()
