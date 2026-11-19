@@ -934,6 +934,13 @@ class ClusterManager:
                         ctx.sleep(pol.backoff_s(attempt - 1), check_abort=False)
                     except _res.RequestCancelled:
                         _res.METRICS.inc("generations_cancelled_total")
+                        return
+        finally:
+            if stream is not None:
+                stream.close()
+            self._unregister_execution(ctx)
+            if ctx.aborted_at is not None:
+                _res.METRICS.observe("request_cleanup_ms", (time.monotonic() - ctx.aborted_at) * 1000.0)
     def _monitor_loop(self):
         while not self._monitor_stop.is_set():
             self._rebalance_needed.wait(timeout=2.0)
