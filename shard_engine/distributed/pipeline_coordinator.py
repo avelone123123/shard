@@ -273,6 +273,8 @@ class _LocalStageRunner:
     def release_kv(self, request_id):
         with self.lock:
             self.caches.pop(request_id, None)
+    def abort(self):
+        return None
     def close(self):
         with self.lock:
             self.caches.clear()
