@@ -226,3 +226,15 @@ class ExecutionContext:
     def abort_error(self):
         return self._abort_error
     def reset_for_retry(self):
+        with self._abort_lock:
+            self._abort_error = None
+            self.aborted_at = None
+        self.attempt += 1
+        self.new_execution()
+    def poll(self, check_abort=True):
+        if self.cancelled():
+            raise RequestCancelled(self.request_id)
+        err = self._abort_error if check_abort else None
+        if err is not None:
+            raise err.clone(request_id=self.request_id, tokens_delivered=self.tokens_delivered)
+        if self.deadline is not None and time.monotonic() > self.deadline:
