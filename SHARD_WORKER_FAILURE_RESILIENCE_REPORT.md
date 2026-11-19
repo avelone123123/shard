@@ -46,3 +46,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
    |                                                v
 [ RECOVERING ] <--- heartbeat resumes --------- [ FAILED ] (aborts active requests)
 ```
+
+- **Slow vs. Dead Worker Distinction:** A slow worker whose heartbeats arrive on schedule (and whose steps finish inside `prefill_timeout_s` / `decode_step_timeout_s`) remains `HEALTHY`; steps slower than `slow_step_warn_s` increment `slow_steps_total`, emit `slow_worker_step` warnings, and set `slow=True` + `last_step_ms` in worker status without evicting the worker.
+- **Data-Plane Open-Socket Hang Detection:** `_RemoteStageClient._roundtrip()` sets `socket.settimeout(poll_slice_s)` and calls `proto.recv_frame_poll(sock, poll)`. Every `poll_slice_s`, `poll()` checks `ctx.poll()` (client cancellation, coordinator abort, and `request_deadline_s`) AND step deadline (`prefill_timeout_s` / `decode_step_timeout_s`). Even if the TCP connection remains open (half-open blackhole), the request terminates cleanly via either step timeout (`WORKER_TIMEOUT`) or heartbeat expiration (`WORKER_LOST`), whichever occurs first.
+- **Worker Restart Re-Registration Guard:** If an already-assigned worker crashes and restarts quickly (calling `register_worker` with the same `worker_id` before heartbeats expire), `register_worker()` invokes `_handle_assigned_worker_lost()` to abort in-flight requests using its old stage state before accepting the new endpoints.
+
+### C. Recovery Policy (`cluster.py`, `pipeline_coordinator.py`)
+
+1. **Case A — State-Preserving Resume (`torch_pipeline_parallel` with `enable_resume=True`):**
