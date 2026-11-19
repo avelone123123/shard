@@ -662,6 +662,20 @@ class ClusterManager:
             try:
                 if strategy == "torch_pipeline_parallel":
                     model_ref = spec.get("local_hf_dir") or model_id
+                    pc = _pcoord.PipelineCoordinator(model_ref, plan, worker_tokens=worker_tokens, cluster_id=cid)
+                    pc.on_worker_failure = self._on_data_plane_failure
+                    pc.on_slow_step = self._on_slow_step
+                    backend_obj = pc
+                    with self._lock:
+                        if self._cluster_epoch != my_epoch:
+                            raise RuntimeError("Cluster stopped during deployment")
+                        self._starting_backend = pc
+                    pc.start()
+                    with self._lock:
+                        if self._cluster_epoch != my_epoch:
+                            raise RuntimeError("Cluster stopped during deployment")
+                    if verify:
+                        with self._lock:
     def _verify_pipeline(self, pc):
         out = []
         for ev in pc.generate_stream([{"role": "user", "content": "ping"}], max_tokens=2, temperature=0.0):
