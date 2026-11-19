@@ -340,3 +340,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
             "feasible": True,
             "strategy": "torch_pipeline_parallel",
             "stages": [
+                {"stage_idx": 0, "node_id": "w_hb", "worker_id": "w_hb", "role": "worker", "endpoint": f"127.0.0.1:{s_slow.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True},
+            ],
+        }
+        pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w_hb": CLUSTER.workers["w_hb"]["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc.start()
+        with CLUSTER._lock:
+            CLUSTER.workers["w_hb"]["assigned_stage"] = plan["stages"][0]
+            CLUSTER._pipeline_coord = pc
+            CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        CLUSTER.workers["w_hb"]["last_heartbeat"] = time.time() - (resilience.POLICY.suspect_after_s + 0.05)
+        CLUSTER._rebalance_needed.set()
+        self.assertTrue(self._wait_for(lambda: CLUSTER.workers["w_hb"]["state"] == resilience.SUSPECT))
+        self.assertTrue(self._wait_for(lambda: CLUSTER.workers["w_hb"]["state"] == resilience.FAILED, timeout_s=2.0))
+        self.assertEqual(CLUSTER.state, "DEGRADED")
+        self.assertEqual(CLUSTER._alive_worker_records(), [])
+        snap = resilience.METRICS.snapshot()["counters"]
+        self.assertGreaterEqual(snap.get("heartbeat_missed_total", 0), 1)
