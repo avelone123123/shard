@@ -1106,6 +1106,11 @@ async def anthropic_messages(req: Request):
                         yield f"event: content_block_delta\ndata: {json.dumps(delta_ev, ensure_ascii=False)}\n\n"
                     elif item.get("type") == "done":
                         out_toks = item.get("usage", {}).get("completion_tokens", 0)
+                    elif item.get("type") == "error":
+                        det = _stream_error_detail(item)
+                        det["type"] = "overloaded_error" if det.get("code") in ("WORKER_LOST", "CLUSTER_UNAVAILABLE", "RECOVERY_FAILED") else "api_error"
+                        yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': det}, ensure_ascii=False)}\n\n"
+                        return
             except (RateLimitError, QueueFullError) as e:
                 err_ev = {"type": "error", "error": {"type": "overloaded_error", "message": str(e)}}
                 yield f"event: error\ndata: {json.dumps(err_ev, ensure_ascii=False)}\n\n"
