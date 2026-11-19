@@ -148,6 +148,7 @@ class _RemoteStageClient:
         mtype, _, raw = self._roundtrip(lambda s: proto.send_json_frame(s, proto.MSG_LOAD_STAGE, payload), None, self.policy.load_timeout_s, "load")
         obj = json.loads(raw.decode("utf-8")) if raw else {}
         if mtype == proto.MSG_ERROR:
+            self._drop_sock()
             raise RuntimeError(obj.get("error") or "Worker failed to load stage")
         if mtype != proto.MSG_STAGE_READY:
             raise RuntimeError(f"Unexpected worker response type {mtype}")
