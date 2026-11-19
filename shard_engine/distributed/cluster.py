@@ -513,6 +513,8 @@ class ClusterManager:
                 link = _cap.measure_tcp_link(ph, int(pp), timeout=1.5)
                 if link.get("reachable"):
                     rtt_ms = link.get("rtt_ms")
+            prev_rec = self.workers.get(wid)
+            was_assigned_live = bool(prev_rec and prev_rec.get("assigned_stage") and self.state in ("READY", "LOADING", "VERIFYING"))
             tok = WORKER_TOKEN_PREFIX + secrets.token_hex(16)
             rec = {
                 "worker_id": wid,
