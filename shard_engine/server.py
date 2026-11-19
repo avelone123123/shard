@@ -3051,7 +3051,7 @@ async def api_server_chat_send(req: Request):
     try:
         if cls_ready:
             res = await SCHEDULER.run_sync_async(
-                lambda cancel_ev: CLUSTER.generate_stream(history_msgs, max_tokens=max_tokens, temperature=temperature, cancel_check=cancel_ev.is_set),
+                lambda cancel_ev: CLUSTER.generate_stream(history_msgs, max_tokens=max_tokens, temperature=temperature, cancel_check=cancel_ev.is_set, request_id=getattr(cancel_ev, "request_id", None), deadline_s=getattr(cancel_ev, "deadline_s", None)),
                 client_key=f"chat:{pid}",
                 model_id=CLUSTER.target_model,
                 is_disconnected=req.is_disconnected,
