@@ -1014,7 +1014,14 @@ async def chat_completions(req: Request):
                 yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'rate_limit_error', 'code': 'RATE_LIMIT'}})}\n\n"
                 yield "data: [DONE]\n\n"
             except QueueFullError as e:
-                yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'server_busy'}})}\n\n"
+                yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'server_busy', 'code': 'QUEUE_FULL'}})}\n\n"
+                yield "data: [DONE]\n\n"
+            except TimeoutError as e:
+                yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'timeout_error', 'code': 'REQUEST_DEADLINE_EXCEEDED', 'retryable': True}})}\n\n"
+                yield "data: [DONE]\n\n"
+            except InferenceFailure as e:
+                yield f"data: {json.dumps({'error': e.to_error()}, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     try:
         result = await SCHEDULER.run_sync_async(
