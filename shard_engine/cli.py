@@ -88,7 +88,7 @@ def cmd_help():
     print("\nDistributed AI Cluster:")
     print("  cluster create <model> [--name N] [--strategy auto|gguf|torch] [--open]")
     print("  cluster join <url> [code] --consent [--vram-pct N] [--max-threads N]")
-    print("  cluster status | plan | deploy | leave | stop")
+    print("  cluster status | plan | deploy | resilience | leave | stop")
     print("\nCollaborative Training (SOUP):")
     print("  training status    Show SOUP adapter status, feedback counts, jobs, and versions")
     print("  training doctor    Inspect SOUP installation, Python version, GPU, and train deps")
