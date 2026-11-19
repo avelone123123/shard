@@ -1074,7 +1074,7 @@ class ClusterManager:
             try:
                 hw = _hardware.get_hardware_profile()
                 pipe_stats = lw["pipeline_srv"].stats() if lw.get("pipeline_srv") else {}
-                requests.post(
+                hb_resp = requests.post(
                     f"{lw['coordinator_url']}/api/cluster/workers/heartbeat",
                     json={
                         "worker_id": lw["worker_id"],
