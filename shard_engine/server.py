@@ -960,6 +960,7 @@ async def chat_completions(req: Request):
     temperature = data.get("temperature", 0.7)
     default_model = CLUSTER.target_model if (CLUSTER.role == "coordinator" and CLUSTER.target_model) else (engine_instance.active_model_id or "shard-local-model")
     model = data.get("model") or default_model
+    req_timeout = _extract_request_timeout(req, data)
     cid = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     created = int(time.time())
     client_key = _client_rate_key(req)
