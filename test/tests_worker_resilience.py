@@ -430,3 +430,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         resilience.POLICY.configure(max_recovery_attempts=0, poll_slice_s=0.05, enable_resume=False)
         s_drop = _ScriptedPeerServer(behavior="ok", fail_after_forwards=1)
         s_drop.start()
+        self._servers.append(s_drop)
+        CLUSTER.create_cluster(name="StreamFail", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r = CLUSTER.register_worker(worker_id="w_str", name="StreamW", hw=self._hw(2048), quota={"max_ram_gb": 2}, consented=True, pipeline_port=s_drop.port, pipeline_host="127.0.0.1")
+        plan = {
+            "feasible": True,
+            "strategy": "torch_pipeline_parallel",
+            "stages": [{"stage_idx": 0, "node_id": "w_str", "worker_id": "w_str", "role": "worker", "endpoint": f"127.0.0.1:{s_drop.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}],
+        }
+        pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w_str": r["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc.on_worker_failure = CLUSTER._on_data_plane_failure
+        pc.start()
+        with CLUSTER._lock:
+            CLUSTER.workers["w_str"]["assigned_stage"] = plan["stages"][0]
+            CLUSTER._pipeline_coord = pc
+            CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        with self.client.stream("POST", "/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello shard"}], "max_tokens": 5, "stream": True}) as resp:
+            body_oa = "".join(resp.iter_text())
