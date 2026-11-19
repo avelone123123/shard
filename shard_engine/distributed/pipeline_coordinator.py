@@ -110,6 +110,20 @@ class _RemoteStageClient:
         if ctx is not None:
             ctx.poll()
         with self.lock:
+            sock = self.sock
+            t0 = time.monotonic()
+            if sock is None:
+                raise self._fail("WORKER_LOST", f"Connection to worker {self.worker_id} is closed", ctx, phase, t0)
+            deadline = t0 + float(timeout_s)
+            def poll():
+                if ctx is not None:
+                    ctx.poll()
+                if time.monotonic() > deadline:
+                    raise _StepTimeout()
+            try:
+                sock.settimeout(max(self.policy.poll_slice_s, float(timeout_s)))
+                send_fn(sock)
+                sock.settimeout(self.policy.poll_slice_s)
     def load_stage(self, model_path_or_repo, config_dict=None, dtype="float32"):
         self.connect()
         payload = {
