@@ -327,7 +327,10 @@ class PipelineCoordinator:
         for s in stages:
             if s.get("endpoint"):
                 tok = self.worker_tokens.get(s.get("node_id") or s.get("worker_id") or "") or self.worker_tokens.get("*") or ""
-                runners.append(_RemoteStageClient(s, auth_token=tok, cluster_id=self.cluster_id))
+                rc = _RemoteStageClient(s, auth_token=tok, cluster_id=self.cluster_id, policy=self.policy)
+                rc.on_failure = self._relay_failure
+                rc.on_slow_step = self._relay_slow
+                runners.append(rc)
             else:
                 runners.append(_LocalStageRunner(s, self.model_path_or_repo, self.config, dtype=self.dtype))
         reports = [None] * len(runners)
