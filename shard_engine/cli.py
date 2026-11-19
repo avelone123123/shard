@@ -2127,7 +2127,7 @@ def _build_parser():
     p_rad.add_argument("--silent", action="store_true", default=True)
     p_rad.add_argument("--json", action="store_true", dest="as_json")
     p_cls = sub.add_parser("cluster", add_help=False)
-    p_cls.add_argument("cluster_action", nargs="?", default="status", choices=["status", "create", "join", "plan", "deploy", "leave", "stop"])
+    p_cls.add_argument("cluster_action", nargs="?", default="status", choices=["status", "create", "join", "plan", "deploy", "resilience", "leave", "stop"])
     p_cls.add_argument("extra", nargs="*")
     p_cls.add_argument("--model", default=None)
     p_cls.add_argument("--name", default=None)
