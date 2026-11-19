@@ -163,6 +163,8 @@ class _RemoteStageClient:
             "return_logits": bool(return_logits),
             "seq": seq,
         }
+        if ctx is not None:
+            meta["execution_id"] = ctx.execution_id
         frame_bytes = proto.encode_tensor_payload(meta, tensor)
         with self.lock:
             t0 = time.perf_counter()
