@@ -272,6 +272,7 @@ class RequestScheduler:
                 elif kind == "end":
                     break
         finally:
+            consumer_done.set()
             cancel_ev.set()
             self.finish_slot(
                 req_id,
