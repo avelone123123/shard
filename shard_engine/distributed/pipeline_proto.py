@@ -60,6 +60,13 @@ def recv_exact_poll(sock, n, poll):
     return bytes(buf)
 def recv_frame_poll(sock, poll):
     hdr = recv_exact_poll(sock, _HDR_STRUCT.size, poll)
+    magic, ver, msg_type, flags, length = _HDR_STRUCT.unpack(hdr)
+    if magic != MAGIC or ver != PROTO_VER:
+        raise ProtocolError("Invalid SHPT frame header")
+    if length > MAX_FRAME_BYTES:
+        raise ProtocolError(f"Frame length {length} exceeds limit")
+    payload = recv_exact_poll(sock, length, poll) if length > 0 else b""
+    return msg_type, flags, payload
 def send_frame(sock, msg_type, payload=b"", flags=0):
     data = bytes(payload)
     if len(data) > MAX_FRAME_BYTES:
