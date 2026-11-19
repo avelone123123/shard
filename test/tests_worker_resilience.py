@@ -304,3 +304,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         base_evs = list(CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=5, temperature=0.0))
         baseline_tokens = [ev["token"] for ev in base_evs if ev.get("type") == "content"]
         self.assertEqual([ev for ev in base_evs if ev.get("type") == "done"][0]["usage"]["completion_tokens"], 5)
+        self.assertGreaterEqual(len(baseline_tokens), 4)
+        stream = CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=5, temperature=0.0)
+        first_two = []
+        for ev in stream:
+            if ev.get("type") == "content":
+                first_two.append(ev["token"])
+                if len(first_two) == 2:
+                    hb2.set()
+                    s2.stop()
+                    break
+        rest = []
+        done_evs = []
+        for ev in stream:
+            if ev.get("type") == "content":
+                rest.append(ev["token"])
+            elif ev.get("type") == "done":
+                done_evs.append(ev)
+        combined = first_two + rest
