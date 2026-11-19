@@ -161,7 +161,7 @@ class RequestScheduler:
             lambda: self.acquire_slot(client_key=client_key, model_id=model_id, timeout_s=timeout_s, rpm_override=rpm_override),
         )
         q = asyncio.Queue(maxsize=256)
-        eff_timeout = float(timeout_s or self.default_timeout_s)
+        eff_timeout = _res.resolve_deadline(timeout_s or self.default_timeout_s, _res.POLICY.request_deadline_s) or float(self.default_timeout_s)
         t_dispatch = time.perf_counter()
         state = {"ttft_ms": None, "tps": None, "xfer_ms": None, "ok": True, "err": None, "cancelled": False}
         def _worker():
