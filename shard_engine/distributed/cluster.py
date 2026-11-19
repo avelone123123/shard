@@ -746,6 +746,20 @@ class ClusterManager:
                     self._reform_failures = 0
                     self._next_reform_at = 0.0
                 return self.status(include_secrets=False)
+            except Exception as e:
+                with self._lock:
+                    if self._starting_backend is backend_obj:
+                        self._starting_backend = None
+                if backend_obj is not None:
+                    try:
+                        backend_obj.stop()
+                    except Exception:
+                        pass
+                with self._lock:
+                    if self._cluster_epoch == my_epoch and self.role == "coordinator":
+                        self.state = "DEGRADED" if prev_ready else "FORMING"
+                        self.last_error = str(e)[:240]
+                raise
     def _verify_pipeline(self, pc):
         out = []
         for ev in pc.generate_stream([{"role": "user", "content": "ping"}], max_tokens=2, temperature=0.0):
