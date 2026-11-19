@@ -85,6 +85,7 @@ class RequestScheduler:
                     if cancel_ev.is_set():
                         raise RuntimeError("Request cancelled while queued")
                 except Exception as e:
+                    self._queued.pop(req_id, None)
                     if req_id in self._waiting:
                         self._waiting.remove(req_id)
                     self._failed_requests += 1
