@@ -253,6 +253,7 @@ class RequestScheduler:
                 except asyncio.TimeoutError:
                     if (time.perf_counter() - t_dispatch) > eff_timeout:
                         cancel_ev.set()
+                        failure = _deadline_failure()
                         state["ok"] = False
                         state["err"] = "Inference timeout exceeded"
                         break
