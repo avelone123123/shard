@@ -628,3 +628,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         try:
             evs2 = list(CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=4, cancel_check=cancel_ev2.is_set))
         finally:
+            with CLUSTER._lock:
+                CLUSTER._reform_active = False
+        self.assertLess(time.monotonic() - t1, 1.5)
+        self.assertEqual([e for e in evs2 if e.get("type") == "content"], [])
+        self._assert_clean_resources()
+    def test_13_and_14_impossible_recovery_returns_explicit_failure_and_observability(self):
+        resilience.POLICY.configure(max_recovery_attempts=1, recovery_wait_s=0.4, monitor_tick_s=0.05, poll_slice_s=0.04, retry_backoff_s=0.02, enable_resume=True)
+        s_only = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s_only.start()
+        self._servers.append(s_only)
+        CLUSTER.create_cluster(name="NoRecoveryCluster", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r = CLUSTER.register_worker(worker_id="w_only", name="OnlyW", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=self._srv_port(s_only), pipeline_host="127.0.0.1")
+        s_only.auth_token = r["worker_token"]
+        CLUSTER.deploy_cluster(verify=False)
+        res = CLUSTER.generate_stream([{"role": "user", "content": "SECRET_USER_PROMPT_SHOULD_NOT_LOG"}], max_tokens=5, temperature=0.0)
+        ev0 = next(res)
+        self.assertEqual(ev0["type"], "content")
+        s_only.stop()
