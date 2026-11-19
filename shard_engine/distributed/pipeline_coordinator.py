@@ -415,6 +415,8 @@ class PipelineCoordinator:
             runners = list(self.runners)
         skip = set(w for w in skip_workers if w)
         for r in runners:
+            if getattr(r, "worker_id", None) in skip:
+                continue
             r.release_kv(request_id)
     def _build_prompt(self, messages):
         if self.tokenizer is not None and hasattr(self.tokenizer, "apply_chat_template") and getattr(self.tokenizer, "chat_template", None):
