@@ -280,6 +280,7 @@ class PipelineWorkerServer:
         self._accept_thread = None
         self._conn_lock = threading.Lock()
         self._conn_threads = set()
+        self._active_conns = set()
         self._stage_lock = threading.RLock()
         self._stage = None
         self._kv_caches = {}
