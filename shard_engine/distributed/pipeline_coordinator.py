@@ -154,8 +154,9 @@ class _RemoteStageClient:
             self._drop_sock()
             raise RuntimeError(f"Unexpected worker response type {mtype}")
         return obj
-    def forward(self, request_id, tensor, use_cache=True, return_logits=True):
-        self.connect()
+    def forward(self, request_id, tensor, use_cache=True, return_logits=True, ctx=None, phase="decode"):
+        self._seq += 1
+        seq = self._seq
         meta = {
             "request_id": str(request_id),
             "use_cache": bool(use_cache),
