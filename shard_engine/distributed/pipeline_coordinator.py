@@ -35,6 +35,10 @@ class _RemoteStageClient:
         self.stage_idx = self.stage_info.get("stage_idx")
         self.sock = None
         self.lock = threading.Lock()
+        self.on_failure = None
+        self.on_slow_step = None
+        self._closed_by_us = False
+        self._seq = 0
     def connect(self):
         with self.lock:
             if self.sock is not None:
