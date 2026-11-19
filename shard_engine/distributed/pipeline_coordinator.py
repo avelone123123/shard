@@ -96,6 +96,20 @@ class _RemoteStageClient:
         _res.METRICS.inc("worker_data_plane_failures_total")
         if phase in ("prefill", "decode", "load"):
             self._notify_failure(out)
+        return out
+    def _roundtrip(self, send_fn, ctx, timeout_s, phase):
+        if ctx is not None:
+            ctx.poll()
+        t_conn = time.monotonic()
+        try:
+            self.connect()
+        except PermissionError:
+            raise _res.InferenceFailure("STAGE_ERROR", f"Worker {self.worker_id} rejected authentication", request_id=ctx.request_id if ctx is not None else None, worker_id=self.worker_id, stage=self.stage_idx, phase=phase, retryable=False)
+        except (OSError, EOFError, proto.ProtocolError) as exc:
+            raise self._fail("WORKER_LOST", f"Cannot connect to worker {self.worker_id}", ctx, phase, t_conn, exc)
+        if ctx is not None:
+            ctx.poll()
+        with self.lock:
     def load_stage(self, model_path_or_repo, config_dict=None, dtype="float32"):
         self.connect()
         payload = {
