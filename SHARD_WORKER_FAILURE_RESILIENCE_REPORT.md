@@ -78,3 +78,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 
 ## 3. Modified & Added Files
 
+| File | Summary of Changes |
+| :--- | :--- |
+| `shard_engine/distributed/resilience.py` *(new)* | `ResiliencePolicy` (`POLICY`), worker states, `InferenceFailure` / `RequestCancelled`, `ExecutionContext`, `ResumeState`, `CancelEvent`, `Metrics` (`METRICS`), `resolve_deadline()`. |
+| `shard_engine/distributed/__init__.py` | Export `resilience` module in `__all__`. |
+| `shard_engine/distributed/pipeline_proto.py` | Added `recv_exact_poll()` and `recv_frame_poll()` supporting non-blocking `poll_slice_s` deadline and cancellation checks on socket timeouts. |
+| `shard_engine/distributed/pipeline_coordinator.py` | Per-phase timeouts (`load`, `prefill`, `decode`, `release`), slow-step callback, stale `request_id`/`seq`/`execution_id` rejection, `ResumeState` continuation, `on_worker_failure` propagation, and selective `release_request(skip_workers=...)`. |
+| `shard_engine/distributed/pipeline_worker.py` | `select`-paced frame loop for fast stop, per-connection `owned_rids` KV-cache cleanup on disconnect, `_active_conns`/`_conn_threads` lifecycle cleanup, `seq`/`execution_id` echoing. |
+| `shard_engine/distributed/cluster.py` | 4-state worker health FSM (`HEALTHY`/`SUSPECT`/`FAILED`/`RECOVERING`), probation logic, `_inflight` tracking & broadcast abort, Case A/B/C recovery loop, epoch + deploy-lock guarded `_reform_cluster()` & `stop_cluster()`, GGUF guarded streaming + TCP worker probe, `resilience_status()`. |
