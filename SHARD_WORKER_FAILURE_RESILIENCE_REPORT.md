@@ -134,3 +134,11 @@ python -m unittest discover -s test -p "tests_*.py" -v
 ```
 Result: **240 tests ran in 134.045s — 237 passed, 1 skipped, 2 pre-existing unrelated failures:**
 
+| Test Module | Result | Notes |
+| :--- | :--- | :--- |
+| `tests_worker_resilience.py` | **16/16 passed** | All new failure scenarios, recovery, cancellation, GGUF stall/truncate, API/SSE contracts. |
+| `tests_distributed_ai.py` | **10/10 passed** | Multi-process PyTorch pipeline, GGUF RPC, tunnel proxy, concurrent streaming, rebalance recovery. |
+| `tests_global_network.py` | **7/7 passed** | Global discovery, catalog filtering, pre-join consent, distributed pipeline, failover. |
+| `tests_autonomous_network.py` | **7/7 passed** | Autonomous transport selection, Radmin credentials, doctor endpoints. |
+| `tests_shard.py` | **80/80 passed** | Core engine, LAN, hardware, settings, GGUF helpers. |
+| `tests_cli_pkg.py` | **14 passed, 1 skipped** | Skipped `test_wheel_contents_when_built` (`Wheel not built in dist/ yet`). |
