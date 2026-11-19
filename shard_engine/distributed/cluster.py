@@ -89,6 +89,10 @@ class ClusterManager:
         self._monitor_thread = None
         if th is not None and th.is_alive() and th is not threading.current_thread():
             th.join(timeout=2.0)
+        rth = self._reform_thread
+        self._reform_thread = None
+        if rth is not None and rth.is_alive() and rth is not threading.current_thread():
+            rth.join(timeout=3.0)
     def _coordinator_node_record(self, caps=None):
         caps = caps or _cap.probe_node_capabilities()
         hw = caps["hw"]
