@@ -282,6 +282,7 @@ class RequestScheduler:
                 tps=state["tps"],
                 transfer_ms=state["xfer_ms"],
                 error=state["err"],
+                error_code=state["code"],
             )
     async def run_sync_async(self, stream_factory, client_key="anonymous", model_id=None, timeout_s=None, is_disconnected=None, rpm_override=None):
         thought_chunks = []
