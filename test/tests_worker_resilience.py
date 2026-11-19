@@ -412,3 +412,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
             CLUSTER.workers["w_slow"]["assigned_stage"] = plan["stages"][0]
             CLUSTER._pipeline_coord = pc
             CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        hb_stop = threading.Event()
+        def _hb():
+            while not hb_stop.wait(0.15):
+                CLUSTER.heartbeat_worker("w_slow", r["worker_token"])
+        threading.Thread(target=_hb, daemon=True).start()
+        try:
+            evs = list(CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=2, temperature=0.0))
+        finally:
+            hb_stop.set()
+        self.assertTrue(any(e.get("type") == "done" for e in evs))
+        self.assertEqual(CLUSTER.workers["w_slow"]["state"], resilience.HEALTHY)
+        self.assertTrue(CLUSTER.workers["w_slow"].get("slow"))
+        self.assertGreaterEqual(resilience.METRICS.snapshot()["counters"].get("slow_steps_total", 0), 1)
+    def test_07_streaming_client_error_contract_openai_and_anthropic(self):
+        resilience.POLICY.configure(max_recovery_attempts=0, poll_slice_s=0.05, enable_resume=False)
+        s_drop = _ScriptedPeerServer(behavior="ok", fail_after_forwards=1)
+        s_drop.start()
