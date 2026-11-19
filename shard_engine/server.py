@@ -3058,6 +3058,8 @@ async def api_server_chat_send(req: Request):
             )
         else:
             res = await asyncio.to_thread(engine_instance.generate_sync, history_msgs, max_tokens=max_tokens, temperature=temperature)
+    except InferenceFailure as e:
+        return JSONResponse(status_code=e.http_status, content={"status": "error", "message": f"Ошибка генерации модели: {e.message}", "error": e.to_error()})
     except Exception as e:
         return JSONResponse(status_code=500, content={"status": "error", "message": f"Ошибка генерации модели: {str(e)}"})
     reply_text = str(res.get("content") or "").strip()
