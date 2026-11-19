@@ -388,7 +388,7 @@ class PipelineCoordinator:
     def is_running(self):
         with self._lock:
             return len(self.runners) > 0
-    def forward_logits(self, input_ids, request_id=None, use_cache=True):
+    def forward_logits(self, input_ids, request_id=None, use_cache=True, ctx=None, phase="decode"):
         rid = request_id or f"req-{uuid.uuid4().hex[:10]}"
         with self._lock:
             runners = list(self.runners)
