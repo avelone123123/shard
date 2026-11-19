@@ -682,3 +682,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         srv = ThreadingHTTPServer(("127.0.0.1", 0), _HangSSEHandler)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:
+            gb = LlamaBackend()
+            gb.port = srv.server_port
+            class _FakeProc:
+                def poll(self):
+                    return None
+                def terminate(self):
+                    pass
+                def kill(self):
+                    pass
+                def wait(self, timeout=None):
+                    pass
+            gb.proc = _FakeProc()
+            CLUSTER.create_cluster(name="GGUFStall", model_id=self.model_dir, strategy="torch_pipeline_parallel", open_net=True, coordinator_contributes=True, auto_deploy=False, fetch_model_meta=False)
+            with CLUSTER._lock:
+                CLUSTER._gguf_backend = gb
+                CLUSTER.state = "READY"
+            resp = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}], "max_tokens": 4})
+            self.assertEqual(resp.status_code, 504)
