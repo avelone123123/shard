@@ -267,6 +267,20 @@ class ClusterManager:
                         return
                     self.state = "DEGRADED"
                     self.last_error = plan.get("reason")
+                    self._reform_infeasible = True
+                _res.METRICS.inc("reform_infeasible_total")
+                _res.METRICS.event("reform_infeasible", level=30, reason=str(plan.get("reason")))
+                return
+            self.deploy_cluster(verify=True)
+            with self._lock:
+                if self._cluster_epoch != epoch or self.role != "coordinator":
+                    return
+                self._reform_failures = 0
+                self._next_reform_at = 0.0
+            _res.METRICS.inc("reform_success_total")
+            _res.METRICS.observe("reform_ms", (time.monotonic() - t0) * 1000.0)
+            _res.METRICS.event("reform_completed", duration_ms=round((time.monotonic() - t0) * 1000.0, 1))
+        except Exception as e:
     def create_cluster(
         self,
         name=None,
