@@ -54,7 +54,20 @@ class _RemoteStageClient:
                     s.close()
                 except Exception:
                     pass
-                self.sock = None
+                raise
+            self.sock = s
+    def _drop_sock(self):
+        s = self.sock
+        self.sock = None
+        if s is None:
+            return
+        try:
+            s.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        try:
+            s.close()
+        except OSError:
     def load_stage(self, model_path_or_repo, config_dict=None, dtype="float32"):
         self.connect()
         payload = {
