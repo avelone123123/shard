@@ -808,6 +808,20 @@ class ClusterManager:
                 raise _fail("BACKEND_ERROR", "Inference backend closed the stream before completion")
             elif kind == "error":
                 raise _fail("BACKEND_ERROR", f"Inference backend error: {str(payload)[:160]}")
+            elif kind == "usage" and isinstance(payload, dict):
+                usage = payload
+        for ev_type, ev_tok in sanitizer.flush():
+            if ev_tok:
+                token_count += 1
+                ctx.tokens_delivered += 1
+                yield {"type": ev_type, "token": ev_tok, "done": False}
+        total_s = max(0.001, time.perf_counter() - t0)
+        yield {
+            "type": "done",
+            "token": "",
+            "done": True,
+            "telemetry": {
+                "thinking_seconds": sanitizer.think_duration,
         with self._lock:
             pc = self._pipeline_coord
             gb = self._gguf_backend
