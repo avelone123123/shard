@@ -736,3 +736,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         self.assertLess(time.monotonic() - t0, 1.5)
         self.assertEqual(resp.status_code, 504)
         self.assertEqual(resp.json()["error"]["code"], "REQUEST_DEADLINE_EXCEEDED")
+        self._assert_clean_resources()
+    def test_17_no_duplicate_restart_when_resume_disabled_and_scheduler_disconnect(self):
+        resilience.POLICY.configure(max_recovery_attempts=1, recovery_wait_s=5.0, retry_backoff_s=0.05, heartbeat_interval_s=0.3, monitor_tick_s=0.08, poll_slice_s=0.04, enable_resume=False)
+        s1 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s2 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s1.start()
+        s2.start()
+        self._servers.extend([s1, s2])
+        r1, r2 = self._setup_two_worker_cluster(s1, s2, coord_contrib=True)
+        self._start_hb("w1", r1["worker_token"])
+        hb2 = self._start_hb("w2", r2["worker_token"])
+        CLUSTER.deploy_cluster(verify=False)
+        stream = CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=5, temperature=0.0)
+        delivered = []
+        for ev in stream:
+            if ev.get("type") == "content":
+                delivered.append(ev["token"])
+                hb2.set()
