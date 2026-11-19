@@ -178,3 +178,15 @@ class Metrics:
     def reset(self):
         with self._lock:
             self.counters.clear()
+            self.samples.clear()
+            self.events.clear()
+    def snapshot(self):
+        with self._lock:
+            summary = {}
+            for name, dq in self.samples.items():
+                vals = list(dq)
+                summary[name] = {"count": len(vals), "last": round(vals[-1], 2) if vals else 0.0, "avg": round(sum(vals) / len(vals), 2) if vals else 0.0, "max": round(max(vals), 2) if vals else 0.0}
+            return {"counters": dict(self.counters), "timings_ms": summary, "recent_events": list(self.events)[-50:]}
+METRICS = Metrics()
+class ExecutionContext:
+    def __init__(self, request_id=None, cancel_check=None, deadline_s=None):
