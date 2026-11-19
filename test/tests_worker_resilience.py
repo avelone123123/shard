@@ -574,3 +574,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
             try:
                 with self.assertRaises(resilience.InferenceFailure) as ce:
                     list(pc.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=2))
+                self.assertEqual(ce.exception.code, "STALE_RESPONSE")
+            finally:
+                pc.stop()
+                s_stale.stop()
+        self.assertGreaterEqual(resilience.METRICS.snapshot()["counters"].get("stale_responses_rejected_total", 0), 2)
+    def test_12_client_cancels_while_failure_recovery_running(self):
+        resilience.POLICY.configure(max_recovery_attempts=1, recovery_wait_s=10.0, prefill_timeout_s=0.25, decode_step_timeout_s=0.25, poll_slice_s=0.03)
+        s_bh = _ScriptedPeerServer(behavior="blackhole")
+        s_bh.start()
+        self._servers.append(s_bh)
+        CLUSTER.create_cluster(name="CancelDuringFail", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r = CLUSTER.register_worker(worker_id="w_can", name="CancelW", hw=self._hw(2048), quota={"max_ram_gb": 2}, consented=True, pipeline_port=s_bh.port, pipeline_host="127.0.0.1")
+        plan = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_idx": 0, "node_id": "w_can", "worker_id": "w_can", "role": "worker", "endpoint": f"127.0.0.1:{s_bh.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}]}
+        pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w_can": r["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc.on_worker_failure = CLUSTER._on_data_plane_failure
+        pc.start()
+        with CLUSTER._lock:
+            CLUSTER.workers["w_can"]["assigned_stage"] = plan["stages"][0]
