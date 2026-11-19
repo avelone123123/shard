@@ -315,6 +315,17 @@ class PipelineWorkerServer:
             except Exception:
                 pass
             self._sock = None
+        with self._conn_lock:
+            conns = list(self._active_conns)
+        for c in conns:
+            try:
+                c.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                c.close()
+            except OSError:
+                pass
         if self._accept_thread is not None and self._accept_thread.is_alive():
             self._accept_thread.join(timeout=2.0)
         self._unload_stage()
