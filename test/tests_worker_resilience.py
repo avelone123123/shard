@@ -178,3 +178,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         resilience.POLICY.reset()
         resilience.METRICS.reset()
         SCHEDULER.configure(max_concurrent=4, max_queue_size=64, default_rpm=120, default_timeout_s=300.0)
+        self.client = TestClient(server.app, client=("127.0.0.1", 50000))
+        self.owner_hdr = {"X-Shard-Owner-Token": training.get_owner_token()}
+        self._servers = []
+        self._hb_stops = []
+    def tearDown(self):
+        for ev in self._hb_stops:
+            ev.set()
+        for s in self._servers:
+            try:
+                s.stop()
+            except Exception:
+                pass
+        CLUSTER.stop_cluster()
+        CLUSTER.stop_local_worker()
+        resilience.POLICY.reset()
+    def _start_hb(self, worker_id, token, interval=0.08):
+        ev = threading.Event()
+        self._hb_stops.append(ev)
