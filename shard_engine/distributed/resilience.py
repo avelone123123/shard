@@ -46,3 +46,15 @@ class ResiliencePolicy:
         if isinstance(default, bool):
             val = value if isinstance(value, bool) else str(value).strip().lower() in ("1", "true", "yes", "on")
         elif isinstance(default, int):
+            val = int(float(value))
+        else:
+            val = float(value)
+        if not isinstance(default, bool) and val < 0:
+            raise ValueError(f"{key} must be non-negative")
+        if key in ("poll_slice_s", "heartbeat_interval_s", "slow_step_warn_s") and val <= 0:
+            raise ValueError(f"{key} must be positive")
+        if key in ("suspect_missed", "dead_missed") and val < 1:
+            raise ValueError(f"{key} must be at least 1")
+        setattr(self, key, val)
+    def configure(self, **kw):
+        with self._lock:
