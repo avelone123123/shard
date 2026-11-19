@@ -196,3 +196,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
     def _start_hb(self, worker_id, token, interval=0.08):
         ev = threading.Event()
         self._hb_stops.append(ev)
+        def _loop():
+            while not ev.wait(interval):
+                CLUSTER.heartbeat_worker(worker_id, token)
+        threading.Thread(target=_loop, daemon=True).start()
+        return ev
+    def _srv_port(self, srv):
+        return getattr(srv, "bound_port", None) or getattr(srv, "port", None)
+    def _hw(self, ram_mb=8192):
+        return {"vram_total_mb": 0, "vram_free_mb": 0, "ram_total_mb": ram_mb, "ram_avail_mb": ram_mb, "cpu_cores": 4, "backends": {"torch_pipeline": True}}
+    def _setup_two_worker_cluster(self, s1, s2, coord_contrib=True, ram1=8192, ram2=8192):
+        CLUSTER.create_cluster(name="ResilienceCluster", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=coord_contrib, auto_deploy=False, fetch_model_meta=False)
+        r1 = CLUSTER.register_worker(worker_id="w1", name="W1", hw=self._hw(ram1), quota={"max_ram_gb": ram1 / 1024}, consented=True, pipeline_port=self._srv_port(s1), pipeline_host="127.0.0.1")
+        r2 = CLUSTER.register_worker(worker_id="w2", name="W2", hw=self._hw(ram2), quota={"max_ram_gb": ram2 / 1024}, consented=True, pipeline_port=self._srv_port(s2), pipeline_host="127.0.0.1")
+        if hasattr(s1, "auth_token"):
+            s1.auth_token = r1["worker_token"]
+        if hasattr(s2, "auth_token"):
+            s2.auth_token = r2["worker_token"]
+        return r1, r2
