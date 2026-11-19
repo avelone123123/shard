@@ -1065,6 +1065,7 @@ async def anthropic_messages(req: Request):
     sys_prompt = data.get("system", "")
     default_model = CLUSTER.target_model if (CLUSTER.role == "coordinator" and CLUSTER.target_model) else (engine_instance.active_model_id or "Qwen/Qwen2.5-Coder-1.5B-Instruct")
     model = data.get("model") or default_model
+    req_timeout = _extract_request_timeout(req, data)
     max_tokens = data.get("max_tokens", 1024)
     temperature = data.get("temperature", 0.7)
     stream = data.get("stream", False)
