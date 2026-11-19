@@ -477,13 +477,20 @@ class PipelineCoordinator:
         total_transfer_ms = 0.0
         total_bytes = 0
         max_new = max(1, min(int(max_tokens), 2048))
-        with self._gen_lock:
+        acquired = False
+        failed_at = None
+        failed_worker = None
+        cancelled = False
+        try:
+            while not self._gen_lock.acquire(timeout=self.policy.poll_slice_s):
+                ctx.poll()
+            acquired = True
+            cur_ids = input_ids
+            if generated_ids:
+                cur_ids = torch.cat([input_ids, torch.tensor([generated_ids], dtype=torch.long)], dim=-1)
+            first = True
             try:
-                cur_ids = input_ids
-                for step in range(max_new):
-                    if cancel_check and cancel_check():
-                        break
-                    logits, hop_stats = self.forward_logits(cur_ids, request_id=rid, use_cache=True)
+                for _ in range(max(0, max_new - len(generated_ids))):
                     total_compute_ms += hop_stats["compute_ms"]
                     total_transfer_ms += hop_stats["transfer_ms"]
                     total_bytes += hop_stats["transferred_bytes"]
