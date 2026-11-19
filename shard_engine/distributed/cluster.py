@@ -365,16 +365,8 @@ class ClusterManager:
                     self.state = "FORMING"
         return self.status(include_secrets=True)
     def stop_cluster(self):
-        self._stop_monitor()
-        self._stop_execution_backends()
-        try:
-            from .. import net_strategy
-            mgr = getattr(net_strategy, "_DEFAULT_MANAGER", None)
-            if mgr is not None:
-                mgr.close_worker_proxies()
-        except Exception:
-            pass
         with self._lock:
+            self._cluster_epoch += 1
             self.role = "idle"
             self.state = "IDLE"
             self.cluster_id = None
