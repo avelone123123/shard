@@ -197,6 +197,20 @@ class ClusterManager:
         self._rebalance_needed.set()
     def mark_worker_failed(self, worker_id, reason="unreachable", code="WORKER_LOST"):
         wid = str(worker_id or "")
+        assigned = False
+        changed = False
+        with self._lock:
+            w = self.workers.get(wid)
+            if w is not None and not w.get("revoked"):
+                changed = self._set_worker_state_locked(w, _res.FAILED, reason)
+                assigned = bool(w.get("assigned_stage"))
+        if assigned:
+            self._handle_assigned_worker_lost(wid, reason, code)
+        return changed
+    def _on_data_plane_failure(self, worker_id, failure):
+        if failure.code in ("WORKER_LOST", "WORKER_TIMEOUT", "WORKER_STALLED"):
+            self.mark_worker_failed(worker_id, reason=f"data plane {failure.code.lower()}", code=failure.code)
+    def _on_slow_step(self, worker_id, phase, duration_ms):
     def create_cluster(
         self,
         name=None,
