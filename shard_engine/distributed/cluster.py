@@ -14,7 +14,7 @@ from . import pipeline_worker as _pworker
 from . import planner as _planner
 from . import resilience as _res
 from . import scheduler as _sched
-HEARTBEAT_TIMEOUT_S = 12.0
+HEARTBEAT_TIMEOUT_S = _res.POLICY.dead_after_s
 WORKER_TOKEN_PREFIX = "sk-shard-wrk-"
 def _free_port():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
