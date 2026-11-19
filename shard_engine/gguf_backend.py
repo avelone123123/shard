@@ -831,6 +831,20 @@ class LlamaBackend:
                     q.put(("error", str(e)))
         threading.Thread(target=_reader, daemon=True).start()
         usage = None
+        finished = False
+        try:
+            while True:
+                if poll is not None:
+                    poll()
+                try:
+                    kind, val = q.get(timeout=float(poll_slice_s))
+                except queue.Empty:
+                    continue
+                if kind == "eof":
+                    if not finished:
+                        yield ("truncated", None)
+                        return
+                    break
     def info(self):
         return {
             "backend": "gguf",
