@@ -14,3 +14,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 5. **GGUF Read Timeout & Stream Truncation Masked (`gguf_backend.py`):** `chat_stream()` passed a fixed `timeout=(5, 600)` to `requests.post()`, holding requests open for 10 minutes on a stalled RPC backend, and treated unexpected stream EOF without `[DONE]` identically to clean completion. Furthermore, `requests.iter_lines()` raises `requests.exceptions.ConnectionError` wrapping `urllib3.exceptions.ReadTimeoutError` during mid-stream stalls rather than `requests.exceptions.ReadTimeout`.
 6. **In-Flight Recovery Was Not Implemented During Generation (`cluster.py`):** `_monitor_loop()` only rebuilt the cluster after polling detected dead heartbeats (`2.0s` wake loop + `12.0s` heartbeat window) and blindly tore down backends without saving checkpoints (`generated_ids`, `delivered_text`) or coordinating with active generation streams.
 7. **Concurrent Reform / Shutdown Race (`cluster.py`):** Manual `deploy_cluster()` and background `_reform_cluster()` lacked mutual exclusion (`_deploy_lock`) and generation epochs (`_cluster_epoch`), and `stop_cluster()` did not join `_reform_thread` or abort in-flight startup backends. A late `_reform_cluster()` thread could overwrite `IDLE` with `DEGRADED` or spawn orphan processes after `stop_cluster()`.
+8. **Worker Connection & KV-Cache Resource Leaks (`pipeline_worker.py`, `scheduler.py`):**
+   - `PipelineWorkerServer._handle_conn()` retained KV cache entries (`self._kv_caches[rid]`) indefinitely if a coordinator crashed before sending `MSG_RELEASE_KV`, and `_conn_threads` grew unbounded without pruning finished threads.
+   - `RequestScheduler.cancel_request()` ignored queued requests in `_waiting`, did not notify `_cond`, and `_worker()` could block up to 10s in `q.put().result(timeout=10.0)` or raise `RuntimeError: Event loop is closed` with unawaited coroutine warnings when clients disconnected cleanly.
+9. **No Stale Frame / Execution ID Validation (`pipeline_coordinator.py`, `pipeline_worker.py`):** `forward()` checked `mtype == MSG_FORWARD_RES` without validating sequence numbers or execution IDs, risking frame mixups across retries or reconnections.
+
+---
+
+## 2. Implemented Architecture
