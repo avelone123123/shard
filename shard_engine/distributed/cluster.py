@@ -635,8 +635,7 @@ class ClusterManager:
         self.recompute_plan()
         return {"status": "ok", "removed": w is not None, "blocked": bool(block)}
     def deploy_cluster(self, verify=True):
-        plan = self.recompute_plan()
-        if not plan.get("feasible"):
+        with self._deploy_lock:
             with self._lock:
                 self.last_error = plan.get("reason")
             raise RuntimeError(plan.get("reason") or "Cluster partition plan is not feasible")
