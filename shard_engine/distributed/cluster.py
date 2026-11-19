@@ -12,6 +12,7 @@ from . import capabilities as _cap
 from . import pipeline_coordinator as _pcoord
 from . import pipeline_worker as _pworker
 from . import planner as _planner
+from . import resilience as _res
 from . import scheduler as _sched
 HEARTBEAT_TIMEOUT_S = 12.0
 WORKER_TOKEN_PREFIX = "sk-shard-wrk-"
