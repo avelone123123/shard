@@ -150,3 +150,11 @@ Result: **240 tests ran in 134.045s — 237 passed, 1 skipped, 2 pre-existing un
 
 - **Implemented:** `ResiliencePolicy`, 4-state worker health FSM (`HEALTHY`/`SUSPECT`/`FAILED`/`RECOVERING`) + probation, per-phase socket/poll timeouts (`pipeline_proto.py`, `pipeline_coordinator.py`), slow-step telemetry vs. dead-worker detection, epoch-guarded `_reform_cluster()` & `stop_cluster()`, per-connection KV-cache & thread cleanup (`pipeline_worker.py`), Case A/B/C recovery with `ResumeState` (`torch_pipeline_parallel`), guarded GGUF streaming (`chat_stream_guarded()`), OpenAI/Anthropic structured JSON & SSE terminal errors, `Metrics` & sanitized JSON logs, CLI `cluster status`/`resilience`, and HTTP `/api/cluster/resilience*`.
 - **Tested locally:** All 16 resilience scenarios in `test/tests_worker_resilience.py` and 237/240 full repository unit/integration tests on Windows 11 using real loopback TCP sockets (`PipelineWorkerServer` / `_ScriptedPeerServer`), real FastAPI `TestClient`, real tiny sharded Qwen2 safetensors inference (CPU), and local `ggml-rpc-server`/`llama-server` GGUF cluster tests (plus local `ThreadingHTTPServer` mock for GGUF SSE stall/truncation).
+- **Tested in CI:** Not yet run on remote GitHub Actions CI for branch `feat/worker-failure-resilience`.
+- **Tested across separate physical machines:** Not tested across separate physical hosts or wide-area NAT/WAN links in this task; all network tests ran on localhost (`127.0.0.1`).
+- **Not yet implemented / Known Limitations:** See Section 6 below.
+
+---
+
+## 6. Known Limitations (Honest Scope)
+
