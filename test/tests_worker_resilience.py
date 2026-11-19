@@ -520,3 +520,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         pc.on_worker_failure = CLUSTER._on_data_plane_failure
         pc.start()
         with CLUSTER._lock:
+            CLUSTER.workers["w_multi"]["assigned_stage"] = plan["stages"][0]
+            CLUSTER._pipeline_coord = pc
+            CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        codes = []
+        t0 = time.monotonic()
+        def _req(i):
+            resp = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": f"hello {i}"}], "max_tokens": 2})
+            codes.append((resp.status_code, resp.json().get("error", {}).get("code")))
+        ths = [threading.Thread(target=_req, args=(i,)) for i in range(4)]
+        for t in ths:
+            t.start()
+        for t in ths:
+            t.join(timeout=5.0)
+        self.assertEqual(len(codes), 4)
+        self.assertLess(time.monotonic() - t0, 3.0)
+        for status, code in codes:
+            self.assertIn(status, (503, 504))
