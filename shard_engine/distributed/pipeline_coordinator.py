@@ -207,14 +207,12 @@ class _RemoteStageClient:
         transfer_ms = max(0.0, total_ms - compute_ms)
         return out_tensor, compute_ms, transfer_ms, len(frame_bytes) + len(resp_payload)
     def release_kv(self, request_id):
-        with self.lock:
-            if self.sock is None:
-                return
-            try:
-                proto.send_json_frame(self.sock, proto.MSG_RELEASE_KV, {"request_id": str(request_id)})
-                proto.recv_json_frame(self.sock)
-            except Exception:
-                pass
+        if self.sock is None:
+            return
+        try:
+            self._roundtrip(lambda s: proto.send_json_frame(s, proto.MSG_RELEASE_KV, {"request_id": str(request_id)}), None, self.policy.release_timeout_s, "release")
+        except Exception:
+            pass
     def ping(self):
         self.connect()
         with self.lock:
