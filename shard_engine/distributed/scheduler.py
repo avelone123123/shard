@@ -352,5 +352,6 @@ class RequestScheduler:
                 "last_inter_worker_transfer_ms": round(self._xfer_samples[-1], 2) if self._xfer_samples else 0.0,
                 "active_list": active_list,
                 "recent_errors": list(self._recent_errors),
+                "failures_by_code": dict(self._failures_by_code),
             }
 SCHEDULER = RequestScheduler()
