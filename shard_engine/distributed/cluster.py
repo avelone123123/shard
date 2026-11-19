@@ -281,6 +281,20 @@ class ClusterManager:
             _res.METRICS.observe("reform_ms", (time.monotonic() - t0) * 1000.0)
             _res.METRICS.event("reform_completed", duration_ms=round((time.monotonic() - t0) * 1000.0, 1))
         except Exception as e:
+            with self._lock:
+                if self._cluster_epoch != epoch or self.role != "coordinator":
+                    return
+                self.state = "DEGRADED"
+                self.last_error = str(e)[:240]
+                self._reform_failures += 1
+                self._next_reform_at = time.time() + _res.POLICY.backoff_s(self._reform_failures - 1)
+                self._reform_requested = True
+            _res.METRICS.inc("reform_failure_total")
+            _res.METRICS.event("reform_failed", level=40, error=str(e)[:160], failures=self._reform_failures)
+        finally:
+            with self._lock:
+                self._reform_active = False
+            self._rebalance_needed.set()
     def create_cluster(
         self,
         name=None,
