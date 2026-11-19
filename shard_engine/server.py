@@ -1114,6 +1114,16 @@ async def anthropic_messages(req: Request):
             except (RateLimitError, QueueFullError) as e:
                 err_ev = {"type": "error", "error": {"type": "overloaded_error", "message": str(e)}}
                 yield f"event: error\ndata: {json.dumps(err_ev, ensure_ascii=False)}\n\n"
+                return
+            except TimeoutError as e:
+                err_ev = {"type": "error", "error": {"type": "timeout_error", "code": "REQUEST_DEADLINE_EXCEEDED", "message": str(e), "retryable": True}}
+                yield f"event: error\ndata: {json.dumps(err_ev, ensure_ascii=False)}\n\n"
+                return
+            except InferenceFailure as e:
+                det = e.to_error()
+                det["type"] = "overloaded_error" if e.http_status == 503 else "api_error"
+                yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': det}, ensure_ascii=False)}\n\n"
+                return
             yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
             msg_delta = {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": out_toks}}
             yield f"event: message_delta\ndata: {json.dumps(msg_delta)}\n\n"
