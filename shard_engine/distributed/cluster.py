@@ -389,6 +389,15 @@ class ClusterManager:
                 starting.stop()
             except Exception:
                 pass
+        self._stop_execution_backends()
+        self._stop_monitor()
+        try:
+            from .. import net_strategy
+            mgr = getattr(net_strategy, "_DEFAULT_MANAGER", None)
+            if mgr is not None:
+                mgr.close_worker_proxies()
+        except Exception:
+            pass
         return {"status": "ok", "state": "IDLE"}
     def _stop_execution_backends(self):
         with self._lock:
