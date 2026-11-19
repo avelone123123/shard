@@ -399,7 +399,9 @@ class PipelineCoordinator:
         total_transfer_ms = 0.0
         total_bytes = 0
         for r in runners:
-            cur, c_ms, t_ms, n_bytes = r.forward(rid, cur, use_cache=use_cache, return_logits=True)
+            if ctx is not None:
+                ctx.poll()
+            cur, c_ms, t_ms, n_bytes = r.forward(rid, cur, use_cache=use_cache, return_logits=True, ctx=ctx, phase=phase)
             total_compute_ms += c_ms
             total_transfer_ms += t_ms
             total_bytes += n_bytes
