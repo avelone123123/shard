@@ -286,3 +286,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         done_02 = [ev for ev in evs_02 if ev.get("type") == "done"]
         self.assertEqual(len(done_02), 1)
         self.assertEqual(done_02[0]["usage"]["completion_tokens"], 3)
+        self.assertGreaterEqual(len(tokens), 2)
+        self.assertGreaterEqual(resilience.METRICS.snapshot()["counters"].get("recovery_success_total", 0), 1)
+        self.assertEqual(s1.stats()["active_kv_sessions"], 0)
+        self._assert_clean_resources()
+    def test_03_worker_disconnect_during_decode_and_case_a_resume_no_duplicates(self):
+        resilience.POLICY.configure(max_recovery_attempts=1, recovery_wait_s=6.0, retry_backoff_s=0.05, heartbeat_interval_s=0.3, monitor_tick_s=0.08, poll_slice_s=0.05, enable_resume=True)
+        s1 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s2 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s1.start()
+        s2.start()
+        self._servers.extend([s1, s2])
+        r1, r2 = self._setup_two_worker_cluster(s1, s2, coord_contrib=True)
+        self._start_hb("w1", r1["worker_token"])
+        hb2 = self._start_hb("w2", r2["worker_token"])
+        CLUSTER.deploy_cluster(verify=False)
+        base_evs = list(CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=5, temperature=0.0))
+        baseline_tokens = [ev["token"] for ev in base_evs if ev.get("type") == "content"]
+        self.assertEqual([ev for ev in base_evs if ev.get("type") == "done"][0]["usage"]["completion_tokens"], 5)
