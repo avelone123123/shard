@@ -895,6 +895,18 @@ def _inference_stream_factory(messages, max_tokens, temperature):
     if CLUSTER.role == "coordinator" or CLUSTER.is_ready():
         return lambda cancel_ev: CLUSTER.generate_stream(messages, max_tokens, temperature, cancel_check=cancel_ev.is_set, request_id=getattr(cancel_ev, "request_id", None), deadline_s=getattr(cancel_ev, "deadline_s", None))
     return lambda cancel_ev: engine_instance.generate_stream(messages, max_tokens, temperature, cancel_check=cancel_ev.is_set)
+def _failure_response(f, anthropic=False):
+    headers = {"Retry-After": "5"} if f.retryable and f.http_status in (503, 504) else {}
+    err = f.to_error()
+    if anthropic:
+        err = {**err, "type": "overloaded_error" if f.http_status == 503 else "api_error"}
+        return JSONResponse(status_code=f.http_status, headers=headers, content={"type": "error", "error": err})
+    return JSONResponse(status_code=f.http_status, headers=headers, content={"error": err})
+def _stream_error_detail(item):
+    detail = dict(item.get("error_detail") or {})
+    if not detail:
+        detail = {"message": item.get("error") or "Inference error", "type": "server_error", "code": "INFERENCE_ERROR"}
+    return detail
 @app.get("/v1/models")
 def list_models():
     st = engine_instance.get_status()
