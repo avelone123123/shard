@@ -566,7 +566,19 @@ class ClusterManager:
             if w.get("token_expires_at") and now > w["token_expires_at"]:
                 return False, "Worker session expired"
             w["last_heartbeat"] = now
-            w["alive"] = True
+            st = w.get("state") or _res.HEALTHY
+            if st == _res.FAILED:
+                w["recovering_since"] = now
+                self._set_worker_state_locked(w, _res.RECOVERING, "heartbeat resumed after failure", now)
+                _res.METRICS.inc("worker_reconnects_total")
+                st = _res.RECOVERING
+            elif st == _res.SUSPECT:
+                self._set_worker_state_locked(w, _res.HEALTHY, "heartbeat resumed", now)
+            if st == _res.RECOVERING and now - float(w.get("recovering_since") or now) >= pol.probation_s(w.get("fail_count") or 1):
+                self._set_worker_state_locked(w, _res.HEALTHY, "probation passed", now)
+                self._capacity_returned = True
+                self._reform_infeasible = False
+                self._rebalance_needed.set()
             if isinstance(hw, dict) and hw:
                 w["hw"] = hw
             if isinstance(quota, dict):
