@@ -161,6 +161,7 @@ class _RemoteStageClient:
             "request_id": str(request_id),
             "use_cache": bool(use_cache),
             "return_logits": bool(return_logits),
+            "seq": seq,
         }
         frame_bytes = proto.encode_tensor_payload(meta, tensor)
         with self.lock:
