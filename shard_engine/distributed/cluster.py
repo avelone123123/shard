@@ -794,6 +794,20 @@ class ClusterManager:
         for kind, payload in gb.chat_stream_guarded(messages, max_tokens=int(max_tokens), temperature=float(temperature), poll=ctx.poll, stall_timeout_s=pol.stall_timeout_s, poll_slice_s=pol.poll_slice_s):
             if kind == "delta" and payload:
                 for ev_type, ev_tok in sanitizer.feed(payload):
+                    if ev_tok:
+                        if ttft_ms is None:
+                            ttft_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+                        token_count += 1
+                        ctx.tokens_delivered += 1
+                        yield {"type": ev_type, "token": ev_tok, "done": False}
+                if sanitizer.stopped:
+                    break
+            elif kind == "stalled":
+                raise _fail("WORKER_STALLED", f"Inference backend produced no data for {pol.stall_timeout_s:.0f}s")
+            elif kind == "truncated":
+                raise _fail("BACKEND_ERROR", "Inference backend closed the stream before completion")
+            elif kind == "error":
+                raise _fail("BACKEND_ERROR", f"Inference backend error: {str(payload)[:160]}")
         with self._lock:
             pc = self._pipeline_coord
             gb = self._gguf_backend
