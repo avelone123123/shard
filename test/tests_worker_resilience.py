@@ -52,3 +52,21 @@ def _build_sharded_qwen2(target_dir, hidden=32, layers=4):
             s2[k] = v
             wmap[k] = "model-00002-of-00002.safetensors"
         else:
+            s1[k] = v
+            wmap[k] = "model-00001-of-00002.safetensors"
+    save_file(s1, os.path.join(target_dir, "model-00001-of-00002.safetensors"))
+    save_file(s2, os.path.join(target_dir, "model-00002-of-00002.safetensors"))
+    with open(os.path.join(target_dir, "model.safetensors.index.json"), "w", encoding="utf-8") as f:
+        json.dump({"metadata": {"total_size": sum(t.numel() * t.element_size() for t in sd.values())}, "weight_map": wmap}, f)
+class _ScriptedPeerServer:
+    def __init__(self, behavior="ok", delay_s=0.0, fail_after_forwards=None, auth_token="tok", vocab_size=8):
+        self.behavior = behavior
+        self.delay_s = float(delay_s)
+        self.fail_after_forwards = fail_after_forwards
+        self.auth_token = auth_token
+        self.vocab_size = vocab_size
+        self.forward_count = 0
+        self.release_count = 0
+        self.stop_ev = threading.Event()
+        self.forward_seen = threading.Event()
+        self.sock = None
