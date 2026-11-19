@@ -538,3 +538,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         self.assertLess(time.monotonic() - t0, 3.0)
         for status, code in codes:
             self.assertIn(status, (503, 504))
+            self.assertIn(code, ("WORKER_TIMEOUT", "WORKER_LOST", "CLUSTER_UNAVAILABLE"))
+        self._assert_clean_resources()
+    def test_10_failed_worker_reconnects_probation_and_cluster_recovers(self):
+        resilience.POLICY.configure(heartbeat_interval_s=0.15, suspect_missed=2, dead_missed=3, monitor_tick_s=0.05, recovery_probation_s=0.25, retry_backoff_s=0.05, max_recovery_attempts=0)
+        s1 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s1.start()
+        self._servers.append(s1)
+        CLUSTER.create_cluster(name="ReconnectCluster", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r = CLUSTER.register_worker(worker_id="w_rec", name="RecW", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=self._srv_port(s1), pipeline_host="127.0.0.1")
+        s1.auth_token = r["worker_token"]
+        CLUSTER.deploy_cluster(verify=False)
+        self.assertEqual(CLUSTER.state, "READY")
+        CLUSTER.workers["w_rec"]["last_heartbeat"] = time.time() - 1.0
+        CLUSTER._rebalance_needed.set()
+        self.assertTrue(self._wait_for(lambda: CLUSTER.workers["w_rec"]["state"] == resilience.FAILED and CLUSTER.state == "DEGRADED"))
+        ok, _ = CLUSTER.heartbeat_worker("w_rec", r["worker_token"])
+        self.assertTrue(ok)
+        self.assertEqual(CLUSTER.workers["w_rec"]["state"], resilience.RECOVERING)
