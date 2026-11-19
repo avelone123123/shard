@@ -817,6 +817,20 @@ class LlamaBackend:
                     r.close()
                     r = requests.post(url, json=payload, stream=True, timeout=(5, float(stall_timeout_s)))
                     holder["resp"] = r
+                r.raise_for_status()
+                r.encoding = "utf-8"
+                for raw_line in r.iter_lines(decode_unicode=False):
+                    if stop.is_set():
+                        return
+                    q.put(("line", raw_line))
+                q.put(("eof", None))
+            except Exception as e:
+                if isinstance(e, (requests.exceptions.ReadTimeout, TimeoutError)) or "readtimeout" in repr(e).lower() or "timed out" in str(e).lower():
+                    q.put(("stalled", str(e)))
+                else:
+                    q.put(("error", str(e)))
+        threading.Thread(target=_reader, daemon=True).start()
+        usage = None
     def info(self):
         return {
             "backend": "gguf",
