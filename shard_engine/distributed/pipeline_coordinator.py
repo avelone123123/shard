@@ -45,13 +45,11 @@ class _RemoteStageClient:
                 return
             host, port = _parse_endpoint(self.stage_info["endpoint"])
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(self.timeout)
-            s.connect((host, port))
-            proto.client_auth_handshake(s, self.auth_token, self.cluster_id)
-            self.sock = s
-    def close(self):
-        with self.lock:
-            if self.sock is not None:
+            s.settimeout(self.policy.connect_timeout_s)
+            try:
+                s.connect((host, port))
+                proto.client_auth_handshake(s, self.auth_token, self.cluster_id)
+            except Exception:
                 try:
                     self.sock.close()
                 except Exception:
