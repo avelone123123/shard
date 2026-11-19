@@ -906,6 +906,20 @@ class ClusterManager:
                         _res.METRICS.event("recovery_not_possible", level=30, request_id=ctx.request_id, code=f.code, backend_kind=kind, tokens_delivered=ctx.tokens_delivered, attempt=attempt)
                         raise
                     if kind == "gguf" and f.code in ("BACKEND_ERROR", "WORKER_STALLED"):
+                        self._probe_assigned_workers()
+                        with self._lock:
+                            if self.role == "coordinator" and not (self._reform_active or self._reform_requested) and not backend.is_running():
+                                if self.state == "READY":
+                                    self.state = "DEGRADED"
+                                    self.last_error = f.message[:240]
+                                self._reform_requested = True
+                                self._rebalance_needed.set()
+                    attempt += 1
+                    _res.METRICS.inc("recovery_attempts_total")
+                    _res.METRICS.inc("retries_total")
+                    _res.METRICS.event("recovery_started", request_id=ctx.request_id, worker_id=f.worker_id, code=f.code, attempt=attempt, tokens_delivered=ctx.tokens_delivered, mode="resume" if can_resume and ctx.tokens_delivered else "restart")
+                    try:
+                        new_kind, new_backend = self._await_recovery(ctx, backend, pol.recovery_wait_s)
     def _monitor_loop(self):
         while not self._monitor_stop.is_set():
             self._rebalance_needed.wait(timeout=2.0)
