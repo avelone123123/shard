@@ -704,6 +704,20 @@ class ClusterManager:
                     gguf_path = _gguf.download_gguf(repo_id, sel)
                 srv_exe = _gguf.ensure_llama_server()
                 gb = _gguf.LlamaBackend()
+                backend_obj = gb
+                with self._lock:
+                    if self._cluster_epoch != my_epoch:
+                        raise RuntimeError("Cluster stopped during deployment")
+                    self._starting_backend = gb
+                threads = _gguf.default_threads()
+                if self.coordinator_quota.get("max_threads"):
+                    threads = max(1, int(self.coordinator_quota["max_threads"]))
+                gb.start(
+                    gguf_path=gguf_path,
+                    ctx_tokens=self.ctx_tokens,
+                    ngl=int(plan.get("ngl") or 0),
+                    threads=threads,
+                    model_id=model_id,
     def _verify_pipeline(self, pc):
         out = []
         for ev in pc.generate_stream([{"role": "user", "content": "ping"}], max_tokens=2, temperature=0.0):
