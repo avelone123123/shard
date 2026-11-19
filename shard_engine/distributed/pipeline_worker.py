@@ -378,9 +378,8 @@ class PipelineWorkerServer:
                 return
             proto.send_json_frame(conn, proto.MSG_AUTH_OK, {"status": "ok", "port": self.bound_port})
             while not self._stop_ev.is_set():
-                try:
-                    mtype, _, payload = proto.recv_frame(conn)
-                except socket.timeout:
+                readable, _, _ = select.select([conn], [], [], 1.0)
+                if not readable:
                     continue
                 self._bytes_rx += len(payload)
                 if mtype == proto.MSG_PING:
