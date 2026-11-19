@@ -197,10 +197,7 @@ class RequestScheduler:
                         state["cancelled"] = True
                         break
                     if (time.perf_counter() - t_dispatch) > eff_timeout:
-                        state["ok"] = False
-                        state["err"] = "Inference timeout exceeded"
-                        cancel_ev.set()
-                        break
+                        raise _deadline_failure()
                     itype = item.get("type")
                     if itype in ("content", "thought") and item.get("token"):
                         if state["ttft_ms"] is None:
