@@ -221,6 +221,7 @@ class _RemoteStageClient:
 class _LocalStageRunner:
     def __init__(self, stage_info, model_path_or_repo, config, dtype="float32"):
         self.stage_info = dict(stage_info)
+        self.worker_id = self.stage_info.get("worker_id") or self.stage_info.get("node_id") or "coordinator"
         self.model_path_or_repo = model_path_or_repo
         self.config = config
         self.dtype = torch.float16 if (dtype == "float16" and torch.cuda.is_available()) else torch.float32
