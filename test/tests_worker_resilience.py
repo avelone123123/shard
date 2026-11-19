@@ -124,3 +124,21 @@ class _ScriptedPeerServer:
                         return
                     if self.behavior == "hang_on_load":
                         self.stop_ev.wait(10.0)
+                        return
+                    proto.send_json_frame(conn, proto.MSG_STAGE_READY, {"status": "ready"})
+                elif mtype == proto.MSG_FORWARD:
+                    meta, _ = proto.decode_tensor_payload(payload)
+                    self.forward_count += 1
+                    self.forward_seen.set()
+                    if self.fail_after_forwards is not None and self.forward_count > self.fail_after_forwards:
+                        return
+                    if self.behavior == "blackhole":
+                        self.stop_ev.wait(10.0)
+                        return
+                    if self.behavior == "stage_error":
+                        proto.send_json_frame(conn, proto.MSG_ERROR, {"error": "Injected stage failure"})
+                        continue
+                    if self.delay_s > 0:
+                        self.stop_ev.wait(self.delay_s)
+                        if self.stop_ev.is_set():
+                            return
