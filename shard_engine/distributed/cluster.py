@@ -864,6 +864,20 @@ class ClusterManager:
                 return None, None
             time.sleep(0.05)
         return None, None
+    def generate_stream(self, messages, max_tokens=512, temperature=0.7, cancel_check=None, request_id=None, deadline_s=None):
+        pol = _res.POLICY
+        eff_dl = _res.resolve_deadline(deadline_s, pol.request_deadline_s)
+        ctx = _res.ExecutionContext(request_id, cancel_check, eff_dl)
+        kind, backend = self._current_backend()
+        if kind is None:
+            raise _res.InferenceFailure("CLUSTER_UNAVAILABLE", "Distributed cluster backend is not ready", request_id=ctx.request_id, cluster_available=False)
+        self._register_execution(ctx)
+        attempt = 0
+        resume = None
+        stream = None
+        try:
+            while True:
+                ctx.poll(check_abort=False)
     def _monitor_loop(self):
         while not self._monitor_stop.is_set():
             self._rebalance_needed.wait(timeout=2.0)
