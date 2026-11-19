@@ -648,50 +648,20 @@ class ClusterManager:
                         self.last_error = plan.get("reason")
                 raise RuntimeError(plan.get("reason") or "Cluster partition plan is not feasible")
             with self._lock:
-                self._pipeline_coord = pc
-                self.state = "READY"
-                self.ready_at = time.time()
-            return self.status(include_secrets=False)
-        gguf_path = spec.get("local_gguf_path")
-        if not gguf_path:
-            repo_id = _gguf.find_gguf_repo(model_id)
-            if not repo_id:
-                raise RuntimeError(f"No GGUF repository found for {model_id}")
-            files = _gguf.list_gguf_files(repo_id)
-            sel = _gguf.select_gguf_file(files, wanted_quant=spec.get("quant"))
-            if not sel:
-                raise RuntimeError(f"No matching GGUF file in {repo_id}")
-            gguf_path = _gguf.download_gguf(repo_id, sel)
-        srv_exe = _gguf.ensure_llama_server()
-        gb = _gguf.LlamaBackend()
-        threads = _gguf.default_threads()
-        if self.coordinator_quota.get("max_threads"):
-            threads = max(1, int(self.coordinator_quota["max_threads"]))
-        gb.start(
-            gguf_path=gguf_path,
-            ctx_tokens=self.ctx_tokens,
-            ngl=int(plan.get("ngl") or 0),
-            threads=threads,
-            model_id=model_id,
-            server_path=srv_exe,
-            wait_timeout=360.0 if plan.get("rpc_arg") else 180.0,
-            rpc_servers=plan.get("rpc_arg"),
-            tensor_split=plan.get("tensor_split_arg"),
-            parallel_slots=self.parallel_slots,
-            split_mode="layer",
-        )
-        if verify:
-            with self._lock:
-                self.state = "VERIFYING"
-            ok = self._verify_gguf(gb)
-            if not ok:
-                gb.stop()
-                raise RuntimeError("Distributed GGUF self-test verification failed")
-        with self._lock:
-            self._gguf_backend = gb
-            self.state = "READY"
-            self.ready_at = time.time()
-        return self.status(include_secrets=False)
+                if self._cluster_epoch != my_epoch or self.role != "coordinator":
+                    raise RuntimeError("Cluster stopped before deployment")
+                self.state = "LOADING"
+                self.last_error = None
+                strategy = plan["strategy"]
+                model_id = self.target_model
+                spec = dict(self.model_spec or {})
+                worker_tokens = {wid: w["worker_token"] for wid, w in self.workers.items()}
+                cid = self.cluster_id
+            self._stop_execution_backends()
+            backend_obj = None
+            try:
+                if strategy == "torch_pipeline_parallel":
+                    model_ref = spec.get("local_hf_dir") or model_id
     def _verify_pipeline(self, pc):
         out = []
         for ev in pc.generate_stream([{"role": "user", "content": "ping"}], max_tokens=2, temperature=0.0):
