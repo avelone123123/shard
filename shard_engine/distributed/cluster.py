@@ -836,47 +836,20 @@ class ClusterManager:
         if pc is not None and pc.is_running():
             return "pipeline", pc
         if gb is not None and gb.is_running():
-            from ..engine import _StreamSanitizer
-            t0 = time.perf_counter()
-            sanitizer = _StreamSanitizer()
-            token_count = 0
-            ttft_ms = None
-            usage = None
-            for kind, payload in gb.chat_stream(messages, max_tokens=int(max_tokens), temperature=float(temperature), cancel_check=cancel_check):
-                if kind == "delta" and payload:
-                    for ev_type, ev_tok in sanitizer.feed(payload):
-                        if ev_tok:
-                            if ttft_ms is None:
-                                ttft_ms = round((time.perf_counter() - t0) * 1000.0, 2)
-                            token_count += 1
-                            yield {"type": ev_type, "token": ev_tok, "done": False}
-                    if sanitizer.stopped:
-                        break
-                elif kind == "error":
-                    yield {"type": "content", "token": f"[Cluster inference error: {payload}]", "done": False}
-                    break
-                elif kind == "usage" and isinstance(payload, dict):
-                    usage = payload
-            for ev_type, ev_tok in sanitizer.flush():
-                if ev_tok:
-                    token_count += 1
-                    yield {"type": ev_type, "token": ev_tok, "done": False}
-            total_s = max(0.001, time.perf_counter() - t0)
-            yield {
-                "type": "done",
-                "token": "",
-                "done": True,
-                "telemetry": {
-                    "thinking_seconds": sanitizer.think_duration,
-                    "total_seconds": round(total_s, 3),
-                    "ttft_ms": ttft_ms or round(total_s * 1000.0, 2),
-                    "tokens_per_sec": round(token_count / total_s, 2),
-                    "inter_worker_transfer_ms": 0.0,
-                },
-                "usage": usage or {"prompt_tokens": 1, "completion_tokens": token_count, "total_tokens": 1 + token_count},
-            }
-            return
-        raise RuntimeError("Distributed cluster backend is not ready")
+            return "gguf", gb
+        return None, None
+    def _backend_workers(self, kind, backend):
+        if kind == "pipeline":
+            return set(backend.worker_ids())
+        with self._lock:
+            return {wid for wid, w in self.workers.items() if w.get("assigned_stage") and (w.get("state") or _res.HEALTHY) in (_res.HEALTHY, _res.SUSPECT)}
+    def _await_recovery(self, ctx, old_backend, wait_s):
+        start_t = time.monotonic()
+        end = start_t + float(wait_s)
+        while time.monotonic() < end:
+            ctx.poll(check_abort=False)
+            kind, backend = self._current_backend()
+            with self._lock:
     def _monitor_loop(self):
         while not self._monitor_stop.is_set():
             self._rebalance_needed.wait(timeout=2.0)
