@@ -114,6 +114,20 @@ class ClusterManager:
             "alive": True,
             "consented": self.coordinator_contributes,
         }
+    def _set_worker_state_locked(self, w, new_state, reason, now=None):
+        now = time.time() if now is None else now
+        prev = w.get("state") or _res.HEALTHY
+        if prev == new_state:
+            return False
+        w["state"] = new_state
+        w["state_since"] = now
+        w["state_reason"] = str(reason)[:160]
+        w["alive"] = new_state in (_res.HEALTHY, _res.SUSPECT)
+        _res.METRICS.inc("worker_state_transitions_total")
+        if new_state == _res.FAILED:
+            w["fail_count"] = int(w.get("fail_count") or 0) + 1
+            w["failed_at"] = now
+            _res.METRICS.inc("worker_failures_total")
     def _alive_worker_records(self, now=None):
         now = time.time() if now is None else now
         out = []
