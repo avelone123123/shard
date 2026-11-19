@@ -94,3 +94,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 | `test/tests_worker_resilience.py` *(new)* | Deterministic 16-test suite (covering scenarios 1–17) using real TCP SHPT servers, scripted blackhole/stale/crash peers, `ThreadingHTTPServer` GGUF SSE mock, and FastAPI `TestClient`. |
 
 ---
+
+## 4. Failure Scenario Behavior Matrix
+
+| # | Scenario | Observed Behavior & Error Code | Bounded Recovery / Termination |
+| :--- | :--- | :--- | :--- |
+| **1** | Worker disconnects before generation starts | Worker removed / marked `FAILED`; cluster transitions `READY -> DEGRADED` or re-forms if feasible. If infeasible, API returns `503 CLUSTER_UNAVAILABLE` (`cluster_available: false`, `retryable: true`). | Verified `< 0.5s` API rejection |
+| **2** | Worker crashes during model load (`deploy_cluster`) | `PipelineCoordinator.start()` aborts peer stages, cleans partial runners, transitions cluster out of `LOADING` cleanly, and marks bad worker `FAILED`. | Bounded by `load_timeout_s` |
+| **3** | Worker crashes during prefill (`tokens_delivered == 0`) | Data plane detects TCP disconnect -> `WORKER_LOST` -> aborts execution -> Case B safe restart on healthy surviving workers (zero duplicates) or `RECOVERY_FAILED` if infeasible. | Verified `< 1.5s` in local test |
