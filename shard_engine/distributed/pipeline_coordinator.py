@@ -145,9 +145,8 @@ class _RemoteStageClient:
             "dtype": dtype,
             "config_dict": config_dict,
         }
-        with self.lock:
-            proto.send_json_frame(self.sock, proto.MSG_LOAD_STAGE, payload)
-            mtype, _, obj = proto.recv_json_frame(self.sock)
+        mtype, _, raw = self._roundtrip(lambda s: proto.send_json_frame(s, proto.MSG_LOAD_STAGE, payload), None, self.policy.load_timeout_s, "load")
+        obj = json.loads(raw.decode("utf-8")) if raw else {}
         if mtype == proto.MSG_ERROR:
             raise RuntimeError(obj.get("error") or "Worker failed to load stage")
         if mtype != proto.MSG_STAGE_READY:
