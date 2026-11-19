@@ -158,3 +158,11 @@ Result: **240 tests ran in 134.045s — 237 passed, 1 skipped, 2 pre-existing un
 
 ## 6. Known Limitations (Honest Scope)
 
+1. **GGUF RPC Does Not Support Mid-Generation Resume After Token 1:** `llama-server` manages KV state internally inside its C++ process. If an RPC worker drops *before* the first token (`tokens_delivered == 0`), SHARD restarts cleanly (Case B); if it drops *after* partial tokens were streamed, `llama-server` cannot resume from token IDs mid-stream without duplicating text, so SHARD returns an explicit `WORKER_LOST` / `BACKEND_ERROR` failure (Case C).
+2. **In-Flight Forward Compute Cannot Be Interrupted Mid-Kernel Inside `PipelineWorkerServer`:** PyTorch tensor `forward_stage()` executes synchronously on CPU/GPU until the current layer forward finishes; `select()` wakes connections cleanly between frames, and coordinator aborts/drops the socket after `decode_step_timeout_s` / `prefill_timeout_s`, though the worker's currently executing PyTorch op finishes in its thread before seeing the closed socket.
+3. **Checkpoint State Lives in Coordinator Memory (Single Coordinator Node):** `ResumeState` protects against Worker failures; if the *Coordinator process itself* crashes mid-generation, the HTTP connection drops and client requests cannot resume across coordinator restart.
+4. **Slow-Step Detection Does Not Mid-Inference Live-Migrate Stages Without Timeout:** If a slow CPU-spilled worker finishes within `decode_step_timeout_s`, SHARD completes the request cleanly and surfaces `slow=True`; automatic dynamic re-sharding off an overly slow (but still healthy) worker between requests is manual (`POST /api/cluster/rebalance`) unless its step exceeds `decode_step_timeout_s`.
+5. **No Automated Remote Multi-Machine Chaos Harness:** Multi-node chaos scenarios were simulated via real loopback TCP sockets and subprocesses, not separate physical WAN hosts.
+
+---
+
