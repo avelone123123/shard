@@ -700,3 +700,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
                 CLUSTER.state = "READY"
             resp = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}], "max_tokens": 4})
             self.assertEqual(resp.status_code, 504)
+            self.assertEqual(resp.json()["error"]["code"], "WORKER_STALLED")
+            _HangSSEHandler.mode = "truncate"
+            resp2 = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}], "max_tokens": 4})
+            self.assertEqual(resp2.status_code, 502)
+            self.assertEqual(resp2.json()["error"]["code"], "BACKEND_ERROR")
+        finally:
+            srv.shutdown()
+            srv.server_close()
+        pr = self.client.post("/api/cluster/resilience/policy", json={"decode_step_timeout_s": 15.0, "dead_missed": 6}, headers=self.owner_hdr)
+        self.assertEqual(pr.status_code, 200)
+        self.assertEqual(pr.json()["policy"]["decode_step_timeout_s"], 15.0)
+        gr = self.client.get("/api/cluster/resilience", headers=self.owner_hdr)
+        self.assertEqual(gr.status_code, 200)
+        self.assertIn("metrics", gr.json())
+        self._assert_clean_resources()
+    def test_16_request_deadline_respected_across_api_and_scheduler(self):
+        resilience.POLICY.configure(request_deadline_s=0.25, decode_step_timeout_s=10.0, prefill_timeout_s=10.0, poll_slice_s=0.04, max_recovery_attempts=0)
+        s_bh = _ScriptedPeerServer(behavior="blackhole")
