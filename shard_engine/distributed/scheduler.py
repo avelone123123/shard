@@ -218,6 +218,9 @@ class RequestScheduler:
                     state["cancelled"] = True
                     _res.METRICS.inc("generations_cancelled_total")
             except Exception as exc:
+                failure = exc if isinstance(exc, _res.InferenceFailure) else _res.InferenceFailure("INFERENCE_ERROR", str(exc), request_id=req_id)
+                if failure.request_id is None:
+                    failure.request_id = req_id
                 state["ok"] = False
                 state["err"] = str(exc)
                 try:
