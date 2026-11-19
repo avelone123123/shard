@@ -356,7 +356,14 @@ class PipelineCoordinator:
                 errors.append(f"Stage {i}: load produced no report")
         if errors:
             for r in runners:
-                r.close()
+                try:
+                    r.abort()
+                except Exception:
+                    pass
+                try:
+                    r.close()
+                except Exception:
+                    pass
             raise RuntimeError("; ".join(errors))
         with self._lock:
             self.runners = runners
