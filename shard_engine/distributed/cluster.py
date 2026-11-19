@@ -1064,6 +1064,7 @@ class ClusterManager:
         return {"status": "ok", "worker_id": data["worker_id"], "rpc_port": rpc_port, "pipeline_port": pipe_port}
     def _worker_hb_loop(self):
         import requests
+        hb_interval = _res.POLICY.heartbeat_interval_s
         while True:
             with self._lock:
                 lw = dict(self._local_worker)
