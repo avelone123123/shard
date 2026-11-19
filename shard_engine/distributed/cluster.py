@@ -948,7 +948,6 @@ class ClusterManager:
             if self._monitor_stop.is_set():
                 break
             now = time.time()
-            lost_assigned = False
             with self._lock:
                 if self.role != "coordinator":
                     break
