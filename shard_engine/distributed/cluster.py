@@ -718,6 +718,20 @@ class ClusterManager:
                     ngl=int(plan.get("ngl") or 0),
                     threads=threads,
                     model_id=model_id,
+                    server_path=srv_exe,
+                    wait_timeout=360.0 if plan.get("rpc_arg") else 180.0,
+                    rpc_servers=plan.get("rpc_arg"),
+                    tensor_split=plan.get("tensor_split_arg"),
+                    parallel_slots=self.parallel_slots,
+                    split_mode="layer",
+                )
+                with self._lock:
+                    if self._cluster_epoch != my_epoch:
+                        raise RuntimeError("Cluster stopped during deployment")
+                if verify:
+                    with self._lock:
+                        self.state = "VERIFYING"
+                    ok = self._verify_gguf(gb)
     def _verify_pipeline(self, pc):
         out = []
         for ev in pc.generate_stream([{"role": "user", "content": "ping"}], max_tokens=2, temperature=0.0):
