@@ -873,6 +873,13 @@ class LlamaBackend:
                     usage = obj["usage"]
         finally:
             stop.set()
+            resp = holder["resp"]
+            if resp is not None:
+                try:
+                    resp.close()
+                except Exception:
+                    pass
+        yield ("usage", usage)
     def info(self):
         return {
             "backend": "gguf",
