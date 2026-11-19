@@ -780,7 +780,20 @@ class ClusterManager:
             if self._gguf_backend is not None and self._gguf_backend.is_running():
                 return True
             return False
-    def generate_stream(self, messages, max_tokens=512, temperature=0.7, cancel_check=None):
+    def _gguf_stream(self, gb, messages, max_tokens, temperature, ctx):
+        from ..engine import _StreamSanitizer
+        pol = _res.POLICY
+        t0 = time.perf_counter()
+        sanitizer = _StreamSanitizer()
+        token_count = 0
+        ttft_ms = None
+        usage = None
+        ctx.phase = "generate"
+        def _fail(code, message):
+            return _res.InferenceFailure(code, message, request_id=ctx.request_id, phase="generate", tokens_delivered=ctx.tokens_delivered)
+        for kind, payload in gb.chat_stream_guarded(messages, max_tokens=int(max_tokens), temperature=float(temperature), poll=ctx.poll, stall_timeout_s=pol.stall_timeout_s, poll_slice_s=pol.poll_slice_s):
+            if kind == "delta" and payload:
+                for ev_type, ev_tok in sanitizer.feed(payload):
         with self._lock:
             pc = self._pipeline_coord
             gb = self._gguf_backend
