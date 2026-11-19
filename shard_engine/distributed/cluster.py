@@ -850,6 +850,20 @@ class ClusterManager:
             ctx.poll(check_abort=False)
             kind, backend = self._current_backend()
             with self._lock:
+                ready = self.state == "READY"
+                pending = self._reform_active or self._reform_requested
+                infeasible = self._reform_infeasible
+                stopped = self.role != "coordinator"
+            if stopped:
+                return None, None
+            if kind is not None and ready and backend is not old_backend:
+                return kind, backend
+            if infeasible and not pending:
+                return None, None
+            if not pending and not ready and (time.monotonic() - start_t) > 0.35:
+                return None, None
+            time.sleep(0.05)
+        return None, None
     def _monitor_loop(self):
         while not self._monitor_stop.is_set():
             self._rebalance_needed.wait(timeout=2.0)
