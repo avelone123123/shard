@@ -358,3 +358,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         self.assertEqual(CLUSTER._alive_worker_records(), [])
         snap = resilience.METRICS.snapshot()["counters"]
         self.assertGreaterEqual(snap.get("heartbeat_missed_total", 0), 1)
+        self.assertGreaterEqual(snap.get("heartbeat_loss_total", 0), 1)
+    def test_05_worker_connected_blackhole_stops_responding(self):
+        resilience.POLICY.configure(heartbeat_interval_s=5.0, suspect_missed=2, dead_missed=5, prefill_timeout_s=0.35, decode_step_timeout_s=0.35, poll_slice_s=0.05, max_recovery_attempts=0, monitor_tick_s=0.1)
+        s_bh = _ScriptedPeerServer(behavior="blackhole")
+        s_bh.start()
+        self._servers.append(s_bh)
+        CLUSTER.create_cluster(name="Blackhole", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=1, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        CLUSTER.register_worker(worker_id="w_bh", name="BlackholeW", hw=self._hw(2048), quota={"max_ram_gb": 2}, consented=True, pipeline_port=s_bh.port, pipeline_host="127.0.0.1")
+        plan = {
+            "feasible": True,
+            "strategy": "torch_pipeline_parallel",
+            "stages": [
+                {"stage_idx": 0, "node_id": "w_bh", "worker_id": "w_bh", "role": "worker", "endpoint": f"127.0.0.1:{s_bh.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True},
+            ],
+        }
+        pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w_bh": CLUSTER.workers["w_bh"]["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc.on_worker_failure = CLUSTER._on_data_plane_failure
+        pc.start()
