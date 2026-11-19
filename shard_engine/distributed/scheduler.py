@@ -289,7 +289,7 @@ class RequestScheduler:
         content_chunks = []
         usage = {}
         telemetry = {}
-        err_msg = None
+        err_item = None
         async for item in self.stream_async(
             stream_factory,
             client_key=client_key,
