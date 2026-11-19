@@ -130,3 +130,15 @@ class InferenceFailure(RuntimeError):
         return out
     def to_error(self):
         return {
+            "message": self.message,
+            "type": "server_error",
+            "param": None,
+            "code": self.code,
+            "request_id": self.request_id,
+            "worker_id": self.worker_id,
+            "stage": self.stage,
+            "phase": self.phase,
+            "retryable": self.retryable,
+            "recovery_attempted": self.recovery_attempted,
+            "cluster_available": self.cluster_available,
+            "tokens_delivered": self.tokens_delivered,
