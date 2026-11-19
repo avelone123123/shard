@@ -306,6 +306,7 @@ shard lan off
 | `shard run` | `[model_id]` | Downloads (if needed), loads the model, and opens interactive terminal chat REPL. |
 | `shard list` | `[--category CAT]` | Lists cached and curated catalog models (`all`, `ideal`, `coding`, `reasoning`, `compact`). |
 | `shard lan` | `[status\|create\|join\|model\|off] [extra] [--share] [--open] [--model ID] [--port N]` | Creates, joins, configures, inspects, or stops distributed LAN compute pooling across machines. |
+| `shard cluster` | `[status\|create\|join\|plan\|deploy\|resilience\|leave\|stop]` | Manages distributed coordinator/worker clusters and inspects resilience policy, metrics, and worker states. |
 | `shard network` | `[status\|doctor\|radmin [status\|install\|repair\|gui\|decline]]` | Inspects multi-tier autonomous network, runs network doctor, and manages automated Radmin VPN fallback. |
 | `shard training` | `[status\|doctor\|privacy\|feedback\|dataset\|start\|logs\|cancel\|resume\|models\|eval\|prepare\|approve\|deploy\|rollback]` | Manages consent feedback, dataset snapshots, SOUP fine-tuning jobs, evaluation, model deployment, and rollback ([Guide](docs/COLLABORATIVE_TRAINING.md)). |
 | `shard key` | `[--gen]` | Views the current local API key or generates a new token (`--gen`). |
