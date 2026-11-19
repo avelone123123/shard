@@ -250,3 +250,15 @@ def classify_heartbeat_age(age_s, policy=None):
     if age_s <= p.suspect_after_s:
         return HEALTHY
     if age_s <= p.dead_after_s:
+        return SUSPECT
+    return FAILED
+def resolve_deadline(*candidates):
+    pos = []
+    for c in candidates:
+        if c is not None:
+            try:
+                v = float(c)
+                if v > 0:
+                    pos.append(v)
+            except (TypeError, ValueError):
+                pass
