@@ -183,6 +183,20 @@ class ClusterManager:
             err = failure.clone(request_id=c.request_id, stage=c.stage_map.get(worker_id), phase=c.phase, tokens_delivered=c.tokens_delivered)
             if c.abort(err):
                 n += 1
+                _res.METRICS.inc("generations_aborted_total")
+                _res.METRICS.event("generation_aborted", level=30, request_id=c.request_id, worker_id=worker_id, code=failure.code, phase=c.phase, tokens_delivered=c.tokens_delivered)
+        return n
+    def _handle_assigned_worker_lost(self, worker_id, reason, code="WORKER_LOST"):
+        with self._lock:
+            if self.state == "READY":
+                self.state = "DEGRADED"
+                self.last_error = f"Assigned worker {worker_id} lost ({reason}); cluster degraded"
+            self._reform_requested = True
+        failure = _res.InferenceFailure(code, f"Worker {worker_id} was lost during generation: {reason}", worker_id=worker_id, cluster_available=False)
+        self._abort_executions(worker_id, failure)
+        self._rebalance_needed.set()
+    def mark_worker_failed(self, worker_id, reason="unreachable", code="WORKER_LOST"):
+        wid = str(worker_id or "")
     def create_cluster(
         self,
         name=None,
