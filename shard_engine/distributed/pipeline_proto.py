@@ -46,6 +46,20 @@ def recv_exact(sock, n):
             raise ConnectionError("Socket closed while reading frame")
         buf.extend(chunk)
     return bytes(buf)
+def recv_exact_poll(sock, n, poll):
+    buf = bytearray()
+    while len(buf) < n:
+        try:
+            chunk = sock.recv(n - len(buf))
+        except socket.timeout:
+            poll()
+            continue
+        if not chunk:
+            raise ConnectionError("Socket closed while reading frame")
+        buf.extend(chunk)
+    return bytes(buf)
+def recv_frame_poll(sock, poll):
+    hdr = recv_exact_poll(sock, _HDR_STRUCT.size, poll)
 def send_frame(sock, msg_type, payload=b"", flags=0):
     data = bytes(payload)
     if len(data) > MAX_FRAME_BYTES:
