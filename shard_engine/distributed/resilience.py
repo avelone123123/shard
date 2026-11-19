@@ -142,3 +142,15 @@ class InferenceFailure(RuntimeError):
             "recovery_attempted": self.recovery_attempted,
             "cluster_available": self.cluster_available,
             "tokens_delivered": self.tokens_delivered,
+        }
+class RequestCancelled(InferenceFailure):
+    def __init__(self, request_id=None, message="Request cancelled by client"):
+        super().__init__("REQUEST_CANCELLED", message, request_id=request_id)
+class CancelEvent(threading.Event):
+    def __init__(self, request_id=None, deadline_s=None):
+        super().__init__()
+        self.request_id = request_id
+        self.deadline_s = deadline_s
+_SENSITIVE = ("prompt", "messages", "content", "token", "worker_token", "api_key", "authorization", "key", "secret")
+class Metrics:
+    def __init__(self):
