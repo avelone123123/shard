@@ -195,6 +195,14 @@ class _RemoteStageClient:
             cb_slow = self.on_slow_step
             if cb_slow is not None:
                 try:
+                    cb_slow(self.worker_id, phase, round(total_ms, 1))
+                except Exception:
+                    pass
+        elif self.on_slow_step is not None:
+            try:
+                self.on_slow_step(self.worker_id, phase, round(total_ms, 1))
+            except Exception:
+                pass
         compute_ms = float(out_meta.get("stage_compute_ms") or 0.0)
         transfer_ms = max(0.0, total_ms - compute_ms)
         return out_tensor, compute_ms, transfer_ms, len(frame_bytes) + len(resp_payload)
