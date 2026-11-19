@@ -54,3 +54,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 ### C. Recovery Policy (`cluster.py`, `pipeline_coordinator.py`)
 
 1. **Case A — State-Preserving Resume (`torch_pipeline_parallel` with `enable_resume=True`):**
+   - When a worker fails after `k >= 1` tokens were streamed, `PipelineCoordinator.generate_stream()` captures `ResumeState(generated_ids, delivered_text)` in the raised `InferenceFailure`, releases KV caches on surviving runners (skipping the failed `worker_id` so cleanup never stalls), and releases `_gen_lock`.
+   - `ClusterManager.generate_stream()` checks `attempt < max_recovery_attempts` and waits up to `recovery_wait_s` for `_reform_cluster()` to rebuild a healthy `PipelineCoordinator` onto the surviving nodes (with `same_model == True`).
+   - Generation resumes via `PipelineCoordinator.generate_stream(..., resume=ResumeState)` by prefilling `torch.cat([prompt_ids, generated_ids])` to reconstruct KV caches on the healthy stages, setting `prev_text = delivered_text`, and yielding only newly sampled suffix tokens. Already-delivered tokens are never re-emitted.
+2. **Case B — Safe Restart Before First Token (`tokens_delivered == 0`):**
+   - If failure occurs during model prefill (or GGUF startup/first token before any token is yielded to the client), restarting from the prompt on the re-formed cluster produces zero duplicate tokens. Bounded by `max_recovery_attempts` and exponential `backoff_s`.
+3. **Case C — Explicit Structured Error When Unrecoverable:**
+   - Triggered when `_reform_infeasible` (insufficient surviving cluster memory), `recovery_wait_s` expires, `attempt >= max_recovery_attempts`, `enable_resume=False` with `tokens_delivered > 0`, or on `gguf_rpc_layer_split` after partial tokens have already been streamed (`tokens_delivered > 0`).
+   - `_await_recovery()` exits immediately when `_reform_infeasible` is set or no reform is pending/active after `0.35s`, preventing multi-second hangs.
