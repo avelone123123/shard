@@ -676,6 +676,20 @@ class ClusterManager:
                             raise RuntimeError("Cluster stopped during deployment")
                     if verify:
                         with self._lock:
+                            self.state = "VERIFYING"
+                        res = self._verify_pipeline(pc)
+                        if not res:
+                            raise RuntimeError("Distributed pipeline verification failed")
+                    with self._lock:
+                        self._starting_backend = None
+                        if self._cluster_epoch != my_epoch or self.role != "coordinator":
+                            raise RuntimeError("Cluster stopped during deployment")
+                        self._pipeline_coord = pc
+                        self.state = "READY"
+                        self.ready_at = time.time()
+                        self._reform_requested = False
+                        self._reform_infeasible = False
+                        self._reform_failures = 0
     def _verify_pipeline(self, pc):
         out = []
         for ev in pc.generate_stream([{"role": "user", "content": "ping"}], max_tokens=2, temperature=0.0):
