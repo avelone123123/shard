@@ -511,8 +511,20 @@ class PipelineCoordinator:
                         ctx.tokens_delivered += 1
                         yield {"type": "content", "token": delta, "done": False}
                     cur_ids = torch.tensor([[next_id]], dtype=torch.long)
-            finally:
-                self.release_request(rid)
+            except _res.RequestCancelled:
+                cancelled = True
+            except _res.InferenceFailure as failure:
+                failed_at = time.monotonic()
+                failed_worker = failure.worker_id
+                failure.resume = _res.ResumeState(generated_ids, prev_text)
+                if failure.request_id is None:
+                    failure.request_id = ctx.request_id
+                failure.tokens_delivered = ctx.tokens_delivered
+                raise
+        finally:
+            if acquired:
+                try:
+                    skip = [failed_worker] if failed_worker else []
         total_s = max(0.001, time.perf_counter() - t_start)
         completion_tokens = len(generated_ids)
         tps = round(completion_tokens / total_s, 2)
