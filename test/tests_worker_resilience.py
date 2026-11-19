@@ -322,3 +322,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
             elif ev.get("type") == "done":
                 done_evs.append(ev)
         combined = first_two + rest
+        self.assertEqual(combined, baseline_tokens)
+        self.assertEqual(len(done_evs), 1)
+        self.assertTrue(done_evs[0]["telemetry"]["resumed_after_failure"])
+        self.assertEqual(CLUSTER.workers["w1"]["state"], resilience.HEALTHY)
+        self.assertEqual(CLUSTER.workers["w2"]["state"], resilience.FAILED)
+        self.assertEqual(s1.stats()["active_kv_sessions"], 0)
+        self._assert_clean_resources()
+    def test_04_heartbeat_loss_state_transitions_and_abort(self):
+        resilience.POLICY.configure(heartbeat_interval_s=0.15, suspect_missed=2, dead_missed=4, monitor_tick_s=0.05, poll_slice_s=0.04, recovery_wait_s=0.5, max_recovery_attempts=0)
+        s_slow = _ScriptedPeerServer(behavior="blackhole")
+        s_slow.start()
+        self._servers.append(s_slow)
+        CLUSTER.create_cluster(name="HBLoss", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=1, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        CLUSTER.register_worker(worker_id="w_hb", name="HBWorker", hw=self._hw(2048), quota={"max_ram_gb": 2}, consented=True, pipeline_port=s_slow.port, pipeline_host="127.0.0.1")
+        plan = {
+            "feasible": True,
+            "strategy": "torch_pipeline_parallel",
+            "stages": [
