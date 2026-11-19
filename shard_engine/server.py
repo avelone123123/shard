@@ -892,8 +892,8 @@ def _extract_request_timeout(req: Request, data: dict):
     except (TypeError, ValueError):
         return None
 def _inference_stream_factory(messages, max_tokens, temperature):
-    if CLUSTER.is_ready():
-        return lambda cancel_ev: CLUSTER.generate_stream(messages, max_tokens, temperature, cancel_check=cancel_ev.is_set)
+    if CLUSTER.role == "coordinator" or CLUSTER.is_ready():
+        return lambda cancel_ev: CLUSTER.generate_stream(messages, max_tokens, temperature, cancel_check=cancel_ev.is_set, request_id=getattr(cancel_ev, "request_id", None), deadline_s=getattr(cancel_ev, "deadline_s", None))
     return lambda cancel_ev: engine_instance.generate_stream(messages, max_tokens, temperature, cancel_check=cancel_ev.is_set)
 @app.get("/v1/models")
 def list_models():
