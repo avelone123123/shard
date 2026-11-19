@@ -545,6 +545,8 @@ class PipelineCoordinator:
             "inter_worker_transfer_ms": round(total_transfer_ms, 2),
             "transferred_bytes": total_bytes,
             "stages": len(self.runners),
+            "resumed_after_failure": resumed,
+            "cancelled": cancelled,
         }
         self.last_metrics = metrics
         yield {
