@@ -845,6 +845,20 @@ class LlamaBackend:
                         yield ("truncated", None)
                         return
                     break
+                if kind in ("stalled", "error"):
+                    yield (kind, val)
+                    return
+                if not val:
+                    continue
+                line = val.decode("utf-8", errors="replace") if isinstance(val, (bytes, bytearray)) else str(val)
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    finished = True
+                    break
+                try:
+                    obj = json.loads(data)
     def info(self):
         return {
             "backend": "gguf",
