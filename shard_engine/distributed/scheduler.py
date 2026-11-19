@@ -31,6 +31,7 @@ class RequestScheduler:
         self._tps_samples = deque(maxlen=100)
         self._xfer_samples = deque(maxlen=100)
         self._recent_errors = deque(maxlen=15)
+        self._failures_by_code = {}
     def configure(self, max_concurrent=None, max_queue_size=None, default_rpm=None, default_timeout_s=None):
         with self._cond:
             if max_concurrent is not None:
