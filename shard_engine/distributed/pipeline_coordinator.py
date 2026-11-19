@@ -214,13 +214,10 @@ class _RemoteStageClient:
         except Exception:
             pass
     def ping(self):
-        self.connect()
-        with self.lock:
-            t0 = time.perf_counter()
-            proto.send_json_frame(self.sock, proto.MSG_PING, {})
-            mtype, _, obj = proto.recv_json_frame(self.sock)
-            rtt = round((time.perf_counter() - t0) * 1000.0, 2)
-        return {"rtt_ms": rtt, "stats": obj}
+        t0 = time.perf_counter()
+        mtype, _, raw = self._roundtrip(lambda s: proto.send_json_frame(s, proto.MSG_PING, {}), None, self.policy.connect_timeout_s, "ping")
+        rtt = round((time.perf_counter() - t0) * 1000.0, 2)
+        return {"rtt_ms": rtt, "stats": json.loads(raw.decode("utf-8")) if raw else {}}
 class _LocalStageRunner:
     def __init__(self, stage_info, model_path_or_repo, config, dtype="float32"):
         self.stage_info = dict(stage_info)
