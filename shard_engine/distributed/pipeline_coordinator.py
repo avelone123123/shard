@@ -291,6 +291,9 @@ class PipelineCoordinator:
         self.config = None
         self.runners = []
         self.stage_reports = []
+        self.on_worker_failure = None
+        self.on_slow_step = None
+        self._stopped = False
         self._lock = threading.RLock()
         self._gen_lock = threading.Lock()
         self.last_metrics = {}
