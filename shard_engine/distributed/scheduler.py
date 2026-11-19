@@ -124,7 +124,9 @@ class RequestScheduler:
             else:
                 self._failed_requests += 1
             if error:
-                self._recent_errors.append({"ts": time.time(), "request_id": req_id, "error": str(error)[:160]})
+                self._recent_errors.append({"ts": time.time(), "request_id": req_id, "error": str(error)[:160], "code": error_code})
+            if error_code:
+                self._failures_by_code[error_code] = self._failures_by_code.get(error_code, 0) + 1
             if ttft_ms is not None and ttft_ms >= 0:
                 self._ttft_samples.append(float(ttft_ms))
             if tps is not None and tps >= 0:
