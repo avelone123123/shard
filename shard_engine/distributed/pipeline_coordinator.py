@@ -413,6 +413,7 @@ class PipelineCoordinator:
     def release_request(self, request_id, skip_workers=()):
         with self._lock:
             runners = list(self.runners)
+        skip = set(w for w in skip_workers if w)
         for r in runners:
             r.release_kv(request_id)
     def _build_prompt(self, messages):
