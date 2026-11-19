@@ -92,6 +92,7 @@ class RequestScheduler:
                     self._recent_errors.append({"ts": time.time(), "request_id": req_id, "error": str(e)[:160]})
                     self._cond.notify_all()
                     raise
+                self._queued.pop(req_id, None)
                 if req_id in self._waiting:
                     self._waiting.remove(req_id)
             self._active[req_id] = {
