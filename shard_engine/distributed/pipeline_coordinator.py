@@ -525,6 +525,14 @@ class PipelineCoordinator:
             if acquired:
                 try:
                     skip = [failed_worker] if failed_worker else []
+                    err = ctx.abort_error
+                    if err is not None and err.worker_id:
+                        skip.append(err.worker_id)
+                    self.release_request(rid, skip_workers=skip)
+                finally:
+                    self._gen_lock.release()
+            if failed_at is not None:
+                _res.METRICS.observe("request_cleanup_ms", (time.monotonic() - failed_at) * 1000.0)
         total_s = max(0.001, time.perf_counter() - t_start)
         completion_tokens = len(generated_ids)
         tps = round(completion_tokens / total_s, 2)
