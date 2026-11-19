@@ -610,3 +610,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         s_crash.start()
         self._servers.append(s_crash)
         CLUSTER.stop_cluster()
+        CLUSTER.create_cluster(name="CancelDuringReform", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r2 = CLUSTER.register_worker(worker_id="w_can2", name="CancelW2", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=s_crash.port, pipeline_host="127.0.0.1")
+        plan2 = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_idx": 0, "node_id": "w_can2", "worker_id": "w_can2", "role": "worker", "endpoint": f"127.0.0.1:{s_crash.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}]}
+        pc2 = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan2, worker_tokens={"w_can2": r2["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc2.on_worker_failure = CLUSTER._on_data_plane_failure
+        pc2.start()
+        with CLUSTER._lock:
+            CLUSTER.workers["w_can2"]["assigned_stage"] = plan2["stages"][0]
+            CLUSTER._pipeline_coord = pc2
+            CLUSTER._reform_active = True
+            CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        cancel_ev2 = threading.Event()
+        threading.Timer(0.12, cancel_ev2.set).start()
+        t1 = time.monotonic()
+        try:
+            evs2 = list(CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=4, cancel_check=cancel_ev2.is_set))
+        finally:
