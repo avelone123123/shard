@@ -834,8 +834,7 @@ class ClusterManager:
             pc = self._pipeline_coord
             gb = self._gguf_backend
         if pc is not None and pc.is_running():
-            yield from pc.generate_stream(messages, max_tokens=max_tokens, temperature=temperature, cancel_check=cancel_check)
-            return
+            return "pipeline", pc
         if gb is not None and gb.is_running():
             from ..engine import _StreamSanitizer
             t0 = time.perf_counter()
