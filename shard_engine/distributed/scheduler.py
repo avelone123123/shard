@@ -211,7 +211,12 @@ class RequestScheduler:
                             state["tps"] = float(tel["tokens_per_sec"])
                         if tel.get("inter_worker_transfer_ms") is not None:
                             state["xfer_ms"] = float(tel["inter_worker_transfer_ms"])
-                    asyncio.run_coroutine_threadsafe(q.put(("item", item)), loop).result(timeout=10.0)
+                    if not _put_queue(("item", item), limit_s=5.0):
+                        break
+            except _res.RequestCancelled:
+                if state["code"] is None:
+                    state["cancelled"] = True
+                    _res.METRICS.inc("generations_cancelled_total")
             except Exception as exc:
                 state["ok"] = False
                 state["err"] = str(exc)
