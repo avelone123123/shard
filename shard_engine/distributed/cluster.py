@@ -253,6 +253,20 @@ class ClusterManager:
             if self.role != "coordinator":
                 self._reform_active = False
                 return
+        _res.METRICS.inc("reform_attempts_total")
+        _res.METRICS.event("reform_started", state=self.state)
+        try:
+            self._stop_execution_backends()
+            with self._lock:
+                if self._cluster_epoch != epoch or self.role != "coordinator":
+                    return
+            plan = self.recompute_plan()
+            if not plan.get("feasible"):
+                with self._lock:
+                    if self._cluster_epoch != epoch or self.role != "coordinator":
+                        return
+                    self.state = "DEGRADED"
+                    self.last_error = plan.get("reason")
     def create_cluster(
         self,
         name=None,
