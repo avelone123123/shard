@@ -142,3 +142,21 @@ class _ScriptedPeerServer:
                         self.stop_ev.wait(self.delay_s)
                         if self.stop_ev.is_set():
                             return
+                    logits = torch.zeros((1, 1, self.vocab_size), dtype=torch.float32)
+                    logits[0, 0, 2 + (self.forward_count % 5)] = 10.0
+                    if self.behavior == "stale_seq":
+                        out_meta = {"request_id": meta.get("request_id"), "seq": 99999, "execution_id": meta.get("execution_id"), "stage_compute_ms": 1.0}
+                    elif self.behavior == "stale_exec":
+                        out_meta = {"request_id": meta.get("request_id"), "seq": meta.get("seq"), "execution_id": "exe-stale999", "stage_compute_ms": 1.0}
+                    else:
+                        out_meta = {"request_id": meta.get("request_id"), "seq": meta.get("seq"), "execution_id": meta.get("execution_id"), "stage_compute_ms": 1.0}
+                    proto.send_frame(conn, proto.MSG_FORWARD_RES, proto.encode_tensor_payload(out_meta, logits))
+                elif mtype == proto.MSG_RELEASE_KV:
+                    self.release_count += 1
+                    proto.send_json_frame(conn, proto.MSG_PONG, {"released": True})
+        except Exception:
+            pass
+        finally:
+            try:
+                conn.close()
+            except OSError:
