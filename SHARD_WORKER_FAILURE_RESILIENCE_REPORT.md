@@ -30,3 +30,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
   - Data plane timeouts (distinct per phase): `connect_timeout_s` (`5.0s`), `load_timeout_s` (`300.0s`), `prefill_timeout_s` (`180.0s`), `decode_step_timeout_s` (`30.0s`), `release_timeout_s` (`2.0s`), `poll_slice_s` (`0.25s`), `slow_step_warn_s` (`10.0s`), `stall_timeout_s` (`120.0s`), and optional end-to-end `request_deadline_s` (`0.0` = disabled/use scheduler timeout; when positive, `resolve_deadline()` enforces `min(request_timeout, request_deadline_s)`).
   - Recovery budget: `max_recovery_attempts` (`1`), `recovery_wait_s` (`60.0s`), `retry_backoff_s` (`0.5s`, exponential up to `retry_backoff_max_s=30.0s`), `enable_resume` (`True`).
 - **`InferenceFailure` & `RequestCancelled`:** Structured exception carrying `code`, `message`, `request_id`, `worker_id`, `stage`, `phase`, `retryable`, `recovery_attempted`, `cluster_available`, `tokens_delivered`, HTTP status mapping (`503`, `504`, `502`, `499`, `500`), and internal `ResumeState`.
+- **Execution Tracking (`ExecutionContext`):** Tracks `request_id`, per-attempt `execution_id`, `attempt`, participating `workers` set, `stage_map`, `tokens_delivered`, `phase`, `deadline`, and thread-safe first-writer-wins `abort(failure)`.
+- **`Metrics` (`METRICS` singleton):** Thread-safe counters (`worker_failures_total`, `heartbeat_missed_total`, `heartbeat_loss_total`, `worker_reconnects_total`, `slow_steps_total`, `generations_aborted_total`, `generations_cancelled_total`, `requests_failed_total`, `recovery_attempts_total`, `recovery_success_total`, `recovery_failed_total`, `retries_total`, `stale_responses_rejected_total`, `reform_*`), timing distributions (`failure_detection_ms`, `request_cleanup_ms`, `reform_ms`), and ring-buffered JSON logs (`shard.resilience`) that strip sensitive keys (`prompt`, `messages`, `content`, `token`, `worker_token`, `api_key`, `authorization`, `key`, `secret`).
+
+### B. Worker Liveness State Machine (`cluster.py`)
+
+```
+                         missed >= suspect_missed
+   +-------------------------------------------------------------------+
