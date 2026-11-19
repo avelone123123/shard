@@ -592,3 +592,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         pc.start()
         with CLUSTER._lock:
             CLUSTER.workers["w_can"]["assigned_stage"] = plan["stages"][0]
+            CLUSTER._pipeline_coord = pc
+            CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        cancel_ev = threading.Event()
+        def _cancel_soon():
+            s_bh.forward_seen.wait(timeout=2.0)
+            time.sleep(0.08)
+            cancel_ev.set()
+        threading.Thread(target=_cancel_soon, daemon=True).start()
+        t0 = time.monotonic()
+        evs = list(CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=4, cancel_check=cancel_ev.is_set))
+        self.assertLess(time.monotonic() - t0, 1.0)
+        self.assertEqual([e for e in evs if e.get("type") == "content"], [])
+        self._assert_clean_resources()
+        s_crash = _ScriptedPeerServer(behavior="ok", fail_after_forwards=0)
+        s_crash.start()
+        self._servers.append(s_crash)
+        CLUSTER.stop_cluster()
