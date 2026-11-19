@@ -124,6 +124,16 @@ class _RemoteStageClient:
                 sock.settimeout(max(self.policy.poll_slice_s, float(timeout_s)))
                 send_fn(sock)
                 sock.settimeout(self.policy.poll_slice_s)
+                return proto.recv_frame_poll(sock, poll)
+            except _res.InferenceFailure:
+                self._drop_sock()
+                raise
+            except (_StepTimeout, socket.timeout) as exc:
+                self._drop_sock()
+                raise self._fail("WORKER_TIMEOUT", f"Worker {self.worker_id} did not answer within {float(timeout_s):.1f}s during {phase}", ctx, phase, t0, exc)
+            except (ConnectionError, OSError, EOFError, proto.ProtocolError) as exc:
+                self._drop_sock()
+                raise self._fail("WORKER_LOST", f"Lost connection to worker {self.worker_id} during {phase}", ctx, phase, t0, exc)
     def load_stage(self, model_path_or_repo, config_dict=None, dtype="float32"):
         self.connect()
         payload = {
