@@ -189,6 +189,7 @@ class RequestScheduler:
                     return False
             return False
         def _worker():
+            gen = None
             try:
                 for item in stream_factory(cancel_ev):
                     if cancel_ev.is_set():
