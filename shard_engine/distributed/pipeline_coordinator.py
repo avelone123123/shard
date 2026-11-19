@@ -25,7 +25,7 @@ def _parse_endpoint(ep):
 class _StepTimeout(Exception):
     pass
 class _RemoteStageClient:
-    def __init__(self, stage_info, auth_token="", cluster_id="", timeout=60.0):
+    def __init__(self, stage_info, auth_token="", cluster_id="", timeout=60.0, policy=None):
         self.stage_info = dict(stage_info)
         self.auth_token = str(auth_token or "")
         self.cluster_id = str(cluster_id or "")
