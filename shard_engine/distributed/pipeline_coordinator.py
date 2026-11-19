@@ -171,13 +171,12 @@ class _RemoteStageClient:
         mtype, _, resp_payload = self._roundtrip(lambda s: proto.send_frame(s, proto.MSG_FORWARD, frame_bytes), ctx, timeout_s, phase)
         total_ms = (time.perf_counter() - t0) * 1000.0
         if mtype == proto.MSG_ERROR:
+            self._drop_sock()
             try:
-                err_obj = json.loads(resp_payload.decode("utf-8"))
-                raise RuntimeError(err_obj.get("error") or "Worker forward error")
-            except Exception as exc:
-                if isinstance(exc, RuntimeError):
-                    raise
-                raise RuntimeError("Worker forward error")
+                msg = json.loads(resp_payload.decode("utf-8")).get("error")
+            except Exception:
+                msg = None
+            raise _res.InferenceFailure("STAGE_ERROR", msg or "Worker forward error", request_id=ctx.request_id if ctx is not None else None, worker_id=self.worker_id, stage=self.stage_idx, phase=phase, tokens_delivered=ctx.tokens_delivered if ctx is not None else 0)
         if mtype != proto.MSG_FORWARD_RES:
             raise RuntimeError(f"Unexpected forward response type {mtype}")
         out_meta, out_tensor = proto.decode_tensor_payload(resp_payload)
