@@ -38,3 +38,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 ```
                          missed >= suspect_missed
    +-------------------------------------------------------------------+
+   |                                                                   v
+[ HEALTHY ] <----- heartbeat arrives --------- [ SUSPECT ] (excluded from NEW plans)
+   ^                                                |
+   |  heartbeat stays healthy                       | missed >= dead_missed
+   |  for probation_s(fail_count)                   | OR data-plane lost/timeout
+   |                                                v
+[ RECOVERING ] <--- heartbeat resumes --------- [ FAILED ] (aborts active requests)
+```
