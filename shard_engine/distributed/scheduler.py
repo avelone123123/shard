@@ -3,6 +3,7 @@ import threading
 import time
 import uuid
 from collections import deque
+from . import resilience as _res
 class RateLimitError(RuntimeError):
     def __init__(self, message, retry_after=5):
         super().__init__(message)
