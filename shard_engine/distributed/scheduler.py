@@ -75,6 +75,7 @@ class RequestScheduler:
                     self._recent_errors.append({"ts": time.time(), "request_id": req_id, "error": "Request queue full"})
                     raise QueueFullError("Cluster inference queue is full")
                 self._waiting.append(req_id)
+                self._queued[req_id] = cancel_ev
                 try:
                     while (len(self._active) >= self.max_concurrent or self._waiting[0] != req_id) and not cancel_ev.is_set():
                         rem = deadline - time.monotonic()
