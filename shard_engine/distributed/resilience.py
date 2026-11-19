@@ -106,3 +106,15 @@ class ResumeState:
 class InferenceFailure(RuntimeError):
     def __init__(self, code, message, request_id=None, worker_id=None, stage=None, phase=None, retryable=None, recovery_attempted=False, cluster_available=None, tokens_delivered=0, detail=None):
         super().__init__(message)
+        self.code = code if code in _CODES else "INFERENCE_ERROR"
+        self.message = str(message)
+        self.request_id = request_id
+        self.worker_id = worker_id
+        self.stage = stage
+        self.phase = phase
+        self.retryable = _CODES[self.code][1] if retryable is None else bool(retryable)
+        self.recovery_attempted = bool(recovery_attempted)
+        self.cluster_available = cluster_available
+        self.tokens_delivered = int(tokens_delivered or 0)
+        self.detail = dict(detail or {})
+        self.resume = None
