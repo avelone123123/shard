@@ -754,3 +754,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
             if ev.get("type") == "content":
                 delivered.append(ev["token"])
                 hb2.set()
+                s2.stop()
+                break
+        with self.assertRaises(resilience.InferenceFailure) as fe:
+            for ev in stream:
+                if ev.get("type") == "content":
+                    delivered.append(ev["token"])
+        self.assertEqual(len(delivered), 1)
+        self.assertEqual(fe.exception.code, "WORKER_LOST")
+        self.assertEqual(fe.exception.tokens_delivered, 1)
+        s_bh = _ScriptedPeerServer(behavior="blackhole")
+        s_bh.start()
+        self._servers.append(s_bh)
+        plan = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_idx": 0, "node_id": "w_disc", "worker_id": "w_disc", "role": "worker", "endpoint": f"127.0.0.1:{s_bh.port}", "layer_start": 0, 'layer_end': 4, "has_embed": True, "has_lm_head": True}]}
+        pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w_disc": "t"}, cluster_id="cls")
+        pc.start()
+        disconnected = {"v": False}
+        async def _is_disc():
+            return disconnected["v"]
