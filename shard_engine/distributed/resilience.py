@@ -94,3 +94,15 @@ _CODES = {
     "CLUSTER_UNAVAILABLE": (503, True),
     "RECOVERY_FAILED": (503, True),
     "REQUEST_CANCELLED": (499, False),
+    "STAGE_ERROR": (502, False),
+    "STALE_RESPONSE": (502, True),
+    "BACKEND_ERROR": (502, True),
+    "INFERENCE_ERROR": (500, False),
+}
+class ResumeState:
+    def __init__(self, generated_ids=None, delivered_text=""):
+        self.generated_ids = list(generated_ids or [])
+        self.delivered_text = str(delivered_text or "")
+class InferenceFailure(RuntimeError):
+    def __init__(self, code, message, request_id=None, worker_id=None, stage=None, phase=None, retryable=None, recovery_attempted=False, cluster_available=None, tokens_delivered=0, detail=None):
+        super().__init__(message)
