@@ -381,6 +381,7 @@ class PipelineWorkerServer:
                 readable, _, _ = select.select([conn], [], [], 1.0)
                 if not readable:
                     continue
+                mtype, _, payload = proto.recv_frame(conn)
                 self._bytes_rx += len(payload)
                 if mtype == proto.MSG_PING:
                     proto.send_json_frame(conn, proto.MSG_PONG, self.stats())
