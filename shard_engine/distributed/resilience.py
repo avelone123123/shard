@@ -118,3 +118,15 @@ class InferenceFailure(RuntimeError):
         self.tokens_delivered = int(tokens_delivered or 0)
         self.detail = dict(detail or {})
         self.resume = None
+        self.created_at = time.monotonic()
+    @property
+    def http_status(self):
+        return _CODES[self.code][0]
+    def clone(self, **over):
+        out = type(self)(self.code, self.message, self.request_id, self.worker_id, self.stage, self.phase, self.retryable, self.recovery_attempted, self.cluster_available, self.tokens_delivered, self.detail)
+        out.resume = self.resume
+        for k, v in over.items():
+            setattr(out, k, v)
+        return out
+    def to_error(self):
+        return {
