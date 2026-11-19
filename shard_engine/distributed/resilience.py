@@ -238,3 +238,15 @@ class ExecutionContext:
         if err is not None:
             raise err.clone(request_id=self.request_id, tokens_delivered=self.tokens_delivered)
         if self.deadline is not None and time.monotonic() > self.deadline:
+            METRICS.inc("request_timeouts_total")
+            raise InferenceFailure("REQUEST_DEADLINE_EXCEEDED", "Request deadline exceeded", request_id=self.request_id, phase=self.phase, tokens_delivered=self.tokens_delivered)
+    def sleep(self, seconds, slice_s=0.05, check_abort=True):
+        end = time.monotonic() + max(0.0, seconds)
+        while time.monotonic() < end:
+            self.poll(check_abort=check_abort)
+            time.sleep(min(slice_s, max(0.0, end - time.monotonic())))
+def classify_heartbeat_age(age_s, policy=None):
+    p = policy or POLICY
+    if age_s <= p.suspect_after_s:
+        return HEALTHY
+    if age_s <= p.dead_after_s:
