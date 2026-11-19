@@ -1063,7 +1063,7 @@ async def anthropic_messages(req: Request):
     data = await req.json()
     raw_messages = data.get("messages", [])
     sys_prompt = data.get("system", "")
-    default_model = CLUSTER.target_model if CLUSTER.is_ready() else (engine_instance.active_model_id or "Qwen/Qwen2.5-Coder-1.5B-Instruct")
+    default_model = CLUSTER.target_model if (CLUSTER.role == "coordinator" and CLUSTER.target_model) else (engine_instance.active_model_id or "Qwen/Qwen2.5-Coder-1.5B-Instruct")
     model = data.get("model") or default_model
     max_tokens = data.get("max_tokens", 1024)
     temperature = data.get("temperature", 0.7)
