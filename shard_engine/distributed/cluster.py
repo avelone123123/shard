@@ -211,6 +211,20 @@ class ClusterManager:
         if failure.code in ("WORKER_LOST", "WORKER_TIMEOUT", "WORKER_STALLED"):
             self.mark_worker_failed(worker_id, reason=f"data plane {failure.code.lower()}", code=failure.code)
     def _on_slow_step(self, worker_id, phase, duration_ms):
+        wid = str(worker_id or "")
+        is_slow = float(duration_ms) > float(_res.POLICY.slow_step_warn_s) * 1000.0
+        with self._lock:
+            w = self.workers.get(wid)
+            if w is not None:
+                w["last_step_ms"] = float(duration_ms)
+                w["slow"] = is_slow
+    def _probe_assigned_workers(self):
+        targets = []
+        with self._lock:
+            for wid, w in self.workers.items():
+                if w.get("revoked") or not w.get("assigned_stage"):
+                    continue
+                if (w.get("state") or _res.HEALTHY) in (_res.HEALTHY, _res.SUSPECT):
     def create_cluster(
         self,
         name=None,
