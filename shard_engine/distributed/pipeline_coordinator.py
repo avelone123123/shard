@@ -370,6 +370,7 @@ class PipelineCoordinator:
             self.stage_reports = reports
         return {"status": "ready", "stages": reports}
     def stop(self):
+        self._stopped = True
         with self._lock:
             runners = list(self.runners)
             self.runners = []
