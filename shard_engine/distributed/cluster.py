@@ -546,6 +546,8 @@ class ClusterManager:
                 "assigned_stage": None,
             }
             self.workers[wid] = rec
+            self._reform_infeasible = False
+            self._capacity_returned = True
             self._rebalance_needed.set()
         self.recompute_plan()
         return {"status": "ok", "worker_id": wid, "worker_token": tok, "cluster_id": self.cluster_id, "plan": self.plan}
