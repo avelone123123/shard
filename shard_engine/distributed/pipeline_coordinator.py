@@ -469,8 +469,9 @@ class PipelineCoordinator:
         prompt_tokens = int(input_ids.shape[-1])
         rid = f"pipe-{uuid.uuid4().hex[:10]}"
         eos_id = self.tokenizer.eos_token_id
-        generated_ids = []
-        prev_text = ""
+        generated_ids = list(resume.generated_ids) if resume is not None else []
+        prev_text = resume.delivered_text if resume is not None else ""
+        resumed = resume is not None
         ttft_ms = None
         total_compute_ms = 0.0
         total_transfer_ms = 0.0
