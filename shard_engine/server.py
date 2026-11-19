@@ -996,6 +996,8 @@ async def chat_completions(req: Request):
                     elif item.get("type") == "error":
                         err_payload = {"error": _stream_error_detail(item)}
                         yield f"data: {json.dumps(err_payload, ensure_ascii=False)}\n\n"
+                        yield "data: [DONE]\n\n"
+                        return
                     elif item.get("type") == "done":
                         final_payload = {
                             "id": cid,
