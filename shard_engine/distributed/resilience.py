@@ -190,3 +190,15 @@ class Metrics:
 METRICS = Metrics()
 class ExecutionContext:
     def __init__(self, request_id=None, cancel_check=None, deadline_s=None):
+        self.request_id = request_id or f"req-{uuid.uuid4().hex[:10]}"
+        self.execution_id = f"exe-{uuid.uuid4().hex[:8]}"
+        self.attempt = 0
+        self._cancel_check = cancel_check
+        self.started = time.monotonic()
+        dl = float(deadline_s or 0.0)
+        self.deadline = self.started + dl if dl > 0 else None
+        self._abort_lock = threading.Lock()
+        self._abort_error = None
+        self.aborted_at = None
+        self.workers = set()
+        self.stage_map = {}
