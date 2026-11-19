@@ -70,3 +70,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 - **Broadcast Abort Across Active Requests:** `_abort_executions(worker_id, failure)` aborts every `ExecutionContext` in `_inflight` whose `workers` set includes `worker_id` (both the request currently holding `_gen_lock` and queued requests waiting on `_gen_lock` or recovery).
 - **Healthy Worker Isolation:** `_alive_worker_records()` filters out `SUSPECT`, `FAILED`, and `RECOVERING` workers for new partition plans while leaving healthy workers registered and `HEALTHY` (`fail_count == 0`). `_reform_cluster()` re-plans onto remaining `HEALTHY` nodes + Coordinator when memory suffices.
 - **Connection & Memory Cleanup:**
+  - `PipelineWorkerServer._handle_conn()` tracks `owned_rids` per TCP socket and purges their KV caches in `finally:` upon socket disconnect/crash; `stop()` closes all `_active_conns` immediately and prunes `_conn_threads`.
+  - `_RemoteStageClient._roundtrip()` drops/closes `self.sock` on every timeout, error, cancellation, or stale response so delayed bytes from abandoned requests cannot leak into later reads.
+  - `RequestScheduler` (`scheduler.py`) tracks queued requests in `self._queued` so `cancel_request`/`cancel_all` wake queued callers too, closes generator instances via `gen.close()` in `_worker()`'s `finally:`, releases scheduler slots in `finally:`, and guards `asyncio.run_coroutine_threadsafe(coro, loop)` with `consumer_done` and `loop.is_closed()` checks + `coro.close()` on failure.
+
+---
+
+## 3. Modified & Added Files
+
