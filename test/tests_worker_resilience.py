@@ -502,3 +502,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
             CLUSTER.ready_at = time.time()
         evs = list(CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=4, temperature=0.0))
         self.assertTrue(any(e.get("type") == "done" for e in evs))
+        self.assertEqual(CLUSTER.workers["w1"]["state"], resilience.HEALTHY)
+        self.assertEqual(CLUSTER.workers["w1"]["fail_count"], 0)
+        self.assertEqual(CLUSTER.workers["w2"]["state"], resilience.FAILED)
+        self.assertIn("w1", CLUSTER.workers)
+        self.assertEqual(s1.stats()["active_kv_sessions"], 0)
+        self._assert_clean_resources()
+    def test_09_several_concurrent_requests_when_worker_fails(self):
+        resilience.POLICY.configure(max_recovery_attempts=0, heartbeat_interval_s=5.0, decode_step_timeout_s=0.35, prefill_timeout_s=0.35, poll_slice_s=0.04, monitor_tick_s=0.08)
+        s_bh = _ScriptedPeerServer(behavior="blackhole")
+        s_bh.start()
+        self._servers.append(s_bh)
+        CLUSTER.create_cluster(name="MultiReqFail", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=4, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r = CLUSTER.register_worker(worker_id="w_multi", name="MultiW", hw=self._hw(2048), quota={"max_ram_gb": 2}, consented=True, pipeline_port=s_bh.port, pipeline_host="127.0.0.1")
+        plan = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_idx": 0, "node_id": "w_multi", "worker_id": "w_multi", "role": "worker", "endpoint": f"127.0.0.1:{s_bh.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}]}
+        pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w_multi": r["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc.on_worker_failure = CLUSTER._on_data_plane_failure
+        pc.start()
+        with CLUSTER._lock:
