@@ -169,6 +169,20 @@ class ClusterManager:
                 if (w.get("state") or _res.HEALTHY) == _res.HEALTHY:
                     out.append(copy.deepcopy(w))
         return out
+    def _register_execution(self, ctx):
+        with self._inflight_lock:
+            self._inflight[ctx.request_id] = ctx
+    def _unregister_execution(self, ctx):
+        with self._inflight_lock:
+            self._inflight.pop(ctx.request_id, None)
+    def _abort_executions(self, worker_id, failure):
+        with self._inflight_lock:
+            ctxs = [c for c in self._inflight.values() if worker_id is None or worker_id in c.workers]
+        n = 0
+        for c in ctxs:
+            err = failure.clone(request_id=c.request_id, stage=c.stage_map.get(worker_id), phase=c.phase, tokens_delivered=c.tokens_delivered)
+            if c.abort(err):
+                n += 1
     def create_cluster(
         self,
         name=None,
