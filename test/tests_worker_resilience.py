@@ -106,3 +106,21 @@ class _ScriptedPeerServer:
                 break
     def _handle(self, conn):
         import torch
+        conn.settimeout(0.5)
+        try:
+            mtype, _, payload = proto.recv_frame(conn)
+            if mtype != proto.MSG_AUTH:
+                return
+            proto.send_json_frame(conn, proto.MSG_AUTH_OK, {"status": "ok"})
+            while not self.stop_ev.is_set():
+                try:
+                    mtype, _, payload = proto.recv_frame(conn)
+                except socket.timeout:
+                    continue
+                if mtype == proto.MSG_PING:
+                    proto.send_json_frame(conn, proto.MSG_PONG, {"status": "ok"})
+                elif mtype == proto.MSG_LOAD_STAGE:
+                    if self.behavior == "crash_on_load":
+                        return
+                    if self.behavior == "hang_on_load":
+                        self.stop_ev.wait(10.0)
