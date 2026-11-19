@@ -163,7 +163,20 @@ class RequestScheduler:
         q = asyncio.Queue(maxsize=256)
         eff_timeout = _res.resolve_deadline(timeout_s or self.default_timeout_s, _res.POLICY.request_deadline_s) or float(self.default_timeout_s)
         t_dispatch = time.perf_counter()
-        state = {"ttft_ms": None, "tps": None, "xfer_ms": None, "ok": True, "err": None, "cancelled": False}
+        state = {"ttft_ms": None, "tps": None, "xfer_ms": None, "ok": True, "err": None, "cancelled": False, "code": None, "detail": None}
+        consumer_done = threading.Event()
+        def _deadline_failure():
+            return _res.InferenceFailure("REQUEST_DEADLINE_EXCEEDED", "Inference timeout exceeded", request_id=req_id, retryable=True)
+        def _put_queue(entry, limit_s=2.0):
+            end = time.monotonic() + limit_s
+            while not consumer_done.is_set() and (not cancel_ev.is_set() or entry[0] in ("error", "end")):
+                if loop.is_closed():
+                    return False
+                coro = q.put(entry)
+                try:
+                    fut = asyncio.run_coroutine_threadsafe(coro, loop)
+                except Exception:
+                    coro.close()
         def _worker():
             try:
                 for item in stream_factory(cancel_ev):
