@@ -1035,6 +1035,8 @@ async def chat_completions(req: Request):
         return JSONResponse(status_code=429, headers={"Retry-After": str(e.retry_after)}, content={"error": {"message": str(e), "type": "rate_limit_error"}})
     except QueueFullError as e:
         return JSONResponse(status_code=503, content={"error": {"message": str(e), "type": "server_busy"}})
+    except InferenceFailure as e:
+        return _failure_response(e)
     except TimeoutError as e:
         return JSONResponse(status_code=504, content={"error": {"message": str(e), "type": "timeout_error"}})
     return {
