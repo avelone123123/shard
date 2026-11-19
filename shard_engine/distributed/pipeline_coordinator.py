@@ -22,6 +22,8 @@ def _parse_endpoint(ep):
         raise ValueError(f"Invalid endpoint: {ep}")
     host, port_s = s.rsplit(":", 1)
     return host.strip("[]"), int(port_s)
+class _StepTimeout(Exception):
+    pass
 class _RemoteStageClient:
     def __init__(self, stage_info, auth_token="", cluster_id="", timeout=60.0):
         self.stage_info = dict(stage_info)
