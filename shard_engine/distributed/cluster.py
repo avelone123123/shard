@@ -822,6 +822,14 @@ class ClusterManager:
             "done": True,
             "telemetry": {
                 "thinking_seconds": sanitizer.think_duration,
+                "total_seconds": round(total_s, 3),
+                "ttft_ms": ttft_ms or round(total_s * 1000.0, 2),
+                "tokens_per_sec": round(token_count / total_s, 2),
+                "inter_worker_transfer_ms": 0.0,
+            },
+            "usage": usage or {"prompt_tokens": 1, "completion_tokens": token_count, "total_tokens": 1 + token_count},
+        }
+    def _current_backend(self):
         with self._lock:
             pc = self._pipeline_coord
             gb = self._gguf_backend
