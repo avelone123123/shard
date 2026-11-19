@@ -225,6 +225,20 @@ class ClusterManager:
                 if w.get("revoked") or not w.get("assigned_stage"):
                     continue
                 if (w.get("state") or _res.HEALTHY) in (_res.HEALTHY, _res.SUSPECT):
+                    ep = w.get("pipeline_endpoint") or w.get("rpc_endpoint")
+                    if ep and ":" in ep:
+                        targets.append((wid, ep))
+        for wid, ep in targets:
+            host, port_s = ep.rsplit(":", 1)
+            link = _cap.measure_tcp_link(host, int(port_s), timeout=1.0)
+            if not link.get("reachable"):
+                self.mark_worker_failed(wid, reason="tcp probe failed after backend failure", code="WORKER_LOST")
+    def _maybe_start_reform(self, capacity_returned=False):
+        with self._lock:
+            if self.role != "coordinator" or self._reform_active:
+                return False
+            need = self._reform_requested or (capacity_returned and self.state == "DEGRADED")
+            if not need or time.time() < self._next_reform_at:
     def create_cluster(
         self,
         name=None,
