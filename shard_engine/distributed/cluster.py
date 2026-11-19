@@ -309,6 +309,11 @@ class ClusterManager:
             ]
         with self._lock:
             workers = [
+                {"worker_id": wid, "state": w.get("state") or _res.HEALTHY, "reason": w.get("state_reason"), "fail_count": int(w.get("fail_count") or 0), "slow": bool(w.get("slow")), "last_step_ms": w.get("last_step_ms")}
+                for wid, w in self.workers.items()
+            ]
+            reform = {"active": self._reform_active, "requested": self._reform_requested, "infeasible": self._reform_infeasible, "failures": self._reform_failures}
+        return {"policy": _res.POLICY.as_dict(), "metrics": _res.METRICS.snapshot(), "inflight": inflight, "workers": workers, "reform": reform}
     def create_cluster(
         self,
         name=None,
