@@ -892,6 +892,20 @@ class ClusterManager:
                         _res.METRICS.event("recovery_succeeded", request_id=ctx.request_id, attempts=attempt, tokens_delivered=ctx.tokens_delivered, resumed=kind == "pipeline" and bool(resume and resume.generated_ids))
                     return
                 except _res.RequestCancelled:
+                    _res.METRICS.inc("generations_cancelled_total")
+                    return
+                except _res.InferenceFailure as f:
+                    f.request_id = ctx.request_id
+                    f.tokens_delivered = ctx.tokens_delivered
+                    f.recovery_attempted = f.recovery_attempted or attempt > 0
+                    f.cluster_available = self._cluster_available()
+                    transient = f.code in ("WORKER_LOST", "WORKER_TIMEOUT", "WORKER_STALLED", "STALE_RESPONSE", "BACKEND_ERROR", "CLUSTER_UNAVAILABLE")
+                    can_resume = kind == "pipeline" and pol.enable_resume
+                    can_restart = ctx.tokens_delivered == 0
+                    if not (transient and (can_resume or can_restart) and attempt < pol.max_recovery_attempts):
+                        _res.METRICS.event("recovery_not_possible", level=30, request_id=ctx.request_id, code=f.code, backend_kind=kind, tokens_delivered=ctx.tokens_delivered, attempt=attempt)
+                        raise
+                    if kind == "gguf" and f.code in ("BACKEND_ERROR", "WORKER_STALLED"):
     def _monitor_loop(self):
         while not self._monitor_stop.is_set():
             self._rebalance_needed.wait(timeout=2.0)
