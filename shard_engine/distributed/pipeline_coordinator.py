@@ -15,6 +15,7 @@ except Exception:
     _TORCH_READY = False
 from . import pipeline_proto as proto
 from . import pipeline_worker as pw
+from . import resilience as _res
 def _parse_endpoint(ep):
     s = str(ep or "").strip()
     if ":" not in s:
