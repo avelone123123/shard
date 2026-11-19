@@ -250,3 +250,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         self._servers.append(s_bad)
         resilience.POLICY.configure(load_timeout_s=2.0, poll_slice_s=0.05)
         CLUSTER.create_cluster(name="LoadFail", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=1, open_net=True, coordinator_contributes=True, auto_deploy=False, fetch_model_meta=False)
+        CLUSTER.register_worker(worker_id="w_load_bad", name="BadLoader", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=s_bad.port, pipeline_host="127.0.0.1")
+        with self.assertRaises(RuntimeError):
+            CLUSTER.deploy_cluster(verify=False)
+        self.assertNotEqual(CLUSTER.state, "LOADING")
+        CLUSTER.stop_cluster()
+        resilience.POLICY.reset()
+        resilience.POLICY.configure(max_recovery_attempts=1, recovery_wait_s=5.0, retry_backoff_s=0.05, heartbeat_interval_s=0.3, monitor_tick_s=0.08, poll_slice_s=0.05)
+        s1 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s1.start()
+        s_prefill_bad = _ScriptedPeerServer(behavior="ok", fail_after_forwards=0)
+        s_prefill_bad.start()
+        self._servers.extend([s1, s_prefill_bad])
+        r1, _ = self._setup_two_worker_cluster(s1, s_prefill_bad, coord_contrib=True)
+        self._start_hb("w1", r1["worker_token"])
+        plan = {
+            "feasible": True,
+            "strategy": "torch_pipeline_parallel",
+            "stages": [
