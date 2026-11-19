@@ -30,6 +30,9 @@ class _RemoteStageClient:
         self.auth_token = str(auth_token or "")
         self.cluster_id = str(cluster_id or "")
         self.timeout = float(timeout)
+        self.policy = policy or _res.POLICY
+        self.worker_id = self.stage_info.get("worker_id") or self.stage_info.get("node_id")
+        self.stage_idx = self.stage_info.get("stage_idx")
         self.sock = None
         self.lock = threading.Lock()
     def connect(self):
