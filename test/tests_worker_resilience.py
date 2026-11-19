@@ -376,3 +376,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w_bh": CLUSTER.workers["w_bh"]["worker_token"]}, cluster_id=CLUSTER.cluster_id)
         pc.on_worker_failure = CLUSTER._on_data_plane_failure
         pc.start()
+        with CLUSTER._lock:
+            CLUSTER.workers["w_bh"]["assigned_stage"] = plan["stages"][0]
+            CLUSTER._pipeline_coord = pc
+            CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        t0 = time.monotonic()
+        with self.assertRaises(resilience.InferenceFailure) as ctx_err:
+            list(CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=2))
+        dt = time.monotonic() - t0
+        self.assertLess(dt, 1.5)
+        self.assertEqual(ctx_err.exception.code, "WORKER_TIMEOUT")
+        self.assertEqual(ctx_err.exception.worker_id, "w_bh")
+        self.assertEqual(CLUSTER.workers["w_bh"]["state"], resilience.FAILED)
+        self._assert_clean_resources()
+    def test_06_slow_worker_distinct_from_dead_worker(self):
+        resilience.POLICY.configure(heartbeat_interval_s=0.3, suspect_missed=2, dead_missed=5, prefill_timeout_s=3.0, decode_step_timeout_s=3.0, slow_step_warn_s=0.15, poll_slice_s=0.05)
+        s_slow = _ScriptedPeerServer(behavior="ok", delay_s=0.25)
+        s_slow.start()
