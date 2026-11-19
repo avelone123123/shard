@@ -297,6 +297,21 @@ class PipelineCoordinator:
         self._lock = threading.RLock()
         self._gen_lock = threading.Lock()
         self.last_metrics = {}
+    def _relay_failure(self, worker_id, failure):
+        if self._stopped:
+            return
+        cb = self.on_worker_failure
+        if cb is not None:
+            cb(worker_id, failure)
+    def _relay_slow(self, worker_id, phase, duration_ms):
+        if self._stopped:
+            return
+        cb = self.on_slow_step
+        if cb is not None:
+            cb(worker_id, phase, duration_ms)
+    def worker_ids(self):
+        with self._lock:
+            return [getattr(r, "worker_id", None) for r in self.runners if getattr(r, "worker_id", None)]
     def start(self):
         if not _TORCH_READY:
             raise RuntimeError("PyTorch and transformers are required for PipelineCoordinator")
