@@ -664,3 +664,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         self.assertNotIn(r["worker_token"], raw_events)
         self._assert_clean_resources()
     def test_15_gguf_guarded_stream_stalled_and_truncated_and_api_policy(self):
+        resilience.POLICY.configure(max_recovery_attempts=0, poll_slice_s=0.04, stall_timeout_s=0.2)
+        from shard_engine.gguf_backend import LlamaBackend
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        class _HangSSEHandler(BaseHTTPRequestHandler):
+            mode = "stall"
+            def do_POST(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                self.wfile.write(b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n')
+                self.wfile.flush()
+                if self.mode == "stall":
+                    time.sleep(1.0)
+            def log_message(self, *args):
+                pass
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), _HangSSEHandler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
