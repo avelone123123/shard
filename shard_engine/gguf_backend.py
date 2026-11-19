@@ -803,6 +803,20 @@ class LlamaBackend:
             "temperature": max(0.0, min(1.5, float(temperature))),
             "stop": list(CHAT_STOP_TOKENS),
             "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        q = queue.Queue()
+        holder = {"resp": None}
+        stop = threading.Event()
+        def _reader():
+            try:
+                r = requests.post(url, json=payload, stream=True, timeout=(5, float(stall_timeout_s)))
+                holder["resp"] = r
+                if r.status_code == 400 and "stream_options" in (r.text or "")[:400]:
+                    payload.pop("stream_options", None)
+                    r.close()
+                    r = requests.post(url, json=payload, stream=True, timeout=(5, float(stall_timeout_s)))
+                    holder["resp"] = r
     def info(self):
         return {
             "backend": "gguf",
