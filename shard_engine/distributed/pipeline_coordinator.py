@@ -377,6 +377,11 @@ class PipelineCoordinator:
             self.stage_reports = []
         for r in runners:
             try:
+                r.abort()
+            except Exception:
+                pass
+        for r in runners:
+            try:
                 r.close()
             except Exception:
                 pass
