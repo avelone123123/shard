@@ -139,6 +139,12 @@ class RequestScheduler:
             rec = self._active.get(req_id)
             if rec is not None:
                 rec["cancel_event"].set()
+                self._cond.notify_all()
+                return True
+            qev = self._queued.get(req_id)
+            if qev is not None:
+                qev.set()
+                self._cond.notify_all()
                 return True
             return False
     def cancel_all(self):
