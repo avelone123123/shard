@@ -366,6 +366,7 @@ class PipelineWorkerServer:
             t.start()
     def _handle_conn(self, conn, _addr):
         conn.settimeout(60.0)
+        owned_rids = set()
         try:
             mtype, _, payload = proto.recv_frame(conn)
             if mtype != proto.MSG_AUTH:
