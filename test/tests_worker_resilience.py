@@ -394,3 +394,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         resilience.POLICY.configure(heartbeat_interval_s=0.3, suspect_missed=2, dead_missed=5, prefill_timeout_s=3.0, decode_step_timeout_s=3.0, slow_step_warn_s=0.15, poll_slice_s=0.05)
         s_slow = _ScriptedPeerServer(behavior="ok", delay_s=0.25)
         s_slow.start()
+        self._servers.append(s_slow)
+        CLUSTER.create_cluster(name="SlowCluster", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=1, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r = CLUSTER.register_worker(worker_id="w_slow", name="SlowW", hw=self._hw(2048), quota={"max_ram_gb": 2}, consented=True, pipeline_port=s_slow.port, pipeline_host="127.0.0.1")
+        plan = {
+            "feasible": True,
+            "strategy": "torch_pipeline_parallel",
+            "stages": [
+                {"stage_idx": 0, "node_id": "w_slow", "worker_id": "w_slow", "role": "worker", "endpoint": f"127.0.0.1:{s_slow.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True},
+            ],
+        }
+        pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w_slow": r["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc.on_worker_failure = CLUSTER._on_data_plane_failure
+        pc.on_slow_step = CLUSTER._on_slow_step
+        pc.start()
+        with CLUSTER._lock:
+            CLUSTER.workers["w_slow"]["assigned_stage"] = plan["stages"][0]
+            CLUSTER._pipeline_coord = pc
+            CLUSTER.state = "READY"
