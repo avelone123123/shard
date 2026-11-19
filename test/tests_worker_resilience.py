@@ -160,3 +160,21 @@ class _ScriptedPeerServer:
             try:
                 conn.close()
             except OSError:
+                pass
+class TestWorkerResilienceSuite(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        os.environ["SHARD_ALLOW_INSECURE_LOCAL"] = "1"
+        cls.tmp_dir = tempfile.mkdtemp(prefix="shard_resilience_")
+        cls.model_dir = os.path.join(cls.tmp_dir, "qwen2_4layer")
+        _build_sharded_qwen2(cls.model_dir)
+    @classmethod
+    def tearDownClass(cls):
+        os.environ.pop("SHARD_ALLOW_INSECURE_LOCAL", None)
+        shutil.rmtree(cls.tmp_dir, ignore_errors=True)
+    def setUp(self):
+        CLUSTER.stop_cluster()
+        CLUSTER.stop_local_worker()
+        resilience.POLICY.reset()
+        resilience.METRICS.reset()
+        SCHEDULER.configure(max_concurrent=4, max_queue_size=64, default_rpm=120, default_timeout_s=300.0)
