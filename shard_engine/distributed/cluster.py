@@ -128,6 +128,20 @@ class ClusterManager:
             w["fail_count"] = int(w.get("fail_count") or 0) + 1
             w["failed_at"] = now
             _res.METRICS.inc("worker_failures_total")
+        _res.METRICS.event("worker_state", level=30 if new_state in (_res.SUSPECT, _res.FAILED) else 20, worker_id=w.get("worker_id"), prev=prev, state=new_state, reason=reason, fail_count=w.get("fail_count", 0))
+        return True
+    def _refresh_worker_states_locked(self, now=None):
+        now = time.time() if now is None else now
+        pol = _res.POLICY
+        for wid, w in self.workers.items():
+            if w.get("revoked"):
+                continue
+            age = now - float(w.get("last_heartbeat") or 0)
+            st = w.get("state") or _res.HEALTHY
+            if st in (_res.HEALTHY, _res.SUSPECT):
+                new = _res.classify_heartbeat_age(age, pol)
+                if new == st:
+                    continue
     def _alive_worker_records(self, now=None):
         now = time.time() if now is None else now
         out = []
