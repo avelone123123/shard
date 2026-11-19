@@ -230,10 +230,12 @@ class RequestScheduler:
                 _res.METRICS.event("request_failed", level=30, request_id=req_id, code=failure.code, worker_id=failure.worker_id, stage=failure.stage, phase=failure.phase, retryable=failure.retryable, recovery_attempted=failure.recovery_attempted, tokens_delivered=failure.tokens_delivered)
                 _put_queue(("error", failure), limit_s=2.0)
             finally:
-                try:
-                    asyncio.run_coroutine_threadsafe(q.put(("end", None)), loop).result(timeout=5.0)
-                except Exception:
-                    pass
+                if gen is not None and hasattr(gen, "close"):
+                    try:
+                        gen.close()
+                    except Exception:
+                        pass
+                _put_queue(("end", None), limit_s=2.0)
         t = threading.Thread(target=_worker, daemon=True)
         t.start()
         try:
