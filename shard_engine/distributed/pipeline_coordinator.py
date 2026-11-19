@@ -346,8 +346,14 @@ class PipelineCoordinator:
         threads = [threading.Thread(target=_load_idx, args=(i, r), daemon=True) for i, r in enumerate(runners)]
         for t in threads:
             t.start()
-        for t in threads:
-            t.join(timeout=300.0)
+        load_deadline = time.monotonic() + float(self.policy.load_timeout_s) + 10.0
+        for i, t in enumerate(threads):
+            t.join(timeout=max(0.1, load_deadline - time.monotonic()))
+            if t.is_alive():
+                errors.append(f"Stage {i}: load did not finish within {self.policy.load_timeout_s:.0f}s")
+        for i, rep in enumerate(reports):
+            if rep is None and not any(e.startswith(f"Stage {i}:") for e in errors):
+                errors.append(f"Stage {i}: load produced no report")
         if errors:
             for r in runners:
                 r.close()
