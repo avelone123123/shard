@@ -878,6 +878,20 @@ class ClusterManager:
         try:
             while True:
                 ctx.poll(check_abort=False)
+                ctx.workers = self._backend_workers(kind, backend)
+                ctx.stage_map = {wid: i for i, wid in enumerate(backend.worker_ids())} if kind == "pipeline" else {}
+                try:
+                    if kind == "pipeline":
+                        stream = backend.generate_stream(messages, max_tokens=max_tokens, temperature=temperature, ctx=ctx, resume=resume)
+                    else:
+                        stream = self._gguf_stream(backend, messages, max_tokens, temperature, ctx)
+                    for ev in stream:
+                        yield ev
+                    if attempt > 0:
+                        _res.METRICS.inc("recovery_success_total")
+                        _res.METRICS.event("recovery_succeeded", request_id=ctx.request_id, attempts=attempt, tokens_delivered=ctx.tokens_delivered, resumed=kind == "pipeline" and bool(resume and resume.generated_ids))
+                    return
+                except _res.RequestCancelled:
     def _monitor_loop(self):
         while not self._monitor_stop.is_set():
             self._rebalance_needed.wait(timeout=2.0)
