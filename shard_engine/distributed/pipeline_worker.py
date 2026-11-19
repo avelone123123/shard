@@ -360,7 +360,9 @@ class PipelineWorkerServer:
             except OSError:
                 break
             t = threading.Thread(target=self._handle_conn, args=(conn, addr), daemon=True)
-            self._conn_threads.add(t)
+            with self._conn_lock:
+                self._conn_threads.add(t)
+                self._active_conns.add(conn)
             t.start()
     def _handle_conn(self, conn, _addr):
         conn.settimeout(60.0)
