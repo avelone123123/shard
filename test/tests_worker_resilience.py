@@ -556,3 +556,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         ok, _ = CLUSTER.heartbeat_worker("w_rec", r["worker_token"])
         self.assertTrue(ok)
         self.assertEqual(CLUSTER.workers["w_rec"]["state"], resilience.RECOVERING)
+        self.assertEqual(CLUSTER._alive_worker_records(), [])
+        hb_rec = self._start_hb("w_rec", r["worker_token"], interval=0.05)
+        self.assertTrue(self._wait_for(lambda: CLUSTER.workers["w_rec"]["state"] == resilience.HEALTHY and CLUSTER.state == "READY", timeout_s=5.0))
+        resp = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello shard"}], "max_tokens": 2, "temperature": 0.0})
+        hb_rec.set()
+        self.assertEqual(resp.status_code, 200)
+        self._assert_clean_resources()
+    def test_11_stale_worker_response_rejected(self):
+        for behavior in ("stale_seq", "stale_exec"):
+            s_stale = _ScriptedPeerServer(behavior=behavior)
+            s_stale.start()
+            self._servers.append(s_stale)
+            plan = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_idx": 0, "node_id": "w_stale", "worker_id": "w_stale", "role": "worker", "endpoint": f"127.0.0.1:{s_stale.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}]}
+            pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w_stale": "tok"}, cluster_id="cls")
+            pc.start()
+            try:
+                with self.assertRaises(resilience.InferenceFailure) as ce:
+                    list(pc.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=2))
