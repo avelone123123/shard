@@ -126,3 +126,11 @@ python -m unittest test/tests_worker_resilience.py -v
 ```
 Result: **16 test methods (`test_01` through `test_17`, combining 13 & 14) ran in 17.537s — `OK` (16/16 passed, 0 failures, 0 errors, 0 thread warnings).**
 
+### Full Repository Test Suite (`test/`)
+
+Command executed after final code edit:
+```powershell
+python -m unittest discover -s test -p "tests_*.py" -v
+```
+Result: **240 tests ran in 134.045s — 237 passed, 1 skipped, 2 pre-existing unrelated failures:**
+
