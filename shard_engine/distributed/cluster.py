@@ -690,6 +690,20 @@ class ClusterManager:
                         self._reform_requested = False
                         self._reform_infeasible = False
                         self._reform_failures = 0
+                        self._next_reform_at = 0.0
+                    return self.status(include_secrets=False)
+                gguf_path = spec.get("local_gguf_path")
+                if not gguf_path:
+                    repo_id = _gguf.find_gguf_repo(model_id)
+                    if not repo_id:
+                        raise RuntimeError(f"No GGUF repository found for {model_id}")
+                    files = _gguf.list_gguf_files(repo_id)
+                    sel = _gguf.select_gguf_file(files, wanted_quant=spec.get("quant"))
+                    if not sel:
+                        raise RuntimeError(f"No matching GGUF file in {repo_id}")
+                    gguf_path = _gguf.download_gguf(repo_id, sel)
+                srv_exe = _gguf.ensure_llama_server()
+                gb = _gguf.LlamaBackend()
     def _verify_pipeline(self, pc):
         out = []
         for ev in pc.generate_stream([{"role": "user", "content": "ping"}], max_tokens=2, temperature=0.0):
