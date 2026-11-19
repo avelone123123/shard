@@ -1095,7 +1095,7 @@ class ClusterManager:
                     pass
             except Exception:
                 pass
-            if stop_ev.wait(2.5):
+            if stop_ev.wait(max(0.2, hb_interval)):
                 break
     def stop_local_worker(self):
         with self._lock:
