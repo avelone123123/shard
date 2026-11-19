@@ -307,9 +307,13 @@ class RequestScheduler:
                 usage = item.get("usage", {})
                 telemetry = item.get("telemetry", {})
             elif itype == "error":
-                err_msg = item.get("error")
-        if err_msg and not content_chunks:
-            raise RuntimeError(err_msg)
+                err_item = item
+        if err_item is not None:
+            detail = dict(err_item.get("error_detail") or {})
+            code = detail.pop("code", None) or "INFERENCE_ERROR"
+            failure = _res.InferenceFailure(code, err_item.get("error") or "Inference error", request_id=detail.get("request_id"), worker_id=detail.get("worker_id"), stage=detail.get("stage"), phase=detail.get("phase"), retryable=detail.get("retryable"), recovery_attempted=detail.get("recovery_attempted", False), cluster_available=detail.get("cluster_available"), tokens_delivered=detail.get("tokens_delivered", 0))
+            failure.detail["partial_content_chars"] = sum(len(c) for c in content_chunks)
+            raise failure
         return {
             "content": "".join(content_chunks),
             "reasoning_content": "".join(thought_chunks),
