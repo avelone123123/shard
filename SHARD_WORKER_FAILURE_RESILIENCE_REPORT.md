@@ -86,3 +86,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 | `shard_engine/distributed/pipeline_coordinator.py` | Per-phase timeouts (`load`, `prefill`, `decode`, `release`), slow-step callback, stale `request_id`/`seq`/`execution_id` rejection, `ResumeState` continuation, `on_worker_failure` propagation, and selective `release_request(skip_workers=...)`. |
 | `shard_engine/distributed/pipeline_worker.py` | `select`-paced frame loop for fast stop, per-connection `owned_rids` KV-cache cleanup on disconnect, `_active_conns`/`_conn_threads` lifecycle cleanup, `seq`/`execution_id` echoing. |
 | `shard_engine/distributed/cluster.py` | 4-state worker health FSM (`HEALTHY`/`SUSPECT`/`FAILED`/`RECOVERING`), probation logic, `_inflight` tracking & broadcast abort, Case A/B/C recovery loop, epoch + deploy-lock guarded `_reform_cluster()` & `stop_cluster()`, GGUF guarded streaming + TCP worker probe, `resilience_status()`. |
+| `shard_engine/distributed/scheduler.py` | Queue cancellation (`_queued`), `resolve_deadline()` integration, cancel-aware `_put_queue()` with safe coroutine/event-loop teardown, explicit `gen.close()`, and structured `error_detail` propagation in `stream_async()` / `run_sync_async()`. |
+| `shard_engine/gguf_backend.py` | Added `chat_stream_guarded()` detecting streaming stalls (`WORKER_STALLED`, including `ConnectionError`-wrapped `ReadTimeoutError`), truncated SSE streams without `[DONE]` (`BACKEND_ERROR`), and cancellation polling. |
+| `shard_engine/server.py` | Routed degraded/loading coordinator requests through cluster error handling (no silent local fallback), `_failure_response()` (`503`/`504` + `Retry-After`), compliant OpenAI & Anthropic SSE error termination, per-request timeout support, `/api/cluster/resilience`, and `POST /api/cluster/resilience/policy`. |
+| `shard_engine/cli.py` | Enhanced `shard cluster status` with per-worker liveness state/fail/slow info and added `shard cluster resilience`. |
+| `README.md` | Documented worker failure resilience architecture, recovery rules, `shard cluster resilience`, and known limitations. |
+| `test/tests_worker_resilience.py` *(new)* | Deterministic 16-test suite (covering scenarios 1–17) using real TCP SHPT servers, scripted blackhole/stale/crash peers, `ThreadingHTTPServer` GGUF SSE mock, and FastAPI `TestClient`. |
+
+---
