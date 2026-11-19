@@ -88,3 +88,21 @@ class _ScriptedPeerServer:
             try:
                 self.sock.close()
             except OSError:
+                pass
+        for c in list(self.conns):
+            try:
+                c.close()
+            except OSError:
+                pass
+    def _accept(self):
+        while not self.stop_ev.is_set():
+            try:
+                c, _ = self.sock.accept()
+                self.conns.append(c)
+                threading.Thread(target=self._handle, args=(c,), daemon=True).start()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+    def _handle(self, conn):
+        import torch
