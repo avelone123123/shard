@@ -447,10 +447,7 @@ class PipelineCoordinator:
                 choice = torch.multinomial(sorted_probs, num_samples=1)
                 return int(sorted_idx[choice].item())
         return int(torch.multinomial(probs, num_samples=1).item())
-    def generate_stream(self, messages, max_tokens=256, temperature=0.7, cancel_check=None):
-        if not self.is_running():
-            raise RuntimeError("PipelineCoordinator is not running")
-        t_start = time.perf_counter()
+    def _encode_prompt(self, messages):
         prompt = self._build_prompt(messages)
         enc = self.tokenizer(prompt, return_tensors="pt")
         input_ids = enc["input_ids"]
