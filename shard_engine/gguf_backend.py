@@ -789,6 +789,20 @@ class LlamaBackend:
             yield ("error", str(e))
             return
         yield ("usage", usage)
+    def chat_stream_guarded(self, messages, max_tokens=512, temperature=0.7, poll=None, stall_timeout_s=120.0, poll_slice_s=0.25):
+        if not self.is_running():
+            yield ("error", "GGUF backend is not running")
+            return
+        import queue
+        import threading
+        import requests
+        url = f"http://127.0.0.1:{self.port}/v1/chat/completions"
+        payload = {
+            "messages": messages,
+            "max_tokens": max(16, min(int(max_tokens), 4096)),
+            "temperature": max(0.0, min(1.5, float(temperature))),
+            "stop": list(CHAT_STOP_TOKENS),
+            "stream": True,
     def info(self):
         return {
             "backend": "gguf",
