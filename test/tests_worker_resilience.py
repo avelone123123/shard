@@ -772,3 +772,19 @@ class TestWorkerResilienceSuite(unittest.TestCase):
         disconnected = {"v": False}
         async def _is_disc():
             return disconnected["v"]
+        async def _run_disc():
+            threading.Timer(0.12, disconnected.__setitem__, args=("v", True)).start()
+            items = []
+            async for item in SCHEDULER.stream_async(lambda ev: pc.generate_stream([{"role": "user", "content": "hi"}], max_tokens=4, cancel_check=ev.is_set), is_disconnected=_is_disc):
+                items.append(item)
+            return items
+        t0 = time.monotonic()
+        try:
+            items = asyncio.run(_run_disc())
+        finally:
+            pc.stop()
+        self.assertLess(time.monotonic() - t0, 1.5)
+        self.assertEqual([i for i in items if i.get("type") == "content"], [])
+        self._assert_clean_resources()
+if __name__ == "__main__":
+    unittest.main()
