@@ -50,6 +50,19 @@ class ClusterManager:
         self._monitor_stop = threading.Event()
         self._monitor_thread = None
         self._rebalance_needed = threading.Event()
+        self._inflight = {}
+        self._inflight_lock = threading.Lock()
+        self._newly_failed = []
+        self._reform_active = False
+        self._reform_requested = False
+        self._reform_infeasible = False
+        self._reform_failures = 0
+        self._next_reform_at = 0.0
+        self._reform_thread = None
+        self._capacity_returned = False
+        self._deploy_lock = threading.RLock()
+        self._cluster_epoch = 0
+        self._starting_backend = None
         self._local_worker = {
             "active": False,
             "coordinator_url": None,
