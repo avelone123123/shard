@@ -268,3 +268,21 @@ class TestWorkerResilienceSuite(unittest.TestCase):
             "feasible": True,
             "strategy": "torch_pipeline_parallel",
             "stages": [
+                {"stage_idx": 0, "node_id": "w1", "worker_id": "w1", "role": "worker", "endpoint": f"127.0.0.1:{self._srv_port(s1)}", "layer_start": 0, "layer_end": 2, "has_embed": True, "has_lm_head": False, "shard_files": ["model-00001-of-00002.safetensors"]},
+                {"stage_idx": 1, "node_id": "w2", "worker_id": "w2", "role": "worker", "endpoint": f"127.0.0.1:{self._srv_port(s_prefill_bad)}", "layer_start": 2, "layer_end": 4, "has_embed": False, "has_lm_head": True, "shard_files": ["model-00002-of-00002.safetensors"]},
+            ],
+        }
+        pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"w1": CLUSTER.workers["w1"]["worker_token"], "w2": CLUSTER.workers["w2"]["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc.on_worker_failure = CLUSTER._on_data_plane_failure
+        pc.start()
+        with CLUSTER._lock:
+            CLUSTER.workers["w1"]["assigned_stage"] = plan["stages"][0]
+            CLUSTER.workers["w2"]["assigned_stage"] = plan["stages"][1]
+            CLUSTER._pipeline_coord = pc
+            CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        evs_02 = list(CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=3, temperature=0.0))
+        tokens = [ev["token"] for ev in evs_02 if ev.get("type") == "content"]
+        done_02 = [ev for ev in evs_02 if ev.get("type") == "done"]
+        self.assertEqual(len(done_02), 1)
+        self.assertEqual(done_02[0]["usage"]["completion_tokens"], 3)
