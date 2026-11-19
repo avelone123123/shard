@@ -859,6 +859,20 @@ class LlamaBackend:
                     break
                 try:
                     obj = json.loads(data)
+                except ValueError:
+                    continue
+                choices = obj.get("choices") or []
+                if choices:
+                    delta = choices[0].get("delta") or {}
+                    tok = delta.get("content")
+                    if tok:
+                        yield ("delta", tok)
+                    if choices[0].get("finish_reason"):
+                        finished = True
+                if obj.get("usage"):
+                    usage = obj["usage"]
+        finally:
+            stop.set()
     def info(self):
         return {
             "backend": "gguf",
