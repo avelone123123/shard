@@ -111,9 +111,12 @@ class RequestScheduler:
             rec = self._active.get(req_id)
             if rec is not None:
                 rec["tokens"] += int(count)
-    def finish_slot(self, req_id, ok=True, cancelled=False, ttft_ms=None, tps=None, transfer_ms=None, error=None):
+    def finish_slot(self, req_id, ok=True, cancelled=False, ttft_ms=None, tps=None, transfer_ms=None, error=None, error_code=None):
         with self._cond:
-            self._active.pop(req_id, None)
+            was_active = self._active.pop(req_id, None) is not None
+            if not was_active:
+                self._cond.notify_all()
+                return
             if cancelled:
                 self._cancelled_requests += 1
             elif ok:
