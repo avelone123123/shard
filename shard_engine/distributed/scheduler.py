@@ -267,7 +267,7 @@ class RequestScheduler:
                 if kind == "item":
                     yield payload
                 elif kind == "error":
-                    yield {"type": "error", "error": payload}
+                    yield {"type": "error", "error": payload.message, "error_detail": payload.to_error()}
                     break
                 elif kind == "end":
                     break
