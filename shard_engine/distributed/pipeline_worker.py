@@ -407,6 +407,7 @@ class PipelineWorkerServer:
                     rid = str(meta.get("request_id") or "")
                     with self._stage_lock:
                         self._kv_caches.pop(rid, None)
+                    owned_rids.discard(rid)
                     proto.send_json_frame(conn, proto.MSG_PONG, {"released": rid})
                 elif mtype == proto.MSG_UNLOAD:
                     self._unload_stage()
