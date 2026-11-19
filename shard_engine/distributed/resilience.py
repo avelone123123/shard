@@ -22,3 +22,15 @@ _DEFAULTS = {
     "release_timeout_s": 2.0,
     "poll_slice_s": 0.25,
     "slow_step_warn_s": 10.0,
+    "stall_timeout_s": 120.0,
+    "request_deadline_s": 0.0,
+    "max_recovery_attempts": 1,
+    "recovery_wait_s": 60.0,
+    "retry_backoff_s": 0.5,
+    "retry_backoff_max_s": 30.0,
+    "recovery_probation_s": 5.0,
+    "enable_resume": True,
+}
+class ResiliencePolicy:
+    def __init__(self, **overrides):
+        self._lock = threading.Lock()
