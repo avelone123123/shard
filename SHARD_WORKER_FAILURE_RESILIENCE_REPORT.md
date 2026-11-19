@@ -62,3 +62,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 3. **Case C — Explicit Structured Error When Unrecoverable:**
    - Triggered when `_reform_infeasible` (insufficient surviving cluster memory), `recovery_wait_s` expires, `attempt >= max_recovery_attempts`, `enable_resume=False` with `tokens_delivered > 0`, or on `gguf_rpc_layer_split` after partial tokens have already been streamed (`tokens_delivered > 0`).
    - `_await_recovery()` exits immediately when `_reform_infeasible` is set or no reform is pending/active after `0.35s`, preventing multi-second hangs.
+   - Emits `InferenceFailure` with structured JSON payload (`code`, `message`, `request_id`, `worker_id`, `stage`, `phase`, `retryable`, `recovery_attempted`, `cluster_available`, `tokens_delivered`).
+
+### D. Cascade Prevention, Concurrency, and Resource Cleanup
+
+- **Epoch & Deploy Serialization (`_cluster_epoch`, `_deploy_lock`):** `stop_cluster()` increments `_cluster_epoch`, aborts `_starting_backend`, aborts all `_inflight` executions with `CLUSTER_UNAVAILABLE`, closes execution backends, and joins `_monitor_thread` + `_reform_thread`. Any stale `_reform_cluster()` or `deploy_cluster()` checks `_cluster_epoch` before mutating state or committing backends.
+- **Broadcast Abort Across Active Requests:** `_abort_executions(worker_id, failure)` aborts every `ExecutionContext` in `_inflight` whose `workers` set includes `worker_id` (both the request currently holding `_gen_lock` and queued requests waiting on `_gen_lock` or recovery).
+- **Healthy Worker Isolation:** `_alive_worker_records()` filters out `SUSPECT`, `FAILED`, and `RECOVERING` workers for new partition plans while leaving healthy workers registered and `HEALTHY` (`fail_count == 0`). `_reform_cluster()` re-plans onto remaining `HEALTHY` nodes + Coordinator when memory suffices.
+- **Connection & Memory Cleanup:**
