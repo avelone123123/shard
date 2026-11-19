@@ -1011,7 +1011,8 @@ async def chat_completions(req: Request):
                         yield f"data: {json.dumps(final_payload, ensure_ascii=False)}\n\n"
                         yield "data: [DONE]\n\n"
             except RateLimitError as e:
-                yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'rate_limit_error'}})}\n\n"
+                yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'rate_limit_error', 'code': 'RATE_LIMIT'}})}\n\n"
+                yield "data: [DONE]\n\n"
             except QueueFullError as e:
                 yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'server_busy'}})}\n\n"
         return StreamingResponse(event_generator(), media_type="text/event-stream")
