@@ -255,7 +255,7 @@ class _LocalStageRunner:
             "param_mb": round(param_bytes / (1024 * 1024), 2),
             "device": str(self.device),
         }
-    def forward(self, request_id, tensor, use_cache=True, return_logits=True):
+    def forward(self, request_id, tensor, use_cache=True, return_logits=True, ctx=None, phase="decode"):
         with self.lock:
             if self.stage is None:
                 raise RuntimeError("Local stage not loaded")
