@@ -420,6 +420,13 @@ class PipelineWorkerServer:
             except Exception:
                 pass
         finally:
+            if owned_rids:
+                with self._stage_lock:
+                    for rid in owned_rids:
+                        self._kv_caches.pop(rid, None)
+            with self._conn_lock:
+                self._active_conns.discard(conn)
+                self._conn_threads.discard(threading.current_thread())
             try:
                 conn.close()
             except Exception:
