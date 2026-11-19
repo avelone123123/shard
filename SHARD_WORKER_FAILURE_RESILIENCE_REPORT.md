@@ -22,3 +22,11 @@ An inspection of the original distributed runtime (`cluster.py`, `pipeline_coord
 ---
 
 ## 2. Implemented Architecture
+
+### A. Configurable Policy, Structured Failures & Observability (`shard_engine/distributed/resilience.py`)
+
+- **`ResiliencePolicy` (`POLICY` singleton):** Configurable in-process via `POLICY.configure(...)`, API `POST /api/cluster/resilience/policy`, or `SHARD_RESILIENCE_*` environment variables:
+  - Liveness control plane: `heartbeat_interval_s` (`2.4s`), `suspect_missed` (`2` -> `4.8s`), `dead_missed` (`5` -> `12.0s`), `monitor_tick_s` (`1.0s`), `recovery_probation_s` (`5.0s`, exponential backoff on repeated failures up to `600s`).
+  - Data plane timeouts (distinct per phase): `connect_timeout_s` (`5.0s`), `load_timeout_s` (`300.0s`), `prefill_timeout_s` (`180.0s`), `decode_step_timeout_s` (`30.0s`), `release_timeout_s` (`2.0s`), `poll_slice_s` (`0.25s`), `slow_step_warn_s` (`10.0s`), `stall_timeout_s` (`120.0s`), and optional end-to-end `request_deadline_s` (`0.0` = disabled/use scheduler timeout; when positive, `resolve_deadline()` enforces `min(request_timeout, request_deadline_s)`).
+  - Recovery budget: `max_recovery_attempts` (`1`), `recovery_wait_s` (`60.0s`), `retry_backoff_s` (`0.5s`, exponential up to `retry_backoff_max_s=30.0s`), `enable_resume` (`True`).
+- **`InferenceFailure` & `RequestCancelled`:** Structured exception carrying `code`, `message`, `request_id`, `worker_id`, `stage`, `phase`, `retryable`, `recovery_attempted`, `cluster_available`, `tokens_delivered`, HTTP status mapping (`503`, `504`, `502`, `499`, `500`), and internal `ResumeState`.
