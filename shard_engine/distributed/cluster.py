@@ -602,9 +602,8 @@ class ClusterManager:
             tpeer = w.get("tunnel_peer")
             was_assigned = bool(w.get("assigned_stage"))
             self.workers.pop(worker_id, None)
-            if was_assigned and self.state == "READY":
-                self.state = "DEGRADED"
-                self._rebalance_needed.set()
+        if was_assigned:
+            self._handle_assigned_worker_lost(str(worker_id), "worker left the cluster", "WORKER_LOST")
         if tpeer:
             try:
                 from .. import net_strategy
