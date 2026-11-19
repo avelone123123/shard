@@ -1166,7 +1166,7 @@ class ClusterManager:
             workers_out = []
             self._refresh_worker_states_locked(now)
             for wid, w in self.workers.items():
-                alive = (now - float(w.get("last_heartbeat") or 0)) <= HEARTBEAT_TIMEOUT_S
+                alive = (w.get("state") or _res.HEALTHY) in (_res.HEALTHY, _res.SUSPECT)
                 w["alive"] = alive
                 rec = copy.deepcopy(w)
                 rec.pop("worker_token", None)
