@@ -508,6 +508,7 @@ class PipelineCoordinator:
                     delta = full_txt[len(prev_text):]
                     prev_text = full_txt
                     if delta:
+                        ctx.tokens_delivered += 1
                         yield {"type": "content", "token": delta, "done": False}
                     cur_ids = torch.tensor([[next_id]], dtype=torch.long)
             finally:
