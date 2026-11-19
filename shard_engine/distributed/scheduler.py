@@ -191,7 +191,8 @@ class RequestScheduler:
         def _worker():
             gen = None
             try:
-                for item in stream_factory(cancel_ev):
+                gen = stream_factory(cancel_ev)
+                for item in gen:
                     if cancel_ev.is_set():
                         state["cancelled"] = True
                         break
