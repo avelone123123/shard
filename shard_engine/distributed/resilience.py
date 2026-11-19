@@ -262,3 +262,4 @@ def resolve_deadline(*candidates):
                     pos.append(v)
             except (TypeError, ValueError):
                 pass
+    return min(pos) if pos else 0.0
