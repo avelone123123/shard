@@ -951,31 +951,16 @@ class ClusterManager:
             with self._lock:
                 if self.role != "coordinator":
                     break
-                for w in self.workers.values():
-                    if w.get("revoked"):
-                        continue
-                    alive = (now - float(w.get("last_heartbeat") or 0)) <= HEARTBEAT_TIMEOUT_S
-                    prev = bool(w.get("alive", True))
-                    w["alive"] = alive
-                    if prev and not alive and w.get("assigned_stage"):
-                        lost_assigned = True
-                if lost_assigned and self.state == "READY":
-                    self.state = "DEGRADED"
-                    self.last_error = "Assigned worker timed out; cluster degraded"
-            if lost_assigned:
-                self._stop_execution_backends()
-                plan = self.recompute_plan()
-                if plan.get("feasible"):
-                    try:
-                        self.deploy_cluster(verify=True)
-                    except Exception as e:
-                        with self._lock:
-                            self.state = "DEGRADED"
-                            self.last_error = str(e)[:240]
-                else:
-                    with self._lock:
-                        self.state = "DEGRADED"
-                        self.last_error = plan.get("reason")
+                self._refresh_worker_states_locked(now)
+                lost = list(self._newly_failed)
+                self._newly_failed.clear()
+                capacity = self._capacity_returned
+                self._capacity_returned = False
+                assigned = {wid for wid, _ in lost if (self.workers.get(wid) or {}).get("assigned_stage")}
+            for wid, age in lost:
+                if wid in assigned:
+                    self._handle_assigned_worker_lost(wid, f"no heartbeat for {age:.1f}s", "WORKER_LOST")
+            self._maybe_start_reform(capacity)
     def join_cluster_as_worker(
         self,
         coordinator_url,
