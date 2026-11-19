@@ -202,3 +202,15 @@ class ExecutionContext:
         self.aborted_at = None
         self.workers = set()
         self.stage_map = {}
+        self.tokens_delivered = 0
+        self.phase = "queued"
+        self.resume = None
+        self.pipeline_epoch = None
+    def new_execution(self):
+        self.execution_id = f"exe-{uuid.uuid4().hex[:8]}"
+    def cancelled(self):
+        if self._cancel_check is None:
+            return False
+        try:
+            return bool(self._cancel_check())
+        except Exception:
