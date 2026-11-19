@@ -214,3 +214,15 @@ class ExecutionContext:
         try:
             return bool(self._cancel_check())
         except Exception:
+            return False
+    def abort(self, failure):
+        with self._abort_lock:
+            if self._abort_error is not None:
+                return False
+            self._abort_error = failure
+            self.aborted_at = time.monotonic()
+            return True
+    @property
+    def abort_error(self):
+        return self._abort_error
+    def reset_for_retry(self):
