@@ -58,3 +58,15 @@ class ResiliencePolicy:
         setattr(self, key, val)
     def configure(self, **kw):
         with self._lock:
+            for k, v in kw.items():
+                if k not in _DEFAULTS:
+                    raise KeyError(f"Unknown resilience setting: {k}")
+                if v is not None:
+                    self._set(k, v)
+            if self.dead_missed <= self.suspect_missed:
+                self.dead_missed = self.suspect_missed + 1
+        return self.as_dict()
+    def reset(self):
+        with self._lock:
+            for k, v in _DEFAULTS.items():
+                setattr(self, k, v)
