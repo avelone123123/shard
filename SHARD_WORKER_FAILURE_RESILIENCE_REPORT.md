@@ -166,3 +166,11 @@ Result: **240 tests ran in 134.045s — 237 passed, 1 skipped, 2 pre-existing un
 
 ---
 
+## 7. Practical Answer to the Hacker News Question
+
+> *"Out of curiosity, what happens if a worker drops mid-generation? Clean fail or timeout?"*
+
+Historically, the honest answer would have been **"it depended on timing—often a 60s–600s timeout hang or an injected `[Cluster inference error]` string inside a 200 OK response."** With the hardening implemented in `feat/worker-failure-resilience`, the exact answer today is:
+
+1. **Fast detection, never an indefinite hang:**
+   - **If a worker crashes or drops the TCP connection mid-prefill/decode:** The coordinator sees EOF/reset in milliseconds (`WORKER_LOST`), aborts affected in-flight requests (`poll_slice_s = 0.25s`), releases surviving workers' KV caches (`MSG_RELEASE_KV`), and frees scheduler slots in `finally`.
