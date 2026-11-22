@@ -668,11 +668,10 @@ class ClusterManager:
                 st = _res.RECOVERING
             elif st == _res.SUSPECT:
                 self._set_worker_state_locked(w, _res.HEALTHY, "heartbeat resumed", now)
-            if st == _res.RECOVERING and now - float(w.get("recovering_since") or now) >= pol.probation_s(w.get("fail_count") or 1):
-                self._set_worker_state_locked(w, _res.HEALTHY, "probation passed", now)
-                self._capacity_returned = True
-                self._reform_infeasible = False
-                self._rebalance_needed.set()
+            elif st == _res.RECOVERING:
+                w["recovering_heartbeats"] = int(w.get("recovering_heartbeats") or 0) + 1
+                if w["recovering_heartbeats"] >= 2 and now - float(w.get("recovering_since") or now) >= pol.probation_s(w.get("fail_count") or 1):
+                    check_promote = True
             if isinstance(hw, dict) and hw:
                 w["hw"] = hw
             if isinstance(quota, dict):
