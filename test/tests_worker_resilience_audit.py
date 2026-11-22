@@ -742,3 +742,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             s_miss = _AuditPeerServer(mode=mode)
             s_miss.start()
             self._servers.append(s_miss)
+            plan = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_index": 0, "node_id": "wm", "worker_id": "wm", "role": "worker", "endpoint": f"127.0.0.1:{s_miss.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}]}
+            pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={"wm": "tok"}, cluster_id="cls")
+            pc.start()
+            try:
+                with self.assertRaises(resilience.InferenceFailure) as fe:
+                    list(pc.generate_stream([{"role": "user", "content": "hello"}], max_tokens=2))
+                self.assertEqual(fe.exception.code, "STALE_RESPONSE")
+            finally:
+                pc.stop()
+                s_miss.stop()
+        resilience.POLICY.configure(max_recovery_attempts=1, recovery_wait_s=5.0, poll_slice_s=0.04)
+        s_race = _ScriptedPeerServer(behavior="ok", delay_s=0.12)
