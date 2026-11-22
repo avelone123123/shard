@@ -507,8 +507,11 @@ class PipelineCoordinator:
                     v = logits[tid]
                     logits[tid] = v / rp if v > 0 else v * rp
         if temperature is None or float(temperature) <= 0.05:
-            return int(torch.argmax(logits_1d, dim=-1).item())
-        scaled = logits_1d / max(0.05, float(temperature))
+            return int(torch.argmax(logits, dim=-1).item())
+        if top_k is not None and int(top_k) > 0 and int(top_k) < logits.shape[-1]:
+            kth = torch.topk(logits, int(top_k)).values[-1]
+            logits = torch.where(logits < kth, torch.full_like(logits, float("-inf")), logits)
+        scaled = logits / max(0.05, float(temperature))
         probs = torch.softmax(scaled, dim=-1)
         if 0.0 < float(top_p) < 1.0:
             sorted_probs, sorted_idx = torch.sort(probs, descending=True)
