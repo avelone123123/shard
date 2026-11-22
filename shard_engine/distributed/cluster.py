@@ -53,6 +53,8 @@ class ClusterManager:
         self._inflight = {}
         self._inflight_lock = threading.Lock()
         self._newly_failed = []
+        self._ready_to_promote = []
+        self._deployed_workers = set()
         self._reform_active = False
         self._reform_requested = False
         self._reform_infeasible = False
