@@ -487,7 +487,9 @@ class PipelineWorkerServer:
             "dtype": str(dt).replace("torch.", ""),
         }
     def _run_forward(self, meta, t_in):
-        rid = str(meta.get("request_id") or "default")
+        rid = str(meta.get("request_id") or "").strip()
+        if not rid or len(rid) > 128:
+            raise ValueError("Invalid or missing request_id")
         use_cache = bool(meta.get("use_cache", True))
         return_logits = bool(meta.get("return_logits", True))
         with self._stage_lock:
