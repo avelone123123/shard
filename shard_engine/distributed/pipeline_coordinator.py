@@ -241,7 +241,7 @@ class _RemoteStageClient:
         if self.sock is None:
             return
         try:
-            self._roundtrip(lambda s: proto.send_json_frame(s, proto.MSG_RELEASE_KV, {"request_id": str(request_id)}), None, self.policy.release_timeout_s, "release")
+            self._roundtrip(lambda s, poll: proto.send_json_frame_poll(s, proto.MSG_RELEASE_KV, {"request_id": str(request_id)}, poll), None, self.policy.release_timeout_s, "release")
         except Exception:
             pass
     def ping(self):
