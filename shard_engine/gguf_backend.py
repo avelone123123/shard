@@ -805,6 +805,11 @@ class LlamaBackend:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
+        if top_p is not None:
+            payload["top_p"] = float(top_p)
+        if top_k is not None:
+            payload["top_k"] = int(top_k)
+        if repetition_penalty is not None and float(repetition_penalty) != 1.0:
         q = queue.Queue()
         holder = {"resp": None}
         stop = threading.Event()
