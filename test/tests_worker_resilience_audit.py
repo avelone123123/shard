@@ -634,3 +634,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             t_ka = time.monotonic()
             evs_ka = list(gb.chat_stream_guarded([{"role": "user", "content": "hi"}], stall_timeout_s=0.25, poll_slice_s=0.04, connect_timeout_s=1.0))
             self.assertLess(time.monotonic() - t_ka, 1.2)
+            self.assertEqual(evs_ka[-1][0], "stalled")
+        finally:
+            srv_ka.shutdown()
+            srv_ka.server_close()
+        self._assert_clean_resources()
+    def test_07_security_policy_validation_thread_safety_and_log_hygiene(self):
+        remote = TestClient(server.app, client=("192.168.1.99", 55000))
+        self.assertEqual(remote.post("/api/cluster/resilience/policy", json={"decode_step_timeout_s": 10.0}).status_code, 403)
+        self.assertEqual(remote.get("/api/cluster/resilience").status_code, 403)
+        bad_payloads = [
+            {"decode_step_timeout_s": "nan"},
+            {"decode_step_timeout_s": "inf"},
