@@ -550,3 +550,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         resilience.POLICY.configure(max_recovery_attempts=0, poll_slice_s=0.04)
         srv_can = _ScriptedPeerServer(behavior="ok", delay_s=0.18)
         srv_can.start()
+        self._servers.append(srv_can)
+        self._mount_single_peer("wcan", srv_can, coord_contrib=False)
+        threading.Timer(0.1, SCHEDULER.cancel_all).start()
+        with self.client.stream("POST", "/v1/messages", json={"messages": [{"role": "user", "content": "hello"}], "max_tokens": 6, "stream": True}) as resp:
+            an_can = _parse_anthropic_sse("".join(resp.iter_text()))
+        self.assertEqual(an_can["stop_reasons"], [])
+        self.assertNotIn("message_stop", [e[0] for e in an_can["events"]])
+        threading.Timer(0.1, SCHEDULER.cancel_all).start()
+        with self.client.stream("POST", "/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello"}], "max_tokens": 6, "stream": True}) as resp:
+            oa_can = _parse_openai_sse("".join(resp.iter_text()))
+        self.assertEqual(oa_can["finish_reasons"], [])
+        threading.Timer(0.1, SCHEDULER.cancel_all).start()
