@@ -630,6 +630,8 @@ class ClusterManager:
     def heartbeat_worker(self, worker_id, worker_token, hw=None, quota=None, workload=None, rtt_ms=None, bandwidth_mbps=None, hb_seq=None, sent_at=None):
         now = time.time()
         pol = _res.POLICY
+        wid = str(worker_id or "")
+        check_promote = False
         with self._lock:
             w = self.workers.get(str(worker_id or ""))
             if not w or w.get("revoked"):
