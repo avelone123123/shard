@@ -160,3 +160,9 @@ To verify whether the two failures noted in the previous report were pre-existin
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | Base commit `ff1155c` (isolated worktree `%TEMP%\shard_audit_base_ff1155c`) | `python -m unittest test/tests_phase_i_product_hardening.py -v` | `1` | `7.885s` | `7 passed / 2 failed` | `test_06`: `'D:\\shard-models\\hub\\models--Qwen--Qwen2.5-Coder-1.5B-Instruct\\snapshots\\2e1fd397ee46e1388853d2af2c993145b0f1098a' != 'Qwen/Qwen2.5-Coder-1.5B-Instruct'`<br>`test_09`: `dashboard.html` bytes != `shard_engine/dashboard.html` bytes (`clusterJoinModalBackdrop` present in package copy, absent in root copy). |
 | Feature branch `feat/worker-failure-resilience` (`04495bc`) | `python -m unittest test/tests_phase_i_product_hardening.py -v` | `1` | `2.966s` | `7 passed / 2 failed` | Byte-for-byte identical failure in `test_06` and identical divergence in `test_09`. |
+
+Additionally, `git diff ff1155c..04495bc -- dashboard.html shard_engine/dashboard.html shard_engine/model_browser.py` is empty, and `git log` confirms `shard_engine/dashboard.html` was modified at `7f7d18b` (`feat/autonomous-shard-network`) while root `dashboard.html` was last modified at `3288aa1`.
+
+**Verdict:** Both failures are **PROVEN PRE-EXISTING** and unrelated to `feat/worker-failure-resilience`. Neither test was modified or suppressed.
+
+---
