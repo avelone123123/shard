@@ -1109,10 +1109,8 @@ async def anthropic_messages(req: Request):
         if CLUSTER.role == "coordinator" and not CLUSTER.is_ready():
             return _failure_response(InferenceFailure("CLUSTER_UNAVAILABLE", "Distributed cluster backend is not ready", cluster_available=False), anthropic=True)
         async def anthropic_sse():
-            start_ev = {"type": "message_start", "message": {"id": msg_id, "type": "message", "role": "assistant", "content": [], "model": model, "stop_reason": None, "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 0}}}
-            yield f"event: message_start\ndata: {json.dumps(start_ev, ensure_ascii=False)}\n\n"
-            blk_start = {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}
-            yield f"event: content_block_start\ndata: {json.dumps(blk_start, ensure_ascii=False)}\n\n"
+            started = False
+            completed = False
             out_toks = 0
             try:
                 async for item in SCHEDULER.stream_async(
