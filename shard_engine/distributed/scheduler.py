@@ -307,6 +307,7 @@ class RequestScheduler:
                 tps=snap["tps"],
                 transfer_ms=snap["xfer_ms"],
                 error=snap["err"],
+                error_code=snap["code"],
             )
     async def run_sync_async(self, stream_factory, client_key="anonymous", model_id=None, timeout_s=None, is_disconnected=None, rpm_override=None):
         thought_chunks = []
