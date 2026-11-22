@@ -162,6 +162,7 @@ class ClusterManager:
         if new_state == _res.FAILED:
             w["fail_count"] = int(w.get("fail_count") or 0) + 1
             w["failed_at"] = now
+            w["recovering_heartbeats"] = 0
             _res.METRICS.inc("worker_failures_total")
         _res.METRICS.event("worker_state", level=30 if new_state in (_res.SUSPECT, _res.FAILED) else 20, worker_id=w.get("worker_id"), prev=prev, state=new_state, reason=reason, fail_count=w.get("fail_count", 0))
         return True
