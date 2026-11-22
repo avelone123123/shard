@@ -479,8 +479,8 @@ class ClusterManager:
                 gb.stop()
             except Exception:
                 pass
-    def _build_planner_nodes(self):
-        coord = self._coordinator_node_record()
+    def _build_planner_nodes(self, coord_caps=None):
+        coord = self._coordinator_node_record(caps=coord_caps)
         nodes = [coord]
         for w in self._alive_worker_records():
             nodes.append({
