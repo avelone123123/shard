@@ -57,6 +57,12 @@ class _RemoteStageClient:
                 return
             if self._closed_by_us or (stop_check is not None and stop_check()):
                 raise _res.InferenceFailure("CLUSTER_UNAVAILABLE", "Pipeline was shut down while connecting", request_id=ctx.request_id if ctx is not None else None, phase="connect", cluster_available=False)
+            host, port = _parse_endpoint(self.stage_info["endpoint"])
+            t0 = time.monotonic()
+            conn_limit = float(self.policy.connect_timeout_s)
+            if ctx is not None and ctx.deadline is not None:
+                rem = ctx.deadline - t0
+                if rem <= 0:
     def abort(self):
         self._closed_by_us = True
         self._drop_sock()
