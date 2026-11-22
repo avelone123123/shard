@@ -173,7 +173,7 @@ class RequestScheduler:
             return _res.InferenceFailure("REQUEST_DEADLINE_EXCEEDED", "Inference timeout exceeded", request_id=req_id, retryable=True)
         def _put_queue(entry, limit_s=2.0):
             end = time.monotonic() + limit_s
-            while not consumer_done.is_set() and (not cancel_ev.is_set() or entry[0] in ("error", "end")):
+            while not consumer_done.is_set() and (not cancel_ev.is_set() or entry[0] in ("error", "cancelled", "end")):
                 if loop.is_closed():
                     return False
                 coro = q.put(entry)
