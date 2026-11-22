@@ -40,3 +40,9 @@ Each major claim in `SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md` was verified aga
 | Stale frame & execution ID rejection | **Defective on `04495bc`:** `out_meta.get(...) is not None` guards allowed responses omitting `request_id`, `seq`, or `execution_id` to pass unchecked; worker defaulted empty `request_id` to `"default"`. | **VERIFIED** (exact match required; missing fields rejected as `STALE_RESPONSE`) |
 | Policy validation, thread-safety & log sanitization | **Defective on `04495bc`:** `{"decode_step_timeout_s": "nan"}` crashed Starlette (HTTP 500) and permanently poisoned `POLICY`; list body crashed with `AttributeError`; `monitor_tick_s=0` created a CPU busy loop; `configure()` partially mutated on error; `as_dict()` lacked lock; `METRICS.event()` leaked `user_prompt`, `auth_token`, `pairing_code`, and bearer/token substrings. | **VERIFIED** (bounded finite validation, atomic updates, locked reads, recursive log redaction) |
 | Epoch & shutdown concurrency (`_cluster_epoch`, `_deploy_lock`) | **Defective on `04495bc`:** `stop_cluster()` could not abort `PipelineCoordinator.start()` during `load_stage()`; `ctx.workers` retained dead worker during retry backoff sleep; `_reform_cluster()` `finally` cleared `_reform_active` without epoch guard; `_inflight` keyed only by `request_id`. | **VERIFIED** (all races fixed and stress-tested) |
+| Pre-existing classification of `tests_phase_i_product_hardening.py` `test_06` & `test_09` | Claimed pre-existing without baseline proof. | **VERIFIED** (independently proven identical on isolated base worktree `ff1155c`) |
+| CI verification on GitHub Actions | Explicitly not run in previous report. | **NOT TESTED** (no remote CI executed) |
+| Multi-machine physical WAN/LAN failure testing | Explicitly not run in previous report. | **NOT TESTED** (localhost loopback & local OS subprocesses only) |
+
+---
+
