@@ -346,3 +346,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         pc_cur.is_running = lambda: False
         try:
             with self.assertRaises(resilience.InferenceFailure) as ce:
+                list(pc_cur.generate_stream([{"role": "user", "content": "hello"}], max_tokens=4, resume=resilience.ResumeState([2, 3], "hello shard")))
+            self.assertIsNotNone(ce.exception.resume)
+            self.assertEqual(ce.exception.resume.generated_ids, [2, 3])
+            self.assertEqual(ce.exception.resume.delivered_text, "hello shard")
+        finally:
+            pc_cur.is_running = old_run
+        self._assert_clean_resources()
+    def test_02_real_multiprocess_abrupt_kill_mid_generation_recovery(self):
+        p1, p2 = _free_port(), _free_port()
+        CLUSTER.create_cluster(name="MultiProcKill", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=True, auto_deploy=False, fetch_model_meta=False)
+        r1 = CLUSTER.register_worker(worker_id="proc-w1", name="ProcW1", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p1, pipeline_host="127.0.0.1")
+        r2 = CLUSTER.register_worker(worker_id="proc-w2", name="ProcW2", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p2, pipeline_host="127.0.0.1")
