@@ -52,3 +52,9 @@ Each major claim in `SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md` was verified aga
 
 SHARD's recovery mechanism in `shard_engine/distributed/pipeline_coordinator.py` and `shard_engine/distributed/cluster.py` is **KV-cache reconstruction through full-context prefill replay** — it is **NOT** real binary KV-cache restoration (no K/V attention tensors are serialized, transferred, or restored across workers).
 
+Specifically, on recovery after `k >= 1` tokens were generated:
+1. `PipelineCoordinator.generate_stream()` records `ResumeState(generated_ids, delivered_text)` on the raised `InferenceFailure`, releases KV caches on surviving stages (`release_request(rid, skip_workers=[failed_worker])`), and releases `_gen_lock`.
+2. `ClusterManager._reform_cluster()` recomputes a partition plan across surviving `HEALTHY` nodes + Coordinator (when feasible) and deploys a new `PipelineCoordinator` with fresh `PipelineStageModule` instances.
+3. `ClusterManager.generate_stream()` calls the new `PipelineCoordinator.generate_stream(..., resume=ResumeState)`.
+4. Inside `generate_stream()`, `cur_ids = torch.cat([input_ids, torch.tensor([generated_ids], dtype=torch.long)], dim=-1)` is passed through a single `phase="prefill"` forward pass (`use_cache=True`) across all stages, allocating fresh `DynamicCache` objects populated for positions `0 .. len(prompt_ids) + len(generated_ids) - 1`.
+5. `prev_text` is initialized to `resume.delivered_text`, `next_id` is sampled from `logits[0, -1, :]`, and `delta = full_txt[len(prev_text):]` yields only newly generated suffix text for the remaining `max_new - len(generated_ids)` steps.
