@@ -70,9 +70,12 @@ class ResiliencePolicy:
     def _parse_value(self, key, value):
         default = _DEFAULTS[key]
         if isinstance(default, bool):
-            val = value if isinstance(value, bool) else str(value).strip().lower() in ("1", "true", "yes", "on")
-        elif isinstance(default, int):
-            val = int(float(value))
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str):
+                low = value.strip().lower()
+                if low in ("1", "true", "yes", "on"):
+                    return True
         else:
             val = float(value)
         if not isinstance(default, bool) and val < 0:
