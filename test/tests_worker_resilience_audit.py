@@ -658,3 +658,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             {"unknown_field": 1},
         ]
         for body in bad_payloads:
+            r = self.client.post("/api/cluster/resilience/policy", json=body, headers=self.owner_hdr)
+            self.assertEqual(r.status_code, 400, f"Expected 400 for {body}, got {r.status_code}")
+        self.assertEqual(self.client.post("/api/cluster/resilience/policy", json=[1, 2], headers=self.owner_hdr).status_code, 400)
+        self.assertEqual(self.client.post("/api/cluster/resilience/policy", content=b"{bad", headers={**self.owner_hdr, "Content-Type": "application/json"}).status_code, 400)
+        orig_decode = resilience.POLICY.decode_step_timeout_s
+        with self.assertRaises(KeyError):
+            resilience.POLICY.configure(decode_step_timeout_s=77.0, invalid_key=1)
+        self.assertEqual(resilience.POLICY.decode_step_timeout_s, orig_decode)
+        errs = []
+        def _writer(i):
+            try:
+                for step in range(25):
