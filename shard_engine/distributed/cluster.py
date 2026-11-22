@@ -1023,6 +1023,12 @@ class ClusterManager:
                                     self.last_error = f.message[:240]
                                 self._reform_requested = True
                                 self._rebalance_needed.set()
+                    f.cluster_available = self._cluster_available()
+                    transient = f.code in ("WORKER_LOST", "WORKER_TIMEOUT", "WORKER_STALLED", "STALE_RESPONSE", "BACKEND_ERROR", "CLUSTER_UNAVAILABLE")
+                    can_resume = kind == "pipeline" and pol.enable_resume
+                    can_restart = ctx.tokens_delivered == 0
+                    if f.resume is not None and (f.resume.generated_ids or f.resume.delivered_text):
+                        resume = _res.ResumeState(f.resume.generated_ids, f.resume.delivered_text)
                     attempt += 1
                     _res.METRICS.inc("recovery_attempts_total")
                     _res.METRICS.inc("retries_total")
