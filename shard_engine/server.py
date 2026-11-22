@@ -889,7 +889,7 @@ def _extract_request_timeout(req: Request, data: dict):
         return None
     try:
         v = float(raw)
-        return v if v > 0 else None
+        return v if (math.isfinite(v) and v > 0) else None
     except (TypeError, ValueError):
         return None
 def _inference_stream_factory(messages, max_tokens, temperature):
