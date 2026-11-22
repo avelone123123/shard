@@ -388,31 +388,12 @@ class PipelineCoordinator:
             except Exception as e:
                 errors.append(f"Stage {idx}: {e}")
         threads = [threading.Thread(target=_load_idx, args=(i, r), daemon=True) for i, r in enumerate(runners)]
-        for t in threads:
-            t.start()
-        load_deadline = time.monotonic() + float(self.policy.load_timeout_s) + 10.0
-        for i, t in enumerate(threads):
-            t.join(timeout=max(0.1, load_deadline - time.monotonic()))
-            if t.is_alive():
-                errors.append(f"Stage {i}: load did not finish within {self.policy.load_timeout_s:.0f}s")
-        for i, rep in enumerate(reports):
-            if rep is None and not any(e.startswith(f"Stage {i}:") for e in errors):
-                errors.append(f"Stage {i}: load produced no report")
-        if errors:
-            for r in runners:
-                try:
-                    r.abort()
-                except Exception:
-                    pass
-                try:
-                    r.close()
-                except Exception:
-                    pass
-            raise RuntimeError("; ".join(errors))
-        with self._lock:
-            self.runners = runners
-            self.stage_reports = reports
-        return {"status": "ready", "stages": reports}
+        try:
+            for t in threads:
+                t.start()
+            load_deadline = time.monotonic() + float(self.policy.load_timeout_s) + 10.0
+            for i, t in enumerate(threads):
+                while t.is_alive() and time.monotonic() < load_deadline:
     def stop(self):
         self._stopped = True
         with self._lock:
