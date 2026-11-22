@@ -1642,7 +1642,7 @@ async def api_cluster_resilience_policy(req: Request):
     if not isinstance(data, dict):
         return JSONResponse(status_code=400, content={"status": "error", "message": "Policy payload must be a JSON object"})
     try:
-        return {"status": "ok", "policy": _resilience.POLICY.configure(**{k: v for k, v in (data or {}).items()})}
+        return {"status": "ok", "policy": _resilience.POLICY.configure(**data)}
     except (KeyError, ValueError, TypeError) as e:
         return JSONResponse(status_code=400, content={"status": "error", "message": str(e)})
 @app.post("/api/cluster/workers/register")
