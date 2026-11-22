@@ -490,3 +490,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         self._assert_clean_resources()
     def test_05_sse_protocol_matrix_openai_and_anthropic(self):
         CLUSTER.create_cluster(name="PreHeader", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        with CLUSTER._lock:
+            CLUSTER.state = "DEGRADED"
+        r_oa_pre = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hi"}], "stream": True})
+        self.assertEqual(r_oa_pre.status_code, 503)
+        self.assertEqual(r_oa_pre.headers.get("retry-after"), "5")
+        self.assertEqual(r_oa_pre.json()["error"]["code"], "CLUSTER_UNAVAILABLE")
+        r_an_pre = self.client.post("/v1/messages", json={"messages": [{"role": "user", "content": "hi"}], "stream": True})
+        self.assertEqual(r_an_pre.status_code, 503)
+        self.assertEqual(r_an_pre.headers.get("retry-after"), "5")
+        self.assertEqual(r_an_pre.json()["error"]["code"], "CLUSTER_UNAVAILABLE")
+        CLUSTER.stop_cluster()
+        for good_n, expect_toks in ((0, 0), (1, 1), (3, 3)):
