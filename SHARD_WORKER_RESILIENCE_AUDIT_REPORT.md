@@ -232,3 +232,9 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 | `tests_distributed_ai.py` | `10` | `0` | `0` | Multi-process PyTorch pipeline, real GGUF RPC cluster + OpenAI/Anthropic APIs, tunnel worker proxy, concurrent multi-user streaming, rebalance recovery, scheduler/queue/cancel. |
 | `tests_global_network.py` | `7` | `0` | `0` | Discovery, catalog, consent, distributed pipeline, concurrent scheduler streaming, failover. |
 | `tests_autonomous_network.py` | `7` | `0` | `0` | Transport priority, Radmin credentials, doctor endpoints. |
+| `tests_shard.py` | `80` | `0` | `0` | Core engine, LAN, hardware, settings, GGUF utilities. |
+| `tests_cli_pkg.py` | `14` | `0` | `1` | `test_wheel_contents_when_built` skipped (`Wheel not built in dist/ yet`). |
+| `tests_shard_network.py` | `6` | `0` | `0` | CLI network, identity, discovery, relay isolation. |
+| `tests_model_lifecycle_progress.py` | `16` | `0` | `0` | Model lifecycle and progress tracking. |
+| `tests_network_persistence_security.py` | `10` | `0` | `0` | Auth gates, persistence, rate limits. |
+| `tests_phase4_network_integration.py` | `9` | `0` | `0` | End-to-end network integration. |
