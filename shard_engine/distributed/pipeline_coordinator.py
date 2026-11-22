@@ -123,7 +123,7 @@ class _RemoteStageClient:
         if phase in ("prefill", "decode", "load"):
             self._notify_failure(out)
         return out
-    def _roundtrip(self, send_fn, ctx, timeout_s, phase):
+    def _roundtrip(self, send_fn, ctx, timeout_s, phase, stop_check=None):
         if ctx is not None:
             ctx.poll()
         t_conn = time.monotonic()
