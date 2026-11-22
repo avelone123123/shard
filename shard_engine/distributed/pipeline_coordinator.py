@@ -574,6 +574,7 @@ class PipelineCoordinator:
                     ctx.poll()
                     ctx.phase = "prefill" if first else "decode"
                     logits, hop_stats = self.forward_logits(cur_ids, request_id=rid, use_cache=True, ctx=ctx, phase=ctx.phase)
+                    ctx.poll()
                     first = False
                     total_compute_ms += hop_stats["compute_ms"]
                     total_transfer_ms += hop_stats["transfer_ms"]
