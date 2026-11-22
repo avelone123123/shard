@@ -906,6 +906,10 @@ class LlamaBackend:
                     resp.close()
                 except Exception:
                     pass
+            try:
+                sess.close()
+            except Exception:
+                pass
         yield ("usage", usage)
     def info(self):
         return {
