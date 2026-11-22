@@ -439,6 +439,7 @@ class PipelineCoordinator:
         with self._lock:
             runners = list(self.runners) + [r for r in self._loading_runners if r not in self.runners]
             self.runners = []
+            self._loading_runners = []
             self.stage_reports = []
         for r in runners:
             try:
