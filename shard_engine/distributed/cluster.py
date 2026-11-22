@@ -1078,6 +1078,8 @@ class ClusterManager:
                 self._refresh_worker_states_locked(now)
                 lost = list(self._newly_failed)
                 self._newly_failed.clear()
+                promote_ids = list(self._ready_to_promote)
+                self._ready_to_promote.clear()
                 capacity = self._capacity_returned
                 self._capacity_returned = False
                 assigned = {wid for wid, _ in lost if (self.workers.get(wid) or {}).get("assigned_stage")}
