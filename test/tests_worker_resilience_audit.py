@@ -190,3 +190,15 @@ class _AuditPeerServer:
             except OSError:
                 pass
 class TestWorkerResilienceAudit(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        os.environ["SHARD_ALLOW_INSECURE_LOCAL"] = "1"
+        cls.tmp_dir = tempfile.mkdtemp(prefix="shard_audit_")
+        cls.model_dir = os.path.join(cls.tmp_dir, "qwen2_4layer")
+        _build_sharded_qwen2(cls.model_dir)
+    @classmethod
+    def tearDownClass(cls):
+        os.environ.pop("SHARD_ALLOW_INSECURE_LOCAL", None)
+        shutil.rmtree(cls.tmp_dir, ignore_errors=True)
+    def setUp(self):
+        CLUSTER.stop_cluster()
