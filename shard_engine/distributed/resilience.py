@@ -130,7 +130,9 @@ class ResiliencePolicy:
         with self._lock:
             return float(self.heartbeat_interval_s) * int(self.dead_missed)
     def probation_s(self, fail_count):
-        return min(float(self.recovery_probation_s) * (2 ** max(0, int(fail_count) - 1)), 600.0)
+        with self._lock:
+            base = float(self.recovery_probation_s)
+        return min(base * (2 ** max(0, int(fail_count) - 1)), 600.0)
     def backoff_s(self, attempt):
         return min(float(self.retry_backoff_s) * (2 ** max(0, int(attempt))), float(self.retry_backoff_max_s))
     def as_dict(self):
