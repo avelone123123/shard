@@ -76,6 +76,12 @@ class ResiliencePolicy:
                 low = value.strip().lower()
                 if low in ("1", "true", "yes", "on"):
                     return True
+                if low in ("0", "false", "no", "off"):
+                    return False
+            raise ValueError(f"{key} must be a boolean")
+        if isinstance(value, bool):
+            raise ValueError(f"{key} must be numeric, not boolean")
+        fval = float(value)
         else:
             val = float(value)
         if not isinstance(default, bool) and val < 0:
