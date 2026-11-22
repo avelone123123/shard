@@ -885,7 +885,7 @@ def _client_rate_key(req):
     return f"ip:{ip}"
 def _extract_request_timeout(req: Request, data: dict):
     raw = (data or {}).get("timeout_s") or req.headers.get("X-Shard-Timeout")
-    if raw is None or raw == "":
+    if raw is None or raw == "" or isinstance(raw, bool):
         return None
     try:
         v = float(raw)
