@@ -995,7 +995,7 @@ class ClusterManager:
             while True:
                 ctx.poll(check_abort=False)
                 ctx.workers = self._backend_workers(kind, backend)
-                ctx.stage_map = {wid: i for i, wid in enumerate(backend.worker_ids())} if kind == "pipeline" else {}
+                ctx.stage_map = self._backend_stage_map(kind, backend)
                 try:
                     if kind == "pipeline":
                         stream = backend.generate_stream(messages, max_tokens=max_tokens, temperature=temperature, ctx=ctx, resume=resume)
