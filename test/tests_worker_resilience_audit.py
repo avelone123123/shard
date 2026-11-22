@@ -130,3 +130,15 @@ class _AuditPeerServer:
                 self.stop_ev.wait(10.0)
                 return
             mtype, _, _ = proto.recv_frame(conn)
+            if mtype != proto.MSG_AUTH:
+                return
+            proto.send_json_frame(conn, proto.MSG_AUTH_OK, {"status": "ok"})
+            while not self.stop_ev.is_set():
+                try:
+                    mtype, _, payload = proto.recv_frame(conn)
+                except socket.timeout:
+                    continue
+                if mtype == proto.MSG_LOAD_STAGE:
+                    proto.send_json_frame(conn, proto.MSG_STAGE_READY, {"status": "ready"})
+                elif mtype == proto.MSG_FORWARD:
+                    meta, _ = proto.decode_tensor_payload(payload)
