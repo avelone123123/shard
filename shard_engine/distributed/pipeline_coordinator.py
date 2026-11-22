@@ -128,7 +128,9 @@ class _RemoteStageClient:
             ctx.poll()
         t_conn = time.monotonic()
         try:
-            self.connect()
+            self.connect(ctx=ctx, stop_check=stop_check)
+        except _res.InferenceFailure:
+            raise
         except PermissionError:
             raise _res.InferenceFailure("STAGE_ERROR", f"Worker {self.worker_id} rejected authentication", request_id=ctx.request_id if ctx is not None else None, worker_id=self.worker_id, stage=self.stage_idx, phase=phase, retryable=False)
         except (OSError, EOFError, proto.ProtocolError) as exc:
