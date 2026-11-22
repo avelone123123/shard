@@ -980,7 +980,7 @@ class ClusterManager:
                 return None, None
             time.sleep(0.05)
         return None, None
-    def generate_stream(self, messages, max_tokens=512, temperature=0.7, cancel_check=None, request_id=None, deadline_s=None):
+    def generate_stream(self, messages, max_tokens=512, temperature=0.7, cancel_check=None, request_id=None, deadline_s=None, top_p=0.95, top_k=None, repetition_penalty=1.0):
         pol = _res.POLICY
         eff_dl = _res.resolve_deadline(deadline_s, pol.request_deadline_s)
         ctx = _res.ExecutionContext(request_id, cancel_check, eff_dl)
