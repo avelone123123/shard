@@ -526,3 +526,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
                 an = _parse_anthropic_sse("".join(resp.iter_text()))
             self.assertEqual(len(an["tokens"]), expect_toks)
             self.assertEqual(len(an["errors"]), 1)
+            self.assertEqual(an["errors"][0]["code"], "WORKER_LOST")
+            self.assertEqual(an["errors"][0]["tokens_delivered"], expect_toks)
+            self.assertEqual(an["stop_reasons"], [])
+            ev_names = [e[0] for e in an["events"]]
+            self.assertNotIn("message_stop", ev_names)
+            if expect_toks == 0:
+                self.assertNotIn("content_block_start", ev_names)
+            CLUSTER.stop_cluster()
+        resilience.POLICY.configure(max_recovery_attempts=1, recovery_wait_s=0.35, monitor_tick_s=0.05, poll_slice_s=0.04, enable_resume=True)
+        srv_rec = _AuditPeerServer(mode="drop_after", good_forwards=2)
+        srv_rec.start()
+        self._servers.append(srv_rec)
