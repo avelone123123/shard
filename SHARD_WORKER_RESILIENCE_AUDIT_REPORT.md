@@ -268,3 +268,6 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 ### Final Audit Verdict
 
 On the original commit `04495bc`, SHARD's worker resilience architecture was directionally sound but contained **12 confirmed functional, concurrency, protocol, and security defects** (including `stage=None` on real planned clusters, fake `done`/`end_turn`/`200 OK` completions on cancellation, `GET /api/cluster/plan` blinding failure detection, single-stale-heartbeat revival of dead workers, lock-holding subprocess/network I/O starving worker heartbeats, `stop_cluster()` hanging during `load_stage()`, `NaN` poisoning `POLICY` with HTTP 500, and prompt/token log leaks).
+
+After applying minimal targeted fixes on `feat/worker-failure-resilience` and verifying with both the original 16-test suite, 8 new end-to-end multi-process/SSE/chaos/security audit tests (`24/24` passed), and the full 248-test repository suite (`245` passed, `1` skipped, `2` proven pre-existing failures), **SHARD genuinely detects, bounds, cleans up, and (for PyTorch pipeline parallelism via context replay) recovers from real mid-generation worker failures** within the documented scope and limitations above.
+
