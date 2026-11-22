@@ -615,6 +615,12 @@ class ClusterManager:
             self._reform_infeasible = False
             self._capacity_returned = True
             self._rebalance_needed.set()
+        if probe_target and ":" in probe_target:
+            ph, pp = probe_target.rsplit(":", 1)
+            link = _cap.measure_tcp_link(ph, int(pp), timeout=1.5)
+            if link.get("reachable"):
+                with self._lock:
+                    cur_w = self.workers.get(wid)
         if was_assigned_live:
             self._handle_assigned_worker_lost(wid, "worker re-registered", "WORKER_LOST")
         self.recompute_plan()
