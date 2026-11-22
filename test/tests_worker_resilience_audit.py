@@ -142,3 +142,15 @@ class _AuditPeerServer:
                     proto.send_json_frame(conn, proto.MSG_STAGE_READY, {"status": "ready"})
                 elif mtype == proto.MSG_FORWARD:
                     meta, _ = proto.decode_tensor_payload(payload)
+                    self.forward_count += 1
+                    logits = torch.zeros((1, 1, self.vocab_size), dtype=torch.float32)
+                    logits[0, 0, 2 + (self.forward_count % 5)] = 10.0
+                    if self.mode == "missing_seq":
+                        out_meta = {"request_id": meta.get("request_id"), "execution_id": meta.get("execution_id"), "stage_compute_ms": 1.0}
+                        proto.send_frame(conn, proto.MSG_FORWARD_RES, proto.encode_tensor_payload(out_meta, logits))
+                        continue
+                    if self.mode == "missing_exec":
+                        out_meta = {"request_id": meta.get("request_id"), "seq": meta.get("seq"), "stage_compute_ms": 1.0}
+                        proto.send_frame(conn, proto.MSG_FORWARD_RES, proto.encode_tensor_payload(out_meta, logits))
+                        continue
+                    if self.mode == "missing_req":
