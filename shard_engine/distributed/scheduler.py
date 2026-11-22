@@ -281,7 +281,7 @@ class RequestScheduler:
                         _res.METRICS.inc("request_timeouts_total")
                         _res.METRICS.inc("requests_failed_total")
                         _res.METRICS.event("request_failed", level=30, request_id=req_id, code=failure.code, phase="stream", retryable=True)
-                        yield {"type": "error", "error": failure.message, "error_detail": state["detail"]}
+                        yield {"type": "error", "error": failure.message, "error_detail": detail_copy}
                         break
                     continue
                 if kind == "item":
