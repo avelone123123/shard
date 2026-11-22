@@ -130,6 +130,12 @@ class ClusterManager:
             "alive": True,
             "consented": self.coordinator_contributes,
         }
+    def _is_worker_serving_locked(self, wid):
+        if wid in self._deployed_workers:
+            return True
+        if self._pipeline_coord is not None:
+            try:
+                if wid in self._pipeline_coord.worker_ids():
     def _set_worker_state_locked(self, w, new_state, reason, now=None):
         now = time.time() if now is None else now
         prev = w.get("state") or _res.HEALTHY
