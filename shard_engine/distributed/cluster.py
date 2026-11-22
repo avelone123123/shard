@@ -1273,6 +1273,7 @@ class ClusterManager:
                 pass
         return {"status": "ok", "stopped": True}
     def preview_cluster(self):
+        coord_caps = self._get_coordinator_caps()
         with self._lock:
             nodes = self._build_planner_nodes() if self.role == "coordinator" else []
             agg_vram = sum((_hardware.effective_usable_resources(n.get("hw"), n.get("quota")).get("usable_vram_mb", 0)) for n in nodes)
