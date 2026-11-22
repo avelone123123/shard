@@ -210,7 +210,7 @@ class _RemoteStageClient:
             raise _res.InferenceFailure("STAGE_ERROR", msg or "Worker forward error", request_id=ctx.request_id if ctx is not None else None, worker_id=self.worker_id, stage=self.stage_idx, phase=phase, tokens_delivered=ctx.tokens_delivered if ctx is not None else 0)
         if mtype != proto.MSG_FORWARD_RES:
             self._drop_sock()
-            raise _res.InferenceFailure("STALE_RESPONSE", f"Unexpected forward response type {mtype}", request_id=str(request_id), worker_id=self.worker_id, stage=self.stage_idx, phase=phase)
+            raise _res.InferenceFailure("STALE_RESPONSE", f"Unexpected forward response type {mtype}", request_id=ctx.request_id if ctx is not None else str(request_id), worker_id=self.worker_id, stage=self.stage_idx, phase=phase)
         out_meta, out_tensor = proto.decode_tensor_payload(resp_payload)
         bad_req = out_meta.get("request_id") is not None and out_meta.get("request_id") != str(request_id)
         bad_seq = out_meta.get("seq") is not None and out_meta.get("seq") != seq
