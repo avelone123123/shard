@@ -332,6 +332,8 @@ class RequestScheduler:
             elif itype == "done":
                 usage = item.get("usage", {})
                 telemetry = item.get("telemetry", {})
+            elif itype == "cancelled":
+                cancel_item = item
             elif itype == "error":
                 err_item = item
         if err_item is not None:
