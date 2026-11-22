@@ -202,3 +202,9 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 
 ## 10. Remaining Limitations
 
+1. **Context Replay vs. Binary KV-Cache Transfer:** `torch_pipeline_parallel` recovery reconstructs KV caches by re-prefilling `[prompt + generated_ids]`. For long generations, recovery incurs a full prefill latency spike proportional to `(prompt_len + generated_len)`.
+2. **Stochastic RNG Not Checkpointed:** For `temperature > 0.05`, recovered generation continues coherently from the exact delivered prefix but does not reproduce the identical pseudo-random token sequence of an uninterrupted run.
+3. **Remote Hugging Face Revision Pinning:** When `model_path_or_repo` is a remote HF repo ID (rather than a local directory), `hf_hub_download()` does not pin an immutable commit SHA across initial deploy and reform.
+4. **GGUF Mid-Generation Resume Unsupported After Token 1:** `llama-server` manages KV state internally in C++; failures after `tokens_delivered > 0` terminate explicitly with structured errors rather than resuming.
+5. **Synchronous Worker PyTorch Kernel Execution:** While the coordinator bounds step waits and closes sockets on timeout/cancellation, an already-executing synchronous PyTorch forward op inside `PipelineWorkerServer` finishes its current layer pass before observing the closed socket.
+6. **Single Coordinator Failure Domain:** `ResumeState` lives in coordinator memory; if the coordinator process itself crashes, client connections drop and cannot resume across coordinator restart.
