@@ -178,3 +178,9 @@ Additionally, `git diff ff1155c..04495bc -- dashboard.html shard_engine/dashboar
 | Stale frame & `request_id` validation | Missing `request_id`, `seq`, or `execution_id` in `MSG_FORWARD_RES` bypassed validation; worker defaulted empty `request_id` to `"default"`. | Required exact non-missing equality on `request_id`, `seq`, and `execution_id`; rejected empty/overlong `request_id` in `PipelineWorkerServer`. | **VERIFIED** (`test_08`) |
 | Recovery / shutdown / lock-contention races | (1) `stop_cluster()` did not abort `PipelineCoordinator.start()` during `load_stage()`; (2) `ctx.workers` still contained the dead worker during retry backoff sleep; (3) `_reform_cluster()` `finally` cleared `_reform_active` without epoch guard; (4) `_inflight` keyed only by `request_id`; (5) blocking I/O (`probe_node_capabilities`, `measure_tcp_link`, `slots_status`) held `CLUSTER._lock` and starved heartbeats. | Fixed all 5 races: tracked `_loading_runners` in `PipelineCoordinator`, updated `ctx.workers` before `reset_for_retry()`, epoch-guarded `_reform_active`, keyed `_inflight` by `id(ctx)`, moved all blocking I/O outside `CLUSTER._lock`. | **VERIFIED** (`test_02`, `test_06`, `test_08`) |
 | Log hygiene & public endpoints | `METRICS.event()` matched exact key names only, leaking `user_prompt`, `auth_token`, `pairing_code`, nested secrets, and `sk-shard-*`/`Bearer` substrings. GGUF error messages leaked internal `127.0.0.1:<port>`. | Added recursive substring sanitization + secret regex redaction (with safe allowlist for `tokens_delivered`, etc.) and sanitized GGUF error messages. Confirmed `/api/cluster/preview` and `/v1/ping` expose no secrets. | **VERIFIED** (`test_07`) |
+
+---
+
+## 9. Modified & Added Files During Audit
+
+All fixes were implemented directly on `feat/worker-failure-resilience` with minimal surface area:
