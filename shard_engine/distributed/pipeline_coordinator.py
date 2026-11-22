@@ -563,6 +563,12 @@ class PipelineCoordinator:
         failed_worker = None
         try:
             try:
+                while not self._gen_lock.acquire(timeout=self.policy.poll_slice_s):
+                    ctx.poll()
+                acquired = True
+                cur_ids = input_ids
+                if generated_ids:
+                    cur_ids = torch.cat([input_ids, torch.tensor([generated_ids], dtype=torch.long)], dim=-1)
                 for _ in range(max(0, max_new - len(generated_ids))):
                     ctx.poll()
                     ctx.phase = "prefill" if first else "decode"
