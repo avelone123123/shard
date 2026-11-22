@@ -610,3 +610,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         self.assertEqual(fe_cpu.exception.code, "WORKER_TIMEOUT")
         self.assertGreaterEqual(wall_dt, 0.45)
         self.assertLess(cpu_dt, 0.25)
+        CLUSTER.stop_cluster()
+        class _KeepaliveSSEHandler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                for _ in range(15):
+                    try:
+                        self.wfile.write(b": ping\n\n")
+                        self.wfile.flush()
+                        time.sleep(0.05)
+                    except OSError:
