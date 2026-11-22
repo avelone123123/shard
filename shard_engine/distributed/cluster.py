@@ -743,7 +743,7 @@ class ClusterManager:
                 prev_ready = self.ready_at is not None
                 if self.role != "coordinator":
                     raise RuntimeError("Cluster is not active")
-            plan = self.recompute_plan()
+            plan = self.recompute_plan(commit=True, force_assignments=True)
             if not plan.get("feasible"):
                 with self._lock:
                     if self._cluster_epoch == my_epoch:
