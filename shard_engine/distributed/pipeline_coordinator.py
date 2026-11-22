@@ -503,6 +503,9 @@ class PipelineCoordinator:
         if rp > 1.0 and generated_ids:
             vocab = logits.shape[-1]
             for tid in set(int(x) for x in generated_ids):
+                if 0 <= tid < vocab:
+                    v = logits[tid]
+                    logits[tid] = v / rp if v > 0 else v * rp
         if temperature is None or float(temperature) <= 0.05:
             return int(torch.argmax(logits_1d, dim=-1).item())
         scaled = logits_1d / max(0.05, float(temperature))
