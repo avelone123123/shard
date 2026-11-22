@@ -1698,6 +1698,8 @@ async def api_cluster_worker_heartbeat(req: Request):
         workload=data.get("workload"),
         rtt_ms=data.get("rtt_ms"),
         bandwidth_mbps=data.get("bandwidth_mbps"),
+        hb_seq=data.get("hb_seq"),
+        sent_at=data.get("sent_at"),
     )
     if not ok:
         return JSONResponse(status_code=401, content={"status": "error", "message": str(res)})
