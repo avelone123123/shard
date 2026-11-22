@@ -49,6 +49,7 @@ def recv_exact(sock, n):
 def recv_exact_poll(sock, n, poll):
     buf = bytearray()
     while len(buf) < n:
+        poll()
         try:
             chunk = sock.recv(n - len(buf))
         except socket.timeout:
