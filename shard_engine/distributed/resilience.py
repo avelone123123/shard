@@ -134,7 +134,10 @@ class ResiliencePolicy:
             base = float(self.recovery_probation_s)
         return min(base * (2 ** max(0, int(fail_count) - 1)), 600.0)
     def backoff_s(self, attempt):
-        return min(float(self.retry_backoff_s) * (2 ** max(0, int(attempt))), float(self.retry_backoff_max_s))
+        with self._lock:
+            base = float(self.retry_backoff_s)
+            cap = float(self.retry_backoff_max_s)
+        return min(base * (2 ** max(0, int(attempt))), cap)
     def as_dict(self):
         out = {k: getattr(self, k) for k in _DEFAULTS}
         out["suspect_after_s"] = round(self.suspect_after_s, 3)
