@@ -700,8 +700,9 @@ class ClusterManager:
             if not expected or not secrets.compare_digest(str(worker_token or ""), expected):
                 return False
             tpeer = w.get("tunnel_peer")
-            was_assigned = bool(w.get("assigned_stage"))
-            self.workers.pop(worker_id, None)
+            was_assigned = self._is_worker_serving_locked(wid)
+            self.workers.pop(wid, None)
+            self._deployed_workers.discard(wid)
         if was_assigned:
             self._handle_assigned_worker_lost(str(worker_id), "worker left the cluster", "WORKER_LOST")
         if tpeer:
