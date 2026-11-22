@@ -406,3 +406,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         CLUSTER.deploy_cluster(verify=False)
         stream = CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=6, temperature=0.0, request_id="sreq-audit-kill")
         delivered = []
+        for ev in stream:
+            if ev.get("type") == "content":
+                delivered.append(ev["token"])
+                if len(delivered) == 2:
+                    hb2.set()
+                    proc2.kill()
+                    proc2.wait(timeout=3.0)
+                    break
+        with self.assertRaises(resilience.InferenceFailure) as fe:
+            for ev in stream:
+                if ev.get("type") == "content":
+                    delivered.append(ev["token"])
