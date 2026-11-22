@@ -561,7 +561,6 @@ class PipelineCoordinator:
         acquired = False
         failed_at = None
         failed_worker = None
-        cancelled = False
         try:
             while not self._gen_lock.acquire(timeout=self.policy.poll_slice_s):
                 ctx.poll()
