@@ -410,7 +410,9 @@ class PipelineWorkerServer:
                     dt_ms = round((time.perf_counter() - t0) * 1000.0, 3)
                     out_meta["stage_compute_ms"] = dt_ms
                     frame_bytes = proto.encode_tensor_payload(out_meta, out_t)
-                    self._bytes_tx += len(frame_bytes)
+                    with self._stage_lock:
+                        self._last_compute_ms = dt_ms
+                        self._bytes_tx += len(frame_bytes)
                     proto.send_frame(conn, proto.MSG_FORWARD_RES, frame_bytes)
                 elif mtype == proto.MSG_RELEASE_KV:
                     meta = json.loads(payload.decode("utf-8")) if payload else {}
