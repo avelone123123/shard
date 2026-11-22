@@ -260,7 +260,9 @@ class RequestScheduler:
                     try:
                         if await is_disconnected():
                             cancel_ev.set()
-                            state["cancelled"] = True
+                            with state_lock:
+                                state["cancelled"] = True
+                            yield {"type": "cancelled", "request_id": req_id}
                             break
                     except Exception:
                         pass
