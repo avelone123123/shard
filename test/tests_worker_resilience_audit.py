@@ -58,3 +58,15 @@ def _parse_anthropic_sse(raw_text):
             continue
         ev_type = None
         data_parts = []
+        for ln in lines:
+            if ln.startswith("event:"):
+                ev_type = ln[6:].strip()
+            elif ln.startswith("data:"):
+                data_parts.append(ln[5:].strip())
+        if not data_parts:
+            continue
+        obj = json.loads("\n".join(data_parts))
+        events.append((ev_type or obj.get("type"), obj))
+        if obj.get("type") == "content_block_delta":
+            txt = (obj.get("delta") or {}).get("text")
+            if txt:
