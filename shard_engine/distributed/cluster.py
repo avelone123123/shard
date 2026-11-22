@@ -103,6 +103,12 @@ class ClusterManager:
         if cached is not None and (now - cached[0]) < float(ttl_s):
             return cached[1]
         with self._coord_caps_lock:
+            cached = self._coord_caps_cache
+            if cached is not None and (time.monotonic() - cached[0]) < float(ttl_s):
+                return cached[1]
+            caps = _cap.probe_node_capabilities()
+            self._coord_caps_cache = (time.monotonic(), caps)
+            return caps
     def _coordinator_node_record(self, caps=None):
         caps = caps or _cap.probe_node_capabilities()
         hw = caps["hw"]
