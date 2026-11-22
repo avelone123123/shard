@@ -754,3 +754,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
                 s_miss.stop()
         resilience.POLICY.configure(max_recovery_attempts=1, recovery_wait_s=5.0, poll_slice_s=0.04)
         s_race = _ScriptedPeerServer(behavior="ok", delay_s=0.12)
+        s_race.start()
+        self._servers.append(s_race)
+        self._mount_single_peer("wrace", s_race, coord_contrib=False)
+        statuses = []
+        def _hit(i):
+            resp = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": f"hi {i}"}], "max_tokens": 4})
+            statuses.append(resp.status_code)
+        ths = [threading.Thread(target=_hit, args=(i,)) for i in range(4)]
+        for t in ths:
+            t.start()
+        time.sleep(0.08)
+        CLUSTER.stop_cluster()
