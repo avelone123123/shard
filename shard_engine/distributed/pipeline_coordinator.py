@@ -552,7 +552,7 @@ class PipelineCoordinator:
         eos_id = self.tokenizer.eos_token_id
         generated_ids = list(resume.generated_ids) if resume is not None else []
         prev_text = resume.delivered_text if resume is not None else ""
-        resumed = resume is not None
+        resumed = bool(resume is not None and len(resume.generated_ids) > 0)
         ttft_ms = None
         total_compute_ms = 0.0
         total_transfer_ms = 0.0
