@@ -562,3 +562,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             oa_can = _parse_openai_sse("".join(resp.iter_text()))
         self.assertEqual(oa_can["finish_reasons"], [])
         threading.Timer(0.1, SCHEDULER.cancel_all).start()
+        r_sync_can = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello"}], "max_tokens": 6})
+        self.assertEqual(r_sync_can.status_code, 499)
+        self.assertEqual(r_sync_can.json()["error"]["code"], "REQUEST_CANCELLED")
+        self._assert_clean_resources()
+    def test_06_timeout_interactions_keepalive_stall_load_abort_and_no_busy_loop(self):
+        resilience.POLICY.configure(connect_timeout_s=0.25, load_timeout_s=5.0, poll_slice_s=0.04, max_recovery_attempts=0)
+        s_auth = _AuditPeerServer(mode="hang_auth")
+        s_auth.start()
+        self._servers.append(s_auth)
+        plan_auth = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_index": 0, "node_id": "wa", "worker_id": "wa", "role": "worker", "endpoint": f"127.0.0.1:{s_auth.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}]}
+        pc_auth = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan_auth, worker_tokens={"wa": "t"}, cluster_id="c")
+        t0 = time.monotonic()
