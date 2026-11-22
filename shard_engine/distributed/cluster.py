@@ -576,11 +576,6 @@ class ClusterManager:
                 if pipeline_port:
                     eff_pipe_ep = f"{p_host}:{int(pipeline_port)}"
             probe_target = eff_pipe_ep or eff_rpc_ep
-            if probe_target and ":" in probe_target:
-                ph, pp = probe_target.rsplit(":", 1)
-                link = _cap.measure_tcp_link(ph, int(pp), timeout=1.5)
-                if link.get("reachable"):
-                    rtt_ms = link.get("rtt_ms")
             prev_rec = self.workers.get(wid)
             was_assigned_live = bool(prev_rec and prev_rec.get("assigned_stage") and self.state in ("READY", "LOADING", "VERIFYING"))
             tok = WORKER_TOKEN_PREFIX + secrets.token_hex(16)
