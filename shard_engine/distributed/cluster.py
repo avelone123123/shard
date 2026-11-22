@@ -1306,7 +1306,7 @@ class ClusterManager:
         slots = gb.slots_status() if gb else []
         now = time.time()
         with self._lock:
-            coord = self._coordinator_node_record()
+            coord = self._coordinator_node_record(caps=coord_caps)
             workers_out = []
             self._refresh_worker_states_locked(now)
             for wid, w in self.workers.items():
