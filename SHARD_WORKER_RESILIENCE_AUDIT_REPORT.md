@@ -220,3 +220,9 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | Worker Resilience + Independent Audit Suites | `python -m unittest test/tests_worker_resilience.py test/tests_worker_resilience_audit.py -v` | `47.764s` | `0` | `24` | `24` | `0` | `0` |
 | Baseline Comparison — Base Commit (`ff1155c`, isolated worktree) | `python -m unittest test/tests_phase_i_product_hardening.py -v` | `7.885s` | `1` | `9` | `7` | `2` | `0` |
+| Baseline Comparison — Feature Branch (`04495bc`) | `python -m unittest test/tests_phase_i_product_hardening.py -v` | `2.966s` | `1` | `9` | `7` | `2` | `0` |
+| Full Repository Regression Suite | `python -m unittest discover -s test -p "tests_*.py" -v` | `168.983s` (`178.25s` wall) | `1` | `248` | `245` | `2` (pre-existing) | `1` |
+
+### Full Suite Module-by-Module Breakdown
+
+| Test Module | Passed | Failed | Skipped | Scope / Notes |
