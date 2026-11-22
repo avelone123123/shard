@@ -1045,7 +1045,8 @@ class ClusterManager:
                             _res.METRICS.event("recovery_failed", level=40, request_id=ctx.request_id, attempt=attempt, reason="cluster did not re-form in time")
                             raise _res.InferenceFailure("RECOVERY_FAILED", "A worker was lost during generation and the cluster did not re-form in time", request_id=ctx.request_id, worker_id=f.worker_id, stage=f.stage, phase=f.phase, retryable=True, recovery_attempted=True, cluster_available=self._cluster_available(), tokens_delivered=ctx.tokens_delivered)
                         same_model = kind == new_kind and (kind != "pipeline" or backend.model_path_or_repo == new_backend.model_path_or_repo)
-                        if ctx.tokens_delivered and not (can_resume and same_model):
+                        has_resume_ids = bool(resume is not None and resume.generated_ids)
+                        if ctx.tokens_delivered and not (can_resume and same_model and has_resume_ids):
                             _res.METRICS.inc("recovery_failed_total")
                             raise _res.InferenceFailure("RECOVERY_FAILED", "Generation state cannot be carried over to the re-formed cluster", request_id=ctx.request_id, worker_id=f.worker_id, stage=f.stage, phase=f.phase, retryable=True, recovery_attempted=True, cluster_available=self._cluster_available(), tokens_delivered=ctx.tokens_delivered)
                         resume = (f.resume or _res.ResumeState()) if new_kind == "pipeline" else None
