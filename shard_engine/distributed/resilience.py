@@ -39,6 +39,12 @@ _BOUNDS = {
     "dead_missed": (1, 2000),
     "monitor_tick_s": (0.01, 60.0),
     "connect_timeout_s": (0.05, 300.0),
+    "load_timeout_s": (0.1, 3600.0),
+    "prefill_timeout_s": (0.05, 3600.0),
+    "decode_step_timeout_s": (0.05, 3600.0),
+    "release_timeout_s": (0.05, 60.0),
+    "poll_slice_s": (0.005, 5.0),
+    "slow_step_warn_s": (0.01, 3600.0),
 class ResiliencePolicy:
     def __init__(self, **overrides):
         self._lock = threading.Lock()
