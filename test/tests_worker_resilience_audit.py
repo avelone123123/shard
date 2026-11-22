@@ -394,3 +394,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         after_r = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello shard"}], "max_tokens": 3, "temperature": 0.0})
         self.assertEqual(after_r.status_code, 200)
         self._assert_clean_resources()
+    def test_03_real_multiprocess_abrupt_kill_unrecoverable_error_fields(self):
+        p1, p2 = _free_port(), _free_port()
+        CLUSTER.create_cluster(name="MultiProcTerm", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r1 = CLUSTER.register_worker(worker_id="pw-a", name="PWA", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p1, pipeline_host="127.0.0.1")
+        r2 = CLUSTER.register_worker(worker_id="pw-b", name="PWB", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p2, pipeline_host="127.0.0.1")
+        self._start_hb("pw-a", r1["worker_token"])
+        hb2 = self._start_hb("pw-b", r2["worker_token"])
+        _, proc2 = self._spawn_worker_procs([(p1, r1["worker_token"]), (p2, r2["worker_token"])])
+        resilience.POLICY.configure(max_recovery_attempts=0, heartbeat_interval_s=0.3, monitor_tick_s=0.06, poll_slice_s=0.04, enable_resume=False)
+        CLUSTER.deploy_cluster(verify=False)
+        stream = CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=6, temperature=0.0, request_id="sreq-audit-kill")
+        delivered = []
