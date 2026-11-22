@@ -998,7 +998,7 @@ class ClusterManager:
                 ctx.stage_map = self._backend_stage_map(kind, backend)
                 try:
                     if kind == "pipeline":
-                        stream = backend.generate_stream(messages, max_tokens=max_tokens, temperature=temperature, ctx=ctx, resume=resume)
+                        stream = backend.generate_stream(messages, max_tokens=max_tokens, temperature=temperature, ctx=ctx, resume=resume, top_p=top_p, top_k=top_k, repetition_penalty=repetition_penalty)
                     else:
                         stream = self._gguf_stream(backend, messages, max_tokens, temperature, ctx)
                     for ev in stream:
