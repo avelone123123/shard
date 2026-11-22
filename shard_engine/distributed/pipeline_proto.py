@@ -71,6 +71,10 @@ def send_exact_poll(sock, data, poll):
             poll()
             continue
         if n <= 0:
+            raise ConnectionError("Socket closed while sending frame")
+        sent += n
+def send_frame_poll(sock, msg_type, payload, poll, flags=0):
+    data = bytes(payload)
 def recv_frame_poll(sock, poll):
     hdr = recv_exact_poll(sock, _HDR_STRUCT.size, poll)
     magic, ver, msg_type, flags, length = _HDR_STRUCT.unpack(hdr)
