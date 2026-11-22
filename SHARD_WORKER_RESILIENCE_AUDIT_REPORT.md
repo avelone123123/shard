@@ -196,3 +196,9 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 | `shard_engine/gguf_backend.py` | `chat_stream_guarded()` accepts `connect_timeout_s` and sampling params, enforces wall-clock data-chunk idle timer against SSE keepalives, and forcibly closes raw socket + `requests.Session` on cancellation. |
 | `shard_engine/server.py` | Pre-header HTTP `503` check for degraded cluster on `stream=True`; lazy Anthropic `message_start`/`content_block_start` and guarded `end_turn` emission (`if completed`); clean cancellation handling (`499` sync, no fake `stop`/`end_turn` SSE); `math.isfinite` timeout extraction; sampling param forwarding; `GET /api/cluster/plan` uses `commit=False`; strict HTTP 400 JSON/dict validation on `/api/cluster/resilience/policy`; `hb_seq`/`sent_at` forwarded on `/api/cluster/workers/heartbeat`; `api_server_chat_send` routes coordinator mode without silent local fallback. |
 | `test/tests_worker_resilience_audit.py` *(new)* | 8-test independent audit & regression suite covering context-replay sampling & concurrency, real multi-process `proc.kill()` recovery & error metadata, graceful shutdown + mid-generation blackhole + slow-trickle blackhole, full OpenAI/Anthropic SSE protocol matrix, timeout/keepalive/CPU-busy-loop verification, security/policy/log hygiene, and stale heartbeat/plan/frame/shutdown races. |
+| `SHARD_WORKER_RESILIENCE_AUDIT_REPORT.md` *(new)* | This independent audit report. |
+
+---
+
+## 10. Remaining Limitations
+
