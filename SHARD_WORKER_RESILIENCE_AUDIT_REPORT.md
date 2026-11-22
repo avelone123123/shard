@@ -94,3 +94,9 @@ Implemented and executed real end-to-end mid-generation failure tests in `test/t
 | Mid-generation slow-trickle blackhole (1 byte / 30ms) | `test_04` | `_AuditPeerServer(mode="trickle_after", good_forwards=1)` via `/v1/messages` (`stream=True`) | Delivered 1 token, tripped `decode_step_timeout_s=0.35s` in `< 2.0s` (proving `recv_exact_poll()` fix), emitted Anthropic `event: error` (`WORKER_TIMEOUT`), zero `end_turn`. | **VERIFIED** |
 
 **Critical Concurrency Defect Discovered During Multi-Process Testing:** Running `test_02` and `test_03` exposed a hidden lock-contention defect in `cluster.py`: `recompute_plan()`, `preview_cluster()`, and `status()` called `_cap.probe_node_capabilities()` (spawning `llama-server --list-devices`, taking 0.8s–1.9s on Windows), `register_worker()` called `_cap.measure_tcp_link(..., timeout=1.5)`, and `status()` called `gb.slots_status()` **while holding `CLUSTER._lock`**. Under tight heartbeat intervals (`heartbeat_interval_s=0.3`), incoming heartbeats blocked on `CLUSTER._lock` and healthy workers were falsely transitioned to `SUSPECT`/`FAILED`. Moving all blocking subprocess/network I/O outside `CLUSTER._lock` and caching coordinator capabilities for 30s eliminated the starvation completely.
+
+---
+
+## 5. Streaming Protocol Audit (OpenAI & Anthropic SSE)
+
+### Confirmed Pre-Audit Protocol Violations (Reproduced on `04495bc`)
