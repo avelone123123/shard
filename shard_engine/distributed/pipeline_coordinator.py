@@ -517,7 +517,7 @@ class PipelineCoordinator:
         if 0.0 < tp < 1.0:
             sorted_probs, sorted_idx = torch.sort(probs, descending=True)
             cum = torch.cumsum(sorted_probs, dim=-1)
-            mask = (cum - sorted_probs) > float(top_p)
+            mask = (cum - sorted_probs) > tp
             sorted_probs[mask] = 0.0
             s_sum = sorted_probs.sum()
             if s_sum > 0:
