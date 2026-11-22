@@ -1106,6 +1106,8 @@ async def anthropic_messages(req: Request):
     client_key = _client_rate_key(req)
     factory = _inference_stream_factory(normalized, max_tokens, temperature, top_p=top_p, top_k=top_k, repetition_penalty=rep_pen)
     if stream:
+        if CLUSTER.role == "coordinator" and not CLUSTER.is_ready():
+            return _failure_response(InferenceFailure("CLUSTER_UNAVAILABLE", "Distributed cluster backend is not ready", cluster_available=False), anthropic=True)
         async def anthropic_sse():
             start_ev = {"type": "message_start", "message": {"id": msg_id, "type": "message", "role": "assistant", "content": [], "model": model, "stop_reason": None, "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 0}}}
             yield f"event: message_start\ndata: {json.dumps(start_ev, ensure_ascii=False)}\n\n"
