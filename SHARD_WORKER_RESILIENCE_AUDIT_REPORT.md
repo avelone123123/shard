@@ -148,3 +148,9 @@ Verified with strict SSE frame parsers (`_parse_openai_sse`, `_parse_anthropic_s
 
 - **Socket polling on Windows:** `pipeline_proto.py` uses `sock.settimeout(poll_slice_s)` around `sock.send()` / `sock.recv()` (which uses Winsock `select` internally in CPython), and `pipeline_worker.py` uses `select.select([conn], [], [], 1.0)` strictly on `AF_INET` TCP sockets (fully supported on Winsock).
 - **No busy loop verified empirically (`test_06`):** During a `0.5s` blackholed wait with `poll_slice_s=0.05s`, measured process CPU time was `< 0.25s` across `>= 0.45s` wall time (blocking kernel wait, zero spin-loop).
+- **Cancellation propagation:** Verified cancellation interrupts `connect()`/auth, `send_frame_poll()`, `recv_frame_poll()`, `load_stage()`, `_gen_lock.acquire()`, `_await_recovery()`, GGUF `chat_stream_guarded()` (forcibly closing underlying socket and `requests.Session`), and queued scheduler requests (`acquire_slot()` now raises `RequestCancelled` instead of `RuntimeError`).
+
+---
+
+## 7. Regression Baseline Comparison (`tests_phase_i_product_hardening.py`)
+
