@@ -142,3 +142,9 @@ Verified with strict SSE frame parsers (`_parse_openai_sse`, `_parse_anthropic_s
 | `dead_missed` | `5` (`12.0s`) | `[1, 2000]` (`> suspect_missed`) | Marks worker `FAILED`, aborts active requests on that worker, triggers `_reform_cluster()`. |
 | `poll_slice_s` | `0.25s` | `[0.005, 5.0]` | Socket polling slice for send/recv cancellation & abort wakeups. |
 | `monitor_tick_s` | `1.0s` | `[0.01, 60.0]` | Background monitor wake interval (lower-bounded to prevent busy loop). |
+| `slow_step_warn_s` | `10.0s` | `[0.01, 3600.0]` | Flags `slow=True` and increments `slow_steps_total` without evicting healthy heartbeating workers. |
+
+### Windows Compatibility & CPU Verification
+
+- **Socket polling on Windows:** `pipeline_proto.py` uses `sock.settimeout(poll_slice_s)` around `sock.send()` / `sock.recv()` (which uses Winsock `select` internally in CPython), and `pipeline_worker.py` uses `select.select([conn], [], [], 1.0)` strictly on `AF_INET` TCP sockets (fully supported on Winsock).
+- **No busy loop verified empirically (`test_06`):** During a `0.5s` blackholed wait with `poll_slice_s=0.05s`, measured process CPU time was `< 0.25s` across `>= 0.45s` wall time (blocking kernel wait, zero spin-loop).
