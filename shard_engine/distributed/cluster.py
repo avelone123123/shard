@@ -1201,6 +1201,12 @@ class ClusterManager:
             stop_ev = lw.get("hb_stop")
             if not lw.get("active") or stop_ev is None or stop_ev.is_set():
                 break
+            pipe_srv = lw.get("pipeline_srv")
+            rpc_proc = lw.get("rpc_proc")
+            pipe_alive = (pipe_srv is None) or bool(pipe_srv.stats().get("running"))
+            rpc_alive = (rpc_proc is None) or (rpc_proc.poll() is None)
+            if not (pipe_alive and rpc_alive):
+                break
             try:
                 hw = _hardware.get_hardware_profile()
                 pipe_stats = lw["pipeline_srv"].stats() if lw.get("pipeline_srv") else {}
