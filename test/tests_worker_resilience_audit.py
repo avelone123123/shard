@@ -34,3 +34,15 @@ def _parse_openai_sse(raw_text):
             continue
         payload = "\n".join(data_parts)
         if payload == "[DONE]":
+            saw_done = True
+            continue
+        obj = json.loads(payload)
+        if "error" in obj:
+            errors.append(obj["error"])
+            continue
+        for ch in obj.get("choices") or []:
+            tok = (ch.get("delta") or {}).get("content")
+            if tok:
+                tokens.append(tok)
+            if ch.get("finish_reason"):
+                finish_reasons.append(ch["finish_reason"])
