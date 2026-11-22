@@ -91,6 +91,10 @@ def recv_frame_poll(sock, poll):
         raise ProtocolError(f"Frame length {length} exceeds limit")
     payload = recv_exact_poll(sock, length, poll) if length > 0 else b""
     return msg_type, flags, payload
+def recv_json_frame_poll(sock, poll):
+    msg_type, flags, payload = recv_frame_poll(sock, poll)
+    obj = json.loads(payload.decode("utf-8")) if payload else {}
+    return msg_type, flags, obj
 def send_frame(sock, msg_type, payload=b"", flags=0):
     data = bytes(payload)
     if len(data) > MAX_FRAME_BYTES:
