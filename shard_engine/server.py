@@ -3097,6 +3097,7 @@ async def api_server_chat_send(req: Request):
         })
         history_msgs = [{"role": m["role"], "content": m["content"]} for m in target_chat["messages"][-12:] if m.get("role") in ("user", "assistant")]
         _save_participant_chats(pid, chats)
+    cls_coord = CLUSTER.role == "coordinator"
     cls_ready = CLUSTER.is_ready()
     if not cls_ready and not engine_instance.is_loaded():
         return JSONResponse(status_code=503, content={"status": "error", "message": "Модель не загружена на сервере"})
