@@ -424,6 +424,12 @@ class PipelineCoordinator:
                     for r in runners:
                         try:
                             r.abort()
+                            r.close()
+                        except Exception:
+                            pass
+                    raise RuntimeError("PipelineCoordinator stopped during startup")
+                self.runners = runners
+                self.stage_reports = reports
     def stop(self):
         self._stopped = True
         with self._lock:
