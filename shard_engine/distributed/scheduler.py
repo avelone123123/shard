@@ -219,6 +219,7 @@ class RequestScheduler:
                             if tel.get("tokens_per_sec") is not None:
                                 state["tps"] = float(tel["tokens_per_sec"])
                             if tel.get("inter_worker_transfer_ms") is not None:
+                                state["xfer_ms"] = float(tel["inter_worker_transfer_ms"])
                     if not _put_queue(("item", item), limit_s=5.0):
                         break
             except _res.RequestCancelled:
