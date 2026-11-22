@@ -834,6 +834,8 @@ class LlamaBackend:
                     q.put(("line", raw_line))
                 q.put(("eof", None))
             except Exception as e:
+                if stop.is_set():
+                    return
                 if isinstance(e, (requests.exceptions.ReadTimeout, TimeoutError)) or "readtimeout" in repr(e).lower() or "timed out" in str(e).lower():
                     q.put(("stalled", str(e)))
                 else:
