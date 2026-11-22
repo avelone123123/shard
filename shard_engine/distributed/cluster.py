@@ -895,6 +895,7 @@ class ClusterManager:
         usage = None
         ctx.phase = "generate"
         def _fail(code, message):
+            ctx.poll()
             return _res.InferenceFailure(code, message, request_id=ctx.request_id, phase="generate", tokens_delivered=ctx.tokens_delivered)
         for kind, payload in gb.chat_stream_guarded(messages, max_tokens=int(max_tokens), temperature=float(temperature), poll=ctx.poll, stall_timeout_s=pol.stall_timeout_s, poll_slice_s=pol.poll_slice_s):
             if kind == "delta" and payload:
