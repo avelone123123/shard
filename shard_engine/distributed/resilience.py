@@ -328,7 +328,7 @@ def classify_heartbeat_age(age_s, policy=None):
 def resolve_deadline(*candidates):
     pos = []
     for c in candidates:
-        if c is not None:
+        if c is not None and not isinstance(c, bool):
             try:
                 v = float(c)
                 if v > 0:
