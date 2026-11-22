@@ -972,7 +972,7 @@ async def chat_completions(req: Request):
     cid = f"chatcmpl-{uuid.uuid4().hex[:12]}"
     created = int(time.time())
     client_key = _client_rate_key(req)
-    factory = _inference_stream_factory(messages, max_tokens, temperature)
+    factory = _inference_stream_factory(messages, max_tokens, temperature, top_p=top_p, top_k=top_k, repetition_penalty=rep_pen)
     if stream:
         async def event_generator():
             try:
