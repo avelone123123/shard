@@ -33,6 +33,12 @@ _DEFAULTS = {
     "recovery_probation_s": 5.0,
     "enable_resume": True,
 }
+_BOUNDS = {
+    "heartbeat_interval_s": (0.05, 3600.0),
+    "suspect_missed": (1, 1000),
+    "dead_missed": (1, 2000),
+    "monitor_tick_s": (0.01, 60.0),
+    "connect_timeout_s": (0.05, 300.0),
 class ResiliencePolicy:
     def __init__(self, **overrides):
         self._lock = threading.Lock()
