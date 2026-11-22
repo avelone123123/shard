@@ -622,3 +622,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
                         self.wfile.flush()
                         time.sleep(0.05)
                     except OSError:
+                        break
+            def log_message(self, *args):
+                pass
+        srv_ka = ThreadingHTTPServer(("127.0.0.1", 0), _KeepaliveSSEHandler)
+        threading.Thread(target=srv_ka.serve_forever, daemon=True).start()
+        try:
+            gb = gguf_backend.LlamaBackend()
+            gb.port = srv_ka.server_port
+            gb.proc = type("_P", (), {"poll": lambda self: None, "terminate": lambda self: None, "kill": lambda self: None, "wait": lambda self, timeout=None: None})()
+            t_ka = time.monotonic()
+            evs_ka = list(gb.chat_stream_guarded([{"role": "user", "content": "hi"}], stall_timeout_s=0.25, poll_slice_s=0.04, connect_timeout_s=1.0))
+            self.assertLess(time.monotonic() - t_ka, 1.2)
