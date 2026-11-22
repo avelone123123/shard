@@ -97,6 +97,12 @@ class ClusterManager:
         self._reform_thread = None
         if rth is not None and rth.is_alive() and rth is not threading.current_thread():
             rth.join(timeout=3.0)
+    def _get_coordinator_caps(self, ttl_s=30.0):
+        now = time.monotonic()
+        cached = self._coord_caps_cache
+        if cached is not None and (now - cached[0]) < float(ttl_s):
+            return cached[1]
+        with self._coord_caps_lock:
     def _coordinator_node_record(self, caps=None):
         caps = caps or _cap.probe_node_capabilities()
         hw = caps["hw"]
