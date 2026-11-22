@@ -297,6 +297,8 @@ class RequestScheduler:
         finally:
             consumer_done.set()
             cancel_ev.set()
+            with state_lock:
+                snap = dict(state)
             self.finish_slot(
                 req_id,
                 ok=state["ok"],
