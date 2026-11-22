@@ -843,6 +843,7 @@ class LlamaBackend:
         threading.Thread(target=_reader, daemon=True).start()
         usage = None
         finished = False
+        last_activity = time.monotonic()
         try:
             while True:
                 if poll is not None:
