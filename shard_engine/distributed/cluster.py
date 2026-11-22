@@ -1052,6 +1052,8 @@ class ClusterManager:
                         if not (new_kind == "pipeline" and can_resume and has_resume_ids):
                             resume = None
                         kind, backend = new_kind, new_backend
+                        ctx.workers = self._backend_workers(kind, backend)
+                        ctx.stage_map = self._backend_stage_map(kind, backend)
                         ctx.reset_for_retry()
                         ctx.sleep(pol.backoff_s(attempt - 1), check_abort=False)
                     except _res.RequestCancelled:
