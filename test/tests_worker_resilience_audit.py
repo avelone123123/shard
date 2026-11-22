@@ -262,3 +262,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             p = subprocess.Popen([sys.executable, "-c", script, str(port), auth_token], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             self._procs.append(p)
             procs.append(p)
+        for p in procs:
+            line = p.stdout.readline().strip()
+            self.assertEqual(line, "READY")
+        return procs
+    def _mount_single_peer(self, wid, srv, coord_contrib=False):
+        CLUSTER.create_cluster(name=f"Audit-{wid}", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=4, open_net=True, coordinator_contributes=coord_contrib, auto_deploy=False, fetch_model_meta=False)
+        r = CLUSTER.register_worker(worker_id=wid, name=wid, hw=self._hw(4096), quota={"max_ram_gb": 2}, consented=True, pipeline_port=srv.port, pipeline_host="127.0.0.1")
+        plan = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_index": 0, "node_id": wid, "worker_id": wid, "role": "worker", "endpoint": f"127.0.0.1:{srv.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}]}
+        pc = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan, worker_tokens={wid: r["worker_token"]}, cluster_id=CLUSTER.cluster_id)
+        pc.on_worker_failure = CLUSTER._on_data_plane_failure
+        pc.start()
+        with CLUSTER._lock:
