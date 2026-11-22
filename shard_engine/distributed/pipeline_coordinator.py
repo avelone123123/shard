@@ -133,6 +133,8 @@ class _RemoteStageClient:
             raise
         except PermissionError:
             raise _res.InferenceFailure("STAGE_ERROR", f"Worker {self.worker_id} rejected authentication", request_id=ctx.request_id if ctx is not None else None, worker_id=self.worker_id, stage=self.stage_idx, phase=phase, retryable=False)
+        except (_StepTimeout, socket.timeout) as exc:
+            raise self._fail("WORKER_TIMEOUT", f"Timed out connecting to worker {self.worker_id}", ctx, phase, t_conn, exc)
         except (OSError, EOFError, proto.ProtocolError) as exc:
             raise self._fail("WORKER_LOST", f"Cannot connect to worker {self.worker_id}", ctx, phase, t_conn, exc)
         if ctx is not None:
