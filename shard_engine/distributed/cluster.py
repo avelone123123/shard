@@ -716,6 +716,7 @@ class ClusterManager:
     def kick_worker(self, worker_id, block=False):
         wid = str(worker_id or "").strip()
         with self._lock:
+            was_assigned = self._is_worker_serving_locked(wid)
             w = self.workers.pop(wid, None)
             if block:
                 self.blocked_ids.add(wid)
