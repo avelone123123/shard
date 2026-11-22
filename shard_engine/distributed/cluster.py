@@ -909,7 +909,7 @@ class ClusterManager:
                 if sanitizer.stopped:
                     break
             elif kind == "stalled":
-                raise _fail("WORKER_STALLED", f"Inference backend produced no data for {pol.stall_timeout_s:.0f}s")
+                raise _fail("WORKER_STALLED", f"Inference backend produced no data for {pol.stall_timeout_s:.1f}s")
             elif kind == "truncated":
                 raise _fail("BACKEND_ERROR", "Inference backend closed the stream before completion")
             elif kind == "error":
