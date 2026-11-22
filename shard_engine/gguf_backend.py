@@ -897,6 +897,11 @@ class LlamaBackend:
                     if raw_sock is not None:
                         try:
                             raw_sock.shutdown(socket.SHUT_RDWR)
+                        except OSError:
+                            pass
+                        raw_sock.close()
+                except Exception:
+                    pass
                     resp.close()
                 except Exception:
                     pass
