@@ -1209,7 +1209,8 @@ class ClusterManager:
                 break
             try:
                 hw = _hardware.get_hardware_profile()
-                pipe_stats = lw["pipeline_srv"].stats() if lw.get("pipeline_srv") else {}
+                pipe_stats = pipe_srv.stats() if pipe_srv else {}
+                hb_seq += 1
                 hb_resp = requests.post(
                     f"{lw['coordinator_url']}/api/cluster/workers/heartbeat",
                     json={
