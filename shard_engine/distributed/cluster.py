@@ -1300,6 +1300,10 @@ class ClusterManager:
                 "privacy_notice": "Resources are never allocated without explicit consent. Quotas limit maximum VRAM, RAM, and CPU threads.",
             }
     def status(self, include_secrets=False):
+        coord_caps = self._get_coordinator_caps()
+        with self._lock:
+            gb = self._gguf_backend
+        slots = gb.slots_status() if gb else []
         now = time.time()
         with self._lock:
             coord = self._coordinator_node_record()
