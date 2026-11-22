@@ -848,6 +848,9 @@ class LlamaBackend:
             while True:
                 if poll is not None:
                     poll()
+                if (time.monotonic() - last_activity) > stall_to:
+                    yield ("stalled", f"No data received within {stall_to:.1f}s")
+                    return
                 try:
                     kind, val = q.get(timeout=float(poll_slice_s))
                 except queue.Empty:
