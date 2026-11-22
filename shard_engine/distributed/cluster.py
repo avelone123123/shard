@@ -110,7 +110,7 @@ class ClusterManager:
             self._coord_caps_cache = (time.monotonic(), caps)
             return caps
     def _coordinator_node_record(self, caps=None):
-        caps = caps or _cap.probe_node_capabilities()
+        caps = caps or self._get_coordinator_caps()
         hw = caps["hw"]
         quota = dict(self.coordinator_quota or {})
         if not self.coordinator_contributes:
