@@ -985,7 +985,8 @@ async def chat_completions(req: Request):
                     timeout_s=req_timeout,
                     is_disconnected=req.is_disconnected,
                 ):
-                    if item.get("type") == "thought":
+                    itype = item.get("type")
+                    if itype == "thought":
                         delta_payload = {
                             "id": cid,
                             "object": "chat.completion.chunk",
