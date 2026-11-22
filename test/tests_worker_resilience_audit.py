@@ -22,3 +22,15 @@ def _free_port():
     return p
 def _parse_openai_sse(raw_text):
     tokens = []
+    errors = []
+    finish_reasons = []
+    saw_done = False
+    for block in raw_text.split("\n\n"):
+        lines = [ln for ln in block.splitlines() if ln.strip()]
+        if not lines:
+            continue
+        data_parts = [ln[5:].strip() for ln in lines if ln.startswith("data:")]
+        if not data_parts:
+            continue
+        payload = "\n".join(data_parts)
+        if payload == "[DONE]":
