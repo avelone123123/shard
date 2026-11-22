@@ -272,10 +272,12 @@ class RequestScheduler:
                     if (time.perf_counter() - t_dispatch) > eff_timeout:
                         cancel_ev.set()
                         failure = _deadline_failure()
-                        state["ok"] = False
-                        state["err"] = failure.message
-                        state["code"] = failure.code
-                        state["detail"] = failure.to_error()
+                        with state_lock:
+                            state["ok"] = False
+                            state["err"] = failure.message
+                            state["code"] = failure.code
+                            state["detail"] = failure.to_error()
+                            detail_copy = dict(state["detail"])
                         _res.METRICS.inc("request_timeouts_total")
                         _res.METRICS.inc("requests_failed_total")
                         _res.METRICS.event("request_failed", level=30, request_id=req_id, code=failure.code, phase="stream", retryable=True)
