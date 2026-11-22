@@ -683,6 +683,12 @@ class ClusterManager:
                 w["rtt_ms"] = float(rtt_ms)
             if bandwidth_mbps is not None:
                 w["bandwidth_mbps"] = float(bandwidth_mbps)
+        if check_promote:
+            self._try_promote_recovering_worker(wid)
+        with self._lock:
+            w = self.workers.get(wid)
+            if not w:
+                return False, "Unknown or revoked worker"
             return True, {"cluster_state": self.state, "assigned_stage": w.get("assigned_stage"), "worker_state": w.get("state"), "heartbeat_interval_s": _res.POLICY.heartbeat_interval_s}
     def leave_worker(self, worker_id, worker_token):
         with self._lock:
