@@ -1127,7 +1127,11 @@ async def anthropic_messages(req: Request):
                     timeout_s=req_timeout,
                     is_disconnected=req.is_disconnected,
                 ):
-                    if item.get("type") in ("content", "thought") and item.get("token"):
+                    itype = item.get("type")
+                    if itype in ("content", "thought") and item.get("token"):
+                        if not started:
+                            started = True
+                            for frame in _start_frames():
                         delta_ev = {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": item["token"]}}
                         yield f"event: content_block_delta\ndata: {json.dumps(delta_ev, ensure_ascii=False)}\n\n"
                     elif item.get("type") == "done":
