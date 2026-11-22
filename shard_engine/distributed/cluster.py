@@ -718,6 +718,7 @@ class ClusterManager:
         with self._lock:
             was_assigned = self._is_worker_serving_locked(wid)
             w = self.workers.pop(wid, None)
+            self._deployed_workers.discard(wid)
             if block:
                 self.blocked_ids.add(wid)
                 if w and w.get("remote_ip"):
