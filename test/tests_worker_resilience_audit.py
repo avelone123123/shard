@@ -178,3 +178,15 @@ class _AuditPeerServer:
                     proto.send_frame(conn, proto.MSG_FORWARD_RES, proto.encode_tensor_payload(out_meta, logits))
                 elif mtype == proto.MSG_RELEASE_KV:
                     if self.mode == "hang_release":
+                        self.stop_ev.wait(5.0)
+                        return
+                    self.release_count += 1
+                    proto.send_json_frame(conn, proto.MSG_PONG, {"released": True})
+        except Exception:
+            pass
+        finally:
+            try:
+                conn.close()
+            except OSError:
+                pass
+class TestWorkerResilienceAudit(unittest.TestCase):
