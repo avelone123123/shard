@@ -897,7 +897,7 @@ class ClusterManager:
         def _fail(code, message):
             ctx.poll()
             return _res.InferenceFailure(code, message, request_id=ctx.request_id, phase="generate", tokens_delivered=ctx.tokens_delivered)
-        for kind, payload in gb.chat_stream_guarded(messages, max_tokens=int(max_tokens), temperature=float(temperature), poll=ctx.poll, stall_timeout_s=pol.stall_timeout_s, poll_slice_s=pol.poll_slice_s):
+        for kind, payload in gb.chat_stream_guarded(messages, max_tokens=int(max_tokens), temperature=float(temperature), poll=ctx.poll, stall_timeout_s=pol.stall_timeout_s, poll_slice_s=pol.poll_slice_s, connect_timeout_s=pol.connect_timeout_s, top_p=top_p, top_k=top_k, repetition_penalty=repetition_penalty):
             if kind == "delta" and payload:
                 for ev_type, ev_tok in sanitizer.feed(payload):
                     if ev_tok:
