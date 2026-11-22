@@ -577,7 +577,7 @@ class ClusterManager:
                     eff_pipe_ep = f"{p_host}:{int(pipeline_port)}"
             probe_target = eff_pipe_ep or eff_rpc_ep
             prev_rec = self.workers.get(wid)
-            was_assigned_live = bool(prev_rec and prev_rec.get("assigned_stage") and self.state in ("READY", "LOADING", "VERIFYING"))
+            was_assigned_live = bool(prev_rec and self._is_worker_serving_locked(wid) and self.state in ("READY", "LOADING", "VERIFYING"))
             tok = WORKER_TOKEN_PREFIX + secrets.token_hex(16)
             rec = {
                 "worker_id": wid,
