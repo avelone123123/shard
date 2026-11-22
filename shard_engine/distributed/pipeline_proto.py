@@ -163,6 +163,10 @@ def client_auth_handshake(sock, token, cluster_id=""):
     if mtype != MSG_AUTH_OK:
         raise PermissionError(obj.get("error") or "Worker authentication rejected")
     return obj
+def client_auth_handshake_poll(sock, token, cluster_id, poll):
+    send_json_frame_poll(sock, MSG_AUTH, {"token": str(token or ""), "cluster_id": str(cluster_id or "")}, poll)
+    mtype, _, obj = recv_json_frame_poll(sock, poll)
+    if mtype != MSG_AUTH_OK:
 def verify_token_constant_time(presented, expected):
     if not expected:
         return True
