@@ -222,6 +222,10 @@ class RequestScheduler:
                                 state["xfer_ms"] = float(tel["inter_worker_transfer_ms"])
                     if not _put_queue(("item", item), limit_s=5.0):
                         break
+                if cancel_ev.is_set() and not saw_done:
+                    with state_lock:
+                        state["cancelled"] = True
+                    _put_queue(("cancelled", req_id), limit_s=2.0)
             except _res.RequestCancelled:
                 if state["code"] is None:
                     state["cancelled"] = True
