@@ -274,3 +274,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         pc.on_worker_failure = CLUSTER._on_data_plane_failure
         pc.start()
         with CLUSTER._lock:
+            CLUSTER.workers[wid]["assigned_stage"] = plan["stages"][0]
+            CLUSTER._deployed_workers = {wid}
+            CLUSTER._pipeline_coord = pc
+            CLUSTER.state = "READY"
+            CLUSTER.ready_at = time.time()
+        return r, pc
+    def _assert_clean_resources(self):
+        end = time.monotonic() + 1.5
+        while time.monotonic() < end:
+            if SCHEDULER.telemetry()["active_requests"] == 0 and CLUSTER.resilience_status()["inflight"] == []:
+                break
+            time.sleep(0.03)
