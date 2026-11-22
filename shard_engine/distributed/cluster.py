@@ -188,10 +188,12 @@ class ClusterManager:
             elif st == _res.RECOVERING:
                 if age > pol.suspect_after_s:
                     self._set_worker_state_locked(w, _res.FAILED, "heartbeat lost during probation", now)
-                elif now - float(w.get("recovering_since") or now) >= pol.probation_s(w.get("fail_count") or 1):
-                    self._set_worker_state_locked(w, _res.HEALTHY, "probation passed", now)
-                    self._capacity_returned = True
-                    self._reform_infeasible = False
+                elif int(w.get("recovering_heartbeats") or 0) >= 2 and now - float(w.get("recovering_since") or now) >= pol.probation_s(w.get("fail_count") or 1):
+                    if wid not in self._ready_to_promote:
+                        self._ready_to_promote.append(wid)
+    def _try_promote_recovering_worker(self, wid):
+        with self._lock:
+            w = self.workers.get(wid)
     def _alive_worker_records(self, now=None):
         now = time.time() if now is None else now
         out = []
