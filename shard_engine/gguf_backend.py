@@ -892,6 +892,11 @@ class LlamaBackend:
             resp = holder["resp"]
             if resp is not None:
                 try:
+                    raw_fp = getattr(getattr(resp, "raw", None), "_fp", None)
+                    raw_sock = getattr(getattr(getattr(raw_fp, "fp", None), "raw", None), "_sock", None)
+                    if raw_sock is not None:
+                        try:
+                            raw_sock.shutdown(socket.SHUT_RDWR)
                     resp.close()
                 except Exception:
                     pass
