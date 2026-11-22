@@ -100,3 +100,9 @@ Implemented and executed real end-to-end mid-generation failure tests in `test/t
 ## 5. Streaming Protocol Audit (OpenAI & Anthropic SSE)
 
 ### Confirmed Pre-Audit Protocol Violations (Reproduced on `04495bc`)
+
+1. **Cancelled pipeline emitted `done`:** `PipelineCoordinator.generate_stream()` caught `RequestCancelled` and fell through to yield `{"type": "done", "done": True}`.
+2. **Anthropic `/v1/messages` SSE emitted `stop_reason: "end_turn"` on cancellation:** `anthropic_sse()` unconditionally emitted `content_block_stop`, `message_delta(stop_reason="end_turn")`, and `message_stop` whenever `SCHEDULER.stream_async()` exited without an `"error"` item.
+3. **Non-streaming `/v1/chat/completions` returned HTTP `200 OK` with `finish_reason: "stop"` on cancellation:** `SCHEDULER.run_sync_async()` did not distinguish cancellation from normal completion.
+4. **Pre-header degraded cluster returned HTTP `200 OK` on `stream=True`:** Both `/v1/chat/completions` and `/v1/messages` returned `StreamingResponse` (HTTP 200) before checking whether the cluster was already unavailable, and `/v1/messages` prematurely sent `event: message_start` and `event: content_block_start`.
+
