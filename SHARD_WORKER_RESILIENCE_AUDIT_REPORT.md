@@ -214,3 +214,9 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 
 ## 11. Final Test Results & Capability Classification
 
+### Executed Commands & Summary
+
+| Run | Exact Command | Duration | Exit Code | Total | Passed | Failed | Skipped |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| Worker Resilience + Independent Audit Suites | `python -m unittest test/tests_worker_resilience.py test/tests_worker_resilience_audit.py -v` | `47.764s` | `0` | `24` | `24` | `0` | `0` |
+| Baseline Comparison — Base Commit (`ff1155c`, isolated worktree) | `python -m unittest test/tests_phase_i_product_hardening.py -v` | `7.885s` | `1` | `9` | `7` | `2` | `0` |
