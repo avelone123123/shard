@@ -123,7 +123,8 @@ class ResiliencePolicy:
         return out
     @property
     def suspect_after_s(self):
-        return float(self.heartbeat_interval_s) * int(self.suspect_missed)
+        with self._lock:
+            return float(self.heartbeat_interval_s) * int(self.suspect_missed)
     @property
     def dead_after_s(self):
         return float(self.heartbeat_interval_s) * int(self.dead_missed)
