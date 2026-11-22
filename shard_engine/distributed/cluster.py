@@ -662,6 +662,7 @@ class ClusterManager:
             w["last_heartbeat"] = now
             if st == _res.FAILED:
                 w["recovering_since"] = now
+                w["recovering_heartbeats"] = 1
                 self._set_worker_state_locked(w, _res.RECOVERING, "heartbeat resumed after failure", now)
                 _res.METRICS.inc("worker_reconnects_total")
                 st = _res.RECOVERING
