@@ -89,14 +89,11 @@ class ResiliencePolicy:
                 raise ValueError(f"{key} must be an integer")
             val = int(fval)
         else:
-            val = float(value)
-        if not isinstance(default, bool) and val < 0:
-            raise ValueError(f"{key} must be non-negative")
-        if key in ("poll_slice_s", "heartbeat_interval_s", "slow_step_warn_s") and val <= 0:
-            raise ValueError(f"{key} must be positive")
-        if key in ("suspect_missed", "dead_missed") and val < 1:
-            raise ValueError(f"{key} must be at least 1")
-        setattr(self, key, val)
+            val = fval
+        lo, hi = _BOUNDS[key]
+        if val < lo or val > hi:
+            raise ValueError(f"{key} must be between {lo} and {hi}")
+        return val
     def configure(self, **kw):
         with self._lock:
             for k, v in kw.items():
