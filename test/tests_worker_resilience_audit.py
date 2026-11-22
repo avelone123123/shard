@@ -226,3 +226,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
                     try:
                         strm.close()
                     except Exception:
+                        pass
+        for s in self._servers:
+            try:
+                s.stop()
+            except Exception:
+                pass
+        CLUSTER.stop_cluster()
+        CLUSTER.stop_local_worker()
+        resilience.POLICY.reset()
+    def _hw(self, ram_mb=8192):
+        return {"vram_total_mb": 0, "vram_free_mb": 0, "ram_total_mb": ram_mb, "ram_avail_mb": ram_mb, "cpu_cores": 4, "backends": {"torch_pipeline": True}}
+    def _start_hb(self, worker_id, token, interval=0.06):
