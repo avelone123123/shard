@@ -46,3 +46,9 @@ Each major claim in `SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md` was verified aga
 
 ---
 
+## 3. Recovery Mechanism Details (`ResumeState` & `torch_pipeline_parallel`)
+
+### Exact Mechanism Classification
+
+SHARD's recovery mechanism in `shard_engine/distributed/pipeline_coordinator.py` and `shard_engine/distributed/cluster.py` is **KV-cache reconstruction through full-context prefill replay** — it is **NOT** real binary KV-cache restoration (no K/V attention tensors are serialized, transferred, or restored across workers).
+
