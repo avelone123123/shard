@@ -65,6 +65,8 @@ class ClusterManager:
         self._deploy_lock = threading.RLock()
         self._cluster_epoch = 0
         self._starting_backend = None
+        self._coord_caps_cache = None
+        self._coord_caps_lock = threading.Lock()
         self._local_worker = {
             "active": False,
             "coordinator_url": None,
