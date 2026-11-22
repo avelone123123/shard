@@ -154,6 +154,7 @@ class _RemoteStageClient:
                     raise _StepTimeout()
             try:
                 sock.settimeout(self.policy.poll_slice_s)
+                send_fn(sock, poll)
                 return proto.recv_frame_poll(sock, poll)
             except _res.InferenceFailure:
                 self._drop_sock()
