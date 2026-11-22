@@ -1164,6 +1164,11 @@ async def anthropic_messages(req: Request):
                 det["type"] = "overloaded_error" if e.http_status == 503 else "api_error"
                 yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': det}, ensure_ascii=False)}\n\n"
                 return
+            except Exception as e:
+                err_ev = {"type": "error", "error": {"type": "api_error", "code": "INFERENCE_ERROR", "message": str(e)[:200]}}
+                yield f"event: error\ndata: {json.dumps(err_ev, ensure_ascii=False)}\n\n"
+                return
+                return
             yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
             msg_delta = {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": out_toks}}
             yield f"event: message_delta\ndata: {json.dumps(msg_delta)}\n\n"
