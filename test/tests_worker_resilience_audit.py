@@ -46,3 +46,15 @@ def _parse_openai_sse(raw_text):
                 tokens.append(tok)
             if ch.get("finish_reason"):
                 finish_reasons.append(ch["finish_reason"])
+    return {"tokens": tokens, "errors": errors, "finish_reasons": finish_reasons, "saw_done": saw_done}
+def _parse_anthropic_sse(raw_text):
+    events = []
+    tokens = []
+    errors = []
+    stop_reasons = []
+    for block in raw_text.split("\n\n"):
+        lines = [ln for ln in block.splitlines() if ln.strip()]
+        if not lines:
+            continue
+        ev_type = None
+        data_parts = []
