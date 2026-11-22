@@ -885,7 +885,7 @@ class ClusterManager:
             if self._gguf_backend is not None and self._gguf_backend.is_running():
                 return True
             return False
-    def _gguf_stream(self, gb, messages, max_tokens, temperature, ctx):
+    def _gguf_stream(self, gb, messages, max_tokens, temperature, ctx, top_p=0.95, top_k=None, repetition_penalty=1.0):
         from ..engine import _StreamSanitizer
         pol = _res.POLICY
         t0 = time.perf_counter()
