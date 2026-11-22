@@ -660,7 +660,6 @@ class ClusterManager:
                     _res.METRICS.inc("stale_heartbeats_rejected_total")
                     return False, "Stale heartbeat predates worker failure"
             w["last_heartbeat"] = now
-            st = w.get("state") or _res.HEALTHY
             if st == _res.FAILED:
                 w["recovering_since"] = now
                 self._set_worker_state_locked(w, _res.RECOVERING, "heartbeat resumed after failure", now)
