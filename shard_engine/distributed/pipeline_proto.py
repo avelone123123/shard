@@ -59,6 +59,10 @@ def recv_exact_poll(sock, n, poll):
             raise ConnectionError("Socket closed while reading frame")
         buf.extend(chunk)
     return bytes(buf)
+def send_exact_poll(sock, data, poll):
+    view = memoryview(data)
+    sent = 0
+    total = len(view)
 def recv_frame_poll(sock, poll):
     hdr = recv_exact_poll(sock, _HDR_STRUCT.size, poll)
     magic, ver, msg_type, flags, length = _HDR_STRUCT.unpack(hdr)
