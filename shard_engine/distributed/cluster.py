@@ -1036,6 +1036,8 @@ class ClusterManager:
                     _res.METRICS.inc("recovery_attempts_total")
                     _res.METRICS.inc("retries_total")
                     _res.METRICS.event("recovery_started", request_id=ctx.request_id, worker_id=f.worker_id, code=f.code, attempt=attempt, tokens_delivered=ctx.tokens_delivered, mode="resume" if can_resume and ctx.tokens_delivered else "restart")
+                    ctx.workers = set()
+                    ctx.stage_map = {}
                     try:
                         new_kind, new_backend = self._await_recovery(ctx, backend, pol.recovery_wait_s)
                         if new_kind is None:
