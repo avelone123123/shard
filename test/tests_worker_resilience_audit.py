@@ -502,3 +502,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         self.assertEqual(r_an_pre.json()["error"]["code"], "CLUSTER_UNAVAILABLE")
         CLUSTER.stop_cluster()
         for good_n, expect_toks in ((0, 0), (1, 1), (3, 3)):
+            resilience.POLICY.configure(max_recovery_attempts=0, poll_slice_s=0.04, enable_resume=False)
+            srv_oa = _AuditPeerServer(mode="drop_after", good_forwards=good_n)
+            srv_oa.start()
+            self._servers.append(srv_oa)
+            self._mount_single_peer(f"woa{good_n}", srv_oa, coord_contrib=False)
+            with self.client.stream("POST", "/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello"}], "max_tokens": 6, "stream": True}) as resp:
+                self.assertEqual(resp.status_code, 200)
+                oa = _parse_openai_sse("".join(resp.iter_text()))
+            self.assertEqual(len(oa["tokens"]), expect_toks)
+            self.assertEqual(len(oa["errors"]), 1)
+            self.assertEqual(oa["errors"][0]["code"], "WORKER_LOST")
+            self.assertEqual(oa["errors"][0]["tokens_delivered"], expect_toks)
