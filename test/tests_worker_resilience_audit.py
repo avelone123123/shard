@@ -298,3 +298,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         r1 = CLUSTER.register_worker(worker_id="w1", name="W1", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p1, pipeline_host="127.0.0.1")
         r2 = CLUSTER.register_worker(worker_id="w2", name="W2", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p2, pipeline_host="127.0.0.1")
         s1.auth_token, s2.auth_token = r1["worker_token"], r2["worker_token"]
+        self._start_hb("w1", r1["worker_token"])
+        hb2 = self._start_hb("w2", r2["worker_token"])
+        CLUSTER.deploy_cluster(verify=False)
+        base_rep = list(CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=6, temperature=0.0, repetition_penalty=1.45))
+        base_rep_tokens = [e["token"] for e in base_rep if e.get("type") == "content"]
+        self.assertGreaterEqual(len(base_rep_tokens), 4)
+        base_b = list(CLUSTER.generate_stream([{"role": "user", "content": "alpha beta worker"}], max_tokens=5, temperature=0.0, top_k=1))
+        base_b_tokens = [e["token"] for e in base_b if e.get("type") == "content"]
+        out_a, out_b = [], []
+        done_a, done_b = [], []
+        started_a = threading.Event()
+        def _req_a():
