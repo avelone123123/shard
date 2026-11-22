@@ -468,6 +468,7 @@ class ClusterManager:
             gb = self._gguf_backend
             self._pipeline_coord = None
             self._gguf_backend = None
+            self._deployed_workers.clear()
         if pc is not None:
             try:
                 pc.stop()
