@@ -876,6 +876,7 @@ class LlamaBackend:
                     obj = json.loads(data)
                 except ValueError:
                     continue
+                last_activity = time.monotonic()
                 choices = obj.get("choices") or []
                 if choices:
                     delta = choices[0].get("delta") or {}
