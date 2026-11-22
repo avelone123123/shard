@@ -541,7 +541,10 @@ class PipelineCoordinator:
         if ctx is None:
             ctx = _res.ExecutionContext(request_id, cancel_check, deadline_s)
         if not self.is_running():
-            raise _res.InferenceFailure("CLUSTER_UNAVAILABLE", "PipelineCoordinator is not running", request_id=ctx.request_id, cluster_available=False)
+            f = _res.InferenceFailure("CLUSTER_UNAVAILABLE", "PipelineCoordinator is not running", request_id=ctx.request_id, cluster_available=False, tokens_delivered=ctx.tokens_delivered)
+            if resume is not None:
+                f.resume = _res.ResumeState(resume.generated_ids, resume.delivered_text)
+            raise f
         t_start = time.perf_counter()
         input_ids = self._encode_prompt(messages)
         prompt_tokens = int(input_ids.shape[-1])
