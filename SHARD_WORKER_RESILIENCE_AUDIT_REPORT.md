@@ -262,3 +262,9 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 | GGUF RPC worker failure handling | **VERIFIED WITH LIMITATIONS** | Stall (including `: ping` keepalives), premature EOF truncation, and pre-token restart/probing verified (`test_15`, `test_06`); mid-generation resume after token 1 is unsupported on `llama-server`. |
 | Resilience policy security, input validation, thread safety & log sanitization | **VERIFIED** | Non-owner `403`, invalid/NaN/inf/zero/non-object `400`, atomic `configure()`, locked concurrent reads, and recursive prompt/token redaction verified (`test_07`). |
 | Pre-existing regression baseline proof (`test_06`, `test_09`) | **VERIFIED** | Identical failures reproduced in isolated worktree on base commit `ff1155c`. |
+| GitHub Actions CI execution | **NOT TESTED** | Local Windows 11 execution only; no remote CI workflow triggered. |
+| Separate physical multi-machine WAN/LAN chaos testing | **NOT TESTED** | All multi-process and TCP tests ran on localhost (`127.0.0.1`). |
+
+### Final Audit Verdict
+
+On the original commit `04495bc`, SHARD's worker resilience architecture was directionally sound but contained **12 confirmed functional, concurrency, protocol, and security defects** (including `stage=None` on real planned clusters, fake `done`/`end_turn`/`200 OK` completions on cancellation, `GET /api/cluster/plan` blinding failure detection, single-stale-heartbeat revival of dead workers, lock-holding subprocess/network I/O starving worker heartbeats, `stop_cluster()` hanging during `load_stage()`, `NaN` poisoning `POLICY` with HTTP 500, and prompt/token log leaks).
