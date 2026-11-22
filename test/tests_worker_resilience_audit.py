@@ -94,3 +94,15 @@ class _AuditPeerServer:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(("127.0.0.1", 0))
+        s.listen(16)
+        s.settimeout(0.2)
+        self.sock = s
+        self.port = s.getsockname()[1]
+        threading.Thread(target=self._accept, daemon=True).start()
+        return self.port
+    def stop(self):
+        self.stop_ev.set()
+        if self.sock is not None:
+            try:
+                self.sock.close()
+            except OSError:
