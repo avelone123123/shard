@@ -569,6 +569,7 @@ class PipelineCoordinator:
                 cur_ids = input_ids
                 if generated_ids:
                     cur_ids = torch.cat([input_ids, torch.tensor([generated_ids], dtype=torch.long)], dim=-1)
+                first = True
                 for _ in range(max(0, max_new - len(generated_ids))):
                     ctx.poll()
                     ctx.phase = "prefill" if first else "decode"
