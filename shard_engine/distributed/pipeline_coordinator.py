@@ -81,6 +81,12 @@ class _RemoteStageClient:
                 s.settimeout(self.policy.poll_slice_s)
                 proto.client_auth_handshake_poll(s, self.auth_token, self.cluster_id, auth_poll)
             except Exception:
+                self._close_sock_obj(s)
+                raise
+            finally:
+                if self._connecting_sock is s:
+                    self._connecting_sock = None
+            self.sock = s
     def abort(self):
         self._closed_by_us = True
         self._drop_sock()
