@@ -437,7 +437,7 @@ class PipelineCoordinator:
     def stop(self):
         self._stopped = True
         with self._lock:
-            runners = list(self.runners)
+            runners = list(self.runners) + [r for r in self._loading_runners if r not in self.runners]
             self.runners = []
             self.stage_reports = []
         for r in runners:
