@@ -430,6 +430,10 @@ class PipelineCoordinator:
                     raise RuntimeError("PipelineCoordinator stopped during startup")
                 self.runners = runners
                 self.stage_reports = reports
+            return {"status": "ready", "stages": reports}
+        finally:
+            with self._lock:
+                self._loading_runners = []
     def stop(self):
         self._stopped = True
         with self._lock:
