@@ -242,7 +242,7 @@ class Metrics:
         for k, v in fields.items():
             if _is_sensitive_key(k):
                 continue
-            clean[k] = v[:200] if isinstance(v, str) else v
+            clean[k] = _sanitize_log_value(v)
         rec = {"event": _event_name, "ts": round(time.time(), 3), **clean}
         with self._lock:
             self.events.append(rec)
