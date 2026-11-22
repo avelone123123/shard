@@ -647,6 +647,12 @@ class ClusterManager:
                     seq_i = int(hb_seq)
                 except (TypeError, ValueError):
                     return False, "Invalid heartbeat sequence"
+                if seq_i <= int(w.get("last_hb_seq") or 0):
+                    _res.METRICS.inc("stale_heartbeats_rejected_total")
+                    return False, "Stale heartbeat sequence"
+                w["last_hb_seq"] = seq_i
+            if sent_at is not None:
+                try:
             w["last_heartbeat"] = now
             st = w.get("state") or _res.HEALTHY
             if st == _res.FAILED:
