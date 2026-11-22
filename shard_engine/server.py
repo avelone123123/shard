@@ -1135,7 +1135,11 @@ async def anthropic_messages(req: Request):
                                 yield frame
                         delta_ev = {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": item["token"]}}
                         yield f"event: content_block_delta\ndata: {json.dumps(delta_ev, ensure_ascii=False)}\n\n"
-                    elif item.get("type") == "done":
+                    elif itype == "done":
+                        if not started:
+                            started = True
+                            for frame in _start_frames():
+                                yield frame
                         out_toks = item.get("usage", {}).get("completion_tokens", 0)
                     elif item.get("type") == "error":
                         det = _stream_error_detail(item)
