@@ -501,7 +501,7 @@ class ClusterManager:
         with self._lock:
             if self.role != "coordinator" or not self.model_spec:
                 return {"feasible": False, "reason": "No active cluster", "stages": []}
-            nodes = self._build_planner_nodes()
+            nodes = self._build_planner_nodes(coord_caps=coord_caps)
             plan = _planner.plan_cluster_partition(
                 self.model_spec,
                 nodes,
