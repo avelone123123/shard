@@ -621,6 +621,8 @@ class ClusterManager:
             if link.get("reachable"):
                 with self._lock:
                     cur_w = self.workers.get(wid)
+                    if cur_w is not None and cur_w.get("worker_token") == tok:
+                        cur_w["rtt_ms"] = link.get("rtt_ms")
         if was_assigned_live:
             self._handle_assigned_worker_lost(wid, "worker re-registered", "WORKER_LOST")
         self.recompute_plan()
