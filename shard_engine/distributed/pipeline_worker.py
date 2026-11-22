@@ -408,7 +408,6 @@ class PipelineWorkerServer:
                     t0 = time.perf_counter()
                     out_t, out_meta = self._run_forward(meta, t_in)
                     dt_ms = round((time.perf_counter() - t0) * 1000.0, 3)
-                    self._last_compute_ms = dt_ms
                     out_meta["stage_compute_ms"] = dt_ms
                     frame_bytes = proto.encode_tensor_payload(out_meta, out_t)
                     self._bytes_tx += len(frame_bytes)
