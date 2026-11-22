@@ -244,3 +244,9 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 | `tests_windows_subprocess_and_updater.py` | `10` | `0` | `0` | Windows subprocess encoding, cancellation, updater. |
 | `tests_validators.py` | `6` | `0` | `0` | Input validators. |
 | `tests_formatters.py` | `5` | `0` | `0` | Output formatters. |
+| `tests_constants.py` | `4` | `0` | `0` | Constants sanity checks. |
+| `tests_telemetry.py` | `2` | `0` | `0` | Telemetry checks. |
+| `tests_cache_index.py` | `1` | `0` | `0` | Cache index scanning. |
+| `tests_phase_i_product_hardening.py` | `7` | `2` | `0` | Proven pre-existing failures (`test_06` local snapshot in `D:\shard-models`; `test_09` root vs package `dashboard.html` mismatch from `7f7d18b`). |
+| **Total** | **`245`** | **`2`** | **`1`** | **Zero regressions introduced; all 24 resilience and audit tests pass.** |
+
