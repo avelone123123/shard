@@ -118,3 +118,15 @@ class _AuditPeerServer:
                 c, _ = self.sock.accept()
                 self.conns.append(c)
                 threading.Thread(target=self._handle, args=(c,), daemon=True).start()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+    def _handle(self, conn):
+        import torch
+        conn.settimeout(0.5)
+        try:
+            if self.mode == "hang_auth":
+                self.stop_ev.wait(10.0)
+                return
+            mtype, _, _ = proto.recv_frame(conn)
