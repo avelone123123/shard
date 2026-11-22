@@ -342,6 +342,8 @@ class RequestScheduler:
             failure = _res.InferenceFailure(code, err_item.get("error") or "Inference error", request_id=detail.get("request_id"), worker_id=detail.get("worker_id"), stage=detail.get("stage"), phase=detail.get("phase"), retryable=detail.get("retryable"), recovery_attempted=detail.get("recovery_attempted", False), cluster_available=detail.get("cluster_available"), tokens_delivered=detail.get("tokens_delivered", 0))
             failure.detail["partial_content_chars"] = sum(len(c) for c in content_chunks)
             raise failure
+        if cancel_item is not None:
+            raise _res.RequestCancelled(cancel_item.get("request_id"), "Request cancelled before completion")
         return {
             "content": "".join(content_chunks),
             "reasoning_content": "".join(thought_chunks),
