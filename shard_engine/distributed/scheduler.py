@@ -206,8 +206,9 @@ class RequestScheduler:
                         raise _deadline_failure()
                     itype = item.get("type")
                     if itype in ("content", "thought") and item.get("token"):
-                        if state["ttft_ms"] is None:
-                            state["ttft_ms"] = round((time.perf_counter() - t_dispatch) * 1000.0, 2)
+                        with state_lock:
+                            if state["ttft_ms"] is None:
+                                state["ttft_ms"] = round((time.perf_counter() - t_dispatch) * 1000.0, 2)
                         self.record_token(req_id, 1)
                     elif itype == "done":
                         tel = item.get("telemetry") or {}
