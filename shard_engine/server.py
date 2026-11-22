@@ -1011,7 +1011,7 @@ async def chat_completions(req: Request):
                         yield f"data: {json.dumps(err_payload, ensure_ascii=False)}\n\n"
                         yield "data: [DONE]\n\n"
                         return
-                    elif item.get("type") == "done":
+                    elif itype == "done":
                         final_payload = {
                             "id": cid,
                             "object": "chat.completion.chunk",
