@@ -226,3 +226,9 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 ### Full Suite Module-by-Module Breakdown
 
 | Test Module | Passed | Failed | Skipped | Scope / Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `tests_worker_resilience.py` | `16` | `0` | `0` | Original resilience scenarios (disconnect, load/prefill crash, decode resume, heartbeat loss, blackhole, slow worker, SSE errors, concurrent requests, reconnect probation, stale frames, cancellation, GGUF stall/truncation, request deadline). |
+| `tests_worker_resilience_audit.py` | `8` | `0` | `0` | Independent audit suite (context-replay sampling & concurrency, real multi-process `proc.kill()` recovery & error metadata, graceful leave + mid-gen blackhole + slow trickle, full OpenAI/Anthropic SSE matrix, timeout/keepalive/CPU-busy-loop check, security/policy/log hygiene, stale heartbeat/plan/frame/shutdown races). |
+| `tests_distributed_ai.py` | `10` | `0` | `0` | Multi-process PyTorch pipeline, real GGUF RPC cluster + OpenAI/Anthropic APIs, tunnel worker proxy, concurrent multi-user streaming, rebalance recovery, scheduler/queue/cancel. |
+| `tests_global_network.py` | `7` | `0` | `0` | Discovery, catalog, consent, distributed pipeline, concurrent scheduler streaming, failover. |
+| `tests_autonomous_network.py` | `7` | `0` | `0` | Transport priority, Radmin credentials, doctor endpoints. |
