@@ -334,3 +334,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         t_a.start()
         t_b.start()
         t_a.join(timeout=10.0)
+        t_b.join(timeout=10.0)
+        self.assertEqual(out_a, base_rep_tokens)
+        self.assertEqual(out_b, base_b_tokens)
+        self.assertEqual(len(done_a), 1)
+        self.assertTrue(done_a[0]["telemetry"]["resumed_after_failure"])
+        self.assertEqual(len(done_b), 1)
+        self.assertEqual(s1.stats()["active_kv_sessions"], 0)
+        pc_cur = CLUSTER._pipeline_coord
+        old_run = pc_cur.is_running
+        pc_cur.is_running = lambda: False
+        try:
+            with self.assertRaises(resilience.InferenceFailure) as ce:
