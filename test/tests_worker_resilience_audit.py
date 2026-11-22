@@ -382,3 +382,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         for ev in stream:
             if ev.get("type") == "content":
                 post_kill.append(ev["token"])
+            elif ev.get("type") == "done":
+                done_evs.append(ev)
+        self.assertEqual("".join(pre_kill + post_kill), baseline_text)
+        self.assertEqual(len(done_evs), 1)
+        self.assertTrue(done_evs[0]["telemetry"]["resumed_after_failure"])
+        self.assertEqual(CLUSTER.workers["proc-w1"]["state"], resilience.HEALTHY)
+        self.assertEqual(CLUSTER.workers["proc-w1"]["fail_count"], 0)
+        self.assertEqual(CLUSTER.workers["proc-w2"]["state"], resilience.FAILED)
+        self.assertIsNone(proc1.poll())
+        after_r = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello shard"}], "max_tokens": 3, "temperature": 0.0})
+        self.assertEqual(after_r.status_code, 200)
+        self._assert_clean_resources()
