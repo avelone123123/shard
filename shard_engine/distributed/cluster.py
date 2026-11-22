@@ -142,6 +142,12 @@ class ClusterManager:
         return bool((self.workers.get(wid) or {}).get("assigned_stage"))
     def _endpoint_reachable(self, ep, timeout=1.0):
         if not ep or ":" not in str(ep):
+            return True
+        host, port_s = str(ep).rsplit(":", 1)
+        try:
+            link = _cap.measure_tcp_link(host, int(port_s), timeout=float(timeout))
+            return bool(link.get("reachable"))
+        except Exception:
     def _set_worker_state_locked(self, w, new_state, reason, now=None):
         now = time.time() if now is None else now
         prev = w.get("state") or _res.HEALTHY
