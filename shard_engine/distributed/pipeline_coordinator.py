@@ -367,6 +367,12 @@ class PipelineCoordinator:
                 runners.append(rc)
             else:
                 runners.append(_LocalStageRunner(s, self.model_path_or_repo, self.config, dtype=self.dtype))
+        with self._lock:
+            if self._stopped:
+                for r in runners:
+                    try:
+                        r.abort()
+                        r.close()
         reports = [None] * len(runners)
         errors = []
         def _load_idx(idx, runner):
