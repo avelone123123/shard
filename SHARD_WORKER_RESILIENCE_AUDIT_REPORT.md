@@ -106,3 +106,9 @@ Implemented and executed real end-to-end mid-generation failure tests in `test/t
 3. **Non-streaming `/v1/chat/completions` returned HTTP `200 OK` with `finish_reason: "stop"` on cancellation:** `SCHEDULER.run_sync_async()` did not distinguish cancellation from normal completion.
 4. **Pre-header degraded cluster returned HTTP `200 OK` on `stream=True`:** Both `/v1/chat/completions` and `/v1/messages` returned `StreamingResponse` (HTTP 200) before checking whether the cluster was already unavailable, and `/v1/messages` prematurely sent `event: message_start` and `event: content_block_start`.
 
+### Post-Fix SSE Verification Matrix (`test_05_sse_protocol_matrix_openai_and_anthropic`)
+
+Verified with strict SSE frame parsers (`_parse_openai_sse`, `_parse_anthropic_sse`) enforcing OpenAI and Anthropic wire contracts:
+
+| Failure Phase | OpenAI `/v1/chat/completions` (`stream=True`) | Anthropic `/v1/messages` (`stream=True`) | Status |
+| :--- | :--- | :--- | :--- |
