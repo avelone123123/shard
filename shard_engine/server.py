@@ -1688,6 +1688,8 @@ async def api_cluster_worker_heartbeat(req: Request):
         data = await req.json()
     except Exception:
         return JSONResponse(status_code=400, content={"status": "error", "message": "Invalid JSON body"})
+    if not isinstance(data, dict):
+        return JSONResponse(status_code=400, content={"status": "error", "message": "Heartbeat payload must be a JSON object"})
     ok, res = CLUSTER.heartbeat_worker(
         worker_id=data.get("worker_id"),
         worker_token=data.get("worker_token") or _extract_bearer(req),
