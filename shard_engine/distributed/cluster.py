@@ -948,7 +948,12 @@ class ClusterManager:
         if kind == "pipeline":
             return set(backend.worker_ids())
         with self._lock:
-            return {wid for wid, w in self.workers.items() if w.get("assigned_stage") and (w.get("state") or _res.HEALTHY) in (_res.HEALTHY, _res.SUSPECT)}
+            return {wid for wid, w in self.workers.items() if self._is_worker_serving_locked(wid) and (w.get("state") or _res.HEALTHY) in (_res.HEALTHY, _res.SUSPECT)}
+    def _backend_stage_map(self, kind, backend):
+        if kind != "pipeline":
+            return {}
+        out = {}
+        for i, r in enumerate(getattr(backend, "runners", []) or []):
     def _await_recovery(self, ctx, old_backend, wait_s):
         start_t = time.monotonic()
         end = start_t + float(wait_s)
