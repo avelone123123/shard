@@ -819,7 +819,7 @@ class LlamaBackend:
         stall_to = max(0.05, float(stall_timeout_s))
         def _reader():
             try:
-                r = requests.post(url, json=payload, stream=True, timeout=(5, float(stall_timeout_s)))
+                r = sess.post(url, json=payload, stream=True, timeout=(conn_to, stall_to))
                 holder["resp"] = r
                 if r.status_code == 400 and "stream_options" in (r.text or "")[:400]:
                     payload.pop("stream_options", None)
