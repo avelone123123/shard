@@ -788,6 +788,7 @@ class ClusterManager:
                         if self._cluster_epoch != my_epoch or self.role != "coordinator":
                             raise RuntimeError("Cluster stopped during deployment")
                         self._pipeline_coord = pc
+                        self._deployed_workers = set(planned_workers)
                         self.state = "READY"
                         self.ready_at = time.time()
                         self._reform_requested = False
