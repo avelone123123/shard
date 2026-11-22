@@ -371,7 +371,7 @@ class PipelineWorkerServer:
                 self._active_conns.add(conn)
             t.start()
     def _handle_conn(self, conn, _addr):
-        conn.settimeout(60.0)
+        conn.settimeout(10.0)
         owned_rids = set()
         try:
             mtype, _, payload = proto.recv_frame(conn)
