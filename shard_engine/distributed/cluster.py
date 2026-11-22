@@ -954,6 +954,11 @@ class ClusterManager:
             return {}
         out = {}
         for i, r in enumerate(getattr(backend, "runners", []) or []):
+            wid = getattr(r, "worker_id", None)
+            if wid:
+                sidx = getattr(r, "stage_idx", None)
+                out[wid] = sidx if sidx is not None else i
+        return out
     def _await_recovery(self, ctx, old_backend, wait_s):
         start_t = time.monotonic()
         end = start_t + float(wait_s)
