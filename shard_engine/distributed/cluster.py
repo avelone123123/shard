@@ -653,6 +653,12 @@ class ClusterManager:
                 w["last_hb_seq"] = seq_i
             if sent_at is not None:
                 try:
+                    sent_f = float(sent_at)
+                except (TypeError, ValueError):
+                    return False, "Invalid heartbeat timestamp"
+                if st == _res.FAILED and sent_f < float(w.get("failed_at") or 0.0):
+                    _res.METRICS.inc("stale_heartbeats_rejected_total")
+                    return False, "Stale heartbeat predates worker failure"
             w["last_heartbeat"] = now
             st = w.get("state") or _res.HEALTHY
             if st == _res.FAILED:
