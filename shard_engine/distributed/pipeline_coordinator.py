@@ -513,7 +513,8 @@ class PipelineCoordinator:
             logits = torch.where(logits < kth, torch.full_like(logits, float("-inf")), logits)
         scaled = logits / max(0.05, float(temperature))
         probs = torch.softmax(scaled, dim=-1)
-        if 0.0 < float(top_p) < 1.0:
+        tp = float(top_p) if top_p is not None else 0.95
+        if 0.0 < tp < 1.0:
             sorted_probs, sorted_idx = torch.sort(probs, descending=True)
             cum = torch.cumsum(sorted_probs, dim=-1)
             mask = (cum - sorted_probs) > float(top_p)
