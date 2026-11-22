@@ -1037,6 +1037,9 @@ async def chat_completions(req: Request):
             except InferenceFailure as e:
                 yield f"data: {json.dumps({'error': e.to_error()}, ensure_ascii=False)}\n\n"
                 yield "data: [DONE]\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': {'message': str(e)[:200], 'type': 'server_error', 'code': 'INFERENCE_ERROR'}}, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
         return StreamingResponse(event_generator(), media_type="text/event-stream")
     try:
         result = await SCHEDULER.run_sync_async(
