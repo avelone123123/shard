@@ -82,3 +82,9 @@ Specifically, on recovery after `k >= 1` tokens were generated:
 ---
 
 ## 4. Real Mid-Generation Failure Test Results
+
+Implemented and executed real end-to-end mid-generation failure tests in `test/tests_worker_resilience_audit.py`:
+
+| Scenario | Test Method | Fault Mechanism | Observed Result | Classification |
+| :--- | :--- | :--- | :--- | :--- |
+| Multi-process abrupt kill + Case A recovery | `test_02_real_multiprocess_abrupt_kill_mid_generation_recovery` | Two real OS subprocess `PipelineWorkerServer` workers + Coordinator; 2 tokens delivered; `proc2.kill()` (`TerminateProcess`) | Detected `WORKER_LOST` on `proc-w2`; `proc-w1` stayed `HEALTHY` (`fail_count == 0`, process still running); reformed cluster; replayed `[prompt + generated_ids]`; exact baseline text delivered with zero duplicates, `resumed_after_failure == True`, follow-up request returned HTTP `200`, `active_requests == 0`, `inflight == []`. | **VERIFIED** |
