@@ -83,7 +83,7 @@ class RequestScheduler:
                             raise TimeoutError("Timed out waiting in inference queue")
                         self._cond.wait(timeout=min(0.5, rem))
                     if cancel_ev.is_set():
-                        raise RuntimeError("Request cancelled while queued")
+                        raise _res.RequestCancelled(req_id, "Request cancelled while queued")
                 except Exception as e:
                     self._queued.pop(req_id, None)
                     if req_id in self._waiting:
