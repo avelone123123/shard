@@ -108,6 +108,10 @@ class ResiliencePolicy:
                 if "dead_missed" in updates and "suspect_missed" in updates:
                     raise ValueError("dead_missed must be greater than suspect_missed")
                 eff_dead = min(_BOUNDS["dead_missed"][1], eff_suspect + 1)
+                updates["dead_missed"] = eff_dead
+            for k, val in updates.items():
+                setattr(self, k, val)
+            return self._snapshot_locked()
     def reset(self):
         with self._lock:
             for k, v in _DEFAULTS.items():
