@@ -63,6 +63,12 @@ class _RemoteStageClient:
             if ctx is not None and ctx.deadline is not None:
                 rem = ctx.deadline - t0
                 if rem <= 0:
+                    ctx.poll()
+                conn_limit = min(conn_limit, max(0.05, rem))
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(conn_limit)
+            self._connecting_sock = s
+            auth_deadline = t0 + conn_limit
     def abort(self):
         self._closed_by_us = True
         self._drop_sock()
