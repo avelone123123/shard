@@ -766,3 +766,10 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             t.start()
         time.sleep(0.08)
         CLUSTER.stop_cluster()
+        for t in ths:
+            t.join(timeout=5.0)
+        self.assertEqual(len(statuses), 4)
+        self.assertEqual(CLUSTER.state, "IDLE")
+        self._assert_clean_resources()
+if __name__ == "__main__":
+    unittest.main()
