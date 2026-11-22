@@ -401,7 +401,10 @@ class PipelineWorkerServer:
                     proto.send_json_frame(conn, proto.MSG_STAGE_READY, res)
                 elif mtype == proto.MSG_FORWARD:
                     meta, t_in = proto.decode_tensor_payload(payload)
-                    owned_rids.add(str(meta.get("request_id") or "default"))
+                    rid = str(meta.get("request_id") or "").strip()
+                    if not rid or len(rid) > 128:
+                        raise ValueError("Invalid or missing request_id")
+                    owned_rids.add(rid)
                     t0 = time.perf_counter()
                     out_t, out_meta = self._run_forward(meta, t_in)
                     dt_ms = round((time.perf_counter() - t0) * 1000.0, 3)
