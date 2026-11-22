@@ -238,3 +238,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
     def _hw(self, ram_mb=8192):
         return {"vram_total_mb": 0, "vram_free_mb": 0, "ram_total_mb": ram_mb, "ram_avail_mb": ram_mb, "cpu_cores": 4, "backends": {"torch_pipeline": True}}
     def _start_hb(self, worker_id, token, interval=0.06):
+        ev = threading.Event()
+        self._hb_stops.append(ev)
+        def _loop():
+            seq = 0
+            while not ev.wait(interval):
+                seq += 1
+                CLUSTER.heartbeat_worker(worker_id, token, hb_seq=seq, sent_at=time.time())
+        threading.Thread(target=_loop, daemon=True).start()
+        return ev
+    def _spawn_worker_procs(self, specs):
+        script = (
+            "import sys, time\n"
