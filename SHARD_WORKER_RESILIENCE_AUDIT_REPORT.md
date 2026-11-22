@@ -136,3 +136,9 @@ Verified with strict SSE frame parsers (`_parse_openai_sse`, `_parse_anthropic_s
 | `decode_step_timeout_s` | `30.0s` | `[0.05, 3600.0]` | Subsequent single-token `forward()` steps. |
 | `stall_timeout_s` | `120.0s` | `[0.05, 3600.0]` | GGUF `chat_stream_guarded()` idle read timeout AND wall-clock data-chunk idle timer (immune to `: ping` keepalive loops). |
 | `release_timeout_s` | `2.0s` | `[0.05, 60.0]` | Best-effort `MSG_RELEASE_KV` timeout; dead worker is skipped in `release_request(skip_workers=...)`. |
+| `request_deadline_s` | `0.0s` (disabled) | `[0.0, 86400.0]` | Combined via `resolve_deadline(request_timeout, request_deadline_s)` (`min` of finite positive values); enforced in scheduler, `connect()`, `send_frame_poll()`, `recv_frame_poll()`, and `_await_recovery()`. |
+| `heartbeat_interval_s` | `2.4s` | `[0.05, 3600.0]` | Worker heartbeat cadence; propagated back in heartbeat response. |
+| `suspect_missed` | `2` (`4.8s`) | `[1, 1000]` | Excludes worker from new partition plans without aborting active requests. |
+| `dead_missed` | `5` (`12.0s`) | `[1, 2000]` (`> suspect_missed`) | Marks worker `FAILED`, aborts active requests on that worker, triggers `_reform_cluster()`. |
+| `poll_slice_s` | `0.25s` | `[0.005, 5.0]` | Socket polling slice for send/recv cancellation & abort wakeups. |
+| `monitor_tick_s` | `1.0s` | `[0.01, 60.0]` | Background monitor wake interval (lower-bounded to prevent busy loop). |
