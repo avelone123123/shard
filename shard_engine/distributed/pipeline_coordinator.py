@@ -400,6 +400,12 @@ class PipelineCoordinator:
                                 r.abort()
                             except Exception:
                                 pass
+                    t.join(timeout=min(self.policy.poll_slice_s, max(0.05, load_deadline - time.monotonic())))
+                if t.is_alive():
+                    errors.append(f"Stage {i}: load did not finish within {self.policy.load_timeout_s:.0f}s")
+            if self._stopped:
+                errors.append("PipelineCoordinator stopped during load")
+            for i, rep in enumerate(reports):
     def stop(self):
         self._stopped = True
         with self._lock:
