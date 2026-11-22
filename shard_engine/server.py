@@ -974,6 +974,8 @@ async def chat_completions(req: Request):
     client_key = _client_rate_key(req)
     factory = _inference_stream_factory(messages, max_tokens, temperature, top_p=top_p, top_k=top_k, repetition_penalty=rep_pen)
     if stream:
+        if CLUSTER.role == "coordinator" and not CLUSTER.is_ready():
+            return _failure_response(InferenceFailure("CLUSTER_UNAVAILABLE", "Distributed cluster backend is not ready", cluster_available=False))
         async def event_generator():
             try:
                 async for item in SCHEDULER.stream_async(
