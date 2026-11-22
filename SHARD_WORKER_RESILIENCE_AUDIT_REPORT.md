@@ -130,3 +130,9 @@ Verified with strict SSE frame parsers (`_parse_openai_sse`, `_parse_anthropic_s
 
 | Setting | Default | Enforced Bounds | Interaction / Role |
 | :--- | :--- | :--- | :--- |
+| `connect_timeout_s` | `5.0s` | `[0.05, 300.0]` | TCP connect + SHPT auth handshake (now clamped by remaining `ctx.deadline`); also passed to GGUF `requests.Session.post()`. |
+| `load_timeout_s` | `300.0s` | `[0.1, 3600.0]` | Per-stage `MSG_LOAD_STAGE` timeout; now immediately abortable via `PipelineCoordinator.stop()` / `stop_cluster()`. |
+| `prefill_timeout_s` | `180.0s` | `[0.05, 3600.0]` | First `forward()` step per attempt (including resume context replay). |
+| `decode_step_timeout_s` | `30.0s` | `[0.05, 3600.0]` | Subsequent single-token `forward()` steps. |
+| `stall_timeout_s` | `120.0s` | `[0.05, 3600.0]` | GGUF `chat_stream_guarded()` idle read timeout AND wall-clock data-chunk idle timer (immune to `: ping` keepalive loops). |
+| `release_timeout_s` | `2.0s` | `[0.05, 60.0]` | Best-effort `MSG_RELEASE_KV` timeout; dead worker is skipped in `release_request(skip_workers=...)`. |
