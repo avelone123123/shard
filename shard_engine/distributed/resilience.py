@@ -116,6 +116,11 @@ class ResiliencePolicy:
         with self._lock:
             for k, v in _DEFAULTS.items():
                 setattr(self, k, v)
+    def _snapshot_locked(self):
+        out = {k: getattr(self, k) for k in _DEFAULTS}
+        out["suspect_after_s"] = round(float(self.heartbeat_interval_s) * int(self.suspect_missed), 3)
+        out["dead_after_s"] = round(float(self.heartbeat_interval_s) * int(self.dead_missed), 3)
+        return out
     @property
     def suspect_after_s(self):
         return float(self.heartbeat_interval_s) * int(self.suspect_missed)
