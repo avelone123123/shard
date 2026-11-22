@@ -40,26 +40,7 @@ class _RemoteStageClient:
         self.on_slow_step = None
         self._closed_by_us = False
         self._seq = 0
-    def connect(self):
-        with self.lock:
-            if self.sock is not None:
-                return
-            host, port = _parse_endpoint(self.stage_info["endpoint"])
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(self.policy.connect_timeout_s)
-            try:
-                s.connect((host, port))
-                proto.client_auth_handshake(s, self.auth_token, self.cluster_id)
-            except Exception:
-                try:
-                    s.close()
-                except Exception:
-                    pass
-                raise
-            self.sock = s
-    def _drop_sock(self):
-        s = self.sock
-        self.sock = None
+    def _close_sock_obj(self, s):
         if s is None:
             return
         try:
