@@ -250,3 +250,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
     def _spawn_worker_procs(self, specs):
         script = (
             "import sys, time\n"
+            "from shard_engine.distributed.pipeline_worker import PipelineWorkerServer\n"
+            "srv = PipelineWorkerServer(host='127.0.0.1', port=int(sys.argv[1]), auth_token=sys.argv[2], max_threads=2, allow_cuda=False)\n"
+            "srv.start()\n"
+            "print('READY', flush=True)\n"
+            "while True:\n"
+            "    time.sleep(0.5)\n"
+        )
+        procs = []
+        for port, auth_token in specs:
+            p = subprocess.Popen([sys.executable, "-c", script, str(port), auth_token], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self._procs.append(p)
+            procs.append(p)
