@@ -153,8 +153,6 @@ class _RemoteStageClient:
                 if time.monotonic() > deadline:
                     raise _StepTimeout()
             try:
-                sock.settimeout(max(self.policy.poll_slice_s, float(timeout_s)))
-                send_fn(sock)
                 sock.settimeout(self.policy.poll_slice_s)
                 return proto.recv_frame_poll(sock, poll)
             except _res.InferenceFailure:
