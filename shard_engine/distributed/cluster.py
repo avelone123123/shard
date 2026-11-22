@@ -496,7 +496,8 @@ class ClusterManager:
                 "bandwidth_mbps": w.get("bandwidth_mbps"),
             })
         return nodes
-    def recompute_plan(self):
+    def recompute_plan(self, commit=True, force_assignments=False):
+        coord_caps = self._get_coordinator_caps()
         with self._lock:
             if self.role != "coordinator" or not self.model_spec:
                 return {"feasible": False, "reason": "No active cluster", "stages": []}
