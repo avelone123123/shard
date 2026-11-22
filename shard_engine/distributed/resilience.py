@@ -62,9 +62,12 @@ class ResiliencePolicy:
         for k in _DEFAULTS:
             raw = os.environ.get("SHARD_RESILIENCE_" + k.upper())
             if raw is not None:
-                self._set(k, raw)
-        self.configure(**overrides)
-    def _set(self, key, value):
+                env_updates[k] = raw
+        if env_updates:
+            self.configure(**env_updates)
+        if overrides:
+            self.configure(**overrides)
+    def _parse_value(self, key, value):
         default = _DEFAULTS[key]
         if isinstance(default, bool):
             val = value if isinstance(value, bool) else str(value).strip().lower() in ("1", "true", "yes", "on")
