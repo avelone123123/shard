@@ -515,6 +515,8 @@ class ClusterManager:
                 preserve_live = (not force_assignments) and self.state in ("READY", "LOADING", "VERIFYING")
                 for wid, w in self.workers.items():
                     if preserve_live and wid in self._deployed_workers:
+                        continue
+                    w["assigned_stage"] = assigned.get(wid)
             return copy.deepcopy(plan)
     def register_worker(
         self,
