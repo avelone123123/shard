@@ -212,6 +212,9 @@ class ClusterManager:
                 return False
             self._set_worker_state_locked(w, _res.HEALTHY, "probation passed", now)
             self._capacity_returned = True
+            self._reform_infeasible = False
+            self._rebalance_needed.set()
+            return True
     def _alive_worker_records(self, now=None):
         now = time.time() if now is None else now
         out = []
