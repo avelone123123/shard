@@ -436,6 +436,9 @@ class ClusterManager:
             self.last_error = None
             self.workers.clear()
             self._newly_failed.clear()
+            self._ready_to_promote.clear()
+            self._deployed_workers.clear()
+            self._reform_active = False
             self._reform_requested = False
             self._reform_infeasible = False
             self._reform_failures = 0
