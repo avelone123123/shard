@@ -127,7 +127,8 @@ class ResiliencePolicy:
             return float(self.heartbeat_interval_s) * int(self.suspect_missed)
     @property
     def dead_after_s(self):
-        return float(self.heartbeat_interval_s) * int(self.dead_missed)
+        with self._lock:
+            return float(self.heartbeat_interval_s) * int(self.dead_missed)
     def probation_s(self, fail_count):
         return min(float(self.recovery_probation_s) * (2 ** max(0, int(fail_count) - 1)), 600.0)
     def backoff_s(self, attempt):
