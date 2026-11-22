@@ -815,6 +815,8 @@ class LlamaBackend:
         sess = requests.Session()
         holder = {"resp": None}
         stop = threading.Event()
+        conn_to = max(0.05, float(connect_timeout_s))
+        stall_to = max(0.05, float(stall_timeout_s))
         def _reader():
             try:
                 r = requests.post(url, json=payload, stream=True, timeout=(5, float(stall_timeout_s)))
