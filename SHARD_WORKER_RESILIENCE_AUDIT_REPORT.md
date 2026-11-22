@@ -238,3 +238,9 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 | `tests_model_lifecycle_progress.py` | `16` | `0` | `0` | Model lifecycle and progress tracking. |
 | `tests_network_persistence_security.py` | `10` | `0` | `0` | Auth gates, persistence, rate limits. |
 | `tests_phase4_network_integration.py` | `9` | `0` | `0` | End-to-end network integration. |
+| `tests_phase_iii_chat_security.py` | `10` | `0` | `0` | Chat security and authorization. |
+| `tests_phase_iii_unified_hosting.py` | `9` | `0` | `0` | Unified hosting and cancellation paths. |
+| `tests_training_ecosystem.py` | `8` | `0` | `0` | Feedback, dataset snapshots, training lifecycle. |
+| `tests_windows_subprocess_and_updater.py` | `10` | `0` | `0` | Windows subprocess encoding, cancellation, updater. |
+| `tests_validators.py` | `6` | `0` | `0` | Input validators. |
+| `tests_formatters.py` | `5` | `0` | `0` | Output formatters. |
