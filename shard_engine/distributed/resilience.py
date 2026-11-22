@@ -219,6 +219,12 @@ def _sanitize_log_value(val, depth=0):
     if depth > 4:
         return "[truncated]"
     if isinstance(val, str):
+        return _SECRET_VAL_RE.sub("[REDACTED]", val)[:200]
+    if isinstance(val, dict):
+        return {k: _sanitize_log_value(v, depth + 1) for k, v in val.items() if not _is_sensitive_key(k)}
+    if isinstance(val, (list, tuple)):
+        return [_sanitize_log_value(x, depth + 1) for x in val[:20]]
+    return val
 class Metrics:
     def __init__(self):
         self._lock = threading.Lock()
