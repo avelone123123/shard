@@ -194,6 +194,7 @@ class RequestScheduler:
             return False
         def _worker():
             gen = None
+            saw_done = False
             try:
                 gen = stream_factory(cancel_ev)
                 for item in gen:
