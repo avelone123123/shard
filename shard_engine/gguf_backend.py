@@ -812,6 +812,7 @@ class LlamaBackend:
         if repetition_penalty is not None and float(repetition_penalty) != 1.0:
             payload["repeat_penalty"] = float(repetition_penalty)
         q = queue.Queue()
+        sess = requests.Session()
         holder = {"resp": None}
         stop = threading.Event()
         def _reader():
