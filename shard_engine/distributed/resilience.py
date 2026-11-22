@@ -82,6 +82,12 @@ class ResiliencePolicy:
         if isinstance(value, bool):
             raise ValueError(f"{key} must be numeric, not boolean")
         fval = float(value)
+        if not math.isfinite(fval):
+            raise ValueError(f"{key} must be a finite number")
+        if isinstance(default, int):
+            if not fval.is_integer():
+                raise ValueError(f"{key} must be an integer")
+            val = int(fval)
         else:
             val = float(value)
         if not isinstance(default, bool) and val < 0:
