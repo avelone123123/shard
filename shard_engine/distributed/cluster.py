@@ -1029,6 +1029,9 @@ class ClusterManager:
                     can_restart = ctx.tokens_delivered == 0
                     if f.resume is not None and (f.resume.generated_ids or f.resume.delivered_text):
                         resume = _res.ResumeState(f.resume.generated_ids, f.resume.delivered_text)
+                    if not (transient and (can_resume or can_restart) and attempt < pol.max_recovery_attempts):
+                        _res.METRICS.event("recovery_not_possible", level=30, request_id=ctx.request_id, code=f.code, backend_kind=kind, tokens_delivered=ctx.tokens_delivered, attempt=attempt)
+                        raise
                     attempt += 1
                     _res.METRICS.inc("recovery_attempts_total")
                     _res.METRICS.inc("retries_total")
