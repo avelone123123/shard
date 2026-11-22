@@ -1142,7 +1142,9 @@ async def anthropic_messages(req: Request):
                                 yield frame
                         completed = True
                         out_toks = item.get("usage", {}).get("completion_tokens", 0)
-                    elif item.get("type") == "error":
+                    elif itype == "cancelled":
+                        return
+                    elif itype == "error":
                         det = _stream_error_detail(item)
                         det["type"] = "overloaded_error" if det.get("code") in ("WORKER_LOST", "CLUSTER_UNAVAILABLE", "RECOVERY_FAILED") else "api_error"
                         yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': det}, ensure_ascii=False)}\n\n"
