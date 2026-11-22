@@ -10,3 +10,9 @@
 ## 1. Actual Git Branch & Commit Information
 
 Independent inspection of the local repository at audit start revealed material discrepancies between the previous report's branch/commit state and actual Git refs:
+
+| Git Attribute | Observed Value at Audit Start | Notes |
+| :--- | :--- | :--- |
+| Initially checked-out branch | `master` | Not `feat/worker-failure-resilience`. Switched to `feat/worker-failure-resilience` before applying audit fixes so `master` was left untouched. |
+| Current `HEAD` commit | `04495bc1efd9c4daf886b98122c056a83312f076` | `docs(resilience): update README.md (3/3) [292/292]` |
+| `feat/worker-failure-resilience` | `04495bc1efd9c4daf886b98122c056a83312f076` | Identical to `master`. |
