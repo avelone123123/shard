@@ -382,7 +382,7 @@ class PipelineCoordinator:
         def _load_idx(idx, runner):
             try:
                 if isinstance(runner, _RemoteStageClient):
-                    reports[idx] = runner.load_stage(self.model_path_or_repo, config_dict=cfg_dict, dtype=self.dtype)
+                    reports[idx] = runner.load_stage(self.model_path_or_repo, config_dict=cfg_dict, dtype=self.dtype, stop_check=lambda: self._stopped)
                 else:
                     reports[idx] = runner.load()
             except Exception as e:
