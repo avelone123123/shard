@@ -286,6 +286,9 @@ class RequestScheduler:
                     continue
                 if kind == "item":
                     yield payload
+                elif kind == "cancelled":
+                    yield {"type": "cancelled", "request_id": payload}
+                    break
                 elif kind == "error":
                     yield {"type": "error", "error": payload.message, "error_detail": payload.to_error()}
                     break
