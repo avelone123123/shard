@@ -706,3 +706,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         self.assertEqual(ev["tokens_delivered"], 7)
         r_prev = remote.get("/api/cluster/preview")
         self.assertEqual(r_prev.status_code, 200)
+        self.assertNotIn("worker_token", r_prev.text)
+        self.assertNotIn("pairing_code", r_prev.text)
+    def test_08_stale_heartbeat_revival_plan_isolation_stale_frames_and_shutdown_race(self):
+        resilience.POLICY.configure(heartbeat_interval_s=0.5, suspect_missed=2, dead_missed=10, recovery_probation_s=0.12, monitor_tick_s=0.05)
+        s_dead = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        p_dead = s_dead.start()
+        CLUSTER.create_cluster(name="StaleHBTest", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        r = CLUSTER.register_worker(worker_id="w_stale_hb", name="WSHB", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p_dead, pipeline_host="127.0.0.1")
+        s_dead.auth_token = r["worker_token"]
+        CLUSTER.deploy_cluster(verify=False)
+        CLUSTER.workers["w_stale_hb"]["last_heartbeat"] = time.time() - 1.2
+        r_plan = self.client.get("/api/cluster/plan", headers=self.owner_hdr)
