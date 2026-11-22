@@ -112,3 +112,9 @@ Verified with strict SSE frame parsers (`_parse_openai_sse`, `_parse_anthropic_s
 
 | Failure Phase | OpenAI `/v1/chat/completions` (`stream=True`) | Anthropic `/v1/messages` (`stream=True`) | Status |
 | :--- | :--- | :--- | :--- |
+| Before HTTP headers (cluster already `DEGRADED`) | HTTP `503` + `Retry-After: 5` JSON `{"error": {"code": "CLUSTER_UNAVAILABLE", ...}}` | HTTP `503` + `Retry-After: 5` JSON `{"type": "error", "error": {"type": "overloaded_error", "code": "CLUSTER_UNAVAILABLE", ...}}` | **VERIFIED** |
+| After headers, before first token (prefill crash) | HTTP `200` SSE: `data: {"error": {"code": "WORKER_LOST", "tokens_delivered": 0, ...}}`, `data: [DONE]`, zero `finish_reason: "stop"` | HTTP `200` SSE: `event: error` (`WORKER_LOST`, `tokens_delivered: 0`), no `content_block_start`, no `end_turn`, no `message_stop` | **VERIFIED** |
+| After 1 token delivered | 1 content chunk + `data: {"error": {"code": "WORKER_LOST", "tokens_delivered": 1}}` + `data: [DONE]`, zero `stop` | `message_start`, `content_block_start`, 1 `content_block_delta`, `event: error` (`tokens_delivered: 1`), zero `end_turn` / `message_stop` | **VERIFIED** |
+| After 3 tokens delivered | 3 content chunks + `data: {"error": {"code": "WORKER_LOST", "tokens_delivered": 3}}` + `data: [DONE]`, zero `stop` | `message_start`, `content_block_start`, 3 `content_block_delta`, `event: error` (`tokens_delivered: 3`), zero `end_turn` / `message_stop` | **VERIFIED** |
+| Network interruption (blackhole / trickle after 1–2 tokens) | `data: {"error": {"code": "WORKER_TIMEOUT", ...}}` + `data: [DONE]`, zero `stop` | `event: error` (`WORKER_TIMEOUT`), zero `end_turn` / `message_stop` | **VERIFIED** |
+| Failure during recovery (`max_recovery_attempts=1`, infeasible) | `data: {"error": {"code": "RECOVERY_FAILED", "recovery_attempted": true, ...}}` + `data: [DONE]` | `event: error` (`RECOVERY_FAILED`, `recovery_attempted: true`), zero `end_turn` / `message_stop` | **VERIFIED** |
