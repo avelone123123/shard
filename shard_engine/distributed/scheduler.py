@@ -236,10 +236,11 @@ class RequestScheduler:
                 failure = exc if isinstance(exc, _res.InferenceFailure) else _res.InferenceFailure("INFERENCE_ERROR", str(exc), request_id=req_id)
                 if failure.request_id is None:
                     failure.request_id = req_id
-                state["ok"] = False
-                state["err"] = failure.message
-                state["code"] = failure.code
-                state["detail"] = failure.to_error()
+                with state_lock:
+                    state["ok"] = False
+                    state["err"] = failure.message
+                    state["code"] = failure.code
+                    state["detail"] = failure.to_error()
                 _res.METRICS.inc("requests_failed_total")
                 _res.METRICS.inc("requests_failed_" + failure.code.lower())
                 _res.METRICS.event("request_failed", level=30, request_id=req_id, code=failure.code, worker_id=failure.worker_id, stage=failure.stage, phase=failure.phase, retryable=failure.retryable, recovery_attempted=failure.recovery_attempted, tokens_delivered=failure.tokens_delivered)
