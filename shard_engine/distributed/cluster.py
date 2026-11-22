@@ -1325,7 +1325,6 @@ class ClusterManager:
             agg_threads = sum(int((n.get("effective") or {}).get("usable_threads") or 0) for n in all_nodes)
             rtts = [float(w["rtt_ms"]) for w in alive_workers if w.get("rtt_ms") is not None]
             avg_rtt = round(sum(rtts) / len(rtts), 2) if rtts else 0.0
-            slots = self._gguf_backend.slots_status() if self._gguf_backend else []
             lw = {
                 "active": bool(self._local_worker.get("active")),
                 "coordinator_url": self._local_worker.get("coordinator_url"),
