@@ -593,7 +593,7 @@ class PipelineCoordinator:
                         yield {"type": "content", "token": delta, "done": False}
                     cur_ids = torch.tensor([[next_id]], dtype=torch.long)
             except _res.RequestCancelled:
-                cancelled = True
+                raise
             except _res.InferenceFailure as failure:
                 failed_at = time.monotonic()
                 failed_worker = failure.worker_id
