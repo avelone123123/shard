@@ -759,6 +759,7 @@ class ClusterManager:
                 spec = dict(self.model_spec or {})
                 worker_tokens = {wid: w["worker_token"] for wid, w in self.workers.items()}
                 cid = self.cluster_id
+                planned_workers = {s["node_id"] for s in (plan.get("stages") or []) if s.get("role") == "worker" and s.get("node_id")}
             self._stop_execution_backends()
             backend_obj = None
             try:
