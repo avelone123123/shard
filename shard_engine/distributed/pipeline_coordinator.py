@@ -562,7 +562,6 @@ class PipelineCoordinator:
         failed_at = None
         failed_worker = None
         try:
-            first = True
             try:
                 for _ in range(max(0, max_new - len(generated_ids))):
                     ctx.poll()
