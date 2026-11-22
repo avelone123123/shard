@@ -34,6 +34,7 @@ class _RemoteStageClient:
         self.worker_id = self.stage_info.get("worker_id") or self.stage_info.get("node_id")
         self.stage_idx = self.stage_info.get("stage_index") if self.stage_info.get("stage_index") is not None else self.stage_info.get("stage_idx")
         self.sock = None
+        self._connecting_sock = None
         self.lock = threading.Lock()
         self.on_failure = None
         self.on_slow_step = None
