@@ -58,7 +58,8 @@ class ResiliencePolicy:
         self._lock = threading.Lock()
         for k, v in _DEFAULTS.items():
             setattr(self, k, v)
-        for k, v in _DEFAULTS.items():
+        env_updates = {}
+        for k in _DEFAULTS:
             raw = os.environ.get("SHARD_RESILIENCE_" + k.upper())
             if raw is not None:
                 self._set(k, raw)
