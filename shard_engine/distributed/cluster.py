@@ -233,7 +233,7 @@ class ClusterManager:
             self._inflight[id(ctx)] = ctx
     def _unregister_execution(self, ctx):
         with self._inflight_lock:
-            self._inflight.pop(ctx.request_id, None)
+            self._inflight.pop(id(ctx), None)
     def _abort_executions(self, worker_id, failure):
         with self._inflight_lock:
             ctxs = [c for c in self._inflight.values() if worker_id is None or worker_id in c.workers]
