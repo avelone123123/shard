@@ -1082,7 +1082,10 @@ class ClusterManager:
                 self._ready_to_promote.clear()
                 capacity = self._capacity_returned
                 self._capacity_returned = False
-                assigned = {wid for wid, _ in lost if (self.workers.get(wid) or {}).get("assigned_stage")}
+                assigned = {wid for wid, _ in lost if self._is_worker_serving_locked(wid)}
+            for wid in promote_ids:
+                if self._try_promote_recovering_worker(wid):
+                    capacity = True
             for wid, age in lost:
                 if wid in assigned:
                     self._handle_assigned_worker_lost(wid, f"no heartbeat for {age:.1f}s", "WORKER_LOST")
