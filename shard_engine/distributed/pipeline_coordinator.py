@@ -406,6 +406,12 @@ class PipelineCoordinator:
             if self._stopped:
                 errors.append("PipelineCoordinator stopped during load")
             for i, rep in enumerate(reports):
+                if rep is None and not any(e.startswith(f"Stage {i}:") for e in errors):
+                    errors.append(f"Stage {i}: load produced no report")
+            if errors:
+                for r in runners:
+                    try:
+                        r.abort()
     def stop(self):
         self._stopped = True
         with self._lock:
