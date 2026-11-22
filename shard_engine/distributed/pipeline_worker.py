@@ -389,7 +389,8 @@ class PipelineWorkerServer:
                 if not readable:
                     continue
                 mtype, _, payload = proto.recv_frame(conn)
-                self._bytes_rx += len(payload)
+                with self._stage_lock:
+                    self._bytes_rx += len(payload)
                 if mtype == proto.MSG_PING:
                     proto.send_json_frame(conn, proto.MSG_PONG, self.stats())
                 elif mtype == proto.MSG_BW_PROBE:
