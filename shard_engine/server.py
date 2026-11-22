@@ -3102,7 +3102,7 @@ async def api_server_chat_send(req: Request):
     if not cls_coord and not cls_ready and not engine_instance.is_loaded():
         return JSONResponse(status_code=503, content={"status": "error", "message": "Модель не загружена на сервере"})
     try:
-        if cls_ready:
+        if cls_coord or cls_ready:
             res = await SCHEDULER.run_sync_async(
                 lambda cancel_ev: CLUSTER.generate_stream(history_msgs, max_tokens=max_tokens, temperature=temperature, cancel_check=cancel_ev.is_set, request_id=getattr(cancel_ev, "request_id", None), deadline_s=getattr(cancel_ev, "deadline_s", None)),
                 client_key=f"chat:{pid}",
