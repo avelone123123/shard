@@ -1023,6 +1023,8 @@ async def chat_completions(req: Request):
                         }
                         yield f"data: {json.dumps(final_payload, ensure_ascii=False)}\n\n"
                         yield "data: [DONE]\n\n"
+            except RequestCancelled:
+                return
             except RateLimitError as e:
                 yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'rate_limit_error', 'code': 'RATE_LIMIT'}})}\n\n"
                 yield "data: [DONE]\n\n"
