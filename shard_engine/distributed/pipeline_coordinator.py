@@ -347,6 +347,8 @@ class PipelineCoordinator:
     def start(self):
         if not _TORCH_READY:
             raise RuntimeError("PyTorch and transformers are required for PipelineCoordinator")
+        if self._stopped:
+            raise RuntimeError("PipelineCoordinator was stopped before start")
         stages = list(self.plan.get("stages") or [])
         if not stages:
             raise RuntimeError("Partition plan contains no stages")
