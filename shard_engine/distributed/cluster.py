@@ -691,6 +691,7 @@ class ClusterManager:
                 return False, "Unknown or revoked worker"
             return True, {"cluster_state": self.state, "assigned_stage": w.get("assigned_stage"), "worker_state": w.get("state"), "heartbeat_interval_s": _res.POLICY.heartbeat_interval_s}
     def leave_worker(self, worker_id, worker_token):
+        wid = str(worker_id or "")
         with self._lock:
             w = self.workers.get(str(worker_id or ""))
             if not w:
