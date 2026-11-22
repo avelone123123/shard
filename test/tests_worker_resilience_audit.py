@@ -430,3 +430,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
     def test_04_graceful_shutdown_blackhole_and_slow_trickle_mid_generation(self):
         resilience.POLICY.configure(max_recovery_attempts=0, prefill_timeout_s=1.0, decode_step_timeout_s=0.35, poll_slice_s=0.04, enable_resume=False)
         s_bh = _AuditPeerServer(mode="blackhole_after", good_forwards=2)
+        s_bh.start()
+        self._servers.append(s_bh)
+        self._mount_single_peer("w_bh_mid", s_bh, coord_contrib=False)
+        t0 = time.monotonic()
+        with self.client.stream("POST", "/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello"}], "max_tokens": 6, "stream": True}) as resp:
+            parsed = _parse_openai_sse("".join(resp.iter_text()))
+        self.assertLess(time.monotonic() - t0, 2.0)
+        self.assertEqual(len(parsed["tokens"]), 2)
+        self.assertEqual(len(parsed["errors"]), 1)
+        self.assertEqual(parsed["errors"][0]["code"], "WORKER_TIMEOUT")
+        self.assertEqual(parsed["errors"][0]["worker_id"], "w_bh_mid")
+        self.assertEqual(parsed["errors"][0]["stage"], 0)
