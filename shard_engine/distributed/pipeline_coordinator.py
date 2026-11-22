@@ -579,7 +579,7 @@ class PipelineCoordinator:
                     total_compute_ms += hop_stats["compute_ms"]
                     total_transfer_ms += hop_stats["transfer_ms"]
                     total_bytes += hop_stats["transferred_bytes"]
-                    next_id = self._sample_next(logits[0, -1, :], temperature=temperature)
+                    next_id = self._sample_next(logits[0, -1, :], temperature=temperature, top_p=top_p, top_k=top_k, repetition_penalty=repetition_penalty, generated_ids=generated_ids)
                     if ttft_ms is None:
                         ttft_ms = round((time.perf_counter() - t_start) * 1000.0, 2)
                     if eos_id is not None and next_id == eos_id:
