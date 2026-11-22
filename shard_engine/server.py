@@ -1617,7 +1617,7 @@ def api_cluster_plan(req: Request):
     ok, _ = _is_cluster_authorized(req)
     if not ok:
         return JSONResponse(status_code=403, content={"status": "error", "message": "Authorization required"})
-    return {"status": "ok", "plan": CLUSTER.recompute_plan()}
+    return {"status": "ok", "plan": CLUSTER.recompute_plan(commit=False)}
 @app.get("/api/cluster/telemetry")
 def api_cluster_telemetry(req: Request):
     ok, _ = _is_cluster_authorized(req)
