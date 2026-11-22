@@ -627,7 +627,7 @@ class PipelineCoordinator:
             "transferred_bytes": total_bytes,
             "stages": len(self.runners),
             "resumed_after_failure": resumed,
-            "cancelled": cancelled,
+            "cancelled": False,
         }
         self.last_metrics = metrics
         yield {
