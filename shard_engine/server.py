@@ -995,7 +995,7 @@ async def chat_completions(req: Request):
                             "choices": [{"index": 0, "delta": {"reasoning_content": item["token"]}, "finish_reason": None}]
                         }
                         yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                    elif item.get("type") == "content":
+                    elif itype == "content":
                         delta_payload = {
                             "id": cid,
                             "object": "chat.completion.chunk",
