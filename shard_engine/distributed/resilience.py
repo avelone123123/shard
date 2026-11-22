@@ -95,6 +95,12 @@ class ResiliencePolicy:
             raise ValueError(f"{key} must be between {lo} and {hi}")
         return val
     def configure(self, **kw):
+        updates = {}
+        for k, v in kw.items():
+            if k not in _DEFAULTS:
+                raise KeyError(f"Unknown resilience setting: {k}")
+            if v is not None:
+                updates[k] = self._parse_value(k, v)
         with self._lock:
             for k, v in kw.items():
                 if k not in _DEFAULTS:
