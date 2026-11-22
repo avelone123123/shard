@@ -1000,7 +1000,7 @@ class ClusterManager:
                     if kind == "pipeline":
                         stream = backend.generate_stream(messages, max_tokens=max_tokens, temperature=temperature, ctx=ctx, resume=resume, top_p=top_p, top_k=top_k, repetition_penalty=repetition_penalty)
                     else:
-                        stream = self._gguf_stream(backend, messages, max_tokens, temperature, ctx)
+                        stream = self._gguf_stream(backend, messages, max_tokens, temperature, ctx, top_p=top_p, top_k=top_k, repetition_penalty=repetition_penalty)
                     for ev in stream:
                         yield ev
                     if attempt > 0:
