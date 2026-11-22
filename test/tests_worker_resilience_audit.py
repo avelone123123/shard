@@ -646,3 +646,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         bad_payloads = [
             {"decode_step_timeout_s": "nan"},
             {"decode_step_timeout_s": "inf"},
+            {"monitor_tick_s": 0},
+            {"poll_slice_s": 0},
+            {"poll_slice_s": 1e-6},
+            {"connect_timeout_s": 0},
+            {"decode_step_timeout_s": True},
+            {"enable_resume": "maybe"},
+            {"dead_missed": 2.5},
+            {"max_recovery_attempts": 999},
+            {"suspect_missed": 5, "dead_missed": 3},
+            {"unknown_field": 1},
+        ]
+        for body in bad_payloads:
