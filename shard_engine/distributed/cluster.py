@@ -352,7 +352,8 @@ class ClusterManager:
             _res.METRICS.event("reform_failed", level=40, error=str(e)[:160], failures=self._reform_failures)
         finally:
             with self._lock:
-                self._reform_active = False
+                if self._cluster_epoch == epoch:
+                    self._reform_active = False
             self._rebalance_needed.set()
     def _cluster_available(self):
         try:
