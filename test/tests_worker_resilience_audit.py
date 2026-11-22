@@ -586,3 +586,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         dep_done = threading.Event()
         def _dep():
             try:
+                CLUSTER.deploy_cluster(verify=False)
+            except Exception:
+                pass
+            dep_done.set()
+        threading.Thread(target=_dep, daemon=True).start()
+        time.sleep(0.2)
+        t_stop = time.monotonic()
+        CLUSTER.stop_cluster()
+        self.assertTrue(dep_done.wait(timeout=1.0))
+        self.assertLess(time.monotonic() - t_stop, 1.0)
+        resilience.POLICY.configure(prefill_timeout_s=0.5, decode_step_timeout_s=0.5, poll_slice_s=0.05, max_recovery_attempts=0)
+        s_cpu = _ScriptedPeerServer(behavior="blackhole")
