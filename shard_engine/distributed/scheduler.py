@@ -315,6 +315,7 @@ class RequestScheduler:
         usage = {}
         telemetry = {}
         err_item = None
+        cancel_item = None
         async for item in self.stream_async(
             stream_factory,
             client_key=client_key,
