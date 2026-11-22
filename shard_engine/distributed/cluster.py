@@ -1194,6 +1194,7 @@ class ClusterManager:
     def _worker_hb_loop(self):
         import requests
         hb_interval = _res.POLICY.heartbeat_interval_s
+        hb_seq = 0
         while True:
             with self._lock:
                 lw = dict(self._local_worker)
