@@ -230,7 +230,7 @@ class ClusterManager:
         return out
     def _register_execution(self, ctx):
         with self._inflight_lock:
-            self._inflight[ctx.request_id] = ctx
+            self._inflight[id(ctx)] = ctx
     def _unregister_execution(self, ctx):
         with self._inflight_lock:
             self._inflight.pop(ctx.request_id, None)
