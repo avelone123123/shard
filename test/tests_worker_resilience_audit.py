@@ -598,3 +598,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         self.assertLess(time.monotonic() - t_stop, 1.0)
         resilience.POLICY.configure(prefill_timeout_s=0.5, decode_step_timeout_s=0.5, poll_slice_s=0.05, max_recovery_attempts=0)
         s_cpu = _ScriptedPeerServer(behavior="blackhole")
+        s_cpu.start()
+        self._servers.append(s_cpu)
+        self._mount_single_peer("wcpu", s_cpu, coord_contrib=False)
+        cpu0 = time.process_time()
+        wall0 = time.monotonic()
+        with self.assertRaises(resilience.InferenceFailure) as fe_cpu:
+            list(CLUSTER.generate_stream([{"role": "user", "content": "hello"}], max_tokens=2))
+        wall_dt = time.monotonic() - wall0
+        cpu_dt = time.process_time() - cpu0
+        self.assertEqual(fe_cpu.exception.code, "WORKER_TIMEOUT")
+        self.assertGreaterEqual(wall_dt, 0.45)
+        self.assertLess(cpu_dt, 0.25)
