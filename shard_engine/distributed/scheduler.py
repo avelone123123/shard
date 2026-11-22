@@ -199,7 +199,8 @@ class RequestScheduler:
                 gen = stream_factory(cancel_ev)
                 for item in gen:
                     if cancel_ev.is_set():
-                        state["cancelled"] = True
+                        with state_lock:
+                            state["cancelled"] = True
                         break
                     if (time.perf_counter() - t_dispatch) > eff_timeout:
                         raise _deadline_failure()
