@@ -810,6 +810,7 @@ class LlamaBackend:
         if top_k is not None:
             payload["top_k"] = int(top_k)
         if repetition_penalty is not None and float(repetition_penalty) != 1.0:
+            payload["repeat_penalty"] = float(repetition_penalty)
         q = queue.Queue()
         holder = {"resp": None}
         stop = threading.Event()
