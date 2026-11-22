@@ -1149,6 +1149,8 @@ async def anthropic_messages(req: Request):
                         det["type"] = "overloaded_error" if det.get("code") in ("WORKER_LOST", "CLUSTER_UNAVAILABLE", "RECOVERY_FAILED") else "api_error"
                         yield f"event: error\ndata: {json.dumps({'type': 'error', 'error': det}, ensure_ascii=False)}\n\n"
                         return
+            except RequestCancelled:
+                return
             except (RateLimitError, QueueFullError) as e:
                 err_ev = {"type": "error", "error": {"type": "overloaded_error", "message": str(e)}}
                 yield f"event: error\ndata: {json.dumps(err_ev, ensure_ascii=False)}\n\n"
