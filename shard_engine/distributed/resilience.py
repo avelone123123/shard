@@ -240,7 +240,7 @@ class Metrics:
     def event(self, _event_name, level=logging.INFO, **fields):
         clean = {}
         for k, v in fields.items():
-            if any(s == k.lower() for s in _SENSITIVE):
+            if _is_sensitive_key(k):
                 continue
             clean[k] = v[:200] if isinstance(v, str) else v
         rec = {"event": _event_name, "ts": round(time.time(), 3), **clean}
