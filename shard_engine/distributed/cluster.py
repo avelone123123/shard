@@ -693,7 +693,7 @@ class ClusterManager:
     def leave_worker(self, worker_id, worker_token):
         wid = str(worker_id or "")
         with self._lock:
-            w = self.workers.get(str(worker_id or ""))
+            w = self.workers.get(wid)
             if not w:
                 return False
             expected = str(w.get("worker_token") or "")
