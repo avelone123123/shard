@@ -166,3 +166,9 @@ Additionally, `git diff ff1155c..04495bc -- dashboard.html shard_engine/dashboar
 **Verdict:** Both failures are **PROVEN PRE-EXISTING** and unrelated to `feat/worker-failure-resilience`. Neither test was modified or suppressed.
 
 ---
+
+## 8. Security & Concurrency Audit Findings
+
+| Area | Pre-Audit Vulnerability / Race on `04495bc` | Fix Applied | Verification |
+| :--- | :--- | :--- | :--- |
+| Policy endpoint input validation | `NaN`/`Infinity` passed `val < 0` check, crashed FastAPI with `ValueError` (HTTP 500), and permanently poisoned `POLICY` so `GET /api/cluster/resilience` also crashed. Non-dict JSON (`[1,2]`) crashed with `AttributeError`. Invalid JSON silently succeeded (`200`). `monitor_tick_s=0` and `poll_slice_s=1e-9` caused CPU busy loops. `connect_timeout_s=0` put sockets into non-blocking mode. | Added `_BOUNDS`, finite float check, boolean rejection for numeric keys, strict boolean parsing, atomic validate-then-commit `configure()`, HTTP 400 on invalid/non-object JSON in `server.py`. | **VERIFIED** (`test_07`) |
