@@ -370,3 +370,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         stream = CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=6, temperature=0.0)
         pre_kill = []
         for ev in stream:
+            if ev.get("type") == "content":
+                pre_kill.append(ev["token"])
+                if len(pre_kill) == 2:
+                    hb2.set()
+                    proc2.kill()
+                    proc2.wait(timeout=3.0)
+                    break
+        post_kill = []
+        done_evs = []
+        for ev in stream:
+            if ev.get("type") == "content":
+                post_kill.append(ev["token"])
