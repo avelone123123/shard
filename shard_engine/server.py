@@ -1004,7 +1004,9 @@ async def chat_completions(req: Request):
                             "choices": [{"index": 0, "delta": {"content": item["token"]}, "finish_reason": None}]
                         }
                         yield f"data: {json.dumps(delta_payload, ensure_ascii=False)}\n\n"
-                    elif item.get("type") == "error":
+                    elif itype == "cancelled":
+                        return
+                    elif itype == "error":
                         err_payload = {"error": _stream_error_detail(item)}
                         yield f"data: {json.dumps(err_payload, ensure_ascii=False)}\n\n"
                         yield "data: [DONE]\n\n"
