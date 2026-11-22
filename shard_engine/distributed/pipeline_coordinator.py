@@ -87,6 +87,12 @@ class _RemoteStageClient:
                 if self._connecting_sock is s:
                     self._connecting_sock = None
             self.sock = s
+    def _drop_sock(self):
+        s = self.sock
+        self.sock = None
+        cs = self._connecting_sock
+        self._connecting_sock = None
+        self._close_sock_obj(s)
     def abort(self):
         self._closed_by_us = True
         self._drop_sock()
