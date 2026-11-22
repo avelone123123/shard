@@ -70,3 +70,15 @@ def _parse_anthropic_sse(raw_text):
         if obj.get("type") == "content_block_delta":
             txt = (obj.get("delta") or {}).get("text")
             if txt:
+                tokens.append(txt)
+        elif obj.get("type") == "message_delta":
+            sr = (obj.get("delta") or {}).get("stop_reason")
+            if sr:
+                stop_reasons.append(sr)
+        elif obj.get("type") == "error":
+            errors.append(obj.get("error") or {})
+    return {"events": events, "tokens": tokens, "errors": errors, "stop_reasons": stop_reasons}
+class _AuditPeerServer:
+    def __init__(self, mode="blackhole_after", good_forwards=2, trickle_interval_s=0.03, vocab_size=8):
+        self.mode = mode
+        self.good_forwards = int(good_forwards)
