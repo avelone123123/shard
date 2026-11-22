@@ -199,7 +199,7 @@ class _RemoteStageClient:
         frame_bytes = proto.encode_tensor_payload(meta, tensor)
         timeout_s = self.policy.prefill_timeout_s if phase == "prefill" else self.policy.decode_step_timeout_s
         t0 = time.perf_counter()
-        mtype, _, resp_payload = self._roundtrip(lambda s: proto.send_frame(s, proto.MSG_FORWARD, frame_bytes), ctx, timeout_s, phase)
+        mtype, _, resp_payload = self._roundtrip(lambda s, poll: proto.send_frame_poll(s, proto.MSG_FORWARD, frame_bytes, poll), ctx, timeout_s, phase)
         total_ms = (time.perf_counter() - t0) * 1000.0
         if mtype == proto.MSG_ERROR:
             self._drop_sock()
