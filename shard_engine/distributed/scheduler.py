@@ -211,6 +211,7 @@ class RequestScheduler:
                                 state["ttft_ms"] = round((time.perf_counter() - t_dispatch) * 1000.0, 2)
                         self.record_token(req_id, 1)
                     elif itype == "done":
+                        saw_done = True
                         tel = item.get("telemetry") or {}
                         if tel.get("ttft_ms") is not None:
                             state["ttft_ms"] = float(tel["ttft_ms"])
