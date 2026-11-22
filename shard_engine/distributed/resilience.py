@@ -207,7 +207,12 @@ class CancelEvent(threading.Event):
         super().__init__()
         self.request_id = request_id
         self.deadline_s = deadline_s
-_SENSITIVE = ("prompt", "messages", "content", "token", "worker_token", "api_key", "authorization", "key", "secret")
+_SAFE_LOG_KEYS = frozenset({"tokens_delivered", "prompt_tokens", "completion_tokens", "total_tokens"})
+_SENSITIVE_SUBSTR = ("prompt", "message", "content", "token", "secret", "password", "passwd", "api_key", "apikey", "authorization", "cookie", "credential", "pairing", "private_key", "key")
+_SECRET_VAL_RE = re.compile(r"(?:sk-shard-[A-Za-z0-9_\-]+|Bearer\s+\S+)", re.IGNORECASE)
+def _is_sensitive_key(k):
+    low = str(k or "").lower()
+    if low in _SAFE_LOG_KEYS:
 class Metrics:
     def __init__(self):
         self._lock = threading.Lock()
