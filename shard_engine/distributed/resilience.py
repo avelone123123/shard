@@ -45,6 +45,12 @@ _BOUNDS = {
     "release_timeout_s": (0.05, 60.0),
     "poll_slice_s": (0.005, 5.0),
     "slow_step_warn_s": (0.01, 3600.0),
+    "stall_timeout_s": (0.05, 3600.0),
+    "request_deadline_s": (0.0, 86400.0),
+    "max_recovery_attempts": (0, 10),
+    "recovery_wait_s": (0.05, 600.0),
+    "retry_backoff_s": (0.0, 60.0),
+    "retry_backoff_max_s": (0.0, 300.0),
 class ResiliencePolicy:
     def __init__(self, **overrides):
         self._lock = threading.Lock()
