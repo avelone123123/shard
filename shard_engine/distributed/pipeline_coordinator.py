@@ -537,7 +537,7 @@ class PipelineCoordinator:
                 fallback_id = self.tokenizer.bos_token_id or self.tokenizer.eos_token_id or 0
                 input_ids = torch.tensor([[int(fallback_id)]], dtype=torch.long)
         return input_ids
-    def generate_stream(self, messages, max_tokens=256, temperature=0.7, cancel_check=None, ctx=None, resume=None, request_id=None, deadline_s=None):
+    def generate_stream(self, messages, max_tokens=256, temperature=0.7, cancel_check=None, ctx=None, resume=None, request_id=None, deadline_s=None, top_p=0.95, top_k=None, repetition_penalty=1.0):
         if ctx is None:
             ctx = _res.ExecutionContext(request_id, cancel_check, deadline_s)
         if not self.is_running():
