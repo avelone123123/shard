@@ -1014,12 +1014,6 @@ class ClusterManager:
                     f.request_id = ctx.request_id
                     f.tokens_delivered = ctx.tokens_delivered
                     f.recovery_attempted = f.recovery_attempted or attempt > 0
-                    f.cluster_available = self._cluster_available()
-                    transient = f.code in ("WORKER_LOST", "WORKER_TIMEOUT", "WORKER_STALLED", "STALE_RESPONSE", "BACKEND_ERROR", "CLUSTER_UNAVAILABLE")
-                    can_resume = kind == "pipeline" and pol.enable_resume
-                    can_restart = ctx.tokens_delivered == 0
-                    if not (transient and (can_resume or can_restart) and attempt < pol.max_recovery_attempts):
-                        _res.METRICS.event("recovery_not_possible", level=30, request_id=ctx.request_id, code=f.code, backend_kind=kind, tokens_delivered=ctx.tokens_delivered, attempt=attempt)
                         raise
                     if kind == "gguf" and f.code in ("BACKEND_ERROR", "WORKER_STALLED"):
                         self._probe_assigned_workers()
