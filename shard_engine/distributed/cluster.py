@@ -627,7 +627,7 @@ class ClusterManager:
             self._handle_assigned_worker_lost(wid, "worker re-registered", "WORKER_LOST")
         self.recompute_plan()
         return {"status": "ok", "worker_id": wid, "worker_token": tok, "cluster_id": self.cluster_id, "plan": self.plan}
-    def heartbeat_worker(self, worker_id, worker_token, hw=None, quota=None, workload=None, rtt_ms=None, bandwidth_mbps=None):
+    def heartbeat_worker(self, worker_id, worker_token, hw=None, quota=None, workload=None, rtt_ms=None, bandwidth_mbps=None, hb_seq=None, sent_at=None):
         now = time.time()
         pol = _res.POLICY
         with self._lock:
