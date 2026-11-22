@@ -726,8 +726,7 @@ class ClusterManager:
                 if w and w.get("tunnel_peer"):
                     self.blocked_ids.add(w["tunnel_peer"])
             tpeer = w.get("tunnel_peer") if w else None
-            was_assigned = bool(w and w.get("assigned_stage"))
-        if was_assigned:
+        if was_assigned and w is not None:
             self._handle_assigned_worker_lost(wid, "worker was removed by the owner", "WORKER_LOST")
         if tpeer:
             try:
