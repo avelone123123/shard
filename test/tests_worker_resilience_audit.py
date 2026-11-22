@@ -286,3 +286,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             if SCHEDULER.telemetry()["active_requests"] == 0 and CLUSTER.resilience_status()["inflight"] == []:
                 break
             time.sleep(0.03)
+        self.assertEqual(SCHEDULER.telemetry()["active_requests"], 0)
+        self.assertEqual(CLUSTER.resilience_status()["inflight"], [])
+    def test_01_resume_state_context_replay_sampling_multi_retry_and_isolation(self):
+        resilience.POLICY.configure(max_recovery_attempts=2, recovery_wait_s=6.0, retry_backoff_s=0.05, heartbeat_interval_s=0.3, monitor_tick_s=0.06, poll_slice_s=0.04, enable_resume=True)
+        s1 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        s2 = pipeline_worker.PipelineWorkerServer(host="127.0.0.1", port=0, max_threads=2, allow_cuda=False)
+        p1, p2 = s1.start(), s2.start()
+        self._servers.extend([s1, s2])
+        CLUSTER.create_cluster(name="SamplingResume", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=4, open_net=True, coordinator_contributes=True, auto_deploy=False, fetch_model_meta=False)
+        r1 = CLUSTER.register_worker(worker_id="w1", name="W1", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p1, pipeline_host="127.0.0.1")
+        r2 = CLUSTER.register_worker(worker_id="w2", name="W2", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p2, pipeline_host="127.0.0.1")
+        s1.auth_token, s2.auth_token = r1["worker_token"], r2["worker_token"]
