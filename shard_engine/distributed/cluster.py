@@ -262,7 +262,7 @@ class ClusterManager:
             w = self.workers.get(wid)
             if w is not None and not w.get("revoked"):
                 changed = self._set_worker_state_locked(w, _res.FAILED, reason)
-                assigned = bool(w.get("assigned_stage"))
+                assigned = self._is_worker_serving_locked(wid)
         if assigned:
             self._handle_assigned_worker_lost(wid, reason, code)
         return changed
