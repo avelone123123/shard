@@ -154,3 +154,9 @@ Verified with strict SSE frame parsers (`_parse_openai_sse`, `_parse_anthropic_s
 
 ## 7. Regression Baseline Comparison (`tests_phase_i_product_hardening.py`)
 
+To verify whether the two failures noted in the previous report were pre-existing, `test/tests_phase_i_product_hardening.py` was executed against the actual base commit (`ff1155c`) in a clean isolated `git worktree` and against `feat/worker-failure-resilience` in the exact same Python environment:
+
+| Run Target | Command | Exit Code | Duration | Passed / Failed | Exact Failing Assertions |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Base commit `ff1155c` (isolated worktree `%TEMP%\shard_audit_base_ff1155c`) | `python -m unittest test/tests_phase_i_product_hardening.py -v` | `1` | `7.885s` | `7 passed / 2 failed` | `test_06`: `'D:\\shard-models\\hub\\models--Qwen--Qwen2.5-Coder-1.5B-Instruct\\snapshots\\2e1fd397ee46e1388853d2af2c993145b0f1098a' != 'Qwen/Qwen2.5-Coder-1.5B-Instruct'`<br>`test_09`: `dashboard.html` bytes != `shard_engine/dashboard.html` bytes (`clusterJoinModalBackdrop` present in package copy, absent in root copy). |
+| Feature branch `feat/worker-failure-resilience` (`04495bc`) | `python -m unittest test/tests_phase_i_product_hardening.py -v` | `1` | `2.966s` | `7 passed / 2 failed` | Byte-for-byte identical failure in `test_06` and identical divergence in `test_09`. |
