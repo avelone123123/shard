@@ -76,3 +76,9 @@ Specifically, on recovery after `k >= 1` tokens were generated:
 
 - **Latency spike on recovery:** Rebuilding KV caches requires re-prefilling `[prompt + generated_ids]` ($O((P + K)^2)$ attention cost) plus cluster reform and stage weight loading time.
 - **Stochastic divergence:** Because RNG state is not checkpointed, `temperature > 0.05` trajectories diverge statistically after the failure point while remaining coherent with the exact delivered prefix.
+- **Numerical precision shift on heterogeneous failover:** Moving layers from GPU `float16` to CPU `float32` (or vice versa) can introduce small logit differences.
+- **Telemetry accounting:** `ttft_ms` and `compute_ms` in the final `done` event reflect the recovered `PipelineCoordinator` attempt, while `usage.completion_tokens` reflects the complete `len(generated_ids)`.
+
+---
+
+## 4. Real Mid-Generation Failure Test Results
