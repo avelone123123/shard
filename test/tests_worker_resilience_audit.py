@@ -478,3 +478,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             if ev.get("type") == "content":
                 got.append(ev["token"])
                 if len(got) == 2:
+                    hb2.set()
+                    CLUSTER.leave_worker("gw2", r2["worker_token"])
+                    s2.stop()
+                    break
+        for ev in st:
+            if ev.get("type") == "content":
+                got.append(ev["token"])
+        self.assertEqual(got, base)
+        self.assertEqual(CLUSTER.workers["gw1"]["state"], resilience.HEALTHY)
+        self._assert_clean_resources()
+    def test_05_sse_protocol_matrix_openai_and_anthropic(self):
+        CLUSTER.create_cluster(name="PreHeader", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
