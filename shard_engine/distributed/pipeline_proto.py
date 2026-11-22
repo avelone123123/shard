@@ -75,6 +75,10 @@ def send_exact_poll(sock, data, poll):
         sent += n
 def send_frame_poll(sock, msg_type, payload, poll, flags=0):
     data = bytes(payload)
+    if len(data) > MAX_FRAME_BYTES:
+        raise ProtocolError(f"Frame exceeds max size ({len(data)})")
+    hdr = _HDR_STRUCT.pack(MAGIC, PROTO_VER, int(msg_type), int(flags), len(data))
+    send_exact_poll(sock, hdr + data, poll)
 def recv_frame_poll(sock, poll):
     hdr = recv_exact_poll(sock, _HDR_STRUCT.size, poll)
     magic, ver, msg_type, flags, length = _HDR_STRUCT.unpack(hdr)
