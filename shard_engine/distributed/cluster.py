@@ -913,7 +913,7 @@ class ClusterManager:
             elif kind == "truncated":
                 raise _fail("BACKEND_ERROR", "Inference backend closed the stream before completion")
             elif kind == "error":
-                raise _fail("BACKEND_ERROR", f"Inference backend error: {str(payload)[:160]}")
+                raise _fail("BACKEND_ERROR", "Inference backend connection failed during generation")
             elif kind == "usage" and isinstance(payload, dict):
                 usage = payload
         for ev_type, ev_tok in sanitizer.flush():
