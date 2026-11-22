@@ -208,3 +208,9 @@ All fixes were implemented directly on `feat/worker-failure-resilience` with min
 4. **GGUF Mid-Generation Resume Unsupported After Token 1:** `llama-server` manages KV state internally in C++; failures after `tokens_delivered > 0` terminate explicitly with structured errors rather than resuming.
 5. **Synchronous Worker PyTorch Kernel Execution:** While the coordinator bounds step waits and closes sockets on timeout/cancellation, an already-executing synchronous PyTorch forward op inside `PipelineWorkerServer` finishes its current layer pass before observing the closed socket.
 6. **Single Coordinator Failure Domain:** `ResumeState` lives in coordinator memory; if the coordinator process itself crashes, client connections drop and cannot resume across coordinator restart.
+7. **Verification Scope Boundaries:** Official `openai`/`anthropic` Python SDK packages were not installed locally; remote GitHub Actions CI was not executed; separate physical multi-machine WAN/LAN hosts were not tested (all tests ran on localhost Windows 11 with real OS subprocesses and loopback TCP sockets).
+
+---
+
+## 11. Final Test Results & Capability Classification
+
