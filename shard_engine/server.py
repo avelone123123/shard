@@ -1140,6 +1140,7 @@ async def anthropic_messages(req: Request):
                             started = True
                             for frame in _start_frames():
                                 yield frame
+                        completed = True
                         out_toks = item.get("usage", {}).get("completion_tokens", 0)
                     elif item.get("type") == "error":
                         det = _stream_error_detail(item)
