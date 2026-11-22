@@ -574,3 +574,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         plan_auth = {"feasible": True, "strategy": "torch_pipeline_parallel", "stages": [{"stage_index": 0, "node_id": "wa", "worker_id": "wa", "role": "worker", "endpoint": f"127.0.0.1:{s_auth.port}", "layer_start": 0, "layer_end": 4, "has_embed": True, "has_lm_head": True}]}
         pc_auth = pipeline_coordinator.PipelineCoordinator(self.model_dir, plan_auth, worker_tokens={"wa": "t"}, cluster_id="c")
         t0 = time.monotonic()
+        with self.assertRaises(RuntimeError):
+            pc_auth.start()
+        self.assertLess(time.monotonic() - t0, 1.5)
+        pc_auth.stop()
+        s_hl = _ScriptedPeerServer(behavior="hang_on_load")
+        s_hl.start()
+        self._servers.append(s_hl)
+        CLUSTER.create_cluster(name="LoadAbort", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=1, open_net=True, coordinator_contributes=False, auto_deploy=False, fetch_model_meta=False)
+        CLUSTER.register_worker(worker_id="whl", name="WHL", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=s_hl.port, pipeline_host="127.0.0.1")
+        dep_done = threading.Event()
+        def _dep():
+            try:
