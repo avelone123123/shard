@@ -497,7 +497,12 @@ class PipelineCoordinator:
             parts.append(f"<|im_start|>{role}\n{c}<|im_end|>")
         parts.append("<|im_start|>assistant\n")
         return "\n".join(parts)
-    def _sample_next(self, logits_1d, temperature=0.7, top_p=0.95):
+    def _sample_next(self, logits_1d, temperature=0.7, top_p=0.95, top_k=None, repetition_penalty=1.0, generated_ids=None):
+        logits = logits_1d.clone()
+        rp = float(repetition_penalty) if repetition_penalty is not None else 1.0
+        if rp > 1.0 and generated_ids:
+            vocab = logits.shape[-1]
+            for tid in set(int(x) for x in generated_ids):
         if temperature is None or float(temperature) <= 0.05:
             return int(torch.argmax(logits_1d, dim=-1).item())
         scaled = logits_1d / max(0.05, float(temperature))
