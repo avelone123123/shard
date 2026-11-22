@@ -321,6 +321,7 @@ class PipelineCoordinator:
         self.tokenizer = None
         self.config = None
         self.runners = []
+        self._loading_runners = []
         self.stage_reports = []
         self.on_worker_failure = None
         self.on_slow_step = None
