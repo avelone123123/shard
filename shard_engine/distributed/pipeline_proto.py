@@ -63,6 +63,10 @@ def send_exact_poll(sock, data, poll):
     view = memoryview(data)
     sent = 0
     total = len(view)
+    while sent < total:
+        poll()
+        try:
+            n = sock.send(view[sent:sent + 65536])
 def recv_frame_poll(sock, poll):
     hdr = recv_exact_poll(sock, _HDR_STRUCT.size, poll)
     magic, ver, msg_type, flags, length = _HDR_STRUCT.unpack(hdr)
