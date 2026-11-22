@@ -166,3 +166,15 @@ class _AuditPeerServer:
                             body = proto.encode_tensor_payload(out_meta, logits)
                             hdr = proto._HDR_STRUCT.pack(proto.MAGIC, proto.PROTO_VER, proto.MSG_FORWARD_RES, 0, len(body))
                             raw = hdr + body
+                            for i in range(len(raw)):
+                                if self.stop_ev.is_set():
+                                    return
+                                conn.sendall(raw[i:i + 1])
+                                self.stop_ev.wait(self.trickle_interval_s)
+                            continue
+                        if self.mode == "drop_after":
+                            return
+                    out_meta = {"request_id": meta.get("request_id"), "seq": meta.get("seq"), "execution_id": meta.get("execution_id"), "stage_compute_ms": 1.0}
+                    proto.send_frame(conn, proto.MSG_FORWARD_RES, proto.encode_tensor_payload(out_meta, logits))
+                elif mtype == proto.MSG_RELEASE_KV:
+                    if self.mode == "hang_release":
