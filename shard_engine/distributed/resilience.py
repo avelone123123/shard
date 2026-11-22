@@ -102,14 +102,12 @@ class ResiliencePolicy:
             if v is not None:
                 updates[k] = self._parse_value(k, v)
         with self._lock:
-            for k, v in kw.items():
-                if k not in _DEFAULTS:
-                    raise KeyError(f"Unknown resilience setting: {k}")
-                if v is not None:
-                    self._set(k, v)
-            if self.dead_missed <= self.suspect_missed:
-                self.dead_missed = self.suspect_missed + 1
-        return self.as_dict()
+            eff_suspect = updates.get("suspect_missed", self.suspect_missed)
+            eff_dead = updates.get("dead_missed", self.dead_missed)
+            if eff_dead <= eff_suspect:
+                if "dead_missed" in updates and "suspect_missed" in updates:
+                    raise ValueError("dead_missed must be greater than suspect_missed")
+                eff_dead = min(_BOUNDS["dead_missed"][1], eff_suspect + 1)
     def reset(self):
         with self._lock:
             for k, v in _DEFAULTS.items():
