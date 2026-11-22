@@ -331,7 +331,7 @@ def resolve_deadline(*candidates):
         if c is not None and not isinstance(c, bool):
             try:
                 v = float(c)
-                if v > 0:
+                if math.isfinite(v) and v > 0:
                     pos.append(v)
             except (TypeError, ValueError):
                 pass
