@@ -373,6 +373,10 @@ class PipelineCoordinator:
                     try:
                         r.abort()
                         r.close()
+                    except Exception:
+                        pass
+                raise RuntimeError("PipelineCoordinator stopped during startup")
+            self._loading_runners = list(runners)
         reports = [None] * len(runners)
         errors = []
         def _load_idx(idx, runner):
