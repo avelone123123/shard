@@ -202,3 +202,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         shutil.rmtree(cls.tmp_dir, ignore_errors=True)
     def setUp(self):
         CLUSTER.stop_cluster()
+        CLUSTER.stop_local_worker()
+        resilience.POLICY.reset()
+        resilience.METRICS.reset()
+        SCHEDULER.configure(max_concurrent=4, max_queue_size=64, default_rpm=200, default_timeout_s=300.0)
+        self.client = TestClient(server.app, client=("127.0.0.1", 50000))
+        self.owner_hdr = {"X-Shard-Owner-Token": training.get_owner_token()}
+        self._servers = []
+        self._procs = []
+        self._hb_stops = []
+    def tearDown(self):
+        for ev in self._hb_stops:
+            ev.set()
