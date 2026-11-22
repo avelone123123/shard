@@ -1168,6 +1168,7 @@ async def anthropic_messages(req: Request):
                 err_ev = {"type": "error", "error": {"type": "api_error", "code": "INFERENCE_ERROR", "message": str(e)[:200]}}
                 yield f"event: error\ndata: {json.dumps(err_ev, ensure_ascii=False)}\n\n"
                 return
+            if not completed:
                 return
             yield f"event: content_block_stop\ndata: {json.dumps({'type': 'content_block_stop', 'index': 0})}\n\n"
             msg_delta = {"type": "message_delta", "delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": out_toks}}
