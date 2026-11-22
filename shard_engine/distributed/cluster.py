@@ -206,6 +206,12 @@ class ClusterManager:
             w = self.workers.get(wid)
             if not w or w.get("revoked") or (w.get("state") or _res.HEALTHY) != _res.RECOVERING:
                 return False
+            now = time.time()
+            if not reachable:
+                self._set_worker_state_locked(w, _res.FAILED, "data plane unreachable during probation", now)
+                return False
+            self._set_worker_state_locked(w, _res.HEALTHY, "probation passed", now)
+            self._capacity_returned = True
     def _alive_worker_records(self, now=None):
         now = time.time() if now is None else now
         out = []
