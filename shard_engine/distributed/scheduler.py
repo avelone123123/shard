@@ -213,12 +213,12 @@ class RequestScheduler:
                     elif itype == "done":
                         saw_done = True
                         tel = item.get("telemetry") or {}
-                        if tel.get("ttft_ms") is not None:
-                            state["ttft_ms"] = float(tel["ttft_ms"])
-                        if tel.get("tokens_per_sec") is not None:
-                            state["tps"] = float(tel["tokens_per_sec"])
-                        if tel.get("inter_worker_transfer_ms") is not None:
-                            state["xfer_ms"] = float(tel["inter_worker_transfer_ms"])
+                        with state_lock:
+                            if tel.get("ttft_ms") is not None:
+                                state["ttft_ms"] = float(tel["ttft_ms"])
+                            if tel.get("tokens_per_sec") is not None:
+                                state["tps"] = float(tel["tokens_per_sec"])
+                            if tel.get("inter_worker_transfer_ms") is not None:
                     if not _put_queue(("item", item), limit_s=5.0):
                         break
             except _res.RequestCancelled:
