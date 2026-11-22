@@ -466,3 +466,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         self._servers.extend([s1, s2])
         CLUSTER.create_cluster(name="GracefulLeave", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=True, auto_deploy=False, fetch_model_meta=False)
         r1 = CLUSTER.register_worker(worker_id="gw1", name="GW1", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p1, pipeline_host="127.0.0.1")
+        r2 = CLUSTER.register_worker(worker_id="gw2", name="GW2", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p2, pipeline_host="127.0.0.1")
+        s1.auth_token, s2.auth_token = r1["worker_token"], r2["worker_token"]
+        self._start_hb("gw1", r1["worker_token"])
+        hb2 = self._start_hb("gw2", r2["worker_token"])
+        CLUSTER.deploy_cluster(verify=False)
+        base = [e["token"] for e in CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=5, temperature=0.0) if e.get("type") == "content"]
+        st = CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=5, temperature=0.0)
+        got = []
+        for ev in st:
+            if ev.get("type") == "content":
+                got.append(ev["token"])
+                if len(got) == 2:
