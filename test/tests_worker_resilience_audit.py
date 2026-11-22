@@ -154,3 +154,15 @@ class _AuditPeerServer:
                         proto.send_frame(conn, proto.MSG_FORWARD_RES, proto.encode_tensor_payload(out_meta, logits))
                         continue
                     if self.mode == "missing_req":
+                        out_meta = {"seq": meta.get("seq"), "execution_id": meta.get("execution_id"), "stage_compute_ms": 1.0}
+                        proto.send_frame(conn, proto.MSG_FORWARD_RES, proto.encode_tensor_payload(out_meta, logits))
+                        continue
+                    if self.forward_count > self.good_forwards:
+                        if self.mode == "blackhole_after":
+                            self.stop_ev.wait(10.0)
+                            return
+                        if self.mode == "trickle_after":
+                            out_meta = {"request_id": meta.get("request_id"), "seq": meta.get("seq"), "execution_id": meta.get("execution_id"), "stage_compute_ms": 1.0}
+                            body = proto.encode_tensor_payload(out_meta, logits)
+                            hdr = proto._HDR_STRUCT.pack(proto.MAGIC, proto.PROTO_VER, proto.MSG_FORWARD_RES, 0, len(body))
+                            raw = hdr + body
