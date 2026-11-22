@@ -670,3 +670,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         def _writer(i):
             try:
                 for step in range(25):
+                    resilience.POLICY.configure(suspect_missed=1 + (step % 3), dead_missed=5 + (i % 3), decode_step_timeout_s=10.0 + (step % 5))
+            except Exception as e:
+                errs.append(e)
+        def _reader():
+            try:
+                for _ in range(50):
+                    d = resilience.POLICY.as_dict()
+                    if d["dead_missed"] <= d["suspect_missed"]:
+                        errs.append(AssertionError("dead_missed <= suspect_missed"))
+            except Exception as e:
+                errs.append(e)
+        ths = [threading.Thread(target=_writer, args=(i,)) for i in range(4)] + [threading.Thread(target=_reader) for _ in range(4)]
