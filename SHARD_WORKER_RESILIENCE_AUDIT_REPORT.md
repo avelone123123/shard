@@ -28,3 +28,9 @@ Independent inspection of the local repository at audit start revealed material 
 
 ## 2. Independent Assessment of Every Major Implementation Claim
 
+Each major claim in `SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md` was verified against source code and live execution. Multiple hidden defects were reproduced on unmodified commit `04495bc` and subsequently fixed on `feat/worker-failure-resilience`.
+
+| Capability / Claim | Pre-Audit Finding on `04495bc` | Post-Fix Audit Status |
+| :--- | :--- | :--- |
+| Per-phase timeouts (`connect`, `load`, `prefill`, `decode`, `release`, `stall`, `request_deadline`) | Partially flawed: `connect()` ignored `request_deadline_s`, `send_fn()` used full step timeout without cancellation polling, `recv_exact_poll()` never polled on slow-trickling peers, `stop_cluster()` could not abort `load_stage()` (`self.runners` empty during load), GGUF keepalive comments defeated `stall_timeout_s`. | **VERIFIED** (all fixed and regression-tested) |
+| 4-state worker liveness FSM (`HEALTHY`/`SUSPECT`/`FAILED`/`RECOVERING`) & probation | **Defective on `04495bc`:** (1) Single stale heartbeat revived a dead worker to `HEALTHY` if `probation_s <= suspect_after_s` without TCP verification; (2) `GET /api/cluster/plan` wiped `assigned_stage` on `SUSPECT` workers, blinding failure detection; (3) `probe_node_capabilities()` / `measure_tcp_link()` / `slots_status()` ran while holding `CLUSTER._lock`, starving heartbeats for 0.8s–1.9s and falsely failing healthy workers under tight intervals. | **VERIFIED** (all fixed and regression-tested) |
