@@ -1086,6 +1086,7 @@ async def anthropic_messages(req: Request):
     req_timeout = _extract_request_timeout(req, data)
     max_tokens = data.get("max_tokens", 1024)
     temperature = data.get("temperature", 0.7)
+    top_p, top_k, rep_pen = _extract_sampling_params(data)
     stream = data.get("stream", False)
     normalized = []
     if sys_prompt:
