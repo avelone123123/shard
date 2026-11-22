@@ -418,3 +418,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             for ev in stream:
                 if ev.get("type") == "content":
                     delivered.append(ev["token"])
+        err = fe.exception.to_error()
+        self.assertEqual(err["code"], "WORKER_LOST")
+        self.assertEqual(err["request_id"], "sreq-audit-kill")
+        self.assertEqual(err["worker_id"], "pw-b")
+        self.assertEqual(err["stage"], 1)
+        self.assertEqual(err["tokens_delivered"], 2)
+        self.assertEqual(CLUSTER.workers["pw-a"]["state"], resilience.HEALTHY)
+        self.assertEqual(CLUSTER.workers["pw-b"]["state"], resilience.FAILED)
+        self._assert_clean_resources()
+    def test_04_graceful_shutdown_blackhole_and_slow_trickle_mid_generation(self):
+        resilience.POLICY.configure(max_recovery_attempts=0, prefill_timeout_s=1.0, decode_step_timeout_s=0.35, poll_slice_s=0.04, enable_resume=False)
+        s_bh = _AuditPeerServer(mode="blackhole_after", good_forwards=2)
