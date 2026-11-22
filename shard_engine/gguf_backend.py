@@ -789,7 +789,7 @@ class LlamaBackend:
             yield ("error", str(e))
             return
         yield ("usage", usage)
-    def chat_stream_guarded(self, messages, max_tokens=512, temperature=0.7, poll=None, stall_timeout_s=120.0, poll_slice_s=0.25):
+    def chat_stream_guarded(self, messages, max_tokens=512, temperature=0.7, poll=None, stall_timeout_s=120.0, poll_slice_s=0.25, connect_timeout_s=5.0, top_p=None, top_k=None, repetition_penalty=None):
         if not self.is_running():
             yield ("error", "GGUF backend is not running")
             return
