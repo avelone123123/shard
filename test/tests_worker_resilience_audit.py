@@ -358,3 +358,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         CLUSTER.create_cluster(name="MultiProcKill", model_id=self.model_dir, strategy="torch_pipeline_parallel", ctx_tokens=128, parallel_slots=2, open_net=True, coordinator_contributes=True, auto_deploy=False, fetch_model_meta=False)
         r1 = CLUSTER.register_worker(worker_id="proc-w1", name="ProcW1", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p1, pipeline_host="127.0.0.1")
         r2 = CLUSTER.register_worker(worker_id="proc-w2", name="ProcW2", hw=self._hw(8192), quota={"max_ram_gb": 4}, consented=True, pipeline_port=p2, pipeline_host="127.0.0.1")
+        self._start_hb("proc-w1", r1["worker_token"])
+        hb2 = self._start_hb("proc-w2", r2["worker_token"])
+        proc1, proc2 = self._spawn_worker_procs([(p1, r1["worker_token"]), (p2, r2["worker_token"])])
+        resilience.POLICY.configure(max_recovery_attempts=1, recovery_wait_s=8.0, retry_backoff_s=0.05, heartbeat_interval_s=0.3, monitor_tick_s=0.06, poll_slice_s=0.04, enable_resume=True)
+        CLUSTER.deploy_cluster(verify=False)
+        base_r = self.client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello shard"}], "max_tokens": 6, "temperature": 0.0})
+        self.assertEqual(base_r.status_code, 200)
+        baseline_text = base_r.json()["choices"][0]["message"]["content"]
+        self.assertTrue(len(baseline_text) > 0)
+        stream = CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=6, temperature=0.0)
+        pre_kill = []
+        for ev in stream:
