@@ -633,7 +633,7 @@ class ClusterManager:
         wid = str(worker_id or "")
         check_promote = False
         with self._lock:
-            w = self.workers.get(str(worker_id or ""))
+            w = self.workers.get(wid)
             if not w or w.get("revoked"):
                 return False, "Unknown or revoked worker"
             expected = str(w.get("worker_token") or "")
