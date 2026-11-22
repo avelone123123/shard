@@ -682,3 +682,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             except Exception as e:
                 errs.append(e)
         ths = [threading.Thread(target=_writer, args=(i,)) for i in range(4)] + [threading.Thread(target=_reader) for _ in range(4)]
+        for t in ths:
+            t.start()
+        for t in ths:
+            t.join(timeout=5.0)
+        self.assertEqual(errs, [])
+        ev = resilience.METRICS.event(
+            "audit_sanitize",
+            user_prompt="PRIVATE_PROMPT_XYZ",
+            auth_token="sk-shard-wrk-secret123",
+            pairing_code="ABCD-1234",
+            nested={"password": "pw", "safe": "ok"},
+            detail="Failed with Bearer tok_999 and sk-shard-api-leak",
