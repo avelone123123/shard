@@ -310,3 +310,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         done_a, done_b = [], []
         started_a = threading.Event()
         def _req_a():
+            st = CLUSTER.generate_stream([{"role": "user", "content": "hello shard"}], max_tokens=6, temperature=0.0, repetition_penalty=1.45)
+            for ev in st:
+                if ev.get("type") == "content":
+                    out_a.append(ev["token"])
+                    if len(out_a) == 2:
+                        started_a.set()
+                        time.sleep(0.08)
+                        hb2.set()
+                        s2.stop()
+                elif ev.get("type") == "done":
+                    done_a.append(ev)
+        def _req_b():
