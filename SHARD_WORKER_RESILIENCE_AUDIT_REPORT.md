@@ -118,3 +118,9 @@ Verified with strict SSE frame parsers (`_parse_openai_sse`, `_parse_anthropic_s
 | After 3 tokens delivered | 3 content chunks + `data: {"error": {"code": "WORKER_LOST", "tokens_delivered": 3}}` + `data: [DONE]`, zero `stop` | `message_start`, `content_block_start`, 3 `content_block_delta`, `event: error` (`tokens_delivered: 3`), zero `end_turn` / `message_stop` | **VERIFIED** |
 | Network interruption (blackhole / trickle after 1–2 tokens) | `data: {"error": {"code": "WORKER_TIMEOUT", ...}}` + `data: [DONE]`, zero `stop` | `event: error` (`WORKER_TIMEOUT`), zero `end_turn` / `message_stop` | **VERIFIED** |
 | Failure during recovery (`max_recovery_attempts=1`, infeasible) | `data: {"error": {"code": "RECOVERY_FAILED", "recovery_attempted": true, ...}}` + `data: [DONE]` | `event: error` (`RECOVERY_FAILED`, `recovery_attempted: true`), zero `end_turn` / `message_stop` | **VERIFIED** |
+| Client cancellation (mid-stream & non-streaming) | Stream exits with zero `finish_reason: "stop"`; non-streaming returns HTTP `499` `REQUEST_CANCELLED` | Stream exits with zero `end_turn` / `message_stop`; non-streaming returns HTTP `499` `REQUEST_CANCELLED` | **VERIFIED** |
+
+*Note:* Official third-party `openai` and `anthropic` Python SDK packages are not installed in this environment, so verification used strict spec-aligned SSE parsers rather than importing those external SDK packages.
+
+---
+
