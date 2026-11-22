@@ -69,6 +69,12 @@ class _RemoteStageClient:
             s.settimeout(conn_limit)
             self._connecting_sock = s
             auth_deadline = t0 + conn_limit
+            def auth_poll():
+                if ctx is not None:
+                    ctx.poll()
+                if self._closed_by_us or (stop_check is not None and stop_check()):
+                    raise _res.InferenceFailure("CLUSTER_UNAVAILABLE", "Pipeline was shut down while authenticating", request_id=ctx.request_id if ctx is not None else None, phase="connect", cluster_available=False)
+                if time.monotonic() > auth_deadline:
     def abort(self):
         self._closed_by_us = True
         self._drop_sock()
