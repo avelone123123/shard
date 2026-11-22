@@ -58,3 +58,9 @@ Specifically, on recovery after `k >= 1` tokens were generated:
 3. `ClusterManager.generate_stream()` calls the new `PipelineCoordinator.generate_stream(..., resume=ResumeState)`.
 4. Inside `generate_stream()`, `cur_ids = torch.cat([input_ids, torch.tensor([generated_ids], dtype=torch.long)], dim=-1)` is passed through a single `phase="prefill"` forward pass (`use_cache=True`) across all stages, allocating fresh `DynamicCache` objects populated for positions `0 .. len(prompt_ids) + len(generated_ids) - 1`.
 5. `prev_text` is initialized to `resume.delivered_text`, `next_id` is sampled from `logits[0, -1, :]`, and `delta = full_txt[len(prev_text):]` yields only newly generated suffix text for the remaining `max_new - len(generated_ids)` steps.
+
+### 10-Point Verification Checklist
+
+1. **Same model weights and revision (`VERIFIED WITH LIMITATIONS`):** `ClusterManager.generate_stream()` verifies `backend.model_path_or_repo == new_backend.model_path_or_repo`. For local directories (`local_hf_dir`), all stages load the exact same local safetensors files. For remote Hugging Face repository IDs, `pipeline_worker._download_or_locate_files()` calls `hf_hub_download(model_path_or_repo, fn)` without pinning a Git `revision` SHA, so an upstream repo update mid-flight is not pinned unless resolved locally.
+2. **Tokenizer and generation configuration compatibility (`VERIFIED`):** Reloaded from identical `model_path_or_repo` (`AutoTokenizer`, `AutoConfig`, `eos_token_id`, `pad_token_id`); loop bound `max(0, max_new - len(generated_ids))` preserves total `max_tokens`.
+3. **Previously delivered token IDs preserved exactly (`VERIFIED`):** Preserved in `ResumeState.generated_ids`. Fixed a confirmed defect where a second-attempt failure during `_gen_lock` acquisition or `not self.is_running()` left `f.resume = None` and caused `cluster.py` to overwrite `resume` with an empty `ResumeState()`.
