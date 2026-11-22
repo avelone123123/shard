@@ -322,3 +322,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
                 elif ev.get("type") == "done":
                     done_a.append(ev)
         def _req_b():
+            started_a.wait(timeout=3.0)
+            st = CLUSTER.generate_stream([{"role": "user", "content": "alpha beta worker"}], max_tokens=5, temperature=0.0, top_k=1)
+            for ev in st:
+                if ev.get("type") == "content":
+                    out_b.append(ev["token"])
+                elif ev.get("type") == "done":
+                    done_b.append(ev)
+        t_a = threading.Thread(target=_req_a)
+        t_b = threading.Thread(target=_req_b)
+        t_a.start()
+        t_b.start()
+        t_a.join(timeout=10.0)
