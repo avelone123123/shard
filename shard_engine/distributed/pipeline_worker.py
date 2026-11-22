@@ -332,6 +332,8 @@ class PipelineWorkerServer:
             threads = list(self._conn_threads)
         join_deadline = time.monotonic() + 0.5
         for th in threads:
+            if th.is_alive() and th is not threading.current_thread():
+                th.join(timeout=max(0.01, join_deadline - time.monotonic()))
         self._unload_stage()
     def _unload_stage(self):
         with self._stage_lock:
