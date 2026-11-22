@@ -139,10 +139,8 @@ class ResiliencePolicy:
             cap = float(self.retry_backoff_max_s)
         return min(base * (2 ** max(0, int(attempt))), cap)
     def as_dict(self):
-        out = {k: getattr(self, k) for k in _DEFAULTS}
-        out["suspect_after_s"] = round(self.suspect_after_s, 3)
-        out["dead_after_s"] = round(self.dead_after_s, 3)
-        return out
+        with self._lock:
+            return self._snapshot_locked()
 POLICY = ResiliencePolicy()
 _CODES = {
     "WORKER_LOST": (503, True),
