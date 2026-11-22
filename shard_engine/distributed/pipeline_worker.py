@@ -383,6 +383,7 @@ class PipelineWorkerServer:
                 proto.send_json_frame(conn, proto.MSG_AUTH_ERR, {"error": "Invalid worker token"})
                 return
             proto.send_json_frame(conn, proto.MSG_AUTH_OK, {"status": "ok", "port": self.bound_port})
+            conn.settimeout(60.0)
             while not self._stop_ev.is_set():
                 readable, _, _ = select.select([conn], [], [], 1.0)
                 if not readable:
