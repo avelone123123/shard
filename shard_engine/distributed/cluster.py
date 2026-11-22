@@ -1216,6 +1216,8 @@ class ClusterManager:
                     json={
                         "worker_id": lw["worker_id"],
                         "worker_token": lw["worker_token"],
+                        "hb_seq": hb_seq,
+                        "sent_at": time.time(),
                         "hw": hw,
                         "quota": lw["quota"],
                         "workload": {
