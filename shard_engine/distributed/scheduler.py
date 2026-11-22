@@ -227,9 +227,11 @@ class RequestScheduler:
                         state["cancelled"] = True
                     _put_queue(("cancelled", req_id), limit_s=2.0)
             except _res.RequestCancelled:
-                if state["code"] is None:
-                    state["cancelled"] = True
-                    _res.METRICS.inc("generations_cancelled_total")
+                with state_lock:
+                    if state["code"] is None:
+                        state["cancelled"] = True
+                _res.METRICS.inc("generations_cancelled_total")
+                _put_queue(("cancelled", req_id), limit_s=2.0)
             except Exception as exc:
                 failure = exc if isinstance(exc, _res.InferenceFailure) else _res.InferenceFailure("INFERENCE_ERROR", str(exc), request_id=req_id)
                 if failure.request_id is None:
