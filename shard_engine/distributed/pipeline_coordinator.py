@@ -148,6 +148,8 @@ class _RemoteStageClient:
             def poll():
                 if ctx is not None:
                     ctx.poll()
+                if self._closed_by_us or (stop_check is not None and stop_check()):
+                    raise _res.InferenceFailure("CLUSTER_UNAVAILABLE", "Pipeline was shut down while the request was in flight", request_id=ctx.request_id if ctx is not None else None, phase=phase, tokens_delivered=ctx.tokens_delivered if ctx is not None else 0, cluster_available=False)
                 if time.monotonic() > deadline:
                     raise _StepTimeout()
             try:
