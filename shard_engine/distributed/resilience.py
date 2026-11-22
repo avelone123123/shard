@@ -213,6 +213,12 @@ _SECRET_VAL_RE = re.compile(r"(?:sk-shard-[A-Za-z0-9_\-]+|Bearer\s+\S+)", re.IGN
 def _is_sensitive_key(k):
     low = str(k or "").lower()
     if low in _SAFE_LOG_KEYS:
+        return False
+    return any(s in low for s in _SENSITIVE_SUBSTR)
+def _sanitize_log_value(val, depth=0):
+    if depth > 4:
+        return "[truncated]"
+    if isinstance(val, str):
 class Metrics:
     def __init__(self):
         self._lock = threading.Lock()
