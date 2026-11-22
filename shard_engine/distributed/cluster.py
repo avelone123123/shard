@@ -509,11 +509,12 @@ class ClusterManager:
                 ctx_tokens=self.ctx_tokens,
                 parallel_slots=self.parallel_slots,
             )
-            self.plan = plan
-            assigned = {s["node_id"]: s for s in (plan.get("stages") or [])}
-            for wid, w in self.workers.items():
-                st = assigned.get(wid)
-                w["assigned_stage"] = st
+            if commit:
+                self.plan = plan
+                assigned = {s["node_id"]: s for s in (plan.get("stages") or [])}
+                preserve_live = (not force_assignments) and self.state in ("READY", "LOADING", "VERIFYING")
+                for wid, w in self.workers.items():
+                    if preserve_live and wid in self._deployed_workers:
             return copy.deepcopy(plan)
     def register_worker(
         self,
