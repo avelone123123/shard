@@ -148,6 +148,7 @@ class ClusterManager:
             link = _cap.measure_tcp_link(host, int(port_s), timeout=float(timeout))
             return bool(link.get("reachable"))
         except Exception:
+            return False
     def _set_worker_state_locked(self, w, new_state, reason, now=None):
         now = time.time() if now is None else now
         prev = w.get("state") or _res.HEALTHY
