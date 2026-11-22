@@ -184,3 +184,9 @@ Additionally, `git diff ff1155c..04495bc -- dashboard.html shard_engine/dashboar
 ## 9. Modified & Added Files During Audit
 
 All fixes were implemented directly on `feat/worker-failure-resilience` with minimal surface area:
+
+| File | Summary of Audit Fixes |
+| :--- | :--- |
+| `shard_engine/distributed/resilience.py` | Bounded finite validation (`_BOUNDS`), atomic `configure()`, thread-safe locked reads (`as_dict`, `suspect_after_s`, `dead_after_s`, `probation_s`, `backoff_s`), finite `resolve_deadline()`, recursive secret/prompt log sanitization + `sk-shard-*`/`Bearer` redaction. |
+| `shard_engine/distributed/pipeline_proto.py` | `recv_exact_poll()` calls `poll()` every iteration (blocking slow-trickle bypass); added `send_exact_poll()`, `send_frame_poll()`, `send_json_frame_poll()`, `recv_json_frame_poll()`, and `client_auth_handshake_poll()`. |
+| `shard_engine/distributed/pipeline_worker.py` | Tightened pre-auth timeout to 10s, validated non-empty `request_id` (`<= 128` chars), locked metric counter updates, bounded `_conn_threads` join in `stop()`. |
