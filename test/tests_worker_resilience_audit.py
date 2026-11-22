@@ -718,3 +718,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
         CLUSTER.deploy_cluster(verify=False)
         CLUSTER.workers["w_stale_hb"]["last_heartbeat"] = time.time() - 1.2
         r_plan = self.client.get("/api/cluster/plan", headers=self.owner_hdr)
+        self.assertEqual(r_plan.status_code, 200)
+        self.assertEqual(CLUSTER.workers["w_stale_hb"]["state"], resilience.SUSPECT)
+        self.assertIsNotNone(CLUSTER.workers["w_stale_hb"].get("assigned_stage"))
+        ok_seq1, _ = CLUSTER.heartbeat_worker("w_stale_hb", r["worker_token"], hb_seq=5, sent_at=time.time())
+        self.assertTrue(ok_seq1)
+        ok_old_seq, _ = CLUSTER.heartbeat_worker("w_stale_hb", r["worker_token"], hb_seq=3, sent_at=time.time())
+        self.assertFalse(ok_old_seq)
+        s_dead.stop()
+        pre_fail_ts = time.time() - 0.5
+        CLUSTER.mark_worker_failed("w_stale_hb", "died")
+        self.assertEqual(CLUSTER.state, "DEGRADED")
+        ok_old_ts, _ = CLUSTER.heartbeat_worker("w_stale_hb", r["worker_token"], hb_seq=6, sent_at=pre_fail_ts)
