@@ -214,3 +214,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
     def tearDown(self):
         for ev in self._hb_stops:
             ev.set()
+        for p in self._procs:
+            try:
+                if p.poll() is None:
+                    p.kill()
+                p.wait(timeout=3.0)
+            except Exception:
+                pass
+            for strm in (p.stdout, p.stderr):
+                if strm is not None:
+                    try:
+                        strm.close()
+                    except Exception:
