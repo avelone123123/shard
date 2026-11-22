@@ -301,13 +301,12 @@ class RequestScheduler:
                 snap = dict(state)
             self.finish_slot(
                 req_id,
-                ok=state["ok"],
-                cancelled=state["cancelled"],
-                ttft_ms=state["ttft_ms"],
-                tps=state["tps"],
-                transfer_ms=state["xfer_ms"],
-                error=state["err"],
-                error_code=state["code"],
+                ok=snap["ok"],
+                cancelled=snap["cancelled"],
+                ttft_ms=snap["ttft_ms"],
+                tps=snap["tps"],
+                transfer_ms=snap["xfer_ms"],
+                error=snap["err"],
             )
     async def run_sync_async(self, stream_factory, client_key="anonymous", model_id=None, timeout_s=None, is_disconnected=None, rpm_override=None):
         thought_chunks = []
