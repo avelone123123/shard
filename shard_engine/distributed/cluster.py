@@ -704,7 +704,7 @@ class ClusterManager:
             self.workers.pop(wid, None)
             self._deployed_workers.discard(wid)
         if was_assigned:
-            self._handle_assigned_worker_lost(str(worker_id), "worker left the cluster", "WORKER_LOST")
+            self._handle_assigned_worker_lost(wid, "worker left the cluster", "WORKER_LOST")
         if tpeer:
             try:
                 from .. import net_strategy
