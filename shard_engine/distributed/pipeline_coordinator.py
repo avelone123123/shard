@@ -418,6 +418,12 @@ class PipelineCoordinator:
                         r.close()
                     except Exception:
                         pass
+                raise RuntimeError("; ".join(errors))
+            with self._lock:
+                if self._stopped:
+                    for r in runners:
+                        try:
+                            r.abort()
     def stop(self):
         self._stopped = True
         with self._lock:
