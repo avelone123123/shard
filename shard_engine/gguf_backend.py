@@ -902,6 +902,7 @@ class LlamaBackend:
                         raw_sock.close()
                 except Exception:
                     pass
+                try:
                     resp.close()
                 except Exception:
                     pass
