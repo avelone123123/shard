@@ -641,6 +641,12 @@ class ClusterManager:
                 return False, "Invalid worker token"
             if w.get("token_expires_at") and now > w["token_expires_at"]:
                 return False, "Worker session expired"
+            st = w.get("state") or _res.HEALTHY
+            if hb_seq is not None:
+                try:
+                    seq_i = int(hb_seq)
+                except (TypeError, ValueError):
+                    return False, "Invalid heartbeat sequence"
             w["last_heartbeat"] = now
             st = w.get("state") or _res.HEALTHY
             if st == _res.FAILED:
