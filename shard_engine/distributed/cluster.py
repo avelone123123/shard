@@ -281,7 +281,7 @@ class ClusterManager:
         targets = []
         with self._lock:
             for wid, w in self.workers.items():
-                if w.get("revoked") or not w.get("assigned_stage"):
+                if w.get("revoked") or not self._is_worker_serving_locked(wid):
                     continue
                 if (w.get("state") or _res.HEALTHY) in (_res.HEALTHY, _res.SUSPECT):
                     ep = w.get("pipeline_endpoint") or w.get("rpc_endpoint")
