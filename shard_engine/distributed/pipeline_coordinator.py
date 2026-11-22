@@ -246,7 +246,7 @@ class _RemoteStageClient:
             pass
     def ping(self):
         t0 = time.perf_counter()
-        mtype, _, raw = self._roundtrip(lambda s: proto.send_json_frame(s, proto.MSG_PING, {}), None, self.policy.connect_timeout_s, "ping")
+        mtype, _, raw = self._roundtrip(lambda s, poll: proto.send_json_frame_poll(s, proto.MSG_PING, {}, poll), None, self.policy.connect_timeout_s, "ping")
         rtt = round((time.perf_counter() - t0) * 1000.0, 2)
         return {"rtt_ms": rtt, "stats": json.loads(raw.decode("utf-8")) if raw else {}}
 class _LocalStageRunner:
