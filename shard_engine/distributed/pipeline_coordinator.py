@@ -176,7 +176,7 @@ class _RemoteStageClient:
             "dtype": dtype,
             "config_dict": config_dict,
         }
-        mtype, _, raw = self._roundtrip(lambda s: proto.send_json_frame(s, proto.MSG_LOAD_STAGE, payload), None, self.policy.load_timeout_s, "load")
+        mtype, _, raw = self._roundtrip(lambda s, poll: proto.send_json_frame_poll(s, proto.MSG_LOAD_STAGE, payload, poll), None, self.policy.load_timeout_s, "load", stop_check=stop_check)
         obj = json.loads(raw.decode("utf-8")) if raw else {}
         if mtype == proto.MSG_ERROR:
             self._drop_sock()
