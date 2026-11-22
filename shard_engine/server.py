@@ -1112,6 +1112,11 @@ async def anthropic_messages(req: Request):
             started = False
             completed = False
             out_toks = 0
+            def _start_frames():
+                start_ev = {"type": "message_start", "message": {"id": msg_id, "type": "message", "role": "assistant", "content": [], "model": model, "stop_reason": None, "stop_sequence": None, "usage": {"input_tokens": 1, "output_tokens": 0}}}
+                blk_start = {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}}
+                return (
+                    f"event: message_start\ndata: {json.dumps(start_ev, ensure_ascii=False)}\n\n",
             try:
                 async for item in SCHEDULER.stream_async(
                     factory,
