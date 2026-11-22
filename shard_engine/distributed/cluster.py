@@ -1014,7 +1014,6 @@ class ClusterManager:
                     f.request_id = ctx.request_id
                     f.tokens_delivered = ctx.tokens_delivered
                     f.recovery_attempted = f.recovery_attempted or attempt > 0
-                        raise
                     if kind == "gguf" and f.code in ("BACKEND_ERROR", "WORKER_STALLED"):
                         self._probe_assigned_workers()
                         with self._lock:
