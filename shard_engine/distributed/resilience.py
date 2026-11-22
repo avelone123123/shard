@@ -51,6 +51,8 @@ _BOUNDS = {
     "recovery_wait_s": (0.05, 600.0),
     "retry_backoff_s": (0.0, 60.0),
     "retry_backoff_max_s": (0.0, 300.0),
+    "recovery_probation_s": (0.0, 600.0),
+}
 class ResiliencePolicy:
     def __init__(self, **overrides):
         self._lock = threading.Lock()
