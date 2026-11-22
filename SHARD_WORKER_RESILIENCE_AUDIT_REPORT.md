@@ -124,3 +124,9 @@ Verified with strict SSE frame parsers (`_parse_openai_sse`, `_parse_anthropic_s
 
 ---
 
+## 6. Timeout, Heartbeat & Cancellation Audit
+
+### Parameter Table & Enforced Bounds (`shard_engine/distributed/resilience.py`)
+
+| Setting | Default | Enforced Bounds | Interaction / Role |
+| :--- | :--- | :--- | :--- |
