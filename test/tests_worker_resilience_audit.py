@@ -694,3 +694,15 @@ class TestWorkerResilienceAudit(unittest.TestCase):
             pairing_code="ABCD-1234",
             nested={"password": "pw", "safe": "ok"},
             detail="Failed with Bearer tok_999 and sk-shard-api-leak",
+            tokens_delivered=7,
+        )
+        raw_ev = json.dumps(ev)
+        self.assertNotIn("PRIVATE_PROMPT_XYZ", raw_ev)
+        self.assertNotIn("sk-shard-wrk-secret123", raw_ev)
+        self.assertNotIn("ABCD-1234", raw_ev)
+        self.assertNotIn("tok_999", raw_ev)
+        self.assertNotIn("sk-shard-api-leak", raw_ev)
+        self.assertNotIn("password", raw_ev)
+        self.assertEqual(ev["tokens_delivered"], 7)
+        r_prev = remote.get("/api/cluster/preview")
+        self.assertEqual(r_prev.status_code, 200)
