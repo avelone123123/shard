@@ -194,6 +194,12 @@ class ClusterManager:
     def _try_promote_recovering_worker(self, wid):
         with self._lock:
             w = self.workers.get(wid)
+            if not w or w.get("revoked") or (w.get("state") or _res.HEALTHY) != _res.RECOVERING:
+                return False
+            now = time.time()
+            pol = _res.POLICY
+            if int(w.get("recovering_heartbeats") or 0) < 2 or now - float(w.get("recovering_since") or now) < pol.probation_s(w.get("fail_count") or 1):
+                return False
     def _alive_worker_records(self, now=None):
         now = time.time() if now is None else now
         out = []
