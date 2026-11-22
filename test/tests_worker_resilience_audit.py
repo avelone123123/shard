@@ -82,3 +82,15 @@ class _AuditPeerServer:
     def __init__(self, mode="blackhole_after", good_forwards=2, trickle_interval_s=0.03, vocab_size=8):
         self.mode = mode
         self.good_forwards = int(good_forwards)
+        self.trickle_interval_s = float(trickle_interval_s)
+        self.vocab_size = int(vocab_size)
+        self.forward_count = 0
+        self.release_count = 0
+        self.stop_ev = threading.Event()
+        self.sock = None
+        self.port = None
+        self.conns = []
+    def start(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(("127.0.0.1", 0))
