@@ -304,6 +304,7 @@ shard lan off
 | `shard run` | `[model_id]` | Модельді жүктеп (қажет болса), терминалдағы REPL чатын іске қосады. |
 | `shard list` | `[--category CAT]` | Жергілікті және каталогтағы модельдерді тізімдейді (`all`, `ideal`, `coding`, `reasoning`, `compact`). |
 | `shard lan` | `[status\|create\|join\|model\|off] [extra] [--share] [--open] [--model ID] [--port N]` | Жергілікті желідегі есептеу пулын құру, қосылу, баптау, тексеру немесе тоқтату. |
+| `shard cluster` | `[status\|create\|join\|plan\|deploy\|resilience\|leave\|stop]` | Таратылған координатор/жұмысшы кластерін басқару, ақауға төзімділік саясатын, метрикаларды және түйін күйін қарау. |
 | `shard key` | `[--gen]` | Жергілікті API кілтін көрсетеді немесе жаңа токен жасайды (`--gen`). |
 | `shard models-dir` | `[path \| reset]` | Модель салмақтары сақталатын бума жолын көрсетеді, өзгертеді немесе бастапқы қалпына келтіреді. |
 | `shard test` | `[--strict-native]` | 12 тензорлық ядроны және AVX2 / Python fallback жылдамдығын тексереді. |
@@ -425,6 +426,18 @@ for chunk in stream:
 
 ---
 
+### Жұмысшы түйіндердің ақауға төзімділігі және қалпына келтіру
+SHARD жұмысшы түйіндердің күйін (`HEALTHY`, `SUSPECT`, `FAILED`, `RECOVERING`) нақты ажыратады және `ResiliencePolicy` арқылы деректер мен басқару арнасының таймауттарын шектейді:
+- **Ақауды анықтау:** TCP байланысының үзілуі бірден `WORKER_LOST` қатесін тіркейді; ашық сокеттегі тоқтап қалулар (blackhole және баяу дерек ағыны) кезеңдік таймауттармен шектеледі (`prefill_timeout_s`, `decode_step_timeout_s` -> `WORKER_TIMEOUT`, GGUF үшін `stall_timeout_s` -> `WORKER_STALLED`); өткізіп алған heartbeat хабарлары түйінді `HEALTHY -> SUSPECT -> FAILED` күйіне ауыстырады. Баяу, бірақ жауап беретін және heartbeat жіберетін түйіндер `HEALTHY` күйінде (`slow=true`) қалады.
+- **Белсенді генерацияны өңдеу:** тағайындалған жұмысшы істен шыққанда сол түйінге байланған барлық `ExecutionContext` `poll_slice_s` ішінде тоқтатылады, сау түйіндердегі KV-кэш тазаланады (`release_kv`), жоспарлаушы слоттары мен `_gen_lock` `finally` блогында босатылады және `_reform_cluster` кластерді сау `HEALTHY` түйіндерде қайта құрады.
+- **Қалпына келтіру, қайта іске қосу немесе айқын қате:**
+  - *PyTorch Pipeline (`torch_pipeline_parallel`, `enable_resume=True`):* егер кластер `recovery_wait_s` ішінде сол модельмен сау түйіндерде қайта құрылса, генерация `ResumeState(generated_ids, delivered_text)` арқылы **context replay** әдісімен жалғасады (`[prompt + generated_ids]` тізбегін жаңа KV-кэштерге қайта prefill жасау — бинарлық KV-кэшті қалпына келтіру **емес**), `temperature`, `top_p`, `top_k` және `repetition_penalty` параметрлері сақталады және бұрын жіберілген токендер қайталанбайды.
+  - *Алғашқы токен жіберілгенге дейін (`tokens_delivered == 0`):* екі бэкендте де `max_recovery_attempts` шегінде басынан қауіпсіз қайта іске қосу орындалады.
+  - *Қалпына келтіру мүмкін болмаса:* клиентке құрылымдалған қате (`WORKER_LOST`, `WORKER_TIMEOUT`, `WORKER_STALLED`, `RECOVERY_FAILED`, `CLUSTER_UNAVAILABLE`, `REQUEST_DEADLINE_EXCEEDED`, `STALE_RESPONSE`) JSON (`503`/`504`, `Retry-After`) немесе OpenAI/Anthropic SSE қате оқиғасы ретінде қайтарылады (`finish_reason: "stop"` / `stop_reason: "end_turn"` ешқашан жалған жіберілмейді).
+- **Шектеулер және тексеру ауқымы:** қайта қосылған жұмысшылар `RECOVERING` сынақ мерзімінен өтеді (кемінде 2 жаңа heartbeat + деректер портына TCP тексеру). Шектеулер: бинарлық KV-кэш тасымалдау емес context replay қолданылады; `temperature > 0.05` кезінде RNG күйі сақталмайды; қашықтағы Hugging Face репозиторийлері commit SHA бойынша бекітілмейді; GGUF RPC (`gguf_rpc_layer_split`) бірінші токеннен кейін генерацияны жалғастыра алмайды; барлық автоматты сынақтар Windows (`127.0.0.1`) ортасында жергілікті түрде орындалды, бөлек физикалық машиналар мен WAN желілерінде сынақ әлі жүргізілмеген. Толық есептер: [`SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md`](SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md) және [`SHARD_WORKER_RESILIENCE_AUDIT_REPORT.md`](SHARD_WORKER_RESILIENCE_AUDIT_REPORT.md).
+
+---
+
 ## Жоба мәртебесі және қауымдастық
 
 ### Технологиялық стек
@@ -434,6 +447,8 @@ for chunk in stream:
 - **Желі және телеметрия:** `psutil`, UDP broadcast анықтау (`:8001`), HTTP/SSE стриминг (`:8000`)
 
 ### Құжаттама және жобаға үлес қосу
+- **Жұмысшы түйіндердің ақауға төзімділігі (есеп):** [`SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md`](SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md)
+- **Ақауға төзімділік бойынша тәуелсіз аудит:** [`SHARD_WORKER_RESILIENCE_AUDIT_REPORT.md`](SHARD_WORKER_RESILIENCE_AUDIT_REPORT.md)
 - **LAN шардинг архитектурасы:** [`docs/LAN_SHARDING_DESIGN.md`](docs/LAN_SHARDING_DESIGN.md)
 - **Үлес қосушыларға нұсқаулық:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **Мінез-құлық кодексі:** [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)

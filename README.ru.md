@@ -304,6 +304,7 @@ shard lan off
 | `shard run` | `[model_id]` | Скачивает (при необходимости) модель и открывает терминальный чат REPL. |
 | `shard list` | `[--category CAT]` | Отображает локальные и рекомендованные модели (`all`, `ideal`, `coding`, `reasoning`, `compact`). |
 | `shard lan` | `[status\|create\|join\|model\|off] [extra] [--share] [--open] [--model ID] [--port N]` | Управление распределённым вычислительным пулом в локальной сети. |
+| `shard cluster` | `[status\|create\|join\|plan\|deploy\|resilience\|leave\|stop]` | Управление распределённым кластером координатор/воркеры, просмотр политики отказоустойчивости, метрик и состояний воркеров. |
 | `shard training` | `[status\|doctor\|privacy\|feedback\|dataset\|start\|logs\|cancel\|resume\|models\|eval\|prepare\|approve\|deploy\|rollback]` | Управление вкладами пользователей, датасетами, заданиями SOUP, оценкой, деплоем и откатом ([Документация](docs/COLLABORATIVE_TRAINING.ru.md)). |
 | `shard key` | `[--gen]` | Показывает текущий локальный API-ключ или генерирует новый (`--gen`). |
 | `shard models-dir` | `[path \| reset]` | Показывает, изменяет или сбрасывает каталог хранения весов моделей. |
@@ -427,6 +428,18 @@ for chunk in stream:
 
 ---
 
+### Отказоустойчивость воркеров и восстановление генерации
+SHARD разделяет состояния доступности рабочих узлов (`HEALTHY`, `SUSPECT`, `FAILED`, `RECOVERING`) и ограничивает таймауты плоскости данных и управления через `ResiliencePolicy`:
+- **Обнаружение сбоя воркера:** разрыв TCP-соединения немедленно фиксирует `WORKER_LOST`; зависания на открытом сокете (включая blackhole и медленную покадровую задержку) срабатывают по фазовым таймаутам (`prefill_timeout_s`, `decode_step_timeout_s` -> `WORKER_TIMEOUT`, для GGUF `stall_timeout_s` -> `WORKER_STALLED`); пропущенные heartbeat переводят узел `HEALTHY -> SUSPECT -> FAILED` по порогам `heartbeat_interval_s * suspect_missed` и `heartbeat_interval_s * dead_missed`. Медленные, но отвечающие и присылающие heartbeat узлы остаются в `HEALTHY` с флагом `slow=true`.
+- **Обработка активных запросов:** при потере воркера с назначенной стадией все активные `ExecutionContext` на этом узле прерываются в пределах `poll_slice_s`, оставшиеся узлы освобождают KV-кэш (`release_kv` с пропуском упавшего узла), слоты планировщика и `_gen_lock` освобождаются в `finally`, а фоновый `_reform_cluster` перестраивает кластер на живых узлах `HEALTHY`.
+- **Восстановление, перезапуск или явная ошибка:**
+  - *PyTorch Pipeline (`torch_pipeline_parallel`, `enable_resume=True`):* если кластер перестроился на живых узлах с той же моделью за `recovery_wait_s`, генерация продолжается из `ResumeState(generated_ids, delivered_text)` методом **context replay** (повторный prefill `[prompt + generated_ids]` в новые KV-кэши, **не** бинарное восстановление KV-тензоров) с сохранением `temperature`, `top_p`, `top_k` и `repetition_penalty` и выдачей только новых токенов без дублей.
+  - *До выдачи первого токена (`tokens_delivered == 0`):* допускается безопасный перезапуск с начала на перестроенном кластере (для обоих бэкендов в пределах `max_recovery_attempts`).
+  - *Когда восстановление невозможно:* клиент получает структурированную ошибку (`WORKER_LOST`, `WORKER_TIMEOUT`, `WORKER_STALLED`, `RECOVERY_FAILED`, `CLUSTER_UNAVAILABLE`, `REQUEST_DEADLINE_EXCEEDED`, `STALE_RESPONSE`) в JSON (`503`/`504` с `Retry-After`) или терминальное SSE-событие ошибки OpenAI/Anthropic без ложных `finish_reason: "stop"` / `stop_reason: "end_turn"`.
+- **Ограничения и область проверки:** повторно подключённые воркеры проходят испытательный срок `RECOVERING` (минимум 2 свежих heartbeat + TCP-проверка плоскости данных). Ограничения: используется context replay (а не бинарный перенос KV-кэша), состояние генератора случайных чисел (RNG) для `temperature > 0.05` не сохраняется между попытками, удалённые репозитории Hugging Face не фиксируются по SHA-ревизии, GGUF RPC (`gguf_rpc_layer_split`) не поддерживает возобновление после выдачи первого токена, а все тесты выполнялись локально на Windows (`127.0.0.1`) без отдельных физических машин и WAN-каналов. Подробные отчёты: [`SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md`](SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md) и [`SHARD_WORKER_RESILIENCE_AUDIT_REPORT.md`](SHARD_WORKER_RESILIENCE_AUDIT_REPORT.md).
+
+---
+
 ## Статус проекта и сообщество
 
 ### Технологический стек
@@ -436,6 +449,8 @@ for chunk in stream:
 - **Сеть и телеметрия:** `psutil`, широковещательное обнаружение UDP (`:8001`), потоковая передача HTTP/SSE (`:8000`)
 
 ### Документация и участие в разработке
+- **Отказоустойчивость воркеров (отчёт):** [`SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md`](SHARD_WORKER_FAILURE_RESILIENCE_REPORT.md)
+- **Независимый аудит отказоустойчивости:** [`SHARD_WORKER_RESILIENCE_AUDIT_REPORT.md`](SHARD_WORKER_RESILIENCE_AUDIT_REPORT.md)
 - **Архитектура LAN-шардинга:** [`docs/LAN_SHARDING_DESIGN.md`](docs/LAN_SHARDING_DESIGN.md)
 - **Руководство для контрибьюторов:** [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **Кодекс поведения:** [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
