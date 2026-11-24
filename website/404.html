@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="daylight">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>404 — SHARD</title>
+<link rel="icon" type="image/png" href="assets/branding/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Onest:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=6.0">
+</head>
+<body class="page-404 surface-dark">
+<header class="corner-hud">
+<div class="hud-left">
+<a href="index.html" class="hud-brand hud-brand-dark" aria-label="SHARD Home">
+<img src="assets/branding/shard-icon.svg" alt="SHARD" class="brand-mark" width="24" height="24">
+<span class="brand-name">SHARD</span>
+<span class="brand-ver">1.9.0</span>
+</a>
+</div>
+<div class="hud-right">
+<button id="theme-toggle-btn" class="hud-btn hud-btn-dark" type="button" aria-label="Toggle color theme">
+<svg class="ui-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+<span id="theme-btn-text" class="sr-only">Dark</span>
+</button>
+<a href="index.html" class="pill-cta">Back to Home</a>
+</div>
+</header>
+<main class="notfound-main">
+<div class="container notfound-inner">
+<div class="wordmark-canvas-wrap notfound-canvas-wrap">
+<canvas id="shard-wordmark-canvas" class="wordmark-canvas" data-word="404" data-surface="dark" aria-label="Interactive particle matrix 404"></canvas>
+</div>
+<div class="code-box notfound-term">
+<div class="code-box-head">
+<span class="code-label">shard router · terminal</span>
+<span class="code-label">HTTP 404</span>
+</div>
+<pre><code><span class="tok-p">$</span> shard route --find
+<span class="tok-w">Error: route not found in cluster topology</span>
+<span class="tok-m">The page you requested was moved, removed, or never allocated on this node.</span>
+<span class="tok-p">$</span> <span class="blink-cursor">_</span></code></pre>
+</div>
+<div class="hero-controls finale-actions">
+<a href="index.html" class="btn-outline-dark btn-lg magnetic-btn">Back to Home</a>
+<a href="https://github.com/avelone123123/shard" target="_blank" rel="noopener" class="btn-outline-dark btn-lg">View Docs on GitHub</a>
+</div>
+</div>
+</main>
+<script src="app.js?v=6.0"></script>
+</body>
+</html>
